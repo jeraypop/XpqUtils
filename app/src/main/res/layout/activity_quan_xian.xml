@@ -1,0 +1,592 @@
+<?xml version="1.0" encoding="utf-8"?>
+<androidx.constraintlayout.widget.ConstraintLayout
+    xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    xmlns:tools="http://schemas.android.com/tools"
+    android:layout_width="330dp"
+    android:layout_height="match_parent"
+
+    tools:context="com.lygttpod.android.auto.QuanXianActivity">
+
+    <TextView
+        android:id="@+id/text_instructions"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginStart="16dp"
+        android:layout_marginEnd="16dp"
+        android:layout_marginTop="16dp"
+        android:paddingStart="15dp"
+        android:paddingEnd="15dp"
+
+        android:drawableTop="@drawable/ic_settings"
+        android:gravity="center"
+
+        android:text="点我查看教程指导:"
+        android:textColor="@color/colorTextPrimary"
+        android:textStyle="bold"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintHorizontal_bias="0.0"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toTopOf="parent" />
+
+    <TextView
+        android:id="@+id/tv_status_he"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginStart="16dp"
+        android:layout_marginEnd="16dp"
+        android:paddingStart="15dp"
+        android:paddingEnd="15dp"
+        android:textColor="@color/colorTextPrimary"
+        android:text="如果你的手机杀后台非常严重
+        \n建议按照上方教程指导设置一下哦\n否则,不用设置也行"
+        android:textSize="12sp"
+
+
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintHorizontal_bias="0.0"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toBottomOf="@+id/text_instructions"
+        app:layout_constraintBottom_toTopOf="@+id/tablelayout" />
+
+    <TableLayout
+        android:id="@+id/tablelayout"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginStart="16dp"
+        android:layout_marginTop="1dp"
+        android:layout_marginEnd="16dp"
+        android:background="@drawable/se_btn"
+        android:padding="15dp"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toBottomOf="@+id/tv_status_he">
+
+
+        <!--电池优化-->
+        <TableRow
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content">
+
+            <androidx.constraintlayout.widget.ConstraintLayout
+                android:layout_width="427dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1">
+
+                <ImageView
+                    android:id="@+id/image_power_permission"
+                    android:layout_width="20dp"
+                    android:layout_height="20dp"
+                    android:src="@drawable/ic_close"
+
+                    app:layout_constraintStart_toStartOf="parent"
+                    app:layout_constraintTop_toBottomOf="@id/text_power_permission"
+
+                    />
+
+                <TextView
+                    android:id="@+id/text_power_permission"
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="16dp"
+                    android:text="1.不优化电池"
+                    android:textSize="16sp"
+                    android:textColor="@color/colorTextPrimary"
+                    app:layout_constraintEnd_toStartOf="@id/guideline_power_permission"
+                    app:layout_constraintHorizontal_bias="0.0"
+                    app:layout_constraintStart_toStartOf="parent"
+                    app:layout_constraintTop_toTopOf="parent" />
+
+                <androidx.constraintlayout.widget.Guideline
+                    android:id="@+id/guideline_power_permission"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:orientation="vertical"
+                    app:layout_constraintGuide_percent="1.0" />
+
+            </androidx.constraintlayout.widget.ConstraintLayout>
+
+            <ImageButton
+                android:id="@+id/button_power_permission"
+                style="@style/Widget.AppCompat.Button.Small"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="2dp"
+                android:src="@drawable/ic_settings"
+                android:text="设置"
+                android:background="@null"
+                />
+
+        </TableRow>
+
+        <!--前台服务-->
+        <TableRow
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content">
+
+            <androidx.constraintlayout.widget.ConstraintLayout
+                android:layout_width="427dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1">
+
+                <!--        <ImageView
+                            android:id="@+id/image_qiantaifuwu_permission"
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:src="@drawable/ic_close"
+
+                            app:layout_constraintStart_toStartOf="parent"
+                            app:layout_constraintTop_toBottomOf="@id/text_qiantaifuwu_permission"
+
+                            />-->
+
+
+                <LinearLayout
+                    android:id="@+id/autobaohuoContaner"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_gravity="center"
+                    app:layout_constraintBottom_toBottomOf="parent"
+                    app:layout_constraintStart_toStartOf="parent"
+
+                    app:layout_constraintTop_toBottomOf="@id/text_qiantaifuwu_permission">
+
+                    <ImageView
+                        android:id="@+id/image_qiantaifuwu_permission"
+                        android:layout_width="20dp"
+                        android:layout_height="20dp"
+                        android:src="@drawable/ic_close"
+                       />
+
+                    <!--         <TextView
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:layout_marginEnd="5dp"
+                        android:layout_marginStart="15dp"
+                        android:text="自动开启:"
+                        android:textColor="@color/colorTextPrimary"
+                        android:textSize="12sp"/>
+
+                    <Switch
+                        android:id="@+id/autobaohuo"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:layout_marginStart="5dp"
+                        android:rotation="-360"
+                        android:showText="true"
+                        android:textOff="关"
+                        android:textOn="开"
+                        android:thumb="@drawable/switch_custom_thumb_selector"
+                        android:track="@drawable/switch_custom_track_selector" />-->
+
+                </LinearLayout>
+
+
+                <TextView
+                    android:id="@+id/text_qiantaifuwu_permission"
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="16dp"
+                    android:text="2.通知栏保活"
+                    android:textSize="16sp"
+                    android:textColor="@color/colorTextPrimary"
+                    app:layout_constraintEnd_toStartOf="@id/guideline_qiantaifuwu_permission"
+                    app:layout_constraintHorizontal_bias="0.0"
+                    app:layout_constraintStart_toStartOf="parent"
+                    app:layout_constraintTop_toTopOf="parent" />
+
+                <androidx.constraintlayout.widget.Guideline
+                    android:id="@+id/guideline_qiantaifuwu_permission"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:orientation="vertical"
+                    app:layout_constraintGuide_percent="1.0" />
+
+            </androidx.constraintlayout.widget.ConstraintLayout>
+
+            <ImageButton
+                android:id="@+id/button_qiantaifuwu_permission"
+                style="@style/Widget.AppCompat.Button.Small"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="2dp"
+                android:src="@drawable/ic_settings"
+                android:text="设置"
+                android:background="@null"
+                />
+
+        </TableRow>
+
+        <!--设备管理员-->
+        <TableRow
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:visibility="gone"
+            >
+
+            <androidx.constraintlayout.widget.ConstraintLayout
+                android:layout_width="427dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1">
+
+                <ImageView
+                    android:id="@+id/image_guanliyuan_permission"
+                    android:layout_width="20dp"
+                    android:layout_height="20dp"
+                    android:src="@drawable/ic_close"
+
+                    app:layout_constraintStart_toStartOf="parent"
+                    app:layout_constraintTop_toBottomOf="@id/text_guanliyuan_permission"
+
+                    />
+
+                <TextView
+                    android:id="@+id/text_guanliyuan_permission"
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="16dp"
+                    android:text="3.设备管理员"
+                    android:textSize="16sp"
+                    android:textColor="@color/colorTextPrimary"
+                    app:layout_constraintEnd_toStartOf="@id/guideline_guanliyuan_permission"
+                    app:layout_constraintHorizontal_bias="0.0"
+                    app:layout_constraintStart_toStartOf="parent"
+                    app:layout_constraintTop_toTopOf="parent" />
+
+                <androidx.constraintlayout.widget.Guideline
+                    android:id="@+id/guideline_guanliyuan_permission"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:orientation="vertical"
+                    app:layout_constraintGuide_percent="1.0" />
+
+            </androidx.constraintlayout.widget.ConstraintLayout>
+
+            <ImageButton
+                android:id="@+id/button_guanliyuan_permission"
+                style="@style/Widget.AppCompat.Button.Small"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="2dp"
+                android:src="@drawable/ic_settings"
+                android:text="设置"
+                android:background="@null"
+                />
+
+        </TableRow>
+        <!--0像素保活-->
+        <TableRow
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:visibility="gone"
+            >
+
+            <androidx.constraintlayout.widget.ConstraintLayout
+                android:layout_width="427dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1">
+
+                <ImageView
+                    android:id="@+id/image_0xiangsu_permission"
+                    android:layout_width="20dp"
+                    android:layout_height="20dp"
+                    android:src="@drawable/ic_close"
+
+                    app:layout_constraintStart_toStartOf="parent"
+                    app:layout_constraintTop_toBottomOf="@id/text_0xiangsu_permission"
+
+                    />
+
+                <TextView
+                    android:id="@+id/text_0xiangsu_permission"
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="16dp"
+                    android:text="4.零像素保活"
+                    android:textSize="16sp"
+                    android:textColor="@color/colorTextPrimary"
+                    app:layout_constraintEnd_toStartOf="@id/guideline_0xiangsu_permission"
+                    app:layout_constraintHorizontal_bias="0.0"
+                    app:layout_constraintStart_toStartOf="parent"
+                    app:layout_constraintTop_toTopOf="parent" />
+
+                <androidx.constraintlayout.widget.Guideline
+                    android:id="@+id/guideline_0xiangsu_permission"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:orientation="vertical"
+                    app:layout_constraintGuide_percent="1.0" />
+
+            </androidx.constraintlayout.widget.ConstraintLayout>
+
+            <ImageButton
+                android:id="@+id/button_0xiangsu_permission"
+                style="@style/Widget.AppCompat.Button.Small"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="2dp"
+                android:src="@drawable/ic_settings"
+                android:text="设置"
+                android:background="@null"
+                />
+
+        </TableRow>
+        <!--悬浮窗权限-->
+        <TableRow
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:visibility="gone"
+            >
+
+            <androidx.constraintlayout.widget.ConstraintLayout
+                android:layout_width="427dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1">
+
+                <ImageView
+                    android:id="@+id/image_float_permission"
+                    android:layout_width="20dp"
+                    android:layout_height="20dp"
+                    android:src="@drawable/ic_close"
+
+                    app:layout_constraintStart_toStartOf="parent"
+                    app:layout_constraintTop_toBottomOf="@id/text_float_permission"
+
+                    />
+
+                <TextView
+                    android:id="@+id/text_float_permission"
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="16dp"
+                    android:text="5.悬浮窗"
+                    android:textSize="16sp"
+                    android:textColor="@color/colorTextPrimary"
+                    app:layout_constraintEnd_toStartOf="@id/guideline_float_permission"
+                    app:layout_constraintHorizontal_bias="0.0"
+                    app:layout_constraintStart_toStartOf="parent"
+                    app:layout_constraintTop_toTopOf="parent" />
+
+                <androidx.constraintlayout.widget.Guideline
+                    android:id="@+id/guideline_float_permission"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:orientation="vertical"
+                    app:layout_constraintGuide_percent="1.0" />
+
+            </androidx.constraintlayout.widget.ConstraintLayout>
+
+            <ImageButton
+                android:id="@+id/button_float_permission"
+                style="@style/Widget.AppCompat.Button.Small"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="2dp"
+                android:src="@drawable/ic_settings"
+                android:text="设置"
+                android:background="@null"
+                />
+
+        </TableRow>
+
+        <!--自启动  -->
+        <TableRow
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content">
+
+            <androidx.constraintlayout.widget.ConstraintLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_weight="1">
+
+                <!--  <androidx.constraintlayout.widget.Guideline
+                      android:id="@+id/guideline_power_permission2"
+                      android:layout_width="wrap_content"
+                      android:layout_height="wrap_content"
+                      android:orientation="vertical"
+                      app:layout_constraintGuide_percent="0.85" />-->
+
+                <TextView
+                    android:id="@+id/text_power_permission2"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="16dp"
+                    android:text="6.允许自启动"
+                    android:textSize="16sp"
+                    android:textColor="@color/colorTextPrimary"
+                    app:layout_constraintStart_toStartOf="parent"
+                    app:layout_constraintTop_toTopOf="parent" />
+                <!--   app:layout_constraintEnd_toStartOf="@id/guideline_power_permission2"-->
+
+                <ImageButton
+                    android:id="@+id/button_power_permission2"
+                    style="@style/Widget.AppCompat.Button.Small"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+
+                    android:src="@drawable/ic_settings"
+                    android:text="设置"
+                    android:background="@null"
+
+                    app:layout_constraintEnd_toEndOf="parent"
+
+                    app:layout_constraintTop_toTopOf="parent" />
+
+
+            </androidx.constraintlayout.widget.ConstraintLayout>
+
+        </TableRow>
+
+        <!--后台免清理  -->
+        <TableRow
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content">
+
+            <androidx.constraintlayout.widget.ConstraintLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_weight="1">
+
+                <!--  <androidx.constraintlayout.widget.Guideline
+                      android:id="@+id/guideline_power_permission2"
+                      android:layout_width="wrap_content"
+                      android:layout_height="wrap_content"
+                      android:orientation="vertical"
+                      app:layout_constraintGuide_percent="0.85" />-->
+
+                <TextView
+                    android:id="@+id/text_power_permission3"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="16dp"
+                    android:text="7.后台免清理"
+                    android:textSize="16sp"
+                    android:textColor="@color/colorTextPrimary"
+                    app:layout_constraintStart_toStartOf="parent"
+                    app:layout_constraintTop_toTopOf="parent" />
+                <!--   app:layout_constraintEnd_toStartOf="@id/guideline_power_permission2"-->
+
+                <ImageButton
+                    android:id="@+id/button_power_permission3"
+                    style="@style/Widget.AppCompat.Button.Small"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:background="@null"
+                    android:src="@drawable/ic_settings"
+                    android:text="设置"
+                    app:layout_constraintBottom_toBottomOf="parent"
+                    app:layout_constraintEnd_toEndOf="parent"
+                    app:layout_constraintTop_toTopOf="parent" />
+
+
+            </androidx.constraintlayout.widget.ConstraintLayout>
+
+        </TableRow>
+        <!--其他权限检查  -->
+        <TableRow
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content">
+
+            <androidx.constraintlayout.widget.ConstraintLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_weight="1">
+
+                <!--  <androidx.constraintlayout.widget.Guideline
+                      android:id="@+id/guideline_power_permission2"
+                      android:layout_width="wrap_content"
+                      android:layout_height="wrap_content"
+                      android:orientation="vertical"
+                      app:layout_constraintGuide_percent="0.85" />-->
+
+                <TextView
+                    android:id="@+id/text_power_permission4"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="16dp"
+                    android:text="8.去检查确认"
+                    android:textSize="16sp"
+                    android:textColor="@color/colorTextPrimary"
+                    app:layout_constraintStart_toStartOf="parent"
+                    app:layout_constraintTop_toTopOf="parent" />
+                <!--   app:layout_constraintEnd_toStartOf="@id/guideline_power_permission2"-->
+
+                <ImageButton
+                    android:id="@+id/button_power_permission4"
+                    style="@style/Widget.AppCompat.Button.Small"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:background="@null"
+                    android:src="@drawable/ic_settings"
+                    android:text="设置"
+                    app:layout_constraintEnd_toEndOf="parent"
+
+                    app:layout_constraintTop_toTopOf="parent" />
+
+
+            </androidx.constraintlayout.widget.ConstraintLayout>
+
+        </TableRow>
+
+
+        <!--8-->
+        <TableRow
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:visibility="gone"
+            >
+
+            <androidx.constraintlayout.widget.ConstraintLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_weight="1">
+
+                <androidx.constraintlayout.widget.Guideline
+                    android:id="@+id/guideline_taskmanager"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:orientation="vertical"
+                    app:layout_constraintGuide_percent="0.85" />
+
+                <TextView
+                    android:id="@+id/text_task_manager"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="1dp"
+                    android:text="8.在某些第三方应用也设置免清理"
+                    android:textSize="16sp"
+                    app:layout_constraintEnd_toStartOf="@id/guideline_taskmanager"
+                    app:layout_constraintStart_toStartOf="parent"
+                    app:layout_constraintTop_toTopOf="parent" />
+
+            </androidx.constraintlayout.widget.ConstraintLayout>
+
+        </TableRow>
+        <!--9-->
+
+    </TableLayout>
+
+    <TextView
+        android:id="@+id/tv_status_help"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginStart="16dp"
+        android:layout_marginEnd="16dp"
+        android:paddingStart="15dp"
+        android:paddingEnd="15dp"
+        android:textColor="@color/colorTextPrimary"
+        android:text="只要充分设置好,软件就能长时间稳定运行
+        \n待检测完毕之后,可以撤销这些权限哦"
+        android:textSize="12sp"
+
+
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintHorizontal_bias="0.0"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toBottomOf="@+id/tablelayout" />
+
+
+
+
+
+</androidx.constraintlayout.widget.ConstraintLayout>

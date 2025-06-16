@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <color name="colorPrimary">#F6D36B</color>
+    <color name="primary_disable_color">#DA807A</color>
+    <color name="divider">#FF6200EE</color>
+    <color name="black">#FFFFFFFF</color>
+    <color name="white">#FFFFFFFF</color>
+
+    <color name="friend_delete">#ff3030</color>
+    <color name="friend_black">#00ff00</color>
+    <color name="friend_exc">#ee00ee</color>
+    <color name="friend_unknow">#FF6200EE</color>
+    <color name="friend_normal">#FFFFFFFF</color>
+</resources>

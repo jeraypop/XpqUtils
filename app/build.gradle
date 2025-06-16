@@ -1,0 +1,124 @@
+plugins {
+    id 'com.android.application'
+    id 'org.jetbrains.kotlin.android'
+//    id 'kotlin-kapt'
+//    id 'com.google.devtools.ksp'
+}
+
+def keystorePropertiesFile = rootProject.file("Keystore.properties")
+def keystoreProperties = new Properties()
+keystoreProperties.load(new FileInputStream(keystorePropertiesFile))
+
+android {
+    namespace 'xpq.friend'
+    compileSdk compile_sdk_version
+
+    defaultConfig {
+        applicationId "com.smdemo.msg"
+        minSdk min_sdk_version
+        targetSdk compile_sdk_version
+        versionCode 1
+        versionName "1.0.0"
+
+        testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
+    }
+
+
+
+    signingConfigs {
+        release {
+            storeFile file(keystoreProperties['yesstoreFilePath'])
+            storePassword keystoreProperties['yesstorePassword']
+            keyAlias keystoreProperties['yeskeyAlias']
+            keyPassword keystoreProperties['yeskeyPassword']
+
+            v1SigningEnabled true
+            v2SigningEnabled true
+            enableV3Signing = true
+            enableV4Signing = true
+        }
+
+        debug {
+            storeFile file(keystoreProperties['yesstoreFilePath'])
+            storePassword keystoreProperties['yesstorePassword']
+            keyAlias keystoreProperties['yeskeyAlias']
+            keyPassword keystoreProperties['yeskeyPassword']
+
+            v1SigningEnabled true
+            v2SigningEnabled true
+            enableV3Signing = true
+            enableV4Signing = true
+        }
+
+        //多渠道签名的配置
+        gongcun {
+            storeFile file(keystoreProperties['nostoreFilePath'])
+            storePassword keystoreProperties['nostorePassword']
+            keyAlias keystoreProperties['nokeyAlias']
+            keyPassword keystoreProperties['nokeyPassword']
+
+            v1SigningEnabled true
+            v2SigningEnabled true
+            enableV3Signing = true
+            enableV4Signing = true
+        }
+
+    }
+
+    buildTypes {
+        debug {
+            proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), 'proguard-rules.pro'
+            signingConfig signingConfigs.release
+            ndk {
+                abiFilters 'arm64-v8a'
+            }
+        }
+        release {
+            minifyEnabled true
+            shrinkResources true
+            proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), 'proguard-rules.pro'
+            signingConfig signingConfigs.release
+            ndk {
+                abiFilters 'arm64-v8a'
+            }
+        }
+    }
+
+    applicationVariants.configureEach { variant ->
+        variant.outputs.configureEach {
+            outputFileName = "Friend_${defaultConfig.versionName}.apk"
+        }
+    }
+
+    compileOptions {
+        sourceCompatibility JavaVersion.VERSION_17
+        targetCompatibility JavaVersion.VERSION_17
+    }
+    kotlin {
+        jvmToolchain {
+            languageVersion.set(JavaLanguageVersion.of(17))
+        }
+    }
+
+    buildFeatures {
+        viewBinding true
+        buildConfig true
+    }
+}
+
+dependencies {
+
+    implementation(project(":accessibility"))
+    implementation(project(":auto-wx"))
+    implementation(libs.core.ktx)
+    implementation(libs.appcompat.appcompat)
+    implementation(libs.material)
+    implementation(libs.navigationktx)
+    implementation(libs.navigationUiKtx)
+    implementation(libs.androidx.constraintlayout)
+    implementation(libs.activity.activity)
+    implementation(libs.easy.window)
+
+
+
+}
