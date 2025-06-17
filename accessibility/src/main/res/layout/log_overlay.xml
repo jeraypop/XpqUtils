@@ -44,7 +44,7 @@
                 android:id="@+id/btn_stop"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:text="停止"
+                android:text="关闭"
                 android:textSize="12dp" />
 
             <Button

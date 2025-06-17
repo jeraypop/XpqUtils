@@ -7,6 +7,8 @@ import android.util.Log
 import com.google.android.accessibility.ext.acc.pressBackButton
 import com.google.android.accessibility.ext.goToWx
 import com.google.android.accessibility.ext.toast
+import com.google.android.accessibility.ext.window.LogWrapper
+import com.google.android.accessibility.ext.window.OverlayLog
 import com.lygttpod.android.auto.wx.data.SendUserInfo
 import com.lygttpod.android.auto.wx.ktx.formatTime
 import com.lygttpod.android.auto.wx.page.qunfa.WX1QunFaZhuShouPage
@@ -19,8 +21,6 @@ import com.lygttpod.android.auto.wx.page.send.WXHomePage
 import com.lygttpod.android.auto.wx.page.send.WXPicCePage
 import com.lygttpod.android.auto.wx.page.send.WXSearchFriendPage
 import com.lygttpod.android.auto.wx.service.wxAccessibilityService
-import com.lygttpod.android.auto.wx.ui.LogWrapper
-import com.ven.assists.simple.overlays.OverlayLog
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob

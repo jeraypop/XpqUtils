@@ -1,18 +1,17 @@
-package com.ven.assists.simple.overlays
+package com.google.android.accessibility.ext.window
 
 import android.annotation.SuppressLint
 import android.view.LayoutInflater
 import android.view.MotionEvent
 import android.view.View
 import android.view.View.OnTouchListener
-import com.google.android.accessibility.selecttospeak.SelectToSpeakServiceAbstract
-import com.google.android.accessibility.ext.CoroutineWrapper
-import com.google.android.accessibility.ext.window.AssistsWindowManager
-import com.google.android.accessibility.ext.window.AssistsWindowWrapper
+
+import com.android.accessibility.ext.databinding.LogOverlayBinding
+
 import com.blankj.utilcode.util.ScreenUtils
-import com.lygttpod.android.auto.wx.databinding.LogOverlayBinding
-import com.lygttpod.android.auto.wx.ui.LogWrapper
-import com.lygttpod.android.auto.wx.ui.LogWrapper.logAppend
+import com.google.android.accessibility.ext.AssistsServiceListener
+import com.google.android.accessibility.ext.CoroutineWrapper
+import com.google.android.accessibility.selecttospeak.SelectToSpeakServiceAbstract
 
 
 import kotlinx.coroutines.Dispatchers
@@ -21,7 +20,7 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.withContext
 
 @SuppressLint("StaticFieldLeak")
-object OverlayLog : com.google.android.accessibility.ext.AssistsServiceListener {
+object OverlayLog : AssistsServiceListener {
 
     var runAutoScrollListJob: Job? = null
     private var logCollectJob: Job? = null
@@ -36,7 +35,7 @@ object OverlayLog : com.google.android.accessibility.ext.AssistsServiceListener 
                 }
 
                 MotionEvent.ACTION_UP -> {
-                    runAutoScrollList()
+//                    runAutoScrollList()
                 }
             }
             return false
@@ -52,7 +51,9 @@ object OverlayLog : com.google.android.accessibility.ext.AssistsServiceListener 
                         CoroutineWrapper.launch { LogWrapper.clearLog() }
                     }
                     btnStop.setOnClickListener {
-"wwwwwwww".logAppend()
+                        CoroutineWrapper.launch {
+                            hide()
+                        }
                     }
                 }
             }
