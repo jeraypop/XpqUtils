@@ -7,9 +7,10 @@ import android.os.Build
 import android.os.IBinder
 import android.util.Log
 import androidx.annotation.RequiresApi
+import com.google.android.accessibility.ext.utils.AliveUtils
 
-import com.lygttpod.android.auto.wx.service.MyUtilsKotlin
-import com.lygttpod.android.auto.wx.service.WXAccessibility.Companion.service
+
+
 
 
 /**
@@ -18,7 +19,7 @@ import com.lygttpod.android.auto.wx.service.WXAccessibility.Companion.service
  * Date       : 2024/7/15 0015  9:25
  * Description:This is ForegroundService
  */
-class ForegroundService14 : Service() {
+class AliveFGService : Service() {
 
     companion object{
         @JvmField
@@ -39,7 +40,7 @@ class ForegroundService14 : Service() {
     override fun onCreate() {
         super.onCreate()
         Log.d(TAG,"OnCreate")
-        MyUtilsKotlin.keepAliveByNotification_CLS(this,true,MainActivity::class.java)
+        AliveUtils.keepAliveByNotification_CLS(this,true,MainActivity::class.java)
     }
 
     override fun onBind(intent: Intent?): IBinder? {
@@ -72,7 +73,7 @@ class ForegroundService14 : Service() {
         Log.d(TAG, "onDestroy")
 
         //取消前台保活服务
-        MyUtilsKotlin.keepAliveByNotification_CLS(service,false,null)
+        AliveUtils.keepAliveByNotification_CLS(this,false,null)
         serviceIsLive14 = false;
     }
 

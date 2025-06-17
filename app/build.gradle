@@ -109,7 +109,6 @@ android {
 dependencies {
 
     implementation(project(":accessibility"))
-    implementation(project(":auto-wx"))
     implementation(libs.core.ktx)
     implementation(libs.appcompat.appcompat)
     implementation(libs.material)

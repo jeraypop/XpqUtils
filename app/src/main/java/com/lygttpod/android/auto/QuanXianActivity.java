@@ -1,12 +1,8 @@
 package com.lygttpod.android.auto;
 
 import android.Manifest;
-import android.accessibilityservice.AccessibilityService;
 import android.annotation.SuppressLint;
-import android.app.Notification;
-import android.app.NotificationChannel;
 import android.app.NotificationManager;
-import android.app.PendingIntent;
 import android.app.admin.DevicePolicyManager;
 import android.content.Context;
 import android.content.Intent;
@@ -27,8 +23,7 @@ import android.widget.TextView;
 import android.widget.Toast;
 
 
-import com.lygttpod.android.auto.wx.helper.ToastUtil;
-import com.lygttpod.android.auto.wx.service.WXAccessibility;
+
 
 import androidx.annotation.RequiresApi;
 import androidx.appcompat.app.AppCompatActivity;
@@ -39,10 +34,11 @@ import xpq.friend.R;
 
 import static android.accessibilityservice.AccessibilityService.GLOBAL_ACTION_RECENTS;
 import static com.google.android.accessibility.ext.ContextExtKt.toast;
-import static com.lygttpod.android.auto.ForegroundService.mForegroundService;
-import static com.lygttpod.android.auto.ForegroundService.serviceIsLive;
-import static com.lygttpod.android.auto.ForegroundService14.mForegroundService14;
-import static com.lygttpod.android.auto.ForegroundService14.serviceIsLive14;
+
+import static com.lygttpod.android.auto.AliveFGService.mForegroundService14;
+import static com.lygttpod.android.auto.AliveFGService.serviceIsLive14;
+
+import com.google.android.accessibility.selecttospeak.SelectToSpeakServiceAbstract;
 
 
 public class QuanXianActivity extends AppCompatActivity {
@@ -238,8 +234,8 @@ public class QuanXianActivity extends AppCompatActivity {
 
                     //启动服务
                     if(!serviceIsLive14){
-                        ToastUtil.toast(getApplicationContext(), "正在开启请稍候!");
-                        mForegroundService14 = new Intent(getApplicationContext(), ForegroundService14.class) ;
+                        toast(getApplicationContext(), "正在开启请稍候!");
+                        mForegroundService14 = new Intent(getApplicationContext(), AliveFGService.class) ;
                         mForegroundService14.putExtra("Foreground", "正在开启请稍候!");
                         // Android 8.0使用startForegroundService在前台启动新服务
                         if(Build.VERSION.SDK_INT >= Build.VERSION_CODES.O){
@@ -249,7 +245,7 @@ public class QuanXianActivity extends AppCompatActivity {
                         }
 
                     }else{
-                        ToastUtil.toast(getApplicationContext(), "前台保活服务已开启!");
+                        toast(getApplicationContext(), "前台保活服务已开启!");
                     }
 
                     //===
@@ -428,11 +424,12 @@ public class QuanXianActivity extends AppCompatActivity {
             @Override
             public void onClick(View v) {
                 //打开最近任务列表
-                if (WXAccessibility.Companion.getWXService()==null) {
+
+                if (SelectToSpeakServiceAbstract.Companion.getInstance()==null) {
                     toast(getApplicationContext(),"无障碍服务未开启,请手动进入最近任务列表");
                 }else {
                     toast(getApplicationContext(),"在最近任务列表给本软件加锁");
-                    WXAccessibility.Companion.getWXService().performGlobalAction(GLOBAL_ACTION_RECENTS);
+                    SelectToSpeakServiceAbstract.Companion.getInstance().performGlobalAction(GLOBAL_ACTION_RECENTS);
                 }
                 //===
             }

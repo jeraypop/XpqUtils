@@ -19,7 +19,7 @@ import androidx.navigation.ui.setupActionBarWithNavController
 import com.google.android.accessibility.ext.isAccessibilityOpened
 import com.google.android.material.floatingactionbutton.FloatingActionButton
 //import com.lygttpod.android.activity.result.api.observer.PermissionApi
-import com.lygttpod.android.auto.wx.service.WXAccessibility
+
 import xpq.friend.R
 import xpq.friend.databinding.ActivityMainBinding
 
@@ -42,9 +42,9 @@ class MainActivity : AppCompatActivity() {
 
         setSupportActionBar(binding.toolbar)
 
-        val navController = findNavController(R.id.nav_host_fragment_content_main)
-        appBarConfiguration = AppBarConfiguration(navController.graph)
-        setupActionBarWithNavController(navController, appBarConfiguration)
+//        val navController = findNavController(R.id.nav_host_fragment_content_main)
+//        appBarConfiguration = AppBarConfiguration(navController.graph)
+//        setupActionBarWithNavController(navController, appBarConfiguration)
         windowManager = getSystemService<WindowManager>(WindowManager::class.java)
         accServiceLiveData.observe(this) { open ->
 //            keepAliveByFloatingWindow(open);
@@ -63,15 +63,15 @@ class MainActivity : AppCompatActivity() {
 
     override fun onResume() {
         super.onResume()
-        WXAccessibility.isInWXApp.set(false)
-        accServiceLiveData.value =
-            isAccessibilityOpened(WXAccessibility::class.java)
+//        WXAccessibility.isInWXApp.set(false)
+//        accServiceLiveData.value =
+//            isAccessibilityOpened(WXAccessibility::class.java)
     }
 
-    override fun onSupportNavigateUp(): Boolean {
-        val navController = findNavController(xpq.friend.R.id.nav_host_fragment_content_main)
-        return navController.navigateUp(appBarConfiguration) || super.onSupportNavigateUp()
-    }
+//    override fun onSupportNavigateUp(): Boolean {
+//        val navController = findNavController(xpq.friend.R.id.nav_host_fragment_content_main)
+//        return navController.navigateUp(appBarConfiguration) || super.onSupportNavigateUp()
+//    }
 
 
 }

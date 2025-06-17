@@ -193,7 +193,7 @@ class ForegroundService : Service() {
         super.onDestroy()
         Log.d(TAG, "onDestroy")
         stopForeground(true)
-        ForegroundService.serviceIsLive = false;
+        serviceIsLive = false;
     }
 
 

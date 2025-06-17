@@ -34,7 +34,7 @@ import android.util.Log;
 import android.widget.Toast;
 
 
-import com.lygttpod.android.auto.wx.service.WXAccessibility;
+
 
 import java.io.FileNotFoundException;
 import java.net.URL;

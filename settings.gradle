@@ -49,4 +49,4 @@ dependencyResolutionManagement {
 rootProject.name = "XpqUtils"
 include ':app'
 include ':accessibility'
-include ':auto-wx'
+

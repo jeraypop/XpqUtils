@@ -1,7 +1,0 @@
-<resources>
-
-    <string name="wx_main_fragment_label">发消息</string>
-
-    <string name="wx_auto_label">【发消息】</string>
-    <string name="wx_auto_des">1、自动发消息；\n2、软件单机不联网,自动化过程不涉个人信息，请放心使用</string>
-</resources>

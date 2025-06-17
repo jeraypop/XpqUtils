@@ -1,4 +1,4 @@
-package com.lygttpod.android.auto.wx.service
+package com.google.android.accessibility.ext.utils
 
 import android.app.Notification
 import android.app.NotificationChannel
@@ -10,10 +10,10 @@ import android.content.Intent
 import android.content.pm.ServiceInfo.FOREGROUND_SERVICE_TYPE_SPECIAL_USE
 import android.os.Build
 import androidx.annotation.RequiresApi
-import com.lygttpod.android.auto.wx.R
+
 import kotlin.math.max
 
-object MyUtilsKotlin {
+object AliveUtils {
     @RequiresApi(Build.VERSION_CODES.M)
     @JvmStatic
     fun keepAliveByNotification_CLS(service: Service?, enable: Boolean, intentCla: Class<*>?) {
@@ -40,7 +40,7 @@ object MyUtilsKotlin {
             }
             builder.setOngoing(true)
             builder.setAutoCancel(false)
-            builder.setSmallIcon(R.drawable.ic_launcherplaystore)
+//            builder.setSmallIcon(R.drawable.ic_launcherplaystore)
 //            builder.setContentTitle("后台稳定运行通知")
             builder.setContentTitle(CHANNEL_NAME)
             //通知内容
