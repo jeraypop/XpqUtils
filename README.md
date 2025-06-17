@@ -27,6 +27,6 @@
 	dependencies {
 	        implementation("com.github.jeraypop:XpqUtils:Tag")
 	}
-###JitPack
+### JitPack
 [![](https://jitpack.io/v/jeraypop/XpqUtils.svg)](https://jitpack.io/#jeraypop/XpqUtils)
 
