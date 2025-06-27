@@ -12,12 +12,12 @@ import com.tencent.mmkv.MMKV
  * Time : 10:51
  * Introduction :
  */
-class CacheUtil {
+class MMKVUtil {
     companion object {
 
         init {
             //第一次调用 put 或 get 等静态方法时,该代码块会执行
-            val rootDir = MMKV.initialize(LibContextProvider.appContext)
+            val rootDir = MMKV.initialize(LibCtxProvider.appContext)
 //            Timber.d("存储路径 rootDir = $rootDir")
         }
 

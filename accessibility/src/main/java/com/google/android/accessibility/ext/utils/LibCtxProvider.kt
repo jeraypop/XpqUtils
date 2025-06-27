@@ -16,7 +16,7 @@ import android.os.Bundle
  * Time : 10:29
  * Introduction : 用于 Library 内拿到 applicationContext
  */
-class LibContextProvider : ContentProvider() {
+class LibCtxProvider : ContentProvider() {
 
     companion object {
         //全局 Application

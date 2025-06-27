@@ -7,7 +7,7 @@ package com.google.android.accessibility.ext.utils
  * Time : 10:51
  * Introduction :
  */
-object CacheConst {
+object MMKVConst {
     const val KEY_LOCK_NODEID = "KEY_LOCK_NODEID"
     const val KEY_LOCK_NODEID_TIME = "KEY_LOCK_NODEID_TIME"
     const val KEY_PINLV_FIND = "KEY_PINLV_FINDER"
