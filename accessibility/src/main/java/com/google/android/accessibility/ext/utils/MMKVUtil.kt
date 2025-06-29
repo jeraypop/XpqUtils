@@ -1,19 +1,9 @@
-/*
 package com.google.android.accessibility.ext.utils
 import android.os.Parcelable
 import android.text.TextUtils
 import com.tencent.mmkv.MMKV
 
 //import timber.log.Timber
-
-*/
-/**
- * PackageName :
- * Author :
- * Date : 2025/7/16
- * Time : 10:51
- * Introduction :
- *//*
 
 class MMKVUtil {
     companion object {
@@ -106,4 +96,4 @@ class MMKVUtil {
             return MMKV.defaultMMKV().decodeParcelable(key, tClass, defaultValue)!!
         }
     }
-}*/
+}
