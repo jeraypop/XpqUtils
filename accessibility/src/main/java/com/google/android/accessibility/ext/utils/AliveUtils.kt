@@ -6,10 +6,17 @@ import android.app.NotificationManager
 import android.app.PendingIntent
 import android.app.Service
 import android.app.Service.STOP_FOREGROUND_REMOVE
+import android.content.Context
 import android.content.Intent
 import android.content.pm.ServiceInfo.FOREGROUND_SERVICE_TYPE_SPECIAL_USE
 import android.os.Build
+import android.widget.Toast
 import androidx.annotation.RequiresApi
+import androidx.annotation.StringRes
+import com.google.android.accessibility.ext.utils.LibCtxProvider.Companion.appContext
+import com.hjq.permissions.OnPermissionCallback
+import com.hjq.permissions.Permission
+import com.hjq.permissions.XXPermissions
 
 import kotlin.math.max
 
@@ -111,6 +118,99 @@ object AliveUtils {
             }
         }
         return 0
+    }
+
+
+
+    @JvmStatic
+    fun toast(context: Context, @StringRes int: Int) = Toast.makeText(context, int, Toast.LENGTH_SHORT).show()
+
+    @JvmStatic
+    fun toast(context: Context, msg: String) = Toast.makeText(context, msg, Toast.LENGTH_SHORT).show()
+
+    @JvmStatic
+    fun toast(context: Context, msg: String, time: Int) = Toast.makeText(context, msg, time).show()
+
+
+
+    @JvmStatic
+    fun easyPermission(context: Context): Boolean {
+        var isGranted = false
+        if (Build.VERSION.SDK_INT >= 33){
+            XXPermissions.with(context)
+                // 申请单个权限
+                .permission(Permission.READ_MEDIA_AUDIO)
+//                .permission(Permission.READ_MEDIA_VIDEO)
+//                .permission(Permission.READ_MEDIA_IMAGES)
+                // 申请多个权限
+//            .permission(Permission.Group.CALENDAR)
+                // 设置权限请求拦截器（局部设置）
+                //.interceptor(new PermissionInterceptor())
+                // 设置不触发错误检测机制（局部设置）
+                //.unchecked()
+                .request(object : OnPermissionCallback {
+
+                    override fun onGranted(permissions: MutableList<String>, allGranted: Boolean) {
+                        if (!allGranted) {
+                            isGranted = false
+                            toast(appContext,"获取部分权限成功，但部分权限未正常授予")
+                            return
+                        }
+                        isGranted = true
+                        toast(appContext,"获取读取音频权限成功")
+                    }
+
+                    override fun onDenied(permissions: MutableList<String>, doNotAskAgain: Boolean) {
+                        if (doNotAskAgain) {
+                            isGranted = false
+                            toast(appContext,"被永久拒绝授权，请手动授予读取音频权限")
+                            // 如果是被永久拒绝就跳转到应用权限系统设置页面
+                            XXPermissions.startPermissionActivity(context, permissions)
+                        } else {
+                            isGranted = false
+                            toast(appContext,"获取读取音频权限失败")
+                        }
+                    }
+                })
+
+        }else{
+
+            XXPermissions.with(context)
+                // 申请读写权限
+                .permission(Permission.READ_EXTERNAL_STORAGE)
+//                .permission(Permission.WRITE_EXTERNAL_STORAGE)
+                // 申请多个权限
+//            .permission(Permission.Group.CALENDAR)
+                // 设置权限请求拦截器（局部设置）
+                //.interceptor(new PermissionInterceptor())
+                // 设置不触发错误检测机制（局部设置）
+                //.unchecked()
+                .request(object : OnPermissionCallback {
+
+                    override fun onGranted(permissions: MutableList<String>, allGranted: Boolean) {
+                        if (!allGranted) {
+                            isGranted = false
+                            toast(appContext,"获取部分权限成功，但部分权限未正常授予")
+                            return
+                        }
+                        isGranted = true
+                        toast(appContext,"获取读取外部存储权限成功")
+                    }
+
+                    override fun onDenied(permissions: MutableList<String>, doNotAskAgain: Boolean) {
+                        if (doNotAskAgain) {
+                            isGranted = false
+                            toast(appContext,"被永久拒绝授权，请手动授予读取外部存储权限")
+                            // 如果是被永久拒绝就跳转到应用权限系统设置页面
+                            XXPermissions.startPermissionActivity(context, permissions)
+                        } else {
+                            isGranted = false
+                            toast(appContext,"获取读取外部存储权限失败")
+                        }
+                    }
+                })
+        }
+        return isGranted
     }
 
 }

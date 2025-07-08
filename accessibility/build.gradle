@@ -48,6 +48,10 @@ dependencies {
     //tencent mmkv
     api(libs.mmkv.static)
 
+    // 权限请求框架：https://github.com/getActivity/XXPermissions
+    implementation(libs.easy.permission)
+//    implementation 'com.github.getActivity:XXPermissions:23.0'
+
 //    implementation 'androidx.core:core-ktx:1.7.0'
 //    implementation 'androidx.appcompat:appcompat:1.4.1'
 //    implementation 'com.google.android.material:material:1.5.0'

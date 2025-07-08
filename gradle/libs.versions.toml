@@ -3,12 +3,13 @@
 #kotlin = "1.9.23"
 #ksp = "1.9.23-1.0.19"
 #agp = "8.3.0"
-kotlin = "2.1.21"
+kotlin = "2.2.0"
 ksp = "2.1.21-2.0.1"
 agp = "8.10.1"
 appcompat = "1.7.1"
-room = "2.7.1"
+room = "2.7.2"
 mmkv="2.2.2"
+xpqu="2.2"
 material = "1.11.0"
 activity = "1.8.2"
 colorpicker = "1.1.0"
@@ -22,16 +23,19 @@ fragment = "1.6.2"
 #不要更新版本
 hutool = "5.8.22"
 easywindow = "10.3"
+xxpermission = "23.0"
 
 libarchive = "1.0.3"
 lifecycle = "2.7.0"
 lifecyclelib = "2.6.1"
 viewModellib = "2.2.0"
-retrofit = "2.7.1"
+retrofit = "3.0.0"
+rxjava = "3.1.10"
+rxandroid = "3.0.2"
 daggerHilt = "2.44"
 dagger_lifecycle = "1.0.0-alpha01"
 glide = "4.16.0"
-gson = "2.10.1"
+gson = "2.13.1"
 jsonPath = "2.9.0"
 jsoup = "1.16.2"
 jsoupxpath = "2.5.3"
@@ -42,7 +46,7 @@ markwon = "4.6.2"
 media = "1.7.0"
 media3 = "1.3.0"
 nanoHttpd = "2.3.1"
-okhttp = "4.12.0"
+okhttp = "5.0.0"
 
 preference = "1.2.1"
 protobufJavalite = "3.25.3"
@@ -61,7 +65,7 @@ zxingLite = "3.0.1"
 #===============================new add
 okhttputils = "2.6.2"
 timber = "4.7.1"
-recyclerview = "1.2.0"
+recyclerview = "1.3.0"
 # mmkv="1.2.14"
 #mmkv="1.3.9"
 
@@ -104,7 +108,7 @@ androidx-junit = { module = "androidx.test.ext:junit", version = "1.1.5" }
 
 hutool-crypto = { module = "cn.hutool:hutool-crypto", version.ref = "hutool" }
 easy-window = { module = "com.github.getActivity:EasyWindow", version.ref = "easywindow" }
-
+easy-permission = { module = "com.github.getActivity:XXPermissions", version.ref = "xxpermission" }
 libarchive = { module = "me.zhanghai.android.libarchive:library", version.ref = "libarchive" }
 lifecycle-common-java8 = { module = "androidx.lifecycle:lifecycle-common-java8", version.ref = "lifecycle" }
 lifecycle-service = { module = "androidx.lifecycle:lifecycle-service", version.ref = "lifecycle" }
@@ -113,9 +117,13 @@ lifecycle-runtime-ktx = { module = "androidx.lifecycle:lifecycle-runtime-ktx", v
 lifecycle-livedata-ktx = { module = "androidx.lifecycle:lifecycle-livedata-ktx", version.ref = "lifecyclelib" }
 lifecycle-viewmodel = { module = "androidx.lifecycle:lifecycle-viewmodel", version.ref = "viewModellib" }
 lifecycle-viewmodel-ktx = { module = "androidx.lifecycle:lifecycle-viewmodel-ktx", version.ref = "viewModellib" }
-retrofit = { module = "com.squareup.retrofit2:retrofit", version.ref = "retrofit" }
-retrofitGson = { module = "com.squareup.retrofit2:converter-gson", version.ref = "retrofit" }
-retrofitRx = { module = "com.squareup.retrofit2:adapter-rxjava2", version.ref = "retrofit" }
+retrofit2 = { module = "com.squareup.retrofit2:retrofit", version.ref = "retrofit" }
+retrofit2Gson = { module = "com.squareup.retrofit2:converter-gson", version.ref = "retrofit" }
+retrofit2Rx = { module = "com.squareup.retrofit2:adapter-rxjava3", version.ref = "retrofit" }
+retrofit2Scalars = { module = "com.squareup.retrofit2:converter-scalars", version.ref = "retrofit" }
+
+rxjava3-rxjava = { module = "io.reactivex.rxjava3:rxjava", version.ref = "rxjava" }
+rxjava3-rxandroid = { module = "io.reactivex.rxjava3:rxandroid", version.ref = "rxandroid" }
 #==dager
 dagger = { module = "com.google.dagger:hilt-android", version.ref = "daggerHilt" }
 daggerAndroidCompiler = { module = "com.google.dagger:hilt-android-compiler", version.ref = "daggerHilt" }
@@ -202,6 +210,7 @@ okhttputils = { module = "com.zhy:okhttputils", version.ref = "okhttputils" }
 timber = { module = "com.jakewharton.timber:timber", version.ref = "timber" }
 recyclerview = { module = "androidx.recyclerview:recyclerview", version.ref = "recyclerview" }
 mmkv-static = { module = "com.tencent:mmkv-static", version.ref = "mmkv" }
+xpq-utils = { module = "com.github.jeraypop:XpqUtils", version.ref = "xpqu" }
 live-event-bus-x = { module = "com.jeremyliao:live-event-bus-x", version.ref = "busx" }
 navigation = { module = "androidx.navigation:navigation-fragment", version.ref = "navigation" }
 navigationktx = { module = "androidx.navigation:navigation-fragment-ktx", version.ref = "navigation" }
@@ -209,7 +218,7 @@ navigationUi = { module = "androidx.navigation:navigation-ui", version.ref = "na
 navigationUiKtx = { module = "androidx.navigation:navigation-ui-ktx", version.ref = "navigation" }
 paging = { module = "androidx.paging:paging-runtime", version.ref = "paging" }
 blankj = { module = "com.blankj:utilcodex", version.ref = "blankj" }
-
+dialogx-latest = "com.kongzue.dialogx:DialogX:latest.release"
 #===============================new add
 
 [bundles]
@@ -242,3 +251,5 @@ room = { id = "androidx.room", version.ref = "room" }
 protobuf = { id = "com.google.protobuf", version = "0.9.4" }
 
 download = { id = "de.undercouch.download", version = "5.6.0" }
+
+
