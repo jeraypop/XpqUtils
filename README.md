@@ -27,6 +27,15 @@
 	dependencies {
 	        implementation("com.github.jeraypop:XpqUtils:Tag")
 	}
+
+### PS: 如果不需要额外的权限申请,可在你的项目清单文件中移除
+    <uses-permission
+        android:name="android.permission.READ_MEDIA_AUDIO"
+        tools:node="remove" />
+    <uses-permission
+        android:name="android.permission.READ_EXTERNAL_STORAGE"
+        tools:node="remove" />
+
 ### JitPack
 [![](https://jitpack.io/v/jeraypop/XpqUtils.svg)](https://jitpack.io/#jeraypop/XpqUtils)
 

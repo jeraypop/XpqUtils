@@ -17,6 +17,7 @@ import androidx.navigation.ui.AppBarConfiguration
 import androidx.navigation.ui.navigateUp
 import androidx.navigation.ui.setupActionBarWithNavController
 import com.google.android.accessibility.ext.isAccessibilityOpened
+import com.google.android.accessibility.ext.utils.AliveUtils
 import com.google.android.material.floatingactionbutton.FloatingActionButton
 //import com.lygttpod.android.activity.result.api.observer.PermissionApi
 
@@ -53,9 +54,11 @@ class MainActivity : AppCompatActivity() {
 
         binding.fab.setOnClickListener {
             // 创建一个Intent，指定要启动的Activity
-            val intent = Intent(this, QuanXianActivity::class.java)
+//            val intent = Intent(this, QuanXianActivity::class.java)
             // 启动Activity
-            startActivity(intent)
+//            startActivity(intent)
+
+            AliveUtils.easyPermission(this@MainActivity)
         }
  
 

@@ -157,7 +157,7 @@ object AliveUtils {
                             return
                         }
                         isGranted = true
-                        toast(appContext,"获取读取音频权限成功")
+//                        toast(appContext,"获取读取音频权限成功")
                     }
 
                     override fun onDenied(permissions: MutableList<String>, doNotAskAgain: Boolean) {
