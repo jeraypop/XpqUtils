@@ -1,24 +1,16 @@
-package com.lygttpod.android.auto;
+package com.google.android.accessibility.ext.utils;
+
+import static android.content.Context.VIBRATOR_SERVICE;
 
 import android.accessibilityservice.AccessibilityService;
 import android.accessibilityservice.GestureDescription;
 import android.annotation.TargetApi;
-import android.app.Activity;
-import android.app.AlertDialog;
-import android.app.Notification;
-import android.app.NotificationChannel;
-import android.app.NotificationManager;
-import android.app.Service;
-import android.content.ClipData;
 import android.content.ComponentName;
 import android.content.Context;
 import android.content.Intent;
-import android.content.SharedPreferences;
 import android.content.pm.ApplicationInfo;
-import android.content.pm.PackageInfo;
 import android.content.pm.PackageManager;
 import android.graphics.Path;
-import android.graphics.Rect;
 import android.media.AudioManager;
 import android.net.Uri;
 import android.os.Build;
@@ -28,40 +20,20 @@ import android.os.VibratorManager;
 import android.provider.Settings;
 import android.speech.tts.TextToSpeech;
 import android.text.TextUtils;
-import android.util.DisplayMetrics;
 import android.util.Log;
-
 import android.widget.Toast;
 
-
-
-
-import java.io.FileNotFoundException;
 import java.net.URL;
 import java.net.URLConnection;
 import java.text.SimpleDateFormat;
-import java.util.ArrayList;
 import java.util.Arrays;
-import java.util.Collections;
 import java.util.Date;
 import java.util.HashMap;
-import java.util.HashSet;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
-import java.util.Scanner;
 import java.util.Set;
-import java.util.regex.Matcher;
-import java.util.regex.Pattern;
-import java.util.stream.Collectors;
 
-import androidx.annotation.RequiresApi;
-import xpq.friend.BuildConfig;
-import xpq.friend.R;
-
-
-import static android.content.Context.MODE_PRIVATE;
-import static android.content.Context.VIBRATOR_SERVICE;
 
 
 
@@ -73,19 +45,8 @@ import static android.content.Context.VIBRATOR_SERVICE;
  */
 public  class Utilshezhi {
     //=========常量
-    public static final String App_ID = BuildConfig.APPLICATION_ID;
-    public static final String App_FP = ".FileProvider";
+    //BuildConfig.APPLICATION_ID 是构建时自动生成的字段，仅在 Android 应用模块中可用
 
-    public static final String moRenPkg = "长按每个软件导出全部法则";
-    public static final String moRenAppName = "点击每个软件进入法则管理";
-
-    public static final String LING_DONG_DAO = "lingdongdao";
-    public static final String LING_DONG_DAO_DISMISS = "LING_DONG_DAO_DISMISS";
-    public static final String SHUANGJISHOW = "SHUANGJISHOW";
-    public static final String AUTOTIMEOUT = "AUTOTIMEOUT";
-
-    public static final int LING_DONG_MSG = 555;
-    public static final int COUNTDOWNTIMER_END = 5555;
     //========
 
 
@@ -370,7 +331,7 @@ public  class Utilshezhi {
         try {
             Intent intent = new Intent("com.meizu.safe.security.SHOW_APPSEC");
             intent.addCategory(Intent.CATEGORY_DEFAULT);
-            intent.putExtra("packageName", App_ID);
+            intent.putExtra("packageName", context.getPackageName());
             context.startActivity(intent);
         } catch (Exception e) {
             e.printStackTrace();
@@ -407,23 +368,7 @@ public  class Utilshezhi {
         return localIntent;
     }
 
-    private static TextToSpeech tts;
-
-
-
-    //==通知栏红包提醒
-    private static TextToSpeech tts2;
-
-
     //===============
-    private static TextToSpeech tts3;
-
-
-
-    //===============
-
-
-    //==
 
     //==进入游戏模式提醒
     private static TextToSpeech tts4;
@@ -481,66 +426,6 @@ public  class Utilshezhi {
 
 
     //==
-
-    //==退出游戏模式提醒
-    private static TextToSpeech tts5;
-
-    public static void play5(Context cts) {
-        tts5 = new TextToSpeech(cts, new listener5());
-    }
-
-    private static class listener5 implements TextToSpeech.OnInitListener {
-
-
-        @Override
-        public void onInit(int status) {
-            if (status == TextToSpeech.SUCCESS) {
-                //设置播放语言
-                int result = tts5.setLanguage(Locale.CHINESE);
-                if (result == TextToSpeech.LANG_MISSING_DATA || result == TextToSpeech.LANG_NOT_SUPPORTED) {
-                    //                    Toast.makeText(MyApplication.instance(), "当前手机不支持语音播报", Toast.LENGTH_SHORT).show();
-                } else if (result == TextToSpeech.LANG_AVAILABLE) {
-                    //初始化成功之后才可以播放文字
-                    //否则会提示“speak failed: not bound to tts engine
-                    //TextToSpeech.QUEUE_ADD会将加入队列的待播报文字按顺序播放
-                    //TextToSpeech.QUEUE_FLUSH会替换原有文字
-                    // api >= 33
-                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-                        // 设置音量和频道参数
-                        Bundle params = new Bundle();
-                        params.putFloat(TextToSpeech.Engine.KEY_PARAM_VOLUME, 1.0f); // 设置音量为0.8
-                        //                        params.putInt(TextToSpeech.Engine.KEY_PARAM_STREAM, AudioManager.STREAM_MUSIC); // 设置频道为音乐频道
-                        params.putInt(TextToSpeech.Engine.KEY_PARAM_STREAM, AudioManager.STREAM_ALARM); // 设置频道为闹钟频道
-                        tts5.speak("秒启动已退出游戏模式",TextToSpeech.QUEUE_FLUSH,params,"1");
-
-                    }else {
-                        tts5.speak("秒启动已退出游戏模式", TextToSpeech.QUEUE_FLUSH, null);
-
-                    }
-
-
-                }
-
-            } else {
-                Log.e("TAG", "初始化失败");
-            }
-
-        }
-
-        public void stopTTS5() {
-            if (tts5 != null) {
-                tts5.shutdown();
-                tts5.stop();
-                tts5 = null;
-            }
-        }
-
-
-    }
-
-
-    //==
-
 
     //将时间戳转换为时间
 

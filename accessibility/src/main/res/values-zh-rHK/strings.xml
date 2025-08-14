@@ -65,18 +65,15 @@
 
 
     <string name="wei_zhi_title">赞赏·微信</string>
-    <string name="wei_zhi_tip">
-        1.先截屏保存上面的二维码
-        \n2.打开微信扫一扫
-        \n3.从相册里选择刚刚的二维码</string>
+    <string name="wei_zhi_tip">微信掃壹掃，或者點擊\"去赞赏\"，在微信頁面右上角菜單中 \"從相冊中選取二維碼\"。</string>
     <string name="wei_zhi_sao">打开微信扫一扫</string>
     <string name="ali_zhi_sao">去赞赏</string>
-    <string name="ali_zhi_title">赞赏·支付宝</string>
-    <string name="ali_zhi_tip">支付宝扫一扫，或者点击\"去赞赏\"\n您点滴支持，是我们最大动力</string>
-    <string name="wei_loading">启动中...</string>
-    <string name="act_switch">点击任何地方切换赞赏方式</string>
+    <string name="ali_zhi_title">赞赏·支付寶</string>
+    <string name="ali_zhi_tip">支付寶掃壹掃，或者點擊\"去赞赏\"\n您點滴支持，是我們最大動力</string>
+    <string name="wei_loading">啟動中...</string>
     <string name="donate">赞赏</string>
-    <string name="donate_qa">赞赏二维码</string>
+    <string name="donate_qa">赞赏二維碼</string>
+    <string name="act_switch">點擊任何地方切換赞赏方式</string>
 
 
 </resources>

@@ -33,21 +33,5 @@
         <item name="android:backgroundDimEnabled">true</item>
     </style>
 
-    <style name="easy_dialog_style" parent="@style/Theme.AppCompat.Light.Dialog">
-        <!-- Dialog的windowFrame框 -->
-        <item name="android:windowFrame">@null</item>
-        <!-- 是否浮现在activity之上 -->
-        <item name="android:windowIsFloating">true</item>
-        <!-- 是否半透明 -->
-        <item name="android:windowIsTranslucent">true</item>
-        <!-- 是否显示title -->
-        <item name="android:windowNoTitle">true</item>
-        <!-- Dialog的背景 透明 transparent-->
 
-
-        <item name="android:windowBackground">@drawable/se_btn_quanxian</item>
-        <!--  后面的activity背景是否模糊显示 -->
-        <item name="android:backgroundDimEnabled">true</item>
-
-    </style>
 </resources>

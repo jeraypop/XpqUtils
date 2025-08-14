@@ -1,0 +1,38 @@
+<resources xmlns:tools="http://schemas.android.com/tools">
+
+    <style name="easy_dialog_style" parent="@style/Theme.AppCompat.Light.Dialog">
+        <!-- Dialog的windowFrame框 -->
+        <item name="android:windowFrame">@null</item>
+        <!-- 是否浮现在activity之上 -->
+        <item name="android:windowIsFloating">true</item>
+        <!-- 是否半透明 -->
+        <item name="android:windowIsTranslucent">true</item>
+        <!-- 是否显示title -->
+        <item name="android:windowNoTitle">true</item>
+        <!-- Dialog的背景 透明 transparent-->
+
+
+        <item name="android:windowBackground">@drawable/se_btn_quanxian</item>
+        <!--  后面的activity背景是否模糊显示 -->
+        <item name="android:backgroundDimEnabled">true</item>
+
+    </style>
+
+    <style name="PayTheme" parent="Theme.AppCompat.Light.NoActionBar">
+        <item name="windowActionBar">false</item>
+        <item name="windowNoTitle">true</item>
+        <item name="android:windowIsTranslucent">false</item>
+    </style>
+
+    <style name="BottomBtnStyle">
+        <item name="android:layout_width">match_parent</item>
+        <item name="android:layout_height">42dp</item>
+        <item name="android:gravity">center</item>
+        <item name="android:layout_margin">16dp</item>
+        <item name="android:textSize">14sp</item>
+        <item name="android:background">@drawable/roundbtn_tran</item>
+        <item name="android:layout_gravity">center</item>
+        <item name="android:textColor">@drawable/btn_black_text_color</item>
+    </style>
+
+</resources>

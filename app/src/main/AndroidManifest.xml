@@ -3,6 +3,10 @@
     xmlns:tools="http://schemas.android.com/tools">
 
     <uses-permission android:name="android.permission.VIBRATE" />
+    <!-- 仅对Android 9及以下版本需要  保存截图 -->
+    <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE"
+        android:maxSdkVersion="28" />
+
     <application
         android:name="com.lygttpod.android.auto.App"
         android:allowBackup="true"
@@ -14,10 +18,7 @@
         android:supportsRtl="true"
         android:theme="@style/Theme.AndroidAuto"
         tools:targetApi="31">
-        <activity
-            android:name="com.lygttpod.android.auto.QuanXianActivity"
-            android:theme="@style/easy_dialog_style"
-            android:exported="false" />
+
         <activity
             android:name="com.lygttpod.android.auto.MainActivity"
             android:exported="true"
@@ -34,21 +35,24 @@
                 android:value="" />
         </activity>
 
+        <!--
+     android:name=".service.WXAccessibility"
+      android:name="com.google.android.accessibility.selecttospeak.SelectToSpeakService"
+  -->
         <service
-            android:name="com.lygttpod.android.auto.ForegroundService"
-            android:foregroundServiceType="specialUse"
+            android:name="com.google.android.accessibility.selecttospeak.SelectToSpeakService"
             android:enabled="true"
-            android:exported="true" >
-            <!--<property android:name="android.app.PROPERTY_SPECIAL_USE_FGS_SUBTYPE" android:value="foo"/>-->
-        </service>
-        <service
-            android:name="com.lygttpod.android.auto.AliveFGService"
+            android:exported="true"
             android:foregroundServiceType="specialUse"
-            android:enabled="true"
-            android:exported="true" >
-            <!--<property android:name="android.app.PROPERTY_SPECIAL_USE_FGS_SUBTYPE" android:value="foo"/>-->
-        </service>
+            android:permission="android.permission.BIND_ACCESSIBILITY_SERVICE">
+            <intent-filter>
+                <action android:name="android.accessibilityservice.AccessibilityService" />
+            </intent-filter>
 
+            <meta-data
+                android:name="android.accessibilityservice"
+                android:resource="@xml/wx_accessible_service_config" />
+        </service>
 
 
     </application>
@@ -56,15 +60,11 @@
     <queries>
         <package android:name="com.tencent.mm" />
     </queries>
-    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_SPECIAL_USE" />
-    <uses-permission android:name="android.permission.FOREGROUND_SERVICE" /> <!-- 忽略电池优化 -->
-    <!-- <uses-permission android:name="android.permission.ACCESS_NOTIFICATION_POLICY" /> -->
-    <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
+
     <uses-permission
         android:name="android.permission.INTERNET"
         tools:node="remove" />
 
-    <uses-permission android:name="android.permission.REQUEST_IGNORE_BATTERY_OPTIMIZATIONS" />
 
 
 

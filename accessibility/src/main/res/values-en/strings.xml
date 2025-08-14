@@ -1,0 +1,79 @@
+<resources>
+
+
+    <string name ="quanxianguide">Guide Tutorial:</string>
+    <string name ="quanxiantip1">Items 6 and 7 are also very important, but the software cannot determine whether they have been successfully opened
+\nBe sure to carefully set it up according to the tutorial above</string>
+    <string name ="quanxian1">1.Not optimizing the battery</string>
+    <string name ="quanxiansetting">setting</string>
+    <string name ="quanxian2">2.Notification bar keeps active</string>
+    <string name="quanxian2notifi">2.2 Read notification bar</string>
+    <string name ="quanxianauto">auto:</string>
+    <string name ="quanxian3">3.Device administrator</string>
+    <string name ="quanxian4">4.Zero pixel keep alive</string>
+    <string name ="quanxian5">5.Floating window</string>
+    <string name ="quanxian6">6.Self starting</string>
+    <string name ="quanxian7">7.Backend lock</string>
+    <string name ="quanxian8">8.Check and confirm</string>
+    <string name ="quanxiantip2">As long as it is fully set up, the software can run stably for a long time
+\n Even if the phone is turned off and restarted, the accessibility service will automatically reconnect</string>
+    <string name ="quanxian9">Customize foreground service notifications</string>
+    <string name ="quanxian10">Opening, please wait!</string>
+    <string name ="quanxian11">activated!</string>
+    <string name ="quanxian12">not enabled!</string>
+    <string name ="quanxian13">closed!</string>
+    <string name ="quanxian14">close</string>
+    <string name ="quanxian15">Nowadays, major mobile phones strictly limit the running of background applications for the sake of so-called smoothness</string>
+    <string name ="quanxian16">We can only try our best to take measures to avoid the situation where software is easily killed in the background</string>
+    <string name ="quanxian17">Creating a foregroud service notification is a good measure to keep things alive</string>
+    <string name ="quanxian18">This notice is to inform the phone that I am important and try not to be recalled in the background</string>
+    <string name ="quanxian19">This notification cannot be swiped to clear (can be done on Android version 14+), it can be closed by clicking the close button below</string>
+    <string name ="quanxian20">1.You can close it by clicking the close button below, which is also a way to turn off and keep it active</string>
+    <string name ="quanxian21">2.You can hide notifications for this software in your phone settings, but it is not recommended to do so</string>
+    <string name ="quanxian22">3.If the phone configuration is good enough and other maintenance measures are in place, it is not a big problem not to turn on the front desk service</string>
+    <string name ="quanxian23">Novices can directly click the OK button below</string>
+    <string name ="quanxian24">Notification title:</string>
+    <string name ="quanxian25">Customize notification title</string>
+    <string name ="quanxian26">Notification content:</string>
+    <string name ="quanxian27">Customize notification content</string>
+    <string name ="quanxian28">Auto clear tip of notification bar:</string>
+    <string name ="quanxian29">Auto activate the service upon restart:</string>
+    <string name ="quanxianguanliyuan">After enabling this permission, some phones may need to cancel it before uninstalling, so new users can only enable this permission after %d days!</string>
+    <string name ="quanxianguanliyuan1">After enabling this permission, some phones may need to cancel it before uninstalling!</string>
+    <string name ="quanxian30">Authorization window failed to open, please manually open it</string>
+    <string name ="quanxian31">Lock this software in the recent task list</string>
+    <string name ="quanxian32">service is null</string>
+    <string name ="quanxian33">Floating window permission not obtained</string>
+    <string name="quanxian34">Grant floating window permission first</string>
+
+    <string name="apponlyoff"></string>
+    <string name="apponlyon"></string>
+    <string name="guanliyuan">Administrator to keep</string>
+    <string name="wenxintixing">Tips</string>
+    <string name ="nimbleisopen">open</string>
+    <string name ="nimbleisclose">close</string>
+    <string name="cancel">cancel</string>
+    <string name ="servicenoopen">Accessibility service not activated</string>
+    <string name ="lockapp">Please manually bring up the task list interface</string>
+    <string name="ok">Ok</string>
+    <string name ="wendingrun1">stable run</string>
+    <string name ="wendingrun2">Notification to ensure stable run of the backend</string>
+    <string name ="wendingrun3">Reduce the probability of software being killed while running in the background</string>
+    <string name ="wendingrun4">More interesting software can be found on the official account: 消屏器</string>
+    <string name ="notificationtitlenull">Notification title not obtained</string>
+    <string name ="notificationcontentnull">Notification content not obtained</string>
+    <string name="msgrecordtx">Message Reminder, Message Log</string>
+
+    <string name="wei_zhi_title">赞赏·微信</string>
+    <string name="wei_zhi_tip">微信掃壹掃，或者點擊\"去赞赏\"，在微信頁面右上角菜單中 \"從相冊中選取二維碼\"。</string>
+    <string name="wei_zhi_sao">打开微信扫一扫</string>
+    <string name="ali_zhi_sao">去赞赏</string>
+    <string name="ali_zhi_title">赞赏·支付寶</string>
+    <string name="ali_zhi_tip">支付寶掃壹掃，或者點擊\"去赞赏\"\n您點滴支持，是我們最大動力</string>
+    <string name="wei_loading">啟動中...</string>
+    <string name="donate">赞赏</string>
+    <string name="donate_qa">赞赏二維碼</string>
+    <string name="act_switch">點擊任何地方切換赞赏方式</string>
+
+
+</resources>

@@ -1,8 +1,8 @@
 plugins {
-    id 'com.android.application'
-    id 'org.jetbrains.kotlin.android'
-//    id 'kotlin-kapt'
-//    id 'com.google.devtools.ksp'
+//    id 'com.android.application'
+//    id 'org.jetbrains.kotlin.android'
+    alias libs.plugins.android.application
+    alias libs.plugins.kotlin.android
 }
 
 def keystorePropertiesFile = rootProject.file("Keystore.properties")

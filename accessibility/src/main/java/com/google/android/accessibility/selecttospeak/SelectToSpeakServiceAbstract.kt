@@ -4,9 +4,12 @@ import android.accessibilityservice.AccessibilityService
 import android.content.Intent
 import android.util.Log
 import android.view.accessibility.AccessibilityEvent
-import android.widget.Toast
-
 import com.google.android.accessibility.ext.AssistsServiceListener
+import com.google.android.accessibility.ext.toast
+import com.google.android.accessibility.ext.utils.AliveUtils
+import com.google.android.accessibility.ext.utils.MMKVConst.AUTOBAOHUOISON
+import com.google.android.accessibility.ext.utils.SPUtils
+import com.google.android.accessibility.ext.utils.SPUtils.getBoolean
 import com.google.android.accessibility.ext.window.AssistsWindowManager
 import java.util.Collections
 import java.util.concurrent.Executors
@@ -20,6 +23,20 @@ abstract class SelectToSpeakServiceAbstract : AccessibilityService() {
 
     abstract fun asyncHandleAccessibilityEvent(event: AccessibilityEvent)
 
+    override fun onServiceConnected() {
+        toast("11")
+        instance = this
+        AssistsWindowManager.init(this)
+        Log.d(TAG, "onServiceConnected: ")
+        runCatching { listeners.forEach { it.onServiceConnected(this) } }
+
+        if (AliveUtils.getKeepAliveByNotification()){
+            //前台保活服务   如果放在子类中 可传入 class了
+            AliveUtils.keepAliveByNotification_CLS(this,true,null)
+        }
+        AliveUtils.keepAliveByFloatingWindow(this,AliveUtils.getKeepAliveByFloatingWindow(),true)
+
+    }
     override fun onAccessibilityEvent(event: AccessibilityEvent?) {
         val accessibilityEvent = event ?: return
         instance = this
@@ -41,17 +58,15 @@ abstract class SelectToSpeakServiceAbstract : AccessibilityService() {
         runCatching { listeners.forEach { it.onInterrupt() } }
     }
 
-    override fun onServiceConnected() {
-        Toast.makeText(this, "服务已启动", Toast.LENGTH_SHORT).show()
-        instance = this
-        AssistsWindowManager.init(this)
-        Log.d(TAG, "onServiceConnected: ")
-        runCatching { listeners.forEach { it.onServiceConnected(this) } }
-    }
+
 
     override fun onDestroy() {
         instance = null
-        Log.d(TAG, "onDestroy: ")
+        if (AliveUtils.getKeepAliveByNotification()){
+            //前台保活服务   如果放在子类中 可传入 class了
+            AliveUtils.keepAliveByNotification_CLS(this,false,null)
+        }
+        AliveUtils.keepAliveByFloatingWindow(this,false,true)
         super.onDestroy()
     }
 
@@ -60,6 +75,11 @@ abstract class SelectToSpeakServiceAbstract : AccessibilityService() {
          * 全局服务实例
          * 用于在应用中获取无障碍服务实例
          * 当服务未启动或被销毁时为null
+         *
+         * 这段代码声明了一个名为 instance 的可变变量，类型为 SelectToSpeakServiceAbstract?（可空类型），
+         * 并将其 setter 设为私有，表示外部无法直接修改该变量值。
+         * 作用：实现一个私有可变、外部只读的单例引用。
+         *
          */
         var instance: SelectToSpeakServiceAbstract? = null
             private set

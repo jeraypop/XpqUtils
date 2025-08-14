@@ -21,9 +21,37 @@
 
     </com.google.android.material.appbar.AppBarLayout>
 
+    <!-- <include layout="@layout/content_main" />-->
+    <androidx.appcompat.widget.LinearLayoutCompat
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:layout_marginTop="80dp"
+        android:orientation="vertical">
+        <Button
+            android:id="@+id/btnZan"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:minWidth="300dp"
+            android:layout_gravity="center"
+            android:gravity="center"
+            android:text="赞赏"
+            android:textSize="15dp" />
+        <Button
+            android:id="@+id/btnAlive"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:minWidth="300dp"
+            android:layout_gravity="center"
+            android:gravity="center"
+            android:text="保活"
+            android:textSize="15dp" />
+     
 
 
-   <!-- <include layout="@layout/content_main" />-->
+
+    </androidx.appcompat.widget.LinearLayoutCompat>
+
+
 
     <com.google.android.material.floatingactionbutton.FloatingActionButton
         android:id="@+id/fab"
