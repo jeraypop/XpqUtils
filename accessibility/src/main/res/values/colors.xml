@@ -14,6 +14,7 @@
     <color name="colorTextPrimary">#000000</color>
     <color name="switch_disable">#e0e0e0</color>
     <color name="main_color">#F6D36B</color>
+    <color name="colorTextIcon">#FFFFFF</color>
 
     <color name="green">#4CAF50</color>
     <color name="green_light">#C8E6C9</color>

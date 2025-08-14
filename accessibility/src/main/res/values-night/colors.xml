@@ -12,6 +12,7 @@
     <color name="friend_unknow">#FF6200EE</color>
     <color name="friend_normal">#FFFFFFFF</color>
     <color name="colorTextPrimary">#000000</color>
+    <color name="colorTextIcon">#FFFFFF</color>
 
     <color name="green">#4CAF50</color>
     <color name="green_light">#C8E6C9</color>

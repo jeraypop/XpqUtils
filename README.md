@@ -13,6 +13,12 @@
 	        implementation 'com.github.jeraypop:XpqUtils:Tag'
 	}
 
+### Step 3. 配置赞赏
+        Donate.init(
+            this,
+            DonateConfig.Builder("payCode", R.mipmap.ic_zhifubao, R.mipmap.ic_weixin).build()
+)
+
 ## gradle.kts
 ### Step 1. Add the JitPack repository to your build file
 #### Add it in your settings.gradle.kts at the end of repositories:
