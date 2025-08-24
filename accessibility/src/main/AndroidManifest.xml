@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<manifest
+<manifest xmlns:tools="http://schemas.android.com/tools"
     xmlns:android="http://schemas.android.com/apk/res/android">
     <!--android:allowBackup="false" 防止APP数据被恶意备份和恢复-->
     <!--android:usesCleartextTraffic="true" Android 9.0限制了非加密的明文流量请求，通过该方法回避-->
@@ -12,6 +12,13 @@
             android:exported="true" />
         <activity
             android:name="com.google.android.accessibility.ext.donate.DonateActivity"
+            android:configChanges="keyboardHidden|orientation|screenSize"
+            android:exported="false"
+            android:screenOrientation="portrait"
+            android:theme="@style/PayTheme"
+             />
+        <activity
+            android:name="com.google.android.accessibility.ext.wcapi.ZhiActivity"
             android:configChanges="keyboardHidden|orientation|screenSize"
             android:exported="false"
             android:screenOrientation="portrait"
@@ -64,6 +71,13 @@
             android:authorities="${applicationId}.contextProvider"
             android:exported="false" />
     </application>
+    <!--  Android 11 及以上版本中查询应用的信息  -->
+    <queries>
+        <package android:name="com.tencent.mm" />
+        <package android:name="com.tencent.wework" />
+        <package android:name="com.eg.android.AlipayGphone" />
+    </queries>
+
     <uses-permission android:name="android.permission.VIBRATE" />
     <uses-permission android:name="android.permission.READ_MEDIA_AUDIO" />
     <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE" />

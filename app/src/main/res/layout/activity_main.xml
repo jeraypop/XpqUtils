@@ -21,35 +21,70 @@
 
     </com.google.android.material.appbar.AppBarLayout>
 
+
+
     <!-- <include layout="@layout/content_main" />-->
-    <androidx.appcompat.widget.LinearLayoutCompat
+    <androidx.core.widget.NestedScrollView
         android:layout_width="match_parent"
         android:layout_height="match_parent"
-        android:layout_marginTop="80dp"
-        android:orientation="vertical">
-        <Button
-            android:id="@+id/btnZan"
-            android:layout_width="wrap_content"
+        android:layout_marginTop="80dp">
+
+        <androidx.appcompat.widget.LinearLayoutCompat
+            android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:minWidth="300dp"
-            android:layout_gravity="center"
-            android:gravity="center"
-            android:text="赞赏"
-            android:textSize="15dp" />
-        <Button
-            android:id="@+id/btnAlive"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:minWidth="300dp"
-            android:layout_gravity="center"
-            android:gravity="center"
-            android:text="保活"
-            android:textSize="15dp" />
-     
+            android:orientation="vertical">
 
+            <Button
+                android:id="@+id/btnZan"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:minWidth="300dp"
+                android:layout_gravity="center"
+                android:gravity="center"
+                android:text="赞赏"
+                android:textSize="15dp" />
 
+            <Button
+                android:id="@+id/btnAlive"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:minWidth="300dp"
+                android:layout_gravity="center"
+                android:gravity="center"
+                android:text="保活"
+                android:textSize="15dp" />
 
-    </androidx.appcompat.widget.LinearLayoutCompat>
+            <Button
+                android:id="@+id/btnAccessibility"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:minWidth="300dp"
+                android:layout_gravity="center"
+                android:gravity="center"
+                android:text="开启无障碍"
+                android:textSize="15dp" />
+            <Button
+                android:id="@+id/btnGZH"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:minWidth="300dp"
+                android:layout_gravity="center"
+                android:gravity="center"
+                android:text="关注公众号"
+                android:textSize="15dp" />
+            <Button
+                android:id="@+id/btnAddFriend"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:minWidth="300dp"
+                android:layout_gravity="center"
+                android:gravity="center"
+                android:text="添加好友"
+                android:textSize="15dp" />
+
+        </androidx.appcompat.widget.LinearLayoutCompat>
+
+    </androidx.core.widget.NestedScrollView>
 
 
 

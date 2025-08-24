@@ -23,7 +23,10 @@ android {
         testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
     }
 
-
+    configurations.all {
+        //禁用动态版本（如 latest.release）的缓存，每次都会检查最新版本。
+        resolutionStrategy.cacheDynamicVersionsFor 0, 'seconds'
+    }
 
     signingConfigs {
         release {
@@ -109,6 +112,7 @@ android {
 dependencies {
 
     implementation(project(":accessibility"))
+//    implementation(libs.xpq.utils)
     implementation(libs.core.ktx)
     implementation(libs.appcompat.appcompat)
     implementation(libs.material)
@@ -117,7 +121,6 @@ dependencies {
     implementation(libs.androidx.constraintlayout)
     implementation(libs.activity.activity)
     implementation(libs.easy.window)
-
 
 
 }

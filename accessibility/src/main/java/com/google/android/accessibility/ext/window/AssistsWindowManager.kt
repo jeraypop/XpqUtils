@@ -45,6 +45,7 @@ object AssistsWindowManager {
         windowManager = accessibilityService.getSystemService(Context.WINDOW_SERVICE) as WindowManager
         mDisplayMetrics = DisplayMetrics()
         windowManager.defaultDisplay.getMetrics(mDisplayMetrics)
+
     }
 
     /**
@@ -59,6 +60,11 @@ object AssistsWindowManager {
     /**
      * 创建默认的浮窗布局参数
      * @return 配置好的WindowManager.LayoutParams实例
+     *
+     * 补充:      https://www.cnblogs.com/ksxh/p/17587942.html
+     * TYPE_APPLICATION_OVERLAY窗口
+     * alpha等于或小于最大遮挡不透明度也就是0.8
+     * 可以使用WindowManager.LayoutParams.FLAG_NOT_TOUCHABLE 来实现触摸事件穿透
      */
     fun createLayoutParams(): WindowManager.LayoutParams {
         val layoutParams = WindowManager.LayoutParams()

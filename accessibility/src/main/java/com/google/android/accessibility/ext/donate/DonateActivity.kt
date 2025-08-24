@@ -20,7 +20,7 @@ import com.google.android.accessibility.ext.utils.MMKVConst.EXTRA_KEY_PAY_CONFIG
  */
 class DonateActivity : AppCompatActivity(), View.OnClickListener {
     private lateinit var binding: ZhiActivityBinding
-    
+
     private var mTitleTv: TextView? = null
     private var mSummeryTv: TextView? = null
     private var mTip: TextView? = null

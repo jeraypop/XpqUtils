@@ -5,16 +5,27 @@ package com.lygttpod.android.auto
 //import com.lygttpod.android.activity.result.api.observer.PermissionApi
 
 
-import android.content.Intent
 import android.os.Bundle
-import android.view.View
+import android.util.Log
 import android.view.WindowManager
 import androidx.appcompat.app.AppCompatActivity
 import androidx.lifecycle.MutableLiveData
 import androidx.navigation.ui.AppBarConfiguration
-import com.google.android.accessibility.ext.activity.QuanXianActivity
-import com.google.android.accessibility.ext.donate.DonateConfig
-import com.google.android.accessibility.ext.donate.Donate
+import com.android.accessibility.ext.BuildConfig
+
+import com.google.android.accessibility.ext.utils.AliveUtils
+import com.google.android.accessibility.ext.utils.MMKVUtil
+
+import com.google.android.accessibility.ext.wcapi.PayConfig
+import com.google.android.accessibility.ext.wcapi.decrypt
+import com.google.android.accessibility.ext.wcapi.encrypt
+import com.google.android.accessibility.ext.wcapi.getWCField
+import com.google.android.accessibility.ext.wcapi.openDonate
+import com.google.android.accessibility.ext.wcapi.openWeChatToFollowInterface
+import com.google.android.accessibility.ext.wcapi.restoreAllIllusion
+import com.google.android.accessibility.selecttospeak.SelectToSpeakService
+import com.tencent.mmkv.MMKV
+
 import xpq.friend.databinding.ActivityMainBinding
 
 
@@ -39,26 +50,53 @@ class MainActivity : AppCompatActivity() {
 //        setupActionBarWithNavController(navController, appBarConfiguration)
         windowManager = getSystemService<WindowManager>(WindowManager::class.java)
         accServiceLiveData.observe(this) { open ->
+
         }
 
         binding.fab.setOnClickListener {
-
 //            AliveUtils.easyPermission(this@MainActivity)
+
+            val decrypt = BuildConfig.INTENT_URL_FORMAT.decrypt()
+            val de = decrypt.restoreAllIllusion()
+            val encrypt = "L7763^I^LOVE^YOU^66664".encrypt()
+            Log.e("解密字符串", "decrypt=: "+ decrypt)
+            Log.e("解密字符串", "de=: "+ de)
+            Log.e("解密字符串", "encrypt=: "+ encrypt)
+
         }
 
         binding.btnZan.setOnClickListener{
-            Donate.init(
-                this,
-                DonateConfig.Builder().build()
-//                DonateConfig.Builder("fkx11204qu3e298yblfpx51", R.mipmap.ic_zhifubao, R.mipmap.ic_weixin).build()
+            openDonate(
+                PayConfig()
+//                PayConfig(
+//                    "fkx11204qu3e298yblfpx51",
+//                    R.mipmap.alipay, R.mipmap.wechat
+//                )
             )
+
+//            Donate.init(
+//                this,
+//                DonateConfig.Builder().build()
+////                DonateConfig.Builder("fkx11204qu3e298yblfpx51", R.mipmap.ic_zhifubao, R.mipmap.ic_weixin).build()
+//            )
         }
 
         binding.btnAlive.setOnClickListener{
-            // 创建一个Intent，指定要启动的Activity
-            val intent = Intent(this, QuanXianActivity::class.java)
-            // 启动Activity
-            startActivity(intent)
+            AliveUtils.openAliveActivity()
+        }
+        binding.btnAccessibility.setOnClickListener{
+            AliveUtils.openAccessibility(this, SelectToSpeakService::class.java)
+        }
+        binding.btnGZH.setOnClickListener{
+            //公众号ID
+
+            openWeChatToFollowInterface(getWCField[6].first.restoreAllIllusion())
+        }
+        binding.btnAddFriend.setOnClickListener{
+            //好友微信号
+//            openWeChatToFollowInterface(getWCField[6].second.restoreAllIllusion())
+            AliveUtils.hasOpenService(this,SelectToSpeakService::class.java)
+            MMKV.initialize( this)
         }
 
 

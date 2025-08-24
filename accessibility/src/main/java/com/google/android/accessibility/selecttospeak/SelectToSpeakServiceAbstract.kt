@@ -4,16 +4,16 @@ import android.accessibilityservice.AccessibilityService
 import android.content.Intent
 import android.util.Log
 import android.view.accessibility.AccessibilityEvent
+import androidx.lifecycle.MutableLiveData
 import com.google.android.accessibility.ext.AssistsServiceListener
 import com.google.android.accessibility.ext.toast
 import com.google.android.accessibility.ext.utils.AliveUtils
-import com.google.android.accessibility.ext.utils.MMKVConst.AUTOBAOHUOISON
-import com.google.android.accessibility.ext.utils.SPUtils
-import com.google.android.accessibility.ext.utils.SPUtils.getBoolean
 import com.google.android.accessibility.ext.window.AssistsWindowManager
 import java.util.Collections
 import java.util.concurrent.Executors
 
+val accessibilityServiceLiveData = MutableLiveData<AccessibilityService?>(null)
+val accessibilityService: AccessibilityService? get() = accessibilityServiceLiveData.value
 abstract class SelectToSpeakServiceAbstract : AccessibilityService() {
     private val TAG = this::class.java.simpleName
 
@@ -26,6 +26,7 @@ abstract class SelectToSpeakServiceAbstract : AccessibilityService() {
     override fun onServiceConnected() {
         toast("11")
         instance = this
+        accessibilityServiceLiveData.value = this
         AssistsWindowManager.init(this)
         Log.d(TAG, "onServiceConnected: ")
         runCatching { listeners.forEach { it.onServiceConnected(this) } }
@@ -54,7 +55,6 @@ abstract class SelectToSpeakServiceAbstract : AccessibilityService() {
         return super.onUnbind(intent)
     }
     override fun onInterrupt() {
-        Log.d(TAG, "onInterrupt: ")
         runCatching { listeners.forEach { it.onInterrupt() } }
     }
 
@@ -62,6 +62,7 @@ abstract class SelectToSpeakServiceAbstract : AccessibilityService() {
 
     override fun onDestroy() {
         instance = null
+        accessibilityServiceLiveData.value = null
         if (AliveUtils.getKeepAliveByNotification()){
             //前台保活服务   如果放在子类中 可传入 class了
             AliveUtils.keepAliveByNotification_CLS(this,false,null)

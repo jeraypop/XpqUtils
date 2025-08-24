@@ -1,61 +1,62 @@
 package com.lygttpod.android.auto.service
 
 import android.accessibilityservice.AccessibilityService
-import android.app.Service
 import android.content.Intent
-import android.graphics.Color
-import android.graphics.PixelFormat
 import android.util.Log
-import android.view.Gravity
-import android.view.View
-import android.view.WindowManager
 import android.view.accessibility.AccessibilityEvent
-import android.widget.Toast
 import androidx.lifecycle.MutableLiveData
 import com.google.android.accessibility.ext.toast
 import com.google.android.accessibility.ext.utils.AliveUtils.keepAliveByFloatingWindow
 import com.google.android.accessibility.ext.utils.AliveUtils.keepAliveByNotification_CLS
 import com.google.android.accessibility.selecttospeak.SelectToSpeakServiceAbstract
+import com.google.android.accessibility.selecttospeak.accessibilityService
 
 //import com.lygttpod.android.auto.wx.helper.ToastUtil.keepAliveByNotification_CLS
 import java.util.concurrent.atomic.AtomicBoolean
 
-val wxAccessibilityServiceLiveData = MutableLiveData<AccessibilityService?>(null)
-val wxAccessibilityService: AccessibilityService? get() = wxAccessibilityServiceLiveData.value
 
-open class WXAccessibility : SelectToSpeakServiceAbstract() {
+ /*
+ * 第一次继承
+ *
+ * */
+open class FirstAccessibility : SelectToSpeakServiceAbstract() {
 
     companion object {
         var isInWXApp = AtomicBoolean(false)
-        var service: WXAccessibility? = null
-        fun getWXService(): AccessibilityService? {
-            return service
-        }
     }
 
     override fun targetPackageName() = "com.tencent.mm"
 
-    override fun onCreate() {
-        super.onCreate()
-        wxAccessibilityServiceLiveData.value = this
 
-    }
 
     override fun onServiceConnected() {
         super.onServiceConnected()
-        toast("22")
-        service = this
-        //前台保活服务
-        keepAliveByNotification_CLS(service,true,null)
-        //0像素悬浮窗保活
-        keepAliveByFloatingWindow(service, true, true)
+        // 根据需要动态设置监听的包名
+        val targetPackages = getTargetPackageList() // 从配置或网络获取包名列表
+
+        val serviceInfo = serviceInfo
+        // 动态设置包名
+//        serviceInfo.packageNames = arrayOf("com.tencent.mm", "com.tencent.wework")
+
+        serviceInfo.packageNames = targetPackages.toTypedArray()
+
+        // 可以同时修改其他属性
+        serviceInfo.eventTypes = AccessibilityEvent.TYPE_WINDOW_STATE_CHANGED or
+                AccessibilityEvent.TYPE_WINDOW_CONTENT_CHANGED
+         //只能在 onServiceConnected() 方法中调用 setServiceInfo()
+        setServiceInfo(serviceInfo)
+
+
 
     }
-
+     private fun getTargetPackageList(): List<String> {
+         // 从SharedPreferences、网络配置等获取动态包名列表
+         return listOf("com.tencent.mm", "com.tencent.wework")
+     }
     override fun asyncHandleAccessibilityEvent(event: AccessibilityEvent) {
 //        HBTaskHelper.hbTask(event)
         val s = getTextById(this, "com.tencent.mm:id/obn")
-        Log.e("文本内容", "=: "+s )
+//        Log.e("文本内容", "=: "+s )
     }
 
     override fun onInterrupt() {
@@ -69,12 +70,6 @@ open class WXAccessibility : SelectToSpeakServiceAbstract() {
 
 
     override fun onDestroy() {
-        service = null
-        wxAccessibilityServiceLiveData.value = null
-        //取消前台保活服务
-        keepAliveByNotification_CLS(service,false,null)
-        //取消0像素悬浮窗保活
-        keepAliveByFloatingWindow(service,false,true)
         super.onDestroy()
     }
 

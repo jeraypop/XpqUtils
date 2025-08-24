@@ -3,8 +3,11 @@ plugins {
 //    id 'org.jetbrains.kotlin.android'
     alias libs.plugins.android.library
     alias libs.plugins.kotlin.android
-}
 
+
+
+}
+apply from: 'MockData.gradle'
 android {
     namespace 'com.android.accessibility.ext'
     compileSdk compile_sdk_version
@@ -16,6 +19,10 @@ android {
         testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
         //外部调用的时候 自带导入的混淆规则
         consumerProguardFiles "consumer-rules.pro"
+    }
+    configurations.all {
+        //禁用动态版本（如 latest.release）的缓存，每次都会检查最新版本。
+        resolutionStrategy.cacheDynamicVersionsFor 0, 'seconds'
     }
 
     buildTypes {
@@ -48,13 +55,16 @@ dependencies {
     implementation(libs.material)
 
     implementation(libs.navigationktx)
-    api(libs.blankj)
-    //tencent mmkv
+    implementation(libs.blankj)
+    //tencent mmkv   api可以依赖传递
     api(libs.mmkv.static)
+//    api 'com.tencent:mmkv-static:2.2.2'
 
     // 权限请求框架：https://github.com/getActivity/XXPermissions
     implementation(libs.easy.permission)
-//    implementation 'com.github.getActivity:XXPermissions:23.0'
+//    implementation files('libs\\XXPermissions-26.3.aar')
+    // 设备兼容框架：https://github.com/getActivity/DeviceCompat
+//    implementation 'com.github.getActivity:DeviceCompat:1.0'
 
 //    implementation 'androidx.core:core-ktx:1.7.0'
 //    implementation 'androidx.appcompat:appcompat:1.4.1'

@@ -12,6 +12,7 @@ import android.os.Build
 import android.os.Environment
 import android.provider.MediaStore
 import android.view.View
+import androidx.annotation.NonNull
 import androidx.core.content.ContextCompat
 import com.google.android.accessibility.ext.utils.AliveUtils.toast
 import com.google.android.accessibility.ext.utils.LibCtxProvider.Companion.appContext
@@ -158,7 +159,7 @@ class ScreenshotHelper {
 
 
         @JvmStatic
-        fun getWriteStoragePermission(context: Context): Boolean {
+        fun getWriteStoragePermission(context: Activity): Boolean {
             var isGranted = false
             XXPermissions.with(context)
                 // 申请读写权限
@@ -167,7 +168,7 @@ class ScreenshotHelper {
                 //.unchecked()
                 .request(object : OnPermissionCallback {
 
-                    override fun onGranted(permissions: MutableList<IPermission>, allGranted: Boolean) {
+                     fun onGranted(permissions: MutableList<IPermission>, allGranted: Boolean) {
                         if (!allGranted) {
                             isGranted = false
                             toast(appContext,"获取部分权限成功，但部分权限未正常授予")
@@ -177,7 +178,7 @@ class ScreenshotHelper {
                         toast(appContext,"获取外部存储权限成功")
                     }
 
-                    override fun onDenied(permissions: MutableList<IPermission>, doNotAskAgain: Boolean) {
+                     fun onDenied(permissions: MutableList<IPermission>, doNotAskAgain: Boolean) {
                         if (doNotAskAgain) {
                             isGranted = false
                             toast(appContext,"被永久拒绝授权，请手动授予外部存储权限")
@@ -187,6 +188,34 @@ class ScreenshotHelper {
                             isGranted = false
                             toast(appContext,"获取外部存储权限失败")
                         }
+                    }
+
+                    override fun onResult(
+                        grantedList: MutableList<IPermission>,
+                        deniedList: MutableList<IPermission>
+                    ) {
+                        val allGranted = deniedList.isEmpty()
+                        if (!allGranted) {
+                            isGranted = false
+                            // 判断请求失败的权限是否被用户勾选了不再询问的选项
+                            val doNotAskAgain = XXPermissions.isDoNotAskAgainPermissions(context, deniedList)
+                            // 在这里处理权限请求失败的逻辑
+                            // ......
+                            if (doNotAskAgain) {
+                                toast(appContext,"被永久拒绝授权，请手动授予外部存储权限")
+                                // 如果是被永久拒绝就跳转到应用权限系统设置页面
+                                XXPermissions.startPermissionActivity(context,deniedList)
+                            }else{
+                                toast(appContext,"获取外部存储权限失败")
+                            }
+                            return
+                        }else{
+                            isGranted = true
+                            toast(appContext,"获取外部存储权限成功")
+                        }
+
+                        // 在这里处理权限请求成功的逻辑
+                        // ......
                     }
                 })
             return isGranted

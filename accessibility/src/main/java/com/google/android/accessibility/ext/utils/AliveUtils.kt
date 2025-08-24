@@ -1,12 +1,14 @@
 package com.google.android.accessibility.ext.utils
 
 import android.accessibilityservice.AccessibilityService
+import android.app.Activity
 import android.app.Notification
 import android.app.NotificationChannel
 import android.app.NotificationManager
 import android.app.PendingIntent
 import android.app.Service
 import android.app.Service.STOP_FOREGROUND_REMOVE
+import android.content.ComponentName
 import android.content.ContentValues
 import android.content.Context
 import android.content.Intent
@@ -18,16 +20,23 @@ import android.graphics.Color
 import android.graphics.PixelFormat
 import android.net.Uri
 import android.os.Build
+import android.os.Handler
+import android.os.Looper
 import android.provider.Settings
+import android.text.TextUtils
+import android.util.Log
 import android.view.Gravity
 import android.view.View
 import android.view.WindowManager
 import android.widget.Toast
+import androidx.annotation.NonNull
 import androidx.annotation.RequiresApi
 import androidx.annotation.StringRes
+import androidx.core.content.ContextCompat
 import com.android.accessibility.ext.R
 import com.google.android.accessibility.ext.activity.AliveFGService
 import com.google.android.accessibility.ext.activity.AliveFGService.Companion.fgs_ison
+import com.google.android.accessibility.ext.activity.QuanXianActivity
 import com.google.android.accessibility.ext.utils.LibCtxProvider.Companion.appContext
 import com.google.android.accessibility.ext.utils.LibCtxProvider.Companion.contentProviderAuthority
 import com.google.android.accessibility.ext.utils.MMKVConst.CLEARAUTOBAOHUOISON
@@ -39,16 +48,78 @@ import com.hjq.permissions.OnPermissionCallback
 import com.hjq.permissions.XXPermissions
 import com.hjq.permissions.permission.PermissionLists
 import com.hjq.permissions.permission.base.IPermission
+import com.hjq.permissions.tools.PermissionUtils
 import kotlin.math.max
 
 object AliveUtils {
+
+
+    /*
+    * 指定要启动的Activity
+    * */
+    @JvmOverloads
+    @JvmStatic
+    fun openAliveActivity(@NonNull context: Context = appContext) {
+        // 创建一个Intent，指定要启动的Activity
+        val intent = Intent(context, QuanXianActivity::class.java)
+        context.startActivity(intent)
+    }
 
     /*
     * 引导用户去授权辅助服务权限
     * */
     @JvmOverloads
     @JvmStatic
-    fun openAccessibility(context: Context = appContext, accessibilityServiceClass : Class<out AccessibilityService>): Boolean {
+    fun openAccessibility(@NonNull context: Context = appContext) {
+        val intent = Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS)
+        intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP)
+        context.startActivity(intent)
+    }
+
+    /*
+    * 判断指定辅助服务是否已开启
+    *
+    * @param accessibilityServiceClass 辅助服务类
+    * */
+     fun hasOpenService(@NonNull context: Context = appContext, accessibilityServiceClass : Class<out AccessibilityService>): Boolean {
+         //返回值是一个包含所有已启用无障碍服务包名的字符串
+        val enabledNotificationListeners = Settings.Secure.getString(
+            context.contentResolver,
+            Settings.Secure.ENABLED_ACCESSIBILITY_SERVICES
+        )
+        if (TextUtils.isEmpty(enabledNotificationListeners)) {
+            toast(msg = "辅助服务列表为空")
+            return false
+        }
+         val mAccessibilityServiceClassName = accessibilityServiceClass.name
+
+        val serviceClassName: String? =
+            if (PermissionUtils.isClassExist(mAccessibilityServiceClassName)) mAccessibilityServiceClassName else null
+        // hello.litiaotiao.app/hello.litiaotiao.app.LttService:com.hjq.permissions.demo/com.hjq.permissions.demo.DemoAccessibilityService
+        val allComponentNameArray =
+            enabledNotificationListeners.split(":".toRegex()).dropLastWhile { it.isEmpty() }
+                .toTypedArray()
+        for (component in allComponentNameArray) {
+            //component 是包含包名的/
+            // componentName.className 不包含包名
+            val componentName = ComponentName.unflattenFromString(component) ?: continue
+
+            if (componentName != null) {
+                if (serviceClassName != null) {
+                    if (context.packageName == componentName.packageName && serviceClassName == componentName.className) {
+                        return true
+                    }
+                } else if (context.packageName == componentName.packageName) {
+                    return true
+                }
+            }
+        }
+        return false
+    }
+
+    @JvmOverloads
+    @JvmStatic
+    fun openAccessibility(context: Activity, accessibilityServiceClass : Class<out AccessibilityService>): Boolean {
         var isGranted = false
 //        val intent = Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS)
 //        intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
@@ -299,16 +370,57 @@ object AliveUtils {
 
     @JvmOverloads
     @JvmStatic
-    fun toast(context: Context = appContext, @StringRes int: Int) = Toast.makeText(context, int, Toast.LENGTH_SHORT).show()
+    fun toast(context: Context = appContext, @StringRes int: Int){
+        // 确保在UI线程执行
+//        runOnUIThread(context) {
+//            Toast.makeText(context, int, Toast.LENGTH_SHORT).show()
+//        }
+        //新版方案
+        ContextCompat.getMainExecutor(context).execute {
+            Toast.makeText(context, int, Toast.LENGTH_SHORT).show()
+        }
+    }
     @JvmOverloads
     @JvmStatic
-    fun toast(context: Context = appContext,msg: String) = Toast.makeText(context, msg, Toast.LENGTH_SHORT).show()
+    fun toast(context: Context = appContext,msg: String){
+        // 确保在UI线程执行
+//        runOnUIThread(context) {
+//            Toast.makeText(context, msg, Toast.LENGTH_SHORT).show()
+//        }
+        //新版方案
+        ContextCompat.getMainExecutor(context).execute {
+            Toast.makeText(context, msg, Toast.LENGTH_SHORT).show()
+        }
+    }
+
     @JvmOverloads
     @JvmStatic
-    fun toast(context: Context = appContext, msg: String, time: Int) = Toast.makeText(context, msg, time).show()
+    fun toast(context: Context = appContext, msg: String, time: Int){
+        // 确保在UI线程执行
+//        runOnUIThread(context) {
+//            Toast.makeText(context, msg, time).show()
+//        }
+        //新版方案
+        ContextCompat.getMainExecutor(context).execute {
+            Toast.makeText(context, msg, time).show()
+        }
+    }
+
+
+    // 辅助函数：确保在UI线程执行
+    @JvmStatic
+    fun runOnUIThread(context: Context, action: () -> Unit) {
+        if (Looper.myLooper() == Looper.getMainLooper()) {
+            action()
+        } else {
+            Handler(Looper.getMainLooper()).post {
+                action()
+            }
+        }
+    }
 
     @JvmStatic
-    fun easyPermission(context: Context): Boolean {
+    fun easyPermission(context: Activity): Boolean {
         var isGranted = false
         if (Build.VERSION.SDK_INT >= 33){
             XXPermissions.with(context)
@@ -320,7 +432,7 @@ object AliveUtils {
                 //.unchecked()
                 .request(object : OnPermissionCallback {
 
-                    override fun onGranted(permissions: MutableList<IPermission>, allGranted: Boolean) {
+                     fun onGranted(permissions: MutableList<IPermission>, allGranted: Boolean) {
                         if (!allGranted) {
                             isGranted = false
                             toast(appContext,"获取部分权限成功，但部分权限未正常授予")
@@ -330,7 +442,7 @@ object AliveUtils {
 //                        toast(appContext,"获取读取音频权限成功")
                     }
 
-                    override fun onDenied(permissions: MutableList<IPermission>, doNotAskAgain: Boolean) {
+                     fun onDenied(permissions: MutableList<IPermission>, doNotAskAgain: Boolean) {
                         if (doNotAskAgain) {
                             isGranted = false
                             toast(appContext,"被永久拒绝授权，请手动授予读取音频权限")
@@ -339,6 +451,33 @@ object AliveUtils {
                         } else {
                             isGranted = false
                             toast(appContext,"获取读取音频权限失败")
+                        }
+                    }
+
+                    override fun onResult(
+                        grantedList: MutableList<IPermission>,
+                        deniedList: MutableList<IPermission>
+                    ) {
+                        val allGranted = deniedList.isEmpty()
+                        if (!allGranted) {
+                            // 在这里处理权限请求失败的逻辑
+                            isGranted = false
+                            // 判断请求失败的权限是否被用户勾选了不再询问的选项
+                            val doNotAskAgain = XXPermissions.isDoNotAskAgainPermissions(context, deniedList)
+
+                            // ......
+                            if (doNotAskAgain) {
+                                toast(appContext,"被永久拒绝授权，请手动授予读取音频权限")
+                                // 如果是被永久拒绝就跳转到应用权限系统设置页面
+                                XXPermissions.startPermissionActivity(context,deniedList)
+                            }else{
+                                toast(appContext,"获取读取音频权限失败")
+                            }
+
+                        }else{
+                            // 在这里处理权限请求成功的逻辑
+                            isGranted = true
+                            toast(appContext,"获取读取音频权限成功")
                         }
                     }
 
@@ -355,7 +494,7 @@ object AliveUtils {
                 //.unchecked()
                 .request(object : OnPermissionCallback {
 
-                    override fun onGranted(permissions: MutableList<IPermission>, allGranted: Boolean) {
+                     fun onGranted(permissions: MutableList<IPermission>, allGranted: Boolean) {
                         if (!allGranted) {
                             isGranted = false
                             toast(appContext,"获取部分权限成功，但部分权限未正常授予")
@@ -365,7 +504,7 @@ object AliveUtils {
                         toast(appContext,"获取读取外部存储权限成功")
                     }
 
-                    override fun onDenied(permissions: MutableList<IPermission>, doNotAskAgain: Boolean) {
+                     fun onDenied(permissions: MutableList<IPermission>, doNotAskAgain: Boolean) {
                         if (doNotAskAgain) {
                             isGranted = false
                             toast(appContext,"被永久拒绝授权，请手动授予读取外部存储权限")
@@ -376,13 +515,40 @@ object AliveUtils {
                             toast(appContext,"获取读取外部存储权限失败")
                         }
                     }
+
+                    override fun onResult(
+                        grantedList: MutableList<IPermission>,
+                        deniedList: MutableList<IPermission>
+                    ) {
+                        val allGranted = deniedList.isEmpty()
+                        if (!allGranted) {
+                            // 在这里处理权限请求失败的逻辑
+                            isGranted = false
+                            // 判断请求失败的权限是否被用户勾选了不再询问的选项
+                            val doNotAskAgain = XXPermissions.isDoNotAskAgainPermissions(context, deniedList)
+
+                            // ......
+                            if (doNotAskAgain) {
+                                toast(appContext,"被永久拒绝授权，请手动授予外部存储权限")
+                                // 如果是被永久拒绝就跳转到应用权限系统设置页面
+                                XXPermissions.startPermissionActivity(context,deniedList)
+                            }else{
+                                toast(appContext,"获取外部存储权限失败")
+                            }
+
+                        }else{
+                            // 在这里处理权限请求成功的逻辑
+                            isGranted = true
+                            toast(appContext,"获取外部存储权限成功")
+                        }
+                    }
                 })
         }
         return isGranted
     }
 
     @JvmStatic
-    fun easyRequestPermission(context: Context, permission:IPermission): Boolean {
+    fun easyRequestPermission(context: Activity, permission:IPermission): Boolean {
         var isGranted = false
         if (Build.VERSION.SDK_INT >= 23){
             XXPermissions.with(context)
@@ -392,7 +558,7 @@ object AliveUtils {
                 //.unchecked()
                 .request(object : OnPermissionCallback {
 
-                    override fun onGranted(permissions: MutableList<IPermission>, allGranted: Boolean) {
+                     fun onGranted(permissions: MutableList<IPermission>, allGranted: Boolean) {
                         if (!allGranted) {
                             isGranted = false
                             toast(appContext,"获取部分权限成功，但部分权限未正常授予")
@@ -402,7 +568,7 @@ object AliveUtils {
 //                        toast(appContext,"获取读取音频权限成功")
                     }
 
-                    override fun onDenied(permissions: MutableList<IPermission>, doNotAskAgain: Boolean) {
+                     fun onDenied(permissions: MutableList<IPermission>, doNotAskAgain: Boolean) {
                         if (doNotAskAgain) {
                             isGranted = false
                             toast(appContext,"被永久拒绝授权，请手动授予权限")
@@ -411,6 +577,33 @@ object AliveUtils {
                         } else {
                             isGranted = false
                             toast(appContext,"获取权限失败")
+                        }
+                    }
+
+                    override fun onResult(
+                        grantedList: MutableList<IPermission>,
+                        deniedList: MutableList<IPermission>
+                    ) {
+                        val allGranted = deniedList.isEmpty()
+                        if (!allGranted) {
+                            // 在这里处理权限请求失败的逻辑
+                            isGranted = false
+                            // 判断请求失败的权限是否被用户勾选了不再询问的选项
+                            val doNotAskAgain = XXPermissions.isDoNotAskAgainPermissions(context, deniedList)
+
+                            // ......
+                            if (doNotAskAgain) {
+                                toast(appContext,"被永久拒绝授权，请手动授予权限")
+                                // 如果是被永久拒绝就跳转到应用权限系统设置页面
+                                XXPermissions.startPermissionActivity(context,deniedList)
+                            }else{
+                                toast(appContext,"获取权限失败")
+                            }
+
+                        }else{
+                            // 在这里处理权限请求成功的逻辑
+                            isGranted = true
+                            toast(appContext,"获取权限成功")
                         }
                     }
 

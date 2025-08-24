@@ -1,0 +1,72 @@
+android{
+    buildTypes.all{
+        buildConfigField("String", "SECRET_LETTER", '"199909"')
+        buildConfigField("String", "LOVE", '"&LOVE&"')
+        buildConfigField("String", "YOU", '"^I^LOVE^YOU^"')
+        //"com&LOVE&tenc^I^LOVE^YOU^ent&LOVE&mm"
+        //com.tencent.mm
+        buildConfigField("String", "W_C_PACKAGE", '"ൈൔ൒ഋറഴ഻പഋ൙ൊ൓ൈൃമൃറഴ഻പൃാഴഺൃൊ൓൙ഋറഴ഻പഋ൒൒"')
+        //&LOVE&ui&LOVE&Launcher^I^LOVE^YOU^U^I^LOVE^YOU^I
+        //.ui.LauncherUI
+        buildConfigField("String", "W_C_LAUNCHER_UI", '"ഋറഴ഻പഋ൚ൎഋറഴ഻പഋറെ൚൓ൈ്ൊൗൃമൃറഴ഻പൃാഴഺൃഺൃമൃറഴ഻പൃാഴഺൃമ"')
+        //跳转到扫一扫    方式一   两种方式选用任意一个就行
+        //Launcher^I^LOVE^YOU^U^I^LOVE^YOU^I&LOVE&From&LOVE&Scaner&LOVE&S^I^LOVE^YOU^hort^I^LOVE^YOU^cut
+        // LauncherUI.From.Scaner.Shortcut
+        buildConfigField("String", "W_C_SCAN", '"റെ൚൓ൈ്ൊൗൃമൃറഴ഻പൃാഴഺൃഺൃമൃറഴ഻പൃാഴഺൃമഋറഴ഻പഋഫൗൔ൒ഋറഴ഻പഋസൈെ൓ൊൗഋറഴ഻പഋസൃമൃറഴ഻പൃാഴഺൃ്ൔൗ൙ൃമൃറഴ഻പൃാഴഺൃൈ൚൙"')
+        //跳转到扫一扫    方式二   两种方式选用任意一个就行
+        // Launch^I^LOVE^YOU^erUI&LOVE&Shortcut&LOVE&Laun^I^LOVE^YOU^chType
+        // LauncherUI.Shortcut.LaunchType
+        buildConfigField("String", "W_C_SCAN21", '"റെ൚൓ൈ്ൃമൃറഴ഻പൃാഴഺൃൊൗഺമഋറഴ഻പഋസ്ൔൗ൙ൈ൚൙ഋറഴ഻പഋറെ൚൓ൃമൃറഴ഻പൃാഴഺൃൈ്ഹ൞ൕൊ"')
+        // lau^I^LOVE^YOU^nch_type_scan_qr^I^LOVE^YOU^code
+        // launch_type_scan_qrcode
+        buildConfigField("String", "W_C_SCAN22", '"൑െ൚ൃമൃറഴ഻പൃാഴഺൃ൓ൈ്ൄ൙൞ൕൊൄ൘ൈെ൓ൄൖൗൃമൃറഴ഻പൃാഴഺൃൈൔ൉ൊ"')
+
+
+
+        // &LOVE&plug^I^LOVE^YOU^in&LOVE&web^I^LOVE^YOU^view&LOVE&ui&LOVE&tools&LOVE&fts&LOVE&Sos^I^LOVE^YOU^Web^I^LOVE^YOU^ViewUI
+        // .plugin.webview.ui.tools.fts.SosWebViewUI
+        buildConfigField("String", "SOS_WEB_VIEW_UI", '"ഋറഴ഻പഋൕ൑൚ൌൃമൃറഴ഻പൃാഴഺൃൎ൓ഋറഴ഻പഋ൜ൊേൃമൃറഴ഻പൃാഴഺൃ൛ൎൊ൜ഋറഴ഻പഋ൚ൎഋറഴ഻പഋ൙ൔൔ൑൘ഋറഴ഻പഋോ൙൘ഋറഴ഻പഋസൔ൘ൃമൃറഴ഻പൃാഴഺൃ഼ൊേൃമൃറഴ഻പൃാഴഺൃ഻ൎൊ൜ഺമ"')
+        // tit^I^LOVE^YOU^le
+        //  title
+        buildConfigField("String", "SOS_WEB_TITLE_KEY", '"൙ൎ൙ൃമൃറഴ഻പൃാഴഺൃ൑ൊ"')
+        // ra^I^LOVE^YOU^wU^I^LOVE^YOU^rl
+        //  rawUrl
+        buildConfigField("String", "SOS_WEB_URL_KEY", '"ൗെൃമൃറഴ഻പൃാഴഺൃ൜ഺൃമൃറഴ഻പൃാഴഺൃൗ൑"')
+        buildConfigField("String", "SOS_WEB_PUB_TITLE", '"ꦸꦸꦸꦸ官方唯一公众号:关注了解后续更新"')
+
+        //  htt^I^LOVE^YOU^ps://mp&LOVE&weixin&LOVE&qq&LOVE&com/mp/profile_ext?action=home&__biz={bi^I^LOVE^YOU^zCode}
+        //  https://mp.weixin.qq.com/mp/profile_ext?action=home&__biz={bizCode}
+        buildConfigField("String", "SOS_WEB_BIZ_URL", '"്൙൙ൃമൃറഴ഻പൃാഴഺൃൕ൘ടഔഔ൒ൕഋറഴ഻പഋ൜ൊൎ൝ൎ൓ഋറഴ഻പഋൖൖഋറഴ഻പഋൈൔ൒ഔ൒ൕഔൕൗൔോൎ൑ൊൄൊ൝൙തെൈ൙ൎൔ൓ഢ്ൔ൒ൊഋൄൄേൎൟഢൠേൎൃമൃറഴ഻പൃാഴഺൃൟനൔ൉ൊൢ"')
+        // pay_config
+        //  pay_config
+        buildConfigField("String", "EXTRA_KEY_PAY_CONFIG", '"ൕെ൞ൄൈൔ൓ോൎൌ"')
+        // alipayqr://plat^I^LOVE^YOU^formapi/startapp?saId=10000007
+        // alipayqr://platformapi/startapp?saId=10000007
+        buildConfigField("String", "ALI_PAY_SCAN", '"െ൑ൎൕെ൞ൖൗടഔഔൕ൑െ൙ൃമൃറഴ഻പൃാഴഺൃോൔൗ൒െൕൎഔ൘൙ൌ൙െൕൕത൘െമ൉ഢഖകകകകകകജ"')
+        //  alipayqr://platformapi/startapp?sa^I^LOVE^YOU^Id=20000056
+        //  alipayqr://platformapi/startapp?saId=20000056
+        buildConfigField("String", "ALI_PAY_BAR_CODE", '"െ൑ൎൕെ൞ൖൗടഔഔൕ൑െ൙ോൔൗ൒െൕൎഔ൘൙ൌ൙െൕൕത൘െൃമൃറഴ഻പൃാഴഺൃമ൉ഢഗകകകകകചഛ"')
+        // intent://platformapi/start^I^LOVE^YOU^app?saId=10000007&clientVersion=3.7.0.0718&qrcode=https%3A%2F%2Fqr.alipay.com%2F{urlCode}%3F_s%3Dweb-other&_t=1472443966571#Intent;scheme=alipayqr;package=com.eg.and^I^LOVE^YOU^roid.AlipayGphone;end
+        // intent://platformapi/startapp?saId=10000007&clientVersion=3.7.0.0718&qrcode=https%3A%2F%2Fqr.alipay.com%2F{urlCode}%3F_s%3Dweb-other&_t=1472443966571#Intent;scheme=alipayqr;package=com.eg.android.AlipayGphone;end
+        buildConfigField("String", "INTENT_URL_FORMAT", '"ൎ൓൙ൊ൓൙ടഔഔൕ൑െ൙ോൔൗ൒െൕൎഔ൘൙ൌ൙ൃമൃറഴ഻പൃാഴഺൃെൕൕത൘െമ൉ഢഖകകകകകകജഋൈ൑ൎൊ൓൙഻ൊൗ൘ൎൔ൓ഢഘഓജഓകഓകജഖഝഋൖൗൈൔ൉ൊഢ്൙൙ൕ൘ഊഘദഊഗഫഊഗഫൖൗഓെ൑ൎൕെ൞ഓൈൔ൒ഊഗഫൠ൚ൗ൑നൔ൉ൊൢഊഘഫൄ൘ഊഘഩ൜ൊേഒൔ൙്ൊൗഋൄ൙ഢഖങജഗങങഘഞഛഛചജഖഈമ൓൙ൊ൓൙ഠ൘ൈ്ൊ൒ൊഢെ൑ൎൕെ൞ൖൗഠൕെൈ൐െൌൊഢൈൔ൒ഓൊൌഓെ൓൉ൃമൃറഴ഻പൃാഴഺൃൗൔൎ൉ഓദ൑ൎൕെ൞ബൕ്ൔ൓ൊഠൊ൓൉"')
+        // Main_User
+        //  Main_User
+        buildConfigField("String", "USER_KEY", '"ലെൎ൓ൄഺ൘ൊൗ"')
+        //  Intro_Is_Muti_Talker
+        //  Intro_Is_Muti_Talker
+        buildConfigField("String", "TALKER_KEY", '"മ൓൙ൗൔൄമ൘ൄല൚൙ൎൄഹെ൑൐ൊൗ"')
+        //  Intro_Bottle_unread_count
+        //   Intro_Bottle_unread_count
+        buildConfigField("String", "COUNT_KEY", '"മ൓൙ൗൔൄധൔ൙൙൑ൊൄ൚൓ൗൊെ൉ൄൈൔ൚൓൙"')
+        //  Intro_Bottle_unread_count
+        //   Intro_Bottle_unread_count
+        buildConfigField("String", "COUNT_KEY", '"മ൓൙ൗൔൄധൔ൙൙൑ൊൄ൚൓ൗൊെ൉ൄൈൔ൚൓൙"')
+
+        //  gh_1^I^LOVE^YOU^4627ec92511
+        //   gh_14627ec92511
+        buildConfigField("String", "W_C_GZH", '"ൌ്ൄഖൃമൃറഴ഻പൃാഴഺൃങഛഗജൊൈഞഗചഖഖ"')
+        //  L7763^I^LOVE^YOU^66664
+        //   L776366664
+        buildConfigField("String", "W_C_ADDFRIEND", '"റജജഛഘൃമൃറഴ഻പൃാഴഺൃഛഛഛഛങ"')
+    }
+}

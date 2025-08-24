@@ -9,7 +9,10 @@ agp = "8.11.0"
 appcompat = "1.7.1"
 room = "2.7.2"
 mmkv= "2.2.2"
-xpqu= "2.6"
+#xpqu= "2.8"
+xpqu= "latest.release"
+easywindow = "latest.release"
+xxpermission = "latest.release"
 material = "1.11.0"
 activity = "1.8.2"
 colorpicker = "1.1.0"
@@ -22,8 +25,7 @@ fragment = "1.6.2"
 
 #不要更新版本
 hutool = "5.8.22"
-easywindow = "10.3"
-xxpermission = "25.0"
+
 
 libarchive = "1.0.3"
 lifecycle = "2.7.0"
