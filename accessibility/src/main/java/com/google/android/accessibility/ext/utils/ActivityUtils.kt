@@ -14,26 +14,22 @@ import androidx.annotation.RequiresApi
  * Description:This is ActivityUtils
  */
 class ActivityUtils {
- fun startActivityForResult(activity: Activity) {
 
-     fun startActivityForResult(activity: ComponentActivity) {
-         val filePickerLauncher = activity.registerForActivityResult(
-             ActivityResultContracts.StartActivityForResult()) { result ->
-             if (result.resultCode == Activity.RESULT_OK) {
-                 val data: Intent? = result.data
-                 //=============获取文件的真实路径======================
-                 // dealData(data)
-                 //=============获取文件的真实路径======================
-             }
-         }
+    fun startActivityForResult(activity: ComponentActivity) {
+        val filePickerLauncher = activity.registerForActivityResult(
+            ActivityResultContracts.StartActivityForResult()) { result ->
+            if (result.resultCode == Activity.RESULT_OK) {
+                val data: Intent? = result.data
+                //=============获取文件的真实路径======================
+                // dealData(data)
+                //=============获取文件的真实路径======================
+            }
+        }
 
-         // 使用 launcher 启动文件选择器
-         val intent = Intent(Intent.ACTION_GET_CONTENT)
-         intent.type = "*/*"
-         filePickerLauncher.launch(intent)
-     }
-
-
- }
+        // 使用 launcher 启动文件选择器
+        val intent = Intent(Intent.ACTION_GET_CONTENT)
+        intent.type = "*/*"
+        filePickerLauncher.launch(intent)
+    }
 
 }

@@ -65,22 +65,14 @@ object AliveUtils {
         context.startActivity(intent)
     }
 
-    /*
-    * 引导用户去授权辅助服务权限
-    * */
-    @JvmOverloads
-    @JvmStatic
-    fun openAccessibility(@NonNull context: Context = appContext) {
-        val intent = Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS)
-        intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP)
-        context.startActivity(intent)
-    }
 
     /*
     * 判断指定辅助服务是否已开启
     *
     * @param accessibilityServiceClass 辅助服务类
     * */
+    @JvmOverloads
+    @JvmStatic
      fun hasOpenService(@NonNull context: Context = appContext, accessibilityServiceClass : Class<out AccessibilityService>): Boolean {
          //返回值是一个包含所有已启用无障碍服务包名的字符串
         val enabledNotificationListeners = Settings.Secure.getString(
