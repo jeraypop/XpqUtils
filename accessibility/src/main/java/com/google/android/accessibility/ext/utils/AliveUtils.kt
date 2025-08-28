@@ -119,7 +119,8 @@ object AliveUtils {
 
         val permission = easyRequestPermission(
             context,
-            PermissionLists.getBindAccessibilityServicePermission(accessibilityServiceClass)
+            PermissionLists.getBindAccessibilityServicePermission(accessibilityServiceClass),
+            "无障碍服务"
         )
         if (permission) {
             isGranted = true
@@ -459,17 +460,17 @@ object AliveUtils {
 
                             // ......
                             if (doNotAskAgain) {
-                                toast(appContext,"被永久拒绝授权，请手动授予读取音频权限")
+                                toast(appContext,"读取音频权限被永久拒绝授权，请手动授予!")
                                 // 如果是被永久拒绝就跳转到应用权限系统设置页面
                                 XXPermissions.startPermissionActivity(context,deniedList)
                             }else{
-                                toast(appContext,"获取读取音频权限失败")
+                                toast(appContext,"音频权限获取失败")
                             }
 
                         }else{
                             // 在这里处理权限请求成功的逻辑
                             isGranted = true
-                            toast(appContext,"获取读取音频权限成功")
+                            toast(appContext,"音频权限获取成功")
                         }
                     }
 
@@ -521,17 +522,17 @@ object AliveUtils {
 
                             // ......
                             if (doNotAskAgain) {
-                                toast(appContext,"被永久拒绝授权，请手动授予外部存储权限")
+                                toast(appContext,"外部存储权限被永久拒绝授权，请手动授予!")
                                 // 如果是被永久拒绝就跳转到应用权限系统设置页面
                                 XXPermissions.startPermissionActivity(context,deniedList)
                             }else{
-                                toast(appContext,"获取外部存储权限失败")
+                                toast(appContext,"外部存储权限获取失败")
                             }
 
                         }else{
                             // 在这里处理权限请求成功的逻辑
                             isGranted = true
-                            toast(appContext,"获取外部存储权限成功")
+                            toast(appContext,"外部存储权限获取成功")
                         }
                     }
                 })
@@ -540,7 +541,7 @@ object AliveUtils {
     }
 
     @JvmStatic
-    fun easyRequestPermission(context: Activity, permission:IPermission): Boolean {
+    fun easyRequestPermission(context: Activity, permission:IPermission, permissionName: String): Boolean {
         var isGranted = false
         if (Build.VERSION.SDK_INT >= 23){
             XXPermissions.with(context)
@@ -582,20 +583,18 @@ object AliveUtils {
                             isGranted = false
                             // 判断请求失败的权限是否被用户勾选了不再询问的选项
                             val doNotAskAgain = XXPermissions.isDoNotAskAgainPermissions(context, deniedList)
-
-                            // ......
                             if (doNotAskAgain) {
-                                toast(appContext,"被永久拒绝授权，请手动授予权限")
+                                toast(appContext,permissionName+"权限被永久拒绝授权，请手动授予!")
                                 // 如果是被永久拒绝就跳转到应用权限系统设置页面
                                 XXPermissions.startPermissionActivity(context,deniedList)
                             }else{
-                                toast(appContext,"获取权限失败")
+                                toast(appContext,permissionName+"获取失败")
                             }
 
                         }else{
                             // 在这里处理权限请求成功的逻辑
                             isGranted = true
-                            toast(appContext,"获取权限成功")
+                            toast(appContext,permissionName+"获取成功")
                         }
                     }
 

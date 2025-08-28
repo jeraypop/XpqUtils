@@ -13,7 +13,7 @@
         <item name="android:statusBarColor">?attr/colorPrimaryVariant</item>
         <!-- Customize your theme here. -->
     </style>
-
+    <!-- 隐式继承 Theme.AndroidAuto -->
     <style name="Theme.AndroidAuto.NoActionBar">
         <item name="windowActionBar">false</item>
         <item name="windowNoTitle">true</item>

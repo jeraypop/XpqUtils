@@ -48,6 +48,7 @@ android {
 }
 
 dependencies {
+//    api files('libs\\XXPermissions-26.3.aar')
     //androidX
     implementation(libs.core.ktx)
     implementation(libs.appcompat.appcompat)
@@ -58,13 +59,12 @@ dependencies {
     implementation(libs.blankj)
     //tencent mmkv   api可以依赖传递
     api(libs.mmkv.static)
-//    api 'com.tencent:mmkv-static:2.2.2'
-
+    api(libs.easyfloat)
     // 权限请求框架：https://github.com/getActivity/XXPermissions
-    implementation(libs.easy.permission)
-//    implementation files('libs\\XXPermissions-26.3.aar')
+    api(libs.easy.permission)
+
     // 设备兼容框架：https://github.com/getActivity/DeviceCompat
-//    implementation 'com.github.getActivity:DeviceCompat:1.0'
+    api 'com.github.getActivity:DeviceCompat:1.0'
 
 //    implementation 'androidx.core:core-ktx:1.7.0'
 //    implementation 'androidx.appcompat:appcompat:1.4.1'

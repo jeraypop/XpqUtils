@@ -8,7 +8,11 @@ package com.lygttpod.android.auto
 import android.os.Bundle
 import android.util.Log
 import android.view.WindowManager
+import androidx.activity.enableEdgeToEdge
 import androidx.appcompat.app.AppCompatActivity
+import androidx.core.view.ViewCompat
+import androidx.core.view.WindowCompat
+import androidx.core.view.WindowInsetsCompat
 import androidx.lifecycle.MutableLiveData
 import androidx.navigation.ui.AppBarConfiguration
 import com.android.accessibility.ext.BuildConfig
@@ -41,9 +45,19 @@ class MainActivity : AppCompatActivity() {
         super.onCreate(savedInstanceState)
 
         binding = ActivityMainBinding.inflate(layoutInflater)
+        enableEdgeToEdge()
+//        WindowCompat.setDecorFitsSystemWindows(window, false)
         setContentView(binding.root)
 
         setSupportActionBar(binding.toolbar)
+
+        ViewCompat.setOnApplyWindowInsetsListener(binding.root) { _, insets ->
+            val systemBars = insets.getInsets(WindowInsetsCompat.Type.systemBars())
+            binding.statusBarBackground.layoutParams.height = systemBars.top
+            binding.content.setPadding(0, systemBars.top, 0, 0)
+            insets
+        }
+
 
 //        val navController = findNavController(R.id.nav_host_fragment_content_main)
 //        appBarConfiguration = AppBarConfiguration(navController.graph)
@@ -97,6 +111,7 @@ class MainActivity : AppCompatActivity() {
 //            openWeChatToFollowInterface(getWCField[6].second.restoreAllIllusion())
             AliveUtils.hasOpenService(this,SelectToSpeakService::class.java)
             MMKV.initialize( this)
+           
         }
 
 

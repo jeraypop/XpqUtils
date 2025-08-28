@@ -1,0 +1,13 @@
+<resources>
+
+
+
+    <!-- 隐式继承 Theme.AndroidAuto -->
+    <style name="Theme.AndroidAuto.NoActionBar">
+        <item name="windowActionBar">false</item>
+        <item name="windowNoTitle">true</item>
+
+    </style>
+
+
+</resources>

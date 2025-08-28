@@ -45,7 +45,8 @@ object OverlayLog : AssistsServiceListener {
         @SuppressLint("ClickableViewAccessibility")
         get() {
             if (field == null) {
-                field = LogOverlayBinding.inflate(LayoutInflater.from(SelectToSpeakServiceAbstract.instance)).apply {
+                val context = SelectToSpeakServiceAbstract.instance ?: return null
+                field = LogOverlayBinding.inflate(LayoutInflater.from(context)).apply {
                     scrollView.setOnTouchListener(onScrollTouchListener)
                     btnClean.setOnClickListener {
                         CoroutineWrapper.launch { LogWrapper.clearLog() }

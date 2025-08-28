@@ -104,7 +104,7 @@ class QuanXianActivity : AppCompatActivity() {
             }*/
 
             //===
-            val easyPermission = AliveUtils.easyRequestPermission(this@QuanXianActivity, PermissionLists.getRequestIgnoreBatteryOptimizationsPermission())
+            val easyPermission = AliveUtils.easyRequestPermission(this@QuanXianActivity, PermissionLists.getRequestIgnoreBatteryOptimizationsPermission(),"忽略电池优化")
             if (easyPermission) {
                 binding.imagePowerPermission.setImageDrawable(drawableYes)
             } else {
@@ -124,7 +124,7 @@ class QuanXianActivity : AppCompatActivity() {
             }
 
             //===
-            val easyPermission = AliveUtils.easyRequestPermission(this@QuanXianActivity, PermissionLists.getPostNotificationsPermission())
+            val easyPermission = AliveUtils.easyRequestPermission(this@QuanXianActivity, PermissionLists.getPostNotificationsPermission(),"发送通知")
             if (easyPermission) {
                 //设置通知标题内容对话框
                 showCustomizeDialog()
@@ -176,7 +176,7 @@ class QuanXianActivity : AppCompatActivity() {
                     }*/
 
                     //===
-                    val easyPermission = AliveUtils.easyRequestPermission(this@QuanXianActivity, PermissionLists.getBindDeviceAdminPermission(MyDeviceAdminReceiver::class.java))
+                    val easyPermission = AliveUtils.easyRequestPermission(this@QuanXianActivity, PermissionLists.getBindDeviceAdminPermission(MyDeviceAdminReceiver::class.java),"设备管理员")
                     if (easyPermission) {
                         binding.imageGuanliyuanPermission.setImageDrawable(drawableYes)
                     } else {
@@ -230,7 +230,7 @@ class QuanXianActivity : AppCompatActivity() {
             }*/
 
             //===
-            val easyPermission = AliveUtils.easyRequestPermission(this@QuanXianActivity, PermissionLists.getSystemAlertWindowPermission())
+            val easyPermission = AliveUtils.easyRequestPermission(this@QuanXianActivity, PermissionLists.getSystemAlertWindowPermission(),"悬浮窗")
             if (easyPermission) {
                 binding.imageFloatPermission.setImageDrawable(drawableYes)
             } else {
