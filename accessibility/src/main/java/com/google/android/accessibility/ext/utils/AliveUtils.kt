@@ -62,6 +62,7 @@ object AliveUtils {
     fun openAliveActivity(@NonNull context: Context = appContext) {
         // 创建一个Intent，指定要启动的Activity
         val intent = Intent(context, QuanXianActivity::class.java)
+        intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
         context.startActivity(intent)
     }
 
