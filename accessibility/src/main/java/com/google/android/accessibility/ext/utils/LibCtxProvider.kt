@@ -70,7 +70,8 @@ class LibCtxProvider : ContentProvider() {
 
         })
         //定义 contentProvider  Authority
-        contentProviderAuthority = "content://" + appContext.packageName+".contextProvider"
+//        contentProviderAuthority = "content://" + appContext.packageName+".xpqutilsProvider"
+        contentProviderAuthority = appContext.packageName+".xpqutilsProvider"
         //初始化SharedPreferences
         SPUtils.init(appContext)
         return true

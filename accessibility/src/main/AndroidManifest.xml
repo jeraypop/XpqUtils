@@ -68,8 +68,8 @@
 
         <provider
             android:name="com.google.android.accessibility.ext.utils.LibCtxProvider"
-            android:authorities="${applicationId}.contextProvider"
-            android:exported="true" />
+            android:authorities="${applicationId}.xpqutilsProvider"
+            android:exported="false" />
     </application>
     <!--  Android 11 及以上版本中查询应用的信息  -->
     <queries>

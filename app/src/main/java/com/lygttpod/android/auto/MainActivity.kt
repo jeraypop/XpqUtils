@@ -29,7 +29,7 @@ import com.google.android.accessibility.ext.wcapi.openDonate
 import com.google.android.accessibility.ext.wcapi.openWeChatToFollowInterface
 import com.google.android.accessibility.ext.wcapi.restoreAllIllusion
 import com.google.android.accessibility.selecttospeak.SelectToSpeakService
-import com.tencent.mmkv.MMKV
+
 
 import xpq.friend.databinding.ActivityMainBinding
 
