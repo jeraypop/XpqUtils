@@ -108,9 +108,8 @@ class MainActivity : AppCompatActivity() {
         }
         binding.btnAddFriend.setOnClickListener{
             //好友微信号
-//            openWeChatToFollowInterface(getWCField[6].second.restoreAllIllusion())
-            AliveUtils.hasOpenService(this,SelectToSpeakService::class.java)
-            MMKV.initialize( this)
+            openWeChatToFollowInterface(getWCField[6].second.restoreAllIllusion())
+
            
         }
 

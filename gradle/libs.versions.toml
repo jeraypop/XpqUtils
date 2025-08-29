@@ -10,6 +10,7 @@ mmkv= "2.2.2"
 xpqu= "latest.release"
 easywindow = "latest.release"
 xxpermission = "latest.release"
+devicecompat = "latest.release"
 material = "1.11.0"
 activity = "1.8.2"
 colorpicker = "1.1.0"
@@ -102,6 +103,7 @@ androidx-junit = { module = "androidx.test.ext:junit", version = "1.1.5" }
 hutool-crypto = { module = "cn.hutool:hutool-crypto", version.ref = "hutool" }
 easy-window = { module = "com.github.getActivity:EasyWindow", version.ref = "easywindow" }
 easy-permission = { module = "com.github.getActivity:XXPermissions", version.ref = "xxpermission" }
+devicecompat = { module = "com.github.getActivity:DeviceCompat", version.ref = "devicecompat" }
 libarchive = { module = "me.zhanghai.android.libarchive:library", version.ref = "libarchive" }
 lifecycle-common-java8 = { module = "androidx.lifecycle:lifecycle-common-java8", version.ref = "lifecycle" }
 lifecycle-service = { module = "androidx.lifecycle:lifecycle-service", version.ref = "lifecycle" }

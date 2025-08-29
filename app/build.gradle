@@ -112,7 +112,11 @@ android {
 dependencies {
 
     implementation(project(":accessibility"))
-//    implementation(libs.xpq.utils)
+//    implementation(libs.xpq.utils) {
+//        //排除掉特定依赖
+//        exclude group: 'com.tencent', module: 'mmkv-static'
+//    }
+
     implementation(libs.core.ktx)
     implementation(libs.appcompat.appcompat)
     implementation(libs.material)
