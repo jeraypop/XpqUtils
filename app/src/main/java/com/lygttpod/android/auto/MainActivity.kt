@@ -16,6 +16,7 @@ import androidx.core.view.WindowInsetsCompat
 import androidx.lifecycle.MutableLiveData
 import androidx.navigation.ui.AppBarConfiguration
 import com.android.accessibility.ext.BuildConfig
+import com.google.android.accessibility.ext.openAccessibilitySetting
 
 import com.google.android.accessibility.ext.utils.AliveUtils
 import com.google.android.accessibility.ext.utils.MMKVUtil
@@ -108,8 +109,8 @@ class MainActivity : AppCompatActivity() {
         }
         binding.btnAddFriend.setOnClickListener{
             //好友微信号
-            openWeChatToFollowInterface(getWCField[6].second.restoreAllIllusion())
-
+//            openWeChatToFollowInterface(getWCField[6].second.restoreAllIllusion())
+            openAccessibilitySetting()
            
         }
 
