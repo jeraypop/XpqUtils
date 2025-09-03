@@ -15,8 +15,6 @@ class App : Application() {
     override fun onCreate() {
         super.onCreate()
         instance = this
-//        AutoTools.init(this)
-//        FuckAdManager.init(this)
         //重新绑定服务
         NotificationUtil.toggleNotificationListenerService(notificationcls = NotificationListenerServiceImp::class.java)
 
