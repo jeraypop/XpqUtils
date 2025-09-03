@@ -9,6 +9,7 @@ import android.content.pm.PackageManager
 import android.os.Bundle
 import android.provider.Settings
 import android.service.notification.NotificationListenerService
+import android.service.notification.StatusBarNotification
 import android.text.TextUtils
 import android.widget.Toast
 import androidx.core.app.NotificationManagerCompat
@@ -107,9 +108,23 @@ object NotificationUtil {
 
 
     }
+    /**
+     * 从 activeNotifications 中获取最新的一条通知
+     */
+    fun getLatestNotification(notifications: Array<StatusBarNotification>?): StatusBarNotification? {
+        if (notifications.isNullOrEmpty()) return null
+        return notifications.maxByOrNull { it.postTime }
+    }
+    /**
+     * 从 activeNotifications 中获取所有通知，并按时间从新到旧排序
+     */
+    fun getAllSortedByTime(notifications: Array<StatusBarNotification>?): List<StatusBarNotification> {
+        return notifications?.sortedByDescending { it.postTime } ?: emptyList()
+    }
+
 
     @JvmStatic
-    fun getNotificationData(extraszhedie: Bundle, isZiThread: Boolean): List<String> {
+    fun getNotificationData11(extraszhedie: Bundle?): List<String> {
         if (extraszhedie == null)return listOf(
             appContext.getString(
             R.string.notificationtitlenull), appContext.getString(
@@ -117,22 +132,15 @@ object NotificationUtil {
         val msgList = mutableListOf<String>()
         var title:String=""
         var content:String=""
-        var sleepT:Long = 200
         //1
         var texttitle = extraszhedie.getCharSequence(Notification.EXTRA_TITLE) ?: ""
         var textcontent = extraszhedie.getCharSequence(Notification.EXTRA_TEXT) ?: ""
-        if (TextUtils.isEmpty(texttitle)&& TextUtils.isEmpty(textcontent)){
-            if (isZiThread){
-//                SystemClock.sleep(sleepT)
-            }
+        if (TextUtils.isEmpty(texttitle) && TextUtils.isEmpty(textcontent)){
             //2
             texttitle = extraszhedie.getCharSequence(Notification.EXTRA_TITLE) ?: ""
             textcontent = extraszhedie.getCharSequence(Notification.EXTRA_TEXT) ?: ""
             //---------------------------
             if (TextUtils.isEmpty(texttitle)&& TextUtils.isEmpty(textcontent)){
-                if (isZiThread){
-//                    SystemClock.sleep(sleepT)
-                }
                 //3
                 texttitle = extraszhedie.getCharSequence(Notification.EXTRA_TITLE) ?: ""
                 textcontent = extraszhedie.getCharSequence(Notification.EXTRA_TEXT) ?: ""
@@ -242,6 +250,32 @@ object NotificationUtil {
         msgList.add(content)
         return msgList.take(2)
     }
+
+    @JvmStatic
+    fun getNotificationData(extras: Bundle?): List<String> {
+        if (extras == null) {
+            return listOf(
+                appContext.getString(R.string.notificationtitlenull),
+                appContext.getString(R.string.notificationcontentnull)
+            )
+        }
+
+        // 获取标题和内容的辅助函数，返回非空非空白的字符串
+        fun getStringOrFallback(key: String, fallback: String): String {
+            return extras.getCharSequence(key)?.toString()?.takeIf { it.isNotBlank() }
+                ?: extras.getString(key, fallback)
+                ?: fallback
+        }
+
+        // 获取标题和内容
+        val title = getStringOrFallback(Notification.EXTRA_TITLE, appContext.getString(R.string.notificationtitlenull))
+        val content = getStringOrFallback(Notification.EXTRA_TEXT, appContext.getString(R.string.notificationcontentnull))
+
+        return listOf(title, content)
+    }
+
+
+
 
 
 }

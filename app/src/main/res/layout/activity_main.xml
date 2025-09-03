@@ -81,6 +81,15 @@ android:fitsSystemWindows="true"
                 android:text="开启无障碍"
                 android:textSize="15dp" />
             <Button
+                android:id="@+id/btnNotification"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:minWidth="300dp"
+                android:layout_gravity="center"
+                android:gravity="center"
+                android:text="读取通知栏消息"
+                android:textSize="15dp" />
+            <Button
                 android:id="@+id/btnGZH"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"

@@ -59,7 +59,7 @@ dependencies {
     implementation(libs.blankj)
     //tencent mmkv   api可以依赖传递
     api(libs.mmkv.static)
-    api(libs.easyfloat)
+    api(libs.easy.float)
     // 设备兼容框架：https://github.com/getActivity/DeviceCompat
     api(libs.devicecompat)
     // 权限请求框架：https://github.com/getActivity/XXPermissions

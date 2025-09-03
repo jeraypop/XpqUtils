@@ -24,11 +24,10 @@ abstract class SelectToSpeakServiceAbstract : AccessibilityService() {
     abstract fun asyncHandleAccessibilityEvent(event: AccessibilityEvent)
 
     override fun onServiceConnected() {
-        toast("11")
         instance = this
         accessibilityServiceLiveData.value = this
         AssistsWindowManager.init(this)
-        Log.d(TAG, "onServiceConnected: ")
+//        Log.d(TAG, "onServiceConnected: ")
         runCatching { listeners.forEach { it.onServiceConnected(this) } }
 
         if (AliveUtils.getKeepAliveByNotification()){

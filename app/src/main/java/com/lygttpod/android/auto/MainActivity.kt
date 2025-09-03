@@ -29,6 +29,7 @@ import com.google.android.accessibility.ext.wcapi.openDonate
 import com.google.android.accessibility.ext.wcapi.openWeChatToFollowInterface
 import com.google.android.accessibility.ext.wcapi.restoreAllIllusion
 import com.google.android.accessibility.selecttospeak.SelectToSpeakService
+import com.lygttpod.android.auto.notification.NotificationListenerServiceImp
 
 
 import xpq.friend.databinding.ActivityMainBinding
@@ -101,6 +102,9 @@ class MainActivity : AppCompatActivity() {
         }
         binding.btnAccessibility.setOnClickListener{
             AliveUtils.openAccessibility(this, SelectToSpeakService::class.java)
+        }
+        binding.btnNotification.setOnClickListener{
+            AliveUtils.openNotificationListener(this, NotificationListenerServiceImp::class.java)
         }
         binding.btnGZH.setOnClickListener{
             //公众号ID

@@ -8,6 +8,7 @@ room = "2.7.2"
 mmkv= "2.2.2"
 #xpqu= "2.8"
 xpqu= "latest.release"
+jeraypopeasyfloat = "latest.release"
 easywindow = "latest.release"
 xxpermission = "latest.release"
 devicecompat = "latest.release"
@@ -101,6 +102,8 @@ fragment-testing = { module = "androidx.fragment:fragment-testing", version.ref 
 androidx-junit = { module = "androidx.test.ext:junit", version = "1.1.5" }
 
 hutool-crypto = { module = "cn.hutool:hutool-crypto", version.ref = "hutool" }
+easy-float = { module = "com.github.jeraypop:EasyFloat", version.ref = "jeraypopeasyfloat" }
+xpq-utils = { module = "com.github.jeraypop:XpqUtils", version.ref = "xpqu" }
 easy-window = { module = "com.github.getActivity:EasyWindow", version.ref = "easywindow" }
 easy-permission = { module = "com.github.getActivity:XXPermissions", version.ref = "xxpermission" }
 devicecompat = { module = "com.github.getActivity:DeviceCompat", version.ref = "devicecompat" }
@@ -205,7 +208,7 @@ okhttputils = { module = "com.zhy:okhttputils", version.ref = "okhttputils" }
 timber = { module = "com.jakewharton.timber:timber", version.ref = "timber" }
 recyclerview = { module = "androidx.recyclerview:recyclerview", version.ref = "recyclerview" }
 mmkv-static = { module = "com.tencent:mmkv-static", version.ref = "mmkv" }
-xpq-utils = { module = "com.github.jeraypop:XpqUtils", version.ref = "xpqu" }
+
 live-event-bus-x = { module = "com.jeremyliao:live-event-bus-x", version.ref = "busx" }
 navigation = { module = "androidx.navigation:navigation-fragment", version.ref = "navigation" }
 navigationktx = { module = "androidx.navigation:navigation-fragment-ktx", version.ref = "navigation" }
