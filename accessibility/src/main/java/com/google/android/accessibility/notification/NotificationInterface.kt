@@ -8,7 +8,7 @@ interface NotificationInterface {
      * 当界面发生事件时回调，即 [AssistsService.onAccessibilityEvent] 回调
      */
     fun onNotificationPosted(sbn: StatusBarNotification) {}
-    fun onNotificationPosted(sbn: StatusBarNotification, rankingMap: RankingMap) {}
+    fun onNotificationPosted(sbn: StatusBarNotification, rankingMap: RankingMap?) {}
 
     /**
      * 服务启用后的回调，即[AssistsService.onServiceConnected]回调

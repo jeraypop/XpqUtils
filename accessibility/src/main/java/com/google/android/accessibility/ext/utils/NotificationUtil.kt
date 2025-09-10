@@ -12,9 +12,15 @@ import android.service.notification.NotificationListenerService
 import android.service.notification.StatusBarNotification
 import android.text.TextUtils
 import android.widget.Toast
+import androidx.core.app.NotificationCompat
 import androidx.core.app.NotificationManagerCompat
+
 import com.android.accessibility.ext.R
 import com.google.android.accessibility.ext.utils.LibCtxProvider.Companion.appContext
+import com.google.android.accessibility.notification.MessageStyleInfo
+import java.text.SimpleDateFormat
+import java.util.Date
+import java.util.Locale
 
 object NotificationUtil {
 
@@ -116,10 +122,24 @@ object NotificationUtil {
         return notifications.maxByOrNull { it.postTime }
     }
     /**
+     * 从 activeNotifications 中获取时间第二晚的通知
+     */
+    fun getSecondLatestNotification(notifications: Array<StatusBarNotification>?): StatusBarNotification? {
+        if (notifications.isNullOrEmpty()) return null
+        return notifications.sortedByDescending { it.postTime }.getOrNull(1)
+    }
+
+    /**
      * 从 activeNotifications 中获取所有通知，并按时间从新到旧排序
      */
     fun getAllSortedByTime(notifications: Array<StatusBarNotification>?): List<StatusBarNotification> {
         return notifications?.sortedByDescending { it.postTime } ?: emptyList()
+    }
+    /**
+     * 从 MessagingStyle 中获取所有会话通知，并按时间从新到旧排序
+     */
+    fun getAllSortedMessagingStyleByTime(notifications: List<NotificationCompat.MessagingStyle.Message>?): List<NotificationCompat.MessagingStyle.Message> {
+        return notifications?.sortedByDescending { it.timestamp } ?: emptyList()
     }
 
 
@@ -250,9 +270,12 @@ object NotificationUtil {
         msgList.add(content)
         return msgList.take(2)
     }
-
+    /**
+     * 解析通知标题和内容  不包含会话通知
+     */
     @JvmStatic
     fun getNotificationData(extras: Bundle?): List<String> {
+        // 如果 extras 是 null，直接返回默认值
         if (extras == null) {
             return listOf(
                 appContext.getString(R.string.notificationtitlenull),
@@ -267,12 +290,92 @@ object NotificationUtil {
                 ?: fallback
         }
 
-        // 获取标题和内容
+        // 获取标题
         val title = getStringOrFallback(Notification.EXTRA_TITLE, appContext.getString(R.string.notificationtitlenull))
-        val content = getStringOrFallback(Notification.EXTRA_TEXT, appContext.getString(R.string.notificationcontentnull))
+
+        // 获取内容，如果 EXTRA_TEXT 为空，则尝试获取 EXTRA_BIG_TEXT
+        val content = getStringOrFallback(Notification.EXTRA_TEXT,
+            getStringOrFallback(Notification.EXTRA_BIG_TEXT, appContext.getString(R.string.notificationcontentnull))
+        )
 
         return listOf(title, content)
     }
+    /**
+     * 解析通知标题和内容  包含会话通知
+     */
+    @JvmStatic
+    fun getNotificationData(extras: Bundle?, notification: Notification): List<String> {
+        // 如果 extras 是 null，直接返回默认值
+        if (extras == null) {
+            return listOf(
+                appContext.getString(R.string.notificationtitlenull),
+                appContext.getString(R.string.notificationcontentnull)
+            )
+        }
+
+        // 获取标题和内容的辅助函数，返回非空非空白的字符串
+        fun getStringOrFallback(key: String, fallback: String): String {
+            return extras.getCharSequence(key)?.toString()?.takeIf { it.isNotBlank() }
+                ?: extras.getString(key, fallback)
+                ?: fallback
+        }
+
+        // 获取标题
+        val title = getStringOrFallback(Notification.EXTRA_TITLE, appContext.getString(R.string.notificationtitlenull))
+
+        // 获取内容，如果 EXTRA_TEXT 为空，则尝试获取 EXTRA_BIG_TEXT
+        val content = getStringOrFallback(Notification.EXTRA_TEXT,
+            getStringOrFallback(Notification.EXTRA_BIG_TEXT, appContext.getString(R.string.notificationcontentnull))
+        )
+
+        // 判断是否为 MessagingStyle 类型的通知
+        val messagingStyle = NotificationCompat.MessagingStyle.extractMessagingStyleFromNotification(notification)
+
+        // 如果是 MessagingStyle 类型的通知，解析该类型的标题和内容
+        if (messagingStyle != null) {
+            // 获取对话标题（例如联系人名称或群聊名称）
+            val conversationTitle: String = (messagingStyle.conversationTitle ?: appContext.getString(R.string.notificationtitlenull)).toString()
+
+            // 获取消息列表
+            val messageList = messagingStyle?.messages?:emptyList()
+            // 获取所有按时间排序messagingStyle的消息列表
+            val sortedmessageList = getAllSortedMessagingStyleByTime(messageList)
+            //获取最新的一条消息
+            // sortedmessageList?.firstOrNull()
+            // sortedmessageList.getOrNull(0) 两个是等价的
+            val first_msg = sortedmessageList?.firstOrNull()
+            first_msg?:return listOf(
+                appContext.getString(R.string.notificationtitlenull),
+                appContext.getString(R.string.notificationcontentnull)
+            )
+            val firstMessage = first_msg?.let {
+                MessageStyleInfo(
+                    timestamp = it.timestamp,
+                    title = conversationTitle,
+                    sender = it.person?.toString() ?: "Unknown",
+                    text = it.text?.toString()?.takeIf { it.isNotBlank() }
+                        ?: appContext.getString(R.string.notificationcontentnull)
+                )
+            } ?: MessageStyleInfo( //默认值
+                timestamp = 0L,
+                title = appContext.getString(R.string.notificationtitlenull),
+                sender = "Unknown",
+                text = appContext.getString(R.string.notificationcontentnull)
+            )
+            val content =  if (TextUtils.equals(appContext.getString(R.string.notificationcontentnull), firstMessage.text)){
+                firstMessage.text
+            }else{
+                firstMessage.sender + ":" + firstMessage.text
+            }
+            val titile =  firstMessage.title
+            // 返回对话标题和最新消息内容
+            return listOf(titile, content)
+        }
+
+        // 返回默认值
+        return listOf(title, content)
+    }
+
 
 
 

@@ -104,6 +104,7 @@ class MainActivity : AppCompatActivity() {
             AliveUtils.openAccessibility(this, SelectToSpeakService::class.java)
         }
         binding.btnNotification.setOnClickListener{
+       
             AliveUtils.openNotificationListener(this, NotificationListenerServiceImp::class.java)
         }
         binding.btnGZH.setOnClickListener{

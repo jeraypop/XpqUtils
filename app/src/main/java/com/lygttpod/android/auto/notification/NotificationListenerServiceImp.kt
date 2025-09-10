@@ -4,6 +4,7 @@ import android.os.Build
 import android.service.notification.StatusBarNotification
 import android.util.Log
 import androidx.annotation.RequiresApi
+import com.google.android.accessibility.notification.NotificationInfo
 import com.google.android.accessibility.notification.NotificationListenerServiceAbstract
 
 
@@ -22,7 +23,8 @@ class NotificationListenerServiceImp : NotificationListenerServiceAbstract() {
         sbn: StatusBarNotification,
         notification: Notification,
         title: String,
-        content: String
+        content: String,
+        n_Info: NotificationInfo
     ) {
 
     }
@@ -33,29 +35,47 @@ class NotificationListenerServiceImp : NotificationListenerServiceAbstract() {
         sbn: StatusBarNotification,
         notification: Notification,
         title: String,
-        content: String
+        content: String,
+        n_Info: NotificationInfo
     ) {
+
         val packageName = sbn.packageName
         val pI = notification.contentIntent
         val postTime = sbn.postTime
         val key = sbn.key
         Log.e("通知监控1", "title="+ title+" content="+content )
     }
-    /**
-     * 系统收到新的通知后触发回调
-     */
-    override fun asyncHandleNotificationPosted(
+
+    override fun asyncHandleNotificationPostedFor(
         sbn: StatusBarNotification,
-        rankingMap: RankingMap,
         notification: Notification,
         title: String,
-        content: String
+        content: String,
+        n_Info: NotificationInfo
     ) {
         val packageName = sbn.packageName
         val pI = notification.contentIntent
         val postTime = sbn.postTime
         val key = sbn.key
         Log.e("通知监控2", "title="+ title+" content="+content )
+    }
+
+    /**
+     * 系统收到新的通知后触发回调
+     */
+    override fun asyncHandleNotificationPosted(
+        sbn: StatusBarNotification,
+        rankingMap: RankingMap?,
+        notification: Notification,
+        title: String,
+        content: String,
+        n_Info: NotificationInfo
+    ) {
+        val bigText = n_Info.messageStyleList
+        for (message in bigText){
+            Log.e("通知监控4", "title="+ message.title+" text="+message.text )
+        }
+        Log.e("通知监控3", "title="+ title+" content="+content)
     }
 
     override var title:String=""

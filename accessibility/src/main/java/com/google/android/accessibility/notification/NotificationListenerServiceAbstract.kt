@@ -1,20 +1,24 @@
 package com.google.android.accessibility.notification
 import android.app.Notification
+import android.app.PendingIntent
 import android.os.Build
 import android.service.notification.NotificationListenerService
 import android.service.notification.StatusBarNotification
 import android.text.TextUtils
-import android.util.Log
 import androidx.annotation.RequiresApi
+import androidx.annotation.WorkerThread
+import androidx.core.app.NotificationCompat
 import androidx.lifecycle.MutableLiveData
 import com.android.accessibility.ext.R
 import com.google.android.accessibility.ext.utils.LibCtxProvider.Companion.appContext
-import com.google.android.accessibility.ext.utils.NotificationUtil
+
 import com.google.android.accessibility.ext.utils.NotificationUtil.getAllSortedByTime
-import com.google.android.accessibility.ext.utils.NotificationUtil.getLatestNotification
+import com.google.android.accessibility.ext.utils.NotificationUtil.getAllSortedMessagingStyleByTime
+
 import com.google.android.accessibility.ext.utils.NotificationUtil.getNotificationData
 import java.util.Collections
 import java.util.concurrent.Executors
+
 
 /**
  * 4.3之后系统受到新的通知或者通知被删除时，会触发该service的回调方法
@@ -30,25 +34,25 @@ abstract class NotificationListenerServiceAbstract : NotificationListenerService
     private val executors2 = Executors.newSingleThreadExecutor()
 
     abstract fun targetPackageName(): String
-    abstract fun asyncHandleNotificationRemoved(sbn: StatusBarNotification, notification: Notification,title: String,content: String)
-    abstract fun asyncHandleNotificationPosted(sbn: StatusBarNotification, notification: Notification,title: String,content: String)
-    abstract fun asyncHandleNotificationPosted(sbn: StatusBarNotification, rankingMap: RankingMap, notification: Notification,title: String,content: String)
+    @WorkerThread
+    abstract fun asyncHandleNotificationRemoved(sbn: StatusBarNotification, notification: Notification,title: String,content: String,n_Info: NotificationInfo)
+    @WorkerThread
+    abstract fun asyncHandleNotificationPosted(sbn: StatusBarNotification, notification: Notification,title: String,content: String,n_Info: NotificationInfo)
+    @WorkerThread
+    abstract fun asyncHandleNotificationPostedFor(sbn: StatusBarNotification, notification: Notification,title: String,content: String,n_Info: NotificationInfo)
+    @WorkerThread
+    abstract fun asyncHandleNotificationPosted(sbn: StatusBarNotification, rankingMap: RankingMap?, notification: Notification,title: String,content: String,n_Info: NotificationInfo)
     @Volatile
     open var title:String=""
     @Volatile
     open var content:String=""
     @Volatile
-    private  var notiWhen:Long = 0L
+    private var lastPostTime: Long = 0L
     @Volatile
-    private  var whenPre:Long = 0L
+    private var lastHandleTime: Long = 0L
     @Volatile
-    private  var notiWhen2:Long = 0L
-    @Volatile
-    private  var whenPre2:Long = 0L
-    @Volatile
-    private  var notiWhen3:Long = 0L
-    @Volatile
-    private  var whenPre3:Long = 0L
+    private var lastNotificationKey: String = ""
+    private val MIN_HANDLE_INTERVAL = 500L // 500毫秒间隔
 
     companion object {
         /**
@@ -72,7 +76,7 @@ abstract class NotificationListenerServiceAbstract : NotificationListenerService
     }
 
     /**
-     * 系统通知被删掉后出发回调
+     * 系统通知被删掉后触发回调
      */
     override fun onNotificationRemoved(sbn: StatusBarNotification?) {
         sbn ?: return
@@ -82,15 +86,16 @@ abstract class NotificationListenerServiceAbstract : NotificationListenerService
             val notification = sbn.notification
             notification ?: return
             val extras = notification.extras
-            val list = getNotificationData(extras)
-            asyncHandleNotificationRemoved(sbn,notification,list.get(0),list.get(1))
+            val list = getNotificationData(extras, notification)
+            val notificationinfo = buildNotificationInfo(sbn,notification, null)
+            asyncHandleNotificationRemoved(sbn,notification,list.get(0),list.get(1),notificationinfo)
         }
 
 
     }
 
     /**
-     * 系统收到新的通知后出发回调  1个参数
+     * 系统收到新的通知后触发回调  1个参数
      */
     override fun onNotificationPosted(sbn: StatusBarNotification?) {
         sbn ?: return
@@ -100,36 +105,78 @@ abstract class NotificationListenerServiceAbstract : NotificationListenerService
         executors.run {
             val notification = sbn.notification
             notification ?: return
-//            notiWhen = notification.`when`
-            notiWhen = sbn.postTime
-            if (notiWhen==whenPre) {
-                return
-            } else {
-                whenPre = notiWhen
-            }
-//            Log.e("通知去重", "notiWhen="+ notiWhen+" postTime="+sbn.postTime )
-            val extras = notification.extras
-            val list = getNotificationData(extras)
-            title = list.get(0)
-            content = list.get(1)
-            if (TextUtils.equals(title, appContext.getString(R.string.notificationtitlenull)) &&
-                TextUtils.equals(content, appContext.getString(R.string.notificationcontentnull))
+            //避免短时间内连续两次调用
+            if (!shouldHandle(sbn)) return
 
-                ){
-                //这个方法是得到一个sbn的数组，就是所有的应用软件的通知
-                //从数组中获取最新的一条通知
-                val sbn = getLatestNotification(activeNotifications)
-                sbn ?: return
-                val notification = sbn.notification
-                notification ?: return
-                val extras = notification.extras
-                val list = getNotificationData(extras)
-                title = list.get(0)
-                content = list.get(1)
-                asyncHandleNotificationPosted(sbn,notification,title,content)
-            }else{
-                asyncHandleNotificationPosted(sbn,notification,title,content)
+            val extras = notification.extras
+            val list = getNotificationData(extras, notification)
+            val list_title = list.get(0)
+            val list_content = list.get(1)
+            val notificationinfo = buildNotificationInfo(sbn,notification, null)
+            val sbns = getAllSortedByTime(activeNotifications)
+            if (isTitleAndContentEmpty(list_title, list_content)){
+
+                val first_sbn = sbns.getOrNull(0)
+                val first_List = dealsbnEmpty(first_sbn)
+                val first_List_title = first_List.get(0)
+                val first_List_content = first_List.get(1)
+                if (isTitleAndContentEmpty(first_List_title, first_List_content)){
+                    val second_sbn = sbns.getOrNull(1)
+                    val second_List = dealsbnEmpty(second_sbn)
+                    val second_List_title = second_List.get(0)
+                    val second_List_content = second_List.get(1)
+                    if (isTitleAndContentEmpty(second_List_title, second_List_content)){
+                        val third_sbn = sbns.getOrNull(2)
+                        val third_List = dealsbnEmpty(third_sbn)
+                        val third_List_title = third_List.get(0)
+                        val third_List_content = third_List.get(1)
+                        if (isTitleAndContentEmpty(third_List_title, third_List_content)){
+                            //什么都不做
+
+                        }else{
+                            asyncHandleNotificationPosted(sbn,notification,third_List_title,third_List_content,notificationinfo)
+                        }
+                        
+                    }else{
+                        asyncHandleNotificationPosted(sbn,notification,second_List_title,second_List_content,notificationinfo)
+
+                    }
+
+                }else{
+                    asyncHandleNotificationPosted(sbn,notification,first_List_title,first_List_content,notificationinfo)
+                }
+
+            } else{
+                asyncHandleNotificationPosted(sbn,notification,list_title,list_content,notificationinfo)
             }
+            //遍历
+            if (true){
+                //不带索引
+                for (sbn in sbns) {
+                    sbn ?: continue
+                    val notification = sbn.notification
+                    notification ?: continue
+                    val extras = notification.extras
+                    val list = getNotificationData(extras, notification)
+                    val notificationinfo = buildNotificationInfo(sbn,notification, null)
+                    asyncHandleNotificationPostedFor(sbn,notification,list.get(0),list.get(1),notificationinfo)
+                }
+            }else{
+                //带索引
+                for ((index, sbn) in sbns.withIndex()) {
+                    sbn ?: continue
+                    val notification = sbn.notification
+                    notification ?: continue
+                    // 现在可以使用 index 变量获取当前索引
+                    //Log.d("LoopIndex", "当前是第 ${index + 1} 个元素")
+                    val extras = notification.extras
+                    val list = getNotificationData(extras, notification)
+                    val notificationinfo = buildNotificationInfo(sbn,notification, null)
+                    asyncHandleNotificationPostedFor(sbn, notification, "第 ${index + 1} 个元素"+list.get(0), list.get(1), notificationinfo)
+                }
+            }
+
+
 
 
 
@@ -137,48 +184,34 @@ abstract class NotificationListenerServiceAbstract : NotificationListenerService
 
     }
     /**
-     * 系统收到新的通知后出发回调  2个参数
+     * 系统收到新的通知后触发回调  2个参数
      */
+
     override fun onNotificationPosted(sbn: StatusBarNotification?, rankingMap: RankingMap?) {
         sbn ?: return
-        val myrankingMap = rankingMap ?: return
-        runCatching { listeners.forEach { it.onNotificationPosted(sbn, myrankingMap) } }
+        runCatching { listeners.forEach { it.onNotificationPosted(sbn, rankingMap) } }
         super.onNotificationPosted(sbn, rankingMap)
 
         executors2.run {
             val notification = sbn.notification
             notification ?: return
-//            notiWhen2 = notification.`when`
-            notiWhen2 = sbn.postTime
-            if (notiWhen2==whenPre2) {
-                return
-            } else {
-                whenPre2 = notiWhen2
-            }
+            //避免短时间内连续两次调用
+//            if (!should2Handle(sbn)) return
+            val notificationinfo = buildNotificationInfo(sbn,notification, rankingMap)
+            asyncHandleNotificationPosted(sbn,
+                rankingMap,
+                notification,
+                notificationinfo.title,
+                notificationinfo.content,
+                notificationinfo)
 
-            //获取所有通知，并按时间从新到旧排序
-            val sbns = getAllSortedByTime(activeNotifications)
-            for (sbn in sbns) {
-                sbn ?: continue
-                val notification = sbn!!.notification
-                notification ?: continue
-//                notiWhen3 = notification.`when`
-                notiWhen3 = sbn.postTime
-                if (notiWhen3==whenPre3) {
-                    continue
-                } else {
-                    whenPre3 = notiWhen3
-                }
-                val extras = notification.extras
-                val list = getNotificationData(extras)
-                asyncHandleNotificationPosted(sbn, myrankingMap,notification,list.get(0),list.get(1))
-            }
 
 
         }
 
 
     }
+
 
 
     /**
@@ -208,8 +241,27 @@ abstract class NotificationListenerServiceAbstract : NotificationListenerService
 
     }
 
+    fun dealsbnEmpty(sbn: StatusBarNotification?): List<String> {
+        sbn ?:return listOf(
+            appContext.getString(R.string.notificationtitlenull),
+            appContext.getString(R.string.notificationcontentnull)
+        )
+        val notification = sbn.notification
+        notification ?:return listOf(
+            appContext.getString(R.string.notificationtitlenull),
+            appContext.getString(R.string.notificationcontentnull)
+        )
+        val extras = notification.extras
+        val list = getNotificationData(extras, notification)
+        return list
+    }
 
+    fun isTitleAndContentEmpty(title: String, content: String): Boolean {
+        val bool = TextUtils.equals(title, appContext.getString(R.string.notificationtitlenull)) &&
+                TextUtils.equals(content, appContext.getString(R.string.notificationcontentnull))
 
+        return bool
+    }
 
     override fun onDestroy() {
         //Kotlin 标准库中的一个函数，类似于 try-catch。
@@ -218,4 +270,229 @@ abstract class NotificationListenerServiceAbstract : NotificationListenerService
 
     }
 
+    /**
+     * 是否处理该通知：忽略持久系统通知、正在前台的本应用通知等
+     */
+    fun shouldHandle(sbn: StatusBarNotification): Boolean {
+        val postTime = sbn.postTime
+        // 检查通知时间是否重复
+        if (postTime == lastPostTime) {
+            //Log.e("通知去重", "重复的通知时间，已忽略")
+            return false
+        }
+        // 更新上次处理的通知时间
+        lastPostTime = postTime
+        if (false){
+            // 忽略本应用的通知（按需）
+            if (sbn.packageName == packageName) return false
+            // 忽略 ongoing（常驻）通知（按需）
+            val ongoing = (sbn.notification.flags and Notification.FLAG_ONGOING_EVENT) != 0
+            if (ongoing) return false
+        }
+        return true
+    }
+
+    /**
+     * 是否处理该通知：忽略持久系统通知、正在前台的本应用通知等
+     */
+    fun should2Handle(sbn: StatusBarNotification): Boolean {
+        val currentTime = System.currentTimeMillis()
+        val key = sbn.key
+
+        // 检查是否为完全相同的通知
+        if (TextUtils.equals(key, lastNotificationKey)) {
+            //Log.e("通知去重", "完全相同的通知，已忽略")
+            return false
+        }
+
+        // 检查时间间隔
+        if (currentTime - lastHandleTime < MIN_HANDLE_INTERVAL) {
+            //Log.e("通知去重", "处理间隔过短，已忽略")
+            return false
+        }
+
+        // 更新记录
+        lastHandleTime = currentTime
+        lastNotificationKey = key
+        if (false){
+            // 忽略本应用的通知（按需）
+            if (sbn.packageName == packageName) return false
+            // 忽略 ongoing（常驻）通知（按需）
+            val ongoing = (sbn.notification.flags and Notification.FLAG_ONGOING_EVENT) != 0
+            if (ongoing) return false
+        }
+        return true
+    }
+
+
+
+
+    // 获取通知的详细信息，包含从 NotificationCompat.MessagingStyle 提取的消息
+
+     fun buildNotificationInfo(sbn: StatusBarNotification,n: Notification, rankingMap: RankingMap?): NotificationInfo {
+        val ex = n.extras
+        fun getStringOrFallback(key: String, fallback: String): String {
+            return ex?.getCharSequence(key)?.toString()?.takeIf { it.isNotBlank() }
+                ?: ex?.getString(key, fallback)
+                ?: fallback
+        }
+        // 获取标题
+        var title = getStringOrFallback(Notification.EXTRA_TITLE, appContext.getString(R.string.notificationtitlenull))
+        // 获取大文本
+        val bigText = getStringOrFallback(Notification.EXTRA_BIG_TEXT, appContext.getString(R.string.notificationcontentnull))
+        // 获取文本，如果 EXTRA_TEXT 为空，则尝试获取 EXTRA_BIG_TEXT
+        var text = getStringOrFallback(Notification.EXTRA_TEXT, bigText)
+        val pendingIntent = n.contentIntent
+        //根据包名来获取应用名称
+        fun StatusBarNotification.getAppName(): String {
+            val packageManager = appContext.packageManager
+            return try {
+            /*    if (Build.VERSION.SDK_INT >= 33) {
+                    //ApplicationInfoFlags
+                    val applicationInfo = packageManager.getApplicationInfo(this.packageName, PackageManager.ApplicationInfoFlags.of(PackageManager.GET_META_DATA.toLong()))
+                    packageManager.getApplicationLabel(applicationInfo).toString()
+
+                }else{
+                    val applicationInfo = packageManager.getApplicationInfo(this.packageName, PackageManager.GET_META_DATA)
+                    packageManager.getApplicationLabel(applicationInfo).toString()
+
+                }*/
+                val applicationInfo = packageManager.getApplicationInfo(this.packageName, 0)
+                packageManager.getApplicationLabel(applicationInfo).toString()
+            } catch (e: Exception) {
+                "UnKnown"
+            }
+        }
+
+        // 尝试判断 解析 MessagingStyle（如果是聊天类型的通知）
+        val messagingStyle = NotificationCompat.MessagingStyle.extractMessagingStyleFromNotification(n)
+         // 如果是 MessagingStyle 类型的通知，解析该类型的标题和内容
+         // 获取对话标题（例如联系人名称或群聊名称）
+        val conversationTitle: String = (messagingStyle?.conversationTitle ?: appContext.getString(R.string.notificationtitlenull)).toString()
+        // 获取消息列表
+        val messageList = messagingStyle?.messages?:emptyList()
+        // 获取所有按时间排序messagingStyle的消息列表 （降序）
+        val sortedmessageList = getAllSortedMessagingStyleByTime(messageList)
+        //获取最新的一条消息
+        // sortedmessageList?.firstOrNull()
+        // sortedmessageList.getOrNull(0) 两个是等价的
+        //val first_msg = sortedmessageList?.firstOrNull()
+
+        //类型：List<MessageStyleInfo> 转换为msgmaplist（保持降序排序）
+        val msgmaplist = sortedmessageList?.map {
+            MessageStyleInfo(
+                timestamp = it.timestamp,  // 时间戳，假设它不会为 null，但可能为 0
+                title = conversationTitle,
+                sender = it.person?.toString() ?: "Unknown",  // 发送者，可能为 null，使用默认值 "Unknown"
+                text = it.text?.toString()?.takeIf { it.isNotBlank() }
+                    ?: appContext.getString(R.string.notificationcontentnull) // 消息内容，可能为 null 或空白，使用默认值
+            )
+        } ?: emptyList()
+
+         if (isTitleAndContentEmpty(title, text)){
+             //获取最新一条消息
+             msgmaplist.firstOrNull()?.let {
+                 title = it.title
+                 text =  if (TextUtils.equals(appContext.getString(R.string.notificationcontentnull), it.text)){
+                     it.text
+                 }else{
+                     it.sender + ":" + it.text
+                 }
+             }
+         }
+
+
+
+
+        // 获取其他重要字段
+        val category = n.category // e.g. CALL, MESSAGE, EMAIL, ALARM...
+        val channelId = if (Build.VERSION.SDK_INT >= 26) n.channelId else null
+
+        // group 信息
+        val groupKey = sbn.groupKey
+        val isGroup = NotificationCompat.isGroupSummary(n)
+
+
+        // 从 RankingMap 里取本通知的 ranking
+        val ranking = Ranking()
+        val hasRanking = rankingMap?.getRanking(sbn.key, ranking) == true
+        val importance = if (hasRanking) if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {
+            ranking.importance
+        } else {
+            null
+        } else null
+
+
+        val isAmbient = if (hasRanking) ranking.isAmbient else null
+        val canShowBadge = if (hasRanking) if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            ranking.canShowBadge()
+        } else {
+            null
+        } else null
+        val overrideGroupKey = if (hasRanking) if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {
+            ranking.overrideGroupKey
+        } else {
+            null
+        } else null
+
+
+        return NotificationInfo(
+            notification = n,
+            pkgName = sbn.packageName,
+            appName = sbn.getAppName(),
+            id = sbn.id,
+            tag = sbn.tag,
+            postTime = sbn.postTime,
+            title = title,
+            content = text,
+            bigText = bigText,
+            pi = pendingIntent,
+            key = sbn.key,
+            category = category,
+            channelId = channelId,
+            groupKey = groupKey,
+            isGroupSummary = isGroup,
+            importance = importance,
+            isAmbient = isAmbient,
+            canShowBadge = canShowBadge,
+            overrideGroupKey = overrideGroupKey,
+            messageStyleList = msgmaplist // 包含来自 MessagingStyle 的消息列表
+        )
+    }
+
+
+
+
+
+
 }
+
+data class NotificationInfo(
+    val notification: Notification,
+    val pkgName: String,
+    val appName:String,
+    val id: Int,
+    val tag: String?,
+    val postTime: Long,
+    val title: String,
+    val content: String,
+    val bigText: String,
+    val pi: PendingIntent,
+    val key: String,
+    val category: String?,
+    val channelId: String?,
+    val groupKey: String?,
+    val isGroupSummary: Boolean,
+    val importance: Int?,
+    val isAmbient: Boolean?,
+    val canShowBadge: Boolean?,
+    val overrideGroupKey: String?,
+    val messageStyleList: List<MessageStyleInfo> // 从 MessagingStyle 提取的消息列表
+)
+
+data class MessageStyleInfo(
+    val timestamp: Long,
+    val title: String,
+    val sender: String,
+    val text: String
+)

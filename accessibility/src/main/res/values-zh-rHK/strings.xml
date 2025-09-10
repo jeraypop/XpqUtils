@@ -62,6 +62,7 @@
     <string name ="notificationtitlenull">通知标题未获取到</string>
     <string name ="notificationcontentnull">通知内容未获取到</string>
     <string name="msgrecordtx">消息提醒,消息记录</string>
+    <string name="message_format">Message from %1$s at %2$s: %3$s</string>
 
 
     <string name="wei_zhi_title">赞赏·微信</string>
