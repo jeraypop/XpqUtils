@@ -83,12 +83,9 @@ abstract class NotificationListenerServiceAbstract : NotificationListenerService
         runCatching { listeners.forEach { it.onNotificationRemoved(sbn) } }
         super.onNotificationRemoved(sbn)
         executors.run {
-            val notification = sbn.notification
-            notification ?: return
-            val extras = notification.extras
-            val list = getNotificationData(extras, notification)
-            val notificationinfo = buildNotificationInfo(sbn,notification, null)
-            asyncHandleNotificationRemoved(sbn,notification,list.get(0),list.get(1),notificationinfo)
+            val notification = sbn.notification ?: return
+            val n_Info = buildNotificationInfo(sbn,notification, null)
+            asyncHandleNotificationRemoved(sbn,notification,n_Info.title,n_Info.content,n_Info)
         }
 
 
@@ -103,63 +100,55 @@ abstract class NotificationListenerServiceAbstract : NotificationListenerService
         super.onNotificationPosted(sbn)
 
         executors.run {
-            val notification = sbn.notification
-            notification ?: return
+            val notification = sbn.notification ?: return
             //避免短时间内连续两次调用
             if (!shouldHandle(sbn)) return
-
-            val extras = notification.extras
-            val list = getNotificationData(extras, notification)
-            val list_title = list.get(0)
-            val list_content = list.get(1)
-            val notificationinfo = buildNotificationInfo(sbn,notification, null)
-            val sbns = getAllSortedByTime(activeNotifications)
-            if (isTitleAndContentEmpty(list_title, list_content)){
-
-                val first_sbn = sbns.getOrNull(0)
-                val first_List = dealsbnEmpty(first_sbn)
-                val first_List_title = first_List.get(0)
-                val first_List_content = first_List.get(1)
-                if (isTitleAndContentEmpty(first_List_title, first_List_content)){
-                    val second_sbn = sbns.getOrNull(1)
-                    val second_List = dealsbnEmpty(second_sbn)
-                    val second_List_title = second_List.get(0)
-                    val second_List_content = second_List.get(1)
-                    if (isTitleAndContentEmpty(second_List_title, second_List_content)){
-                        val third_sbn = sbns.getOrNull(2)
-                        val third_List = dealsbnEmpty(third_sbn)
-                        val third_List_title = third_List.get(0)
-                        val third_List_content = third_List.get(1)
-                        if (isTitleAndContentEmpty(third_List_title, third_List_content)){
+            var sbns:List<StatusBarNotification> = emptyList()
+            val n_info = buildNotificationInfo(sbn,notification, null)
+            if (isTitleAndContentEmpty(n_info.title, n_info.content)){
+                sbns = getAllSortedByTime(activeNotifications)
+                val first_sbn = sbns.getOrNull(0) ?:return
+                val first_n = first_sbn.notification ?: return
+                val first_n_info = buildNotificationInfo(first_sbn,first_n, null)
+                if (isTitleAndContentEmpty(first_n_info.title, first_n_info.content)){
+                    val second_sbn = sbns.getOrNull(1)?:return
+                    val second_n = second_sbn.notification ?: return
+                    val second_n_info = buildNotificationInfo(second_sbn,second_n, null)
+                    if (isTitleAndContentEmpty(second_n_info.title, second_n_info.content)){
+                        val third_sbn = sbns.getOrNull(2)?:return
+                        val third_n = third_sbn.notification ?: return
+                        val third_n_info = buildNotificationInfo(third_sbn,third_n, null)
+                        if (isTitleAndContentEmpty(third_n_info.title, third_n_info.content)){
                             //什么都不做
 
                         }else{
-                            asyncHandleNotificationPosted(sbn,notification,third_List_title,third_List_content,notificationinfo)
+                            asyncHandleNotificationPosted(third_sbn,third_n,third_n_info.title,third_n_info.content,third_n_info)
                         }
                         
                     }else{
-                        asyncHandleNotificationPosted(sbn,notification,second_List_title,second_List_content,notificationinfo)
+                        asyncHandleNotificationPosted(second_sbn,second_n,second_n_info.title,second_n_info.content,second_n_info)
 
                     }
 
                 }else{
-                    asyncHandleNotificationPosted(sbn,notification,first_List_title,first_List_content,notificationinfo)
+                    asyncHandleNotificationPosted(first_sbn,first_n,first_n_info.title,first_n_info.content,first_n_info)
                 }
 
             } else{
-                asyncHandleNotificationPosted(sbn,notification,list_title,list_content,notificationinfo)
+                asyncHandleNotificationPosted(sbn,notification,n_info.title,n_info.content,n_info)
             }
-            //遍历
+            //2 循环遍历 所有活动的通知
+            if (sbns.isEmpty()) {
+                sbns = getAllSortedByTime(activeNotifications)
+            }
             if (true){
                 //不带索引
                 for (sbn in sbns) {
                     sbn ?: continue
                     val notification = sbn.notification
                     notification ?: continue
-                    val extras = notification.extras
-                    val list = getNotificationData(extras, notification)
-                    val notificationinfo = buildNotificationInfo(sbn,notification, null)
-                    asyncHandleNotificationPostedFor(sbn,notification,list.get(0),list.get(1),notificationinfo)
+                    val n_info = buildNotificationInfo(sbn,notification, null)
+                    asyncHandleNotificationPostedFor(sbn,notification,n_info.title,n_info.content,n_info)
                 }
             }else{
                 //带索引
@@ -169,10 +158,8 @@ abstract class NotificationListenerServiceAbstract : NotificationListenerService
                     notification ?: continue
                     // 现在可以使用 index 变量获取当前索引
                     //Log.d("LoopIndex", "当前是第 ${index + 1} 个元素")
-                    val extras = notification.extras
-                    val list = getNotificationData(extras, notification)
-                    val notificationinfo = buildNotificationInfo(sbn,notification, null)
-                    asyncHandleNotificationPostedFor(sbn, notification, "第 ${index + 1} 个元素"+list.get(0), list.get(1), notificationinfo)
+                    val n_info = buildNotificationInfo(sbn,notification, null)
+                    asyncHandleNotificationPostedFor(sbn,notification,n_info.title,n_info.content,n_info)
                 }
             }
 
@@ -193,17 +180,16 @@ abstract class NotificationListenerServiceAbstract : NotificationListenerService
         super.onNotificationPosted(sbn, rankingMap)
 
         executors2.run {
-            val notification = sbn.notification
-            notification ?: return
+            val notification = sbn.notification ?: return
             //避免短时间内连续两次调用
 //            if (!should2Handle(sbn)) return
-            val notificationinfo = buildNotificationInfo(sbn,notification, rankingMap)
+            val n_Info = buildNotificationInfo(sbn,notification, rankingMap)
             asyncHandleNotificationPosted(sbn,
                 rankingMap,
                 notification,
-                notificationinfo.title,
-                notificationinfo.content,
-                notificationinfo)
+                n_Info.title,
+                n_Info.content,
+                n_Info)
 
 
 
@@ -330,7 +316,7 @@ abstract class NotificationListenerServiceAbstract : NotificationListenerService
     // 获取通知的详细信息，包含从 NotificationCompat.MessagingStyle 提取的消息
 
      fun buildNotificationInfo(sbn: StatusBarNotification,n: Notification, rankingMap: RankingMap?): NotificationInfo {
-        val ex = n.extras
+         val ex = n.extras
         fun getStringOrFallback(key: String, fallback: String): String {
             return ex?.getCharSequence(key)?.toString()?.takeIf { it.isNotBlank() }
                 ?: ex?.getString(key, fallback)
