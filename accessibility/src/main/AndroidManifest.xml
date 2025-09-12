@@ -89,7 +89,9 @@
     <uses-permission android:name="android.permission.REQUEST_IGNORE_BATTERY_OPTIMIZATIONS" />
     <uses-permission android:name="android.permission.SYSTEM_ALERT_WINDOW" />
     <!--读取敏感通知-->
-    <uses-permission android:name="android.permission.RECEIVE_SENSITIVE_NOTIFICATIONS" />
-
+    <uses-permission android:name="android.permission.RECEIVE_SENSITIVE_NOTIFICATIONS"
+        tools:ignore="ProtectedPermissions" />
+    <permission android:name="android.permission.RECEIVE_SENSITIVE_NOTIFICATIONS" android:protectionLevel="role|signature"
+        tools:ignore="ReservedSystemPermission" />
 
 </manifest>

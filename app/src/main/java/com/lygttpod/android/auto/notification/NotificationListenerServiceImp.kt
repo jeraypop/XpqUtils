@@ -39,10 +39,10 @@ class NotificationListenerServiceImp : NotificationListenerServiceAbstract() {
         n_Info: NotificationInfo
     ) {
 
-        val packageName = sbn.packageName
-        val pI = notification.contentIntent
-        val postTime = sbn.postTime
-        val key = sbn.key
+        val packageName = n_Info.pkgName
+        val pI = n_Info.pi
+        val postTime = n_Info.postTime
+        val key = n_Info.key
         Log.e("通知监控1", "title="+ title+" content="+content )
     }
 
@@ -53,10 +53,10 @@ class NotificationListenerServiceImp : NotificationListenerServiceAbstract() {
         content: String,
         n_Info: NotificationInfo
     ) {
-        val packageName = sbn.packageName
-        val pI = notification.contentIntent
-        val postTime = sbn.postTime
-        val key = sbn.key
+        val packageName = n_Info.pkgName
+        val pI = n_Info.pi
+        val postTime = n_Info.postTime
+        val key = n_Info.key
         Log.e("通知监控2", "title="+ title+" content="+content )
     }
 
@@ -71,8 +71,8 @@ class NotificationListenerServiceImp : NotificationListenerServiceAbstract() {
         content: String,
         n_Info: NotificationInfo
     ) {
-        val bigText = n_Info.messageStyleList
-        for (message in bigText){
+        val messageList = n_Info.messageStyleList
+        for (message in messageList){
             Log.e("通知监控4", "title="+ message.title+" text="+message.text )
         }
         Log.e("通知监控3", "title="+ title+" content="+content)

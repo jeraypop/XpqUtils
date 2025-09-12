@@ -182,7 +182,7 @@ abstract class NotificationListenerServiceAbstract : NotificationListenerService
         executors2.run {
             val notification = sbn.notification ?: return
             //避免短时间内连续两次调用
-//            if (!should2Handle(sbn)) return
+            if (!should2Handle(sbn)) return
             val n_Info = buildNotificationInfo(sbn,notification, rankingMap)
             asyncHandleNotificationPosted(sbn,
                 rankingMap,
