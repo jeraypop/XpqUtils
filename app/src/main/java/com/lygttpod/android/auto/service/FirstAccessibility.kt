@@ -1,6 +1,7 @@
 package com.lygttpod.android.auto.service
 
 import android.accessibilityservice.AccessibilityService
+import android.app.Notification
 import android.content.Intent
 import android.util.Log
 import android.view.accessibility.AccessibilityEvent
@@ -8,6 +9,7 @@ import androidx.lifecycle.MutableLiveData
 import com.google.android.accessibility.ext.toast
 import com.google.android.accessibility.ext.utils.AliveUtils.keepAliveByFloatingWindow
 import com.google.android.accessibility.ext.utils.AliveUtils.keepAliveByNotification_CLS
+import com.google.android.accessibility.notification.AccessibilityNInfo
 import com.google.android.accessibility.selecttospeak.SelectToSpeakServiceAbstract
 import com.google.android.accessibility.selecttospeak.accessibilityService
 
@@ -44,7 +46,10 @@ open class FirstAccessibility : SelectToSpeakServiceAbstract() {
         serviceInfo.eventTypes = AccessibilityEvent.TYPE_WINDOW_STATE_CHANGED or
                 AccessibilityEvent.TYPE_WINDOW_CONTENT_CHANGED
          //只能在 onServiceConnected() 方法中调用 setServiceInfo()
-        setServiceInfo(serviceInfo)
+
+        //如果设置了,那么通过无障碍监听通知消息就不行了
+        //建议还是在onAccessibilityEvent()过滤包名吧
+//        setServiceInfo(serviceInfo)
 
 
 
@@ -59,7 +64,8 @@ open class FirstAccessibility : SelectToSpeakServiceAbstract() {
 //        Log.e("文本内容", "=: "+s )
     }
 
-    override fun onInterrupt() {
+
+     override fun onInterrupt() {
         super.onInterrupt()
     }
 

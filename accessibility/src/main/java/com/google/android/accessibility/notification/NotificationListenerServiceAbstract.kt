@@ -73,6 +73,33 @@ abstract class NotificationListenerServiceAbstract : NotificationListenerService
          * 用于分发服务生命周期和无障碍事件
          */
         val listeners: MutableList<NotificationInterface> = Collections.synchronizedList(arrayListOf<NotificationInterface>())
+
+        fun isTitleAndContentEmpty(title: String, content: String): Boolean {
+            val bool = TextUtils.equals(title, appContext.getString(R.string.notificationtitlenull)) &&
+                    TextUtils.equals(content, appContext.getString(R.string.notificationcontentnull))
+
+            return bool
+        }
+        //根据包名来获取应用名称
+        fun getAppName(pkgName: String): String {
+            val packageManager = appContext.packageManager
+            return try {
+                /*   if (Build.VERSION.SDK_INT >= 33) {
+                       //ApplicationInfoFlags
+                       val applicationInfo = packageManager.getApplicationInfo(pkgName, PackageManager.ApplicationInfoFlags.of(PackageManager.GET_META_DATA.toLong()))
+                       packageManager.getApplicationLabel(applicationInfo).toString()
+
+                   }else{
+                       val applicationInfo = packageManager.getApplicationInfo(pkgName, PackageManager.GET_META_DATA)
+                       packageManager.getApplicationLabel(applicationInfo).toString()
+
+                   }*/
+                val applicationInfo = packageManager.getApplicationInfo(pkgName, 0)
+                packageManager.getApplicationLabel(applicationInfo).toString()
+            } catch (e: Exception) {
+                "UnKnown"
+            }
+        }
     }
 
     /**
@@ -242,12 +269,7 @@ abstract class NotificationListenerServiceAbstract : NotificationListenerService
         return list
     }
 
-    fun isTitleAndContentEmpty(title: String, content: String): Boolean {
-        val bool = TextUtils.equals(title, appContext.getString(R.string.notificationtitlenull)) &&
-                TextUtils.equals(content, appContext.getString(R.string.notificationcontentnull))
 
-        return bool
-    }
 
     override fun onDestroy() {
         //Kotlin 标准库中的一个函数，类似于 try-catch。
@@ -329,26 +351,7 @@ abstract class NotificationListenerServiceAbstract : NotificationListenerService
         // 获取文本，如果 EXTRA_TEXT 为空，则尝试获取 EXTRA_BIG_TEXT
         var text = getStringOrFallback(Notification.EXTRA_TEXT, bigText)
         val pendingIntent = n.contentIntent
-        //根据包名来获取应用名称
-        fun StatusBarNotification.getAppName(): String {
-            val packageManager = appContext.packageManager
-            return try {
-            /*    if (Build.VERSION.SDK_INT >= 33) {
-                    //ApplicationInfoFlags
-                    val applicationInfo = packageManager.getApplicationInfo(this.packageName, PackageManager.ApplicationInfoFlags.of(PackageManager.GET_META_DATA.toLong()))
-                    packageManager.getApplicationLabel(applicationInfo).toString()
 
-                }else{
-                    val applicationInfo = packageManager.getApplicationInfo(this.packageName, PackageManager.GET_META_DATA)
-                    packageManager.getApplicationLabel(applicationInfo).toString()
-
-                }*/
-                val applicationInfo = packageManager.getApplicationInfo(this.packageName, 0)
-                packageManager.getApplicationLabel(applicationInfo).toString()
-            } catch (e: Exception) {
-                "UnKnown"
-            }
-        }
 
         // 尝试判断 解析 MessagingStyle（如果是聊天类型的通知）
         val messagingStyle = NotificationCompat.MessagingStyle.extractMessagingStyleFromNotification(n)
@@ -425,19 +428,19 @@ abstract class NotificationListenerServiceAbstract : NotificationListenerService
         return NotificationInfo(
             notification = n,
             pkgName = sbn.packageName,
-            appName = sbn.getAppName(),
-            id = sbn.id,
+            appName = getAppName(sbn.packageName),
+            id = sbn.id?:1,
             tag = sbn.tag,
             postTime = sbn.postTime,
             title = title,
             content = text,
             bigText = bigText,
             pi = pendingIntent,
-            key = sbn.key,
+            key = sbn.key?:"",
             category = category,
             channelId = channelId,
             groupKey = groupKey,
-            isGroupSummary = isGroup,
+            isGroupSummary = isGroup?:false,
             importance = importance,
             isAmbient = isAmbient,
             canShowBadge = canShowBadge,
@@ -453,6 +456,19 @@ abstract class NotificationListenerServiceAbstract : NotificationListenerService
 
 }
 
+data class AccessibilityNInfo(
+    val notification: Notification,
+    val pkgName: String,
+    val appName:String,
+    val postTime: Long,
+    val title: String,
+    val content: String,
+    val bigText: String,
+    val eventText: String,
+    val pi: PendingIntent?,
+    val messageStyleList: List<MessageStyleInfo> // 从 MessagingStyle 提取的消息列表
+)
+
 data class NotificationInfo(
     val notification: Notification,
     val pkgName: String,
@@ -463,7 +479,7 @@ data class NotificationInfo(
     val title: String,
     val content: String,
     val bigText: String,
-    val pi: PendingIntent,
+    val pi: PendingIntent?,
     val key: String,
     val category: String?,
     val channelId: String?,

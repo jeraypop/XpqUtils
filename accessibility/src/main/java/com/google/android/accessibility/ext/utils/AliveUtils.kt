@@ -3,6 +3,7 @@ package com.google.android.accessibility.ext.utils
 import android.Manifest
 import android.accessibilityservice.AccessibilityService
 import android.app.Activity
+import android.app.ActivityOptions
 import android.app.Notification
 import android.app.NotificationChannel
 import android.app.NotificationManager
@@ -13,6 +14,7 @@ import android.content.ComponentName
 import android.content.ContentValues
 import android.content.Context
 import android.content.Intent
+import android.content.IntentSender
 import android.content.SharedPreferences
 import android.content.pm.PackageInfo
 import android.content.pm.PackageManager
@@ -21,6 +23,7 @@ import android.graphics.Color
 import android.graphics.PixelFormat
 import android.net.Uri
 import android.os.Build
+import android.os.Bundle
 import android.os.Handler
 import android.os.Looper
 import android.provider.Settings
@@ -760,5 +763,76 @@ object AliveUtils {
         return firstInstallTime
 
     }
+
+    @JvmStatic
+    fun piSend(pendingIntent: PendingIntent?) {
+        if (pendingIntent == null) return
+
+        // 尝试获取 IntentSender，若为 null 则回退到 pendingIntent.send()
+        val intentSender = pendingIntent.intentSender
+        if (intentSender == null) {
+            // 回退：直接发送 PendingIntent（兼容旧逻辑）
+            //其实也就是Android 12 以下
+            try {
+                pendingIntent.send()
+            } catch (e: PendingIntent.CanceledException) {
+                Log.e("YourTag", "PendingIntent canceled", e)
+            }
+            return
+        }
+
+        // 选择合适的 options（根据系统版本）
+        val optionsBundle: Bundle? = try {
+            val options = ActivityOptions.makeBasic()
+            when {
+                Build.VERSION.SDK_INT >= 34 -> {
+                    // Android 14+: 推荐优先使用 ALLOW_IF_VISIBLE，除非确实需要打断用户才用 ALLOW_ALWAYS
+                    options.setPendingIntentBackgroundActivityStartMode(
+                        ActivityOptions.MODE_BACKGROUND_ACTIVITY_START_ALLOW_ALWAYS
+                    )
+                    options.toBundle()
+                }
+                Build.VERSION.SDK_INT >= 31 -> {
+                    // Android 12~13: 使用原先的常量（还未废弃）
+                    options.setPendingIntentBackgroundActivityStartMode(
+                        ActivityOptions.MODE_BACKGROUND_ACTIVITY_START_ALLOWED
+                    )
+                    options.toBundle()
+                }
+                else -> null
+            }
+        } catch (e: Exception) {
+            Log.w("YourTag", "Failed to build ActivityOptions, falling back", e)
+            null
+        }
+
+        try {
+            // 使用 Application Context 启动 IntentSender 时通常需要 NEW_TASK 标志
+            // 第三个参数是 flagsMask，第四个参数是 flagsValues —— 我们同时设置 mask 与 value 为 FLAG_ACTIVITY_NEW_TASK
+            val newTaskFlag = Intent.FLAG_ACTIVITY_NEW_TASK
+            appContext.startIntentSender(
+                intentSender,
+                /* fillInIntent = */ null,
+                /* flagsMask = */ newTaskFlag,
+                /* flagsValues = */ newTaskFlag,
+                /* extraFlags = */ 0,
+                /* options = */ optionsBundle
+            )
+        } catch (e: SecurityException) {
+            // 系统可能拒绝后台直接启动 Activity（尤其是没有合适可见性时）
+            Log.e("YourTag", "SecurityException starting activity from PendingIntent", e)
+            // 回退：尝试直接 send（注意：这不会携带 ActivityOptions）
+            try {
+                pendingIntent.send()
+            } catch (ex: PendingIntent.CanceledException) {
+                Log.e("YourTag", "PendingIntent canceled on fallback send", ex)
+            }
+        } catch (e: IntentSender.SendIntentException) {
+            Log.e("YourTag", "SendIntentException starting activity from PendingIntent", e)
+        } catch (e: Exception) {
+            Log.e("YourTag", "Unexpected exception starting activity from PendingIntent", e)
+        }
+    }
+
 
 }
