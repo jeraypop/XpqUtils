@@ -63,7 +63,7 @@ open class AccessibilityServiceImp : FirstAccessibility() {
 
     override fun asyncHandleAccessibilityNotification(notification: Notification, title: String, content: String, a_n_Info: AccessibilityNInfo){
         val pi = a_n_Info.pi
-        AliveUtils.piSend( pi)
+//        AliveUtils.piSend( pi)
         // 统一日志输出，便于对比
         Log.e("辅助服务通知", "===============================\n" +
                 "来自应用: ${a_n_Info.pkgName} = ${a_n_Info.appName}\n" +

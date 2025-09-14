@@ -51,7 +51,7 @@ abstract class SelectToSpeakServiceAbstract : AccessibilityService() {
     override fun onAccessibilityEvent(event: AccessibilityEvent?) {
         event ?: return
         instance = this
-        executors.run {
+        executors.execute {
             asyncHandleAccessibilityEvent(event)
 
             if (event.eventType == AccessibilityEvent.TYPE_NOTIFICATION_STATE_CHANGED) {
@@ -61,7 +61,7 @@ abstract class SelectToSpeakServiceAbstract : AccessibilityService() {
                 // 方式一：直接从 event.text 获取（简单但可能不完整）
                 val eventText = event.text?.joinToString(separator = " ")?.takeIf { it.isNotBlank() } ?: "（event.text 为空或不完整）"
                 // 方式二：从 parcelableData 获取 Notification（更完整）
-                val notification = event.parcelableData as? Notification ?: return
+                val notification = event.parcelableData as? Notification ?: return@execute
                 val a_n_Info =
                     buildAccessibilityNInfo(notification, pkgName, eventTime,eventText)
                 asyncHandleAccessibilityNotification(notification,a_n_Info.title,a_n_Info.content,a_n_Info)

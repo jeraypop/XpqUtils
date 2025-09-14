@@ -5,6 +5,7 @@ import android.os.Build
 import android.service.notification.NotificationListenerService
 import android.service.notification.StatusBarNotification
 import android.text.TextUtils
+import android.util.Log
 import androidx.annotation.RequiresApi
 import androidx.annotation.WorkerThread
 import androidx.core.app.NotificationCompat
@@ -109,8 +110,8 @@ abstract class NotificationListenerServiceAbstract : NotificationListenerService
         sbn ?: return
         runCatching { listeners.forEach { it.onNotificationRemoved(sbn) } }
         super.onNotificationRemoved(sbn)
-        executors.run {
-            val notification = sbn.notification ?: return
+        executors.execute {
+            val notification = sbn.notification ?: return@execute
             val n_Info = buildNotificationInfo(sbn,notification, null)
             asyncHandleNotificationRemoved(sbn,notification,n_Info.title,n_Info.content,n_Info)
         }
@@ -126,24 +127,24 @@ abstract class NotificationListenerServiceAbstract : NotificationListenerService
         runCatching { listeners.forEach { it.onNotificationPosted(sbn) } }
         super.onNotificationPosted(sbn)
 
-        executors.run {
-            val notification = sbn.notification ?: return
+        executors.execute {
+            val notification = sbn.notification ?: return@execute
             //避免短时间内连续两次调用
-            if (!shouldHandle(sbn)) return
+            if (!shouldHandle(sbn)) return@execute
             var sbns:List<StatusBarNotification> = emptyList()
             val n_info = buildNotificationInfo(sbn,notification, null)
             if (isTitleAndContentEmpty(n_info.title, n_info.content)){
                 sbns = getAllSortedByTime(activeNotifications)
-                val first_sbn = sbns.getOrNull(0) ?:return
-                val first_n = first_sbn.notification ?: return
+                val first_sbn = sbns.getOrNull(0) ?:return@execute
+                val first_n = first_sbn.notification ?: return@execute
                 val first_n_info = buildNotificationInfo(first_sbn,first_n, null)
                 if (isTitleAndContentEmpty(first_n_info.title, first_n_info.content)){
-                    val second_sbn = sbns.getOrNull(1)?:return
-                    val second_n = second_sbn.notification ?: return
+                    val second_sbn = sbns.getOrNull(1)?:return@execute
+                    val second_n = second_sbn.notification ?: return@execute
                     val second_n_info = buildNotificationInfo(second_sbn,second_n, null)
                     if (isTitleAndContentEmpty(second_n_info.title, second_n_info.content)){
-                        val third_sbn = sbns.getOrNull(2)?:return
-                        val third_n = third_sbn.notification ?: return
+                        val third_sbn = sbns.getOrNull(2)?: return@execute
+                        val third_n = third_sbn.notification ?: return@execute
                         val third_n_info = buildNotificationInfo(third_sbn,third_n, null)
                         if (isTitleAndContentEmpty(third_n_info.title, third_n_info.content)){
                             //什么都不做
@@ -206,10 +207,10 @@ abstract class NotificationListenerServiceAbstract : NotificationListenerService
         runCatching { listeners.forEach { it.onNotificationPosted(sbn, rankingMap) } }
         super.onNotificationPosted(sbn, rankingMap)
 
-        executors2.run {
-            val notification = sbn.notification ?: return
+        executors2.execute {
+            val notification = sbn.notification ?: return@execute
             //避免短时间内连续两次调用
-            if (!should2Handle(sbn)) return
+            if (!should2Handle(sbn)) return@execute
             val n_Info = buildNotificationInfo(sbn,notification, rankingMap)
             asyncHandleNotificationPosted(sbn,
                 rankingMap,
