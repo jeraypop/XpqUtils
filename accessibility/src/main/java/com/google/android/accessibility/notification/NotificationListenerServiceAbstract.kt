@@ -130,7 +130,7 @@ abstract class NotificationListenerServiceAbstract : NotificationListenerService
         executors.execute {
             val notification = sbn.notification ?: return@execute
             //避免短时间内连续两次调用
-            if (!shouldHandle(sbn)) return@execute
+            if (!should2Handle(sbn)) return@execute
             var sbns:List<StatusBarNotification> = emptyList()
             val n_info = buildNotificationInfo(sbn,notification, null)
             if (isTitleAndContentEmpty(n_info.title, n_info.content)){
