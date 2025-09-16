@@ -276,7 +276,9 @@ abstract class NotificationListenerServiceAbstract : NotificationListenerService
         //Kotlin 标准库中的一个函数，类似于 try-catch。
         runCatching { listeners.forEach { it.onDestroy() } }
         super.onDestroy()
-
+        // 关闭执行器以避免内存泄露
+        executors.shutdownNow()
+        executors2.shutdownNow()
     }
 
     /**
