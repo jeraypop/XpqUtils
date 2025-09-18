@@ -1,6 +1,7 @@
 package com.google.android.accessibility.ext.window
 
 import android.annotation.SuppressLint
+import android.content.Context
 import android.view.LayoutInflater
 import android.view.MotionEvent
 import android.view.View
@@ -11,6 +12,7 @@ import com.android.accessibility.ext.databinding.LogOverlayBinding
 import com.blankj.utilcode.util.ScreenUtils
 import com.google.android.accessibility.ext.AssistsServiceListener
 import com.google.android.accessibility.ext.CoroutineWrapper
+import com.google.android.accessibility.ext.utils.LibCtxProvider.Companion.appContext
 import com.google.android.accessibility.selecttospeak.SelectToSpeakServiceAbstract
 
 
@@ -45,7 +47,11 @@ object OverlayLog : AssistsServiceListener {
         @SuppressLint("ClickableViewAccessibility")
         get() {
             if (field == null) {
-                val context = SelectToSpeakServiceAbstract.instance ?: return null
+                var context: Context? = SelectToSpeakServiceAbstract.instance
+                if (context==null){
+                    context = appContext
+                }
+
                 field = LogOverlayBinding.inflate(LayoutInflater.from(context)).apply {
                     scrollView.setOnTouchListener(onScrollTouchListener)
                     btnClean.setOnClickListener {
