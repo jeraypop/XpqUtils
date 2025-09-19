@@ -19,6 +19,7 @@ import com.android.accessibility.ext.BuildConfig
 import com.google.android.accessibility.ext.openAccessibilitySetting
 
 import com.google.android.accessibility.ext.utils.AliveUtils
+import com.google.android.accessibility.ext.utils.LibCtxProvider.Companion.appContext
 import com.google.android.accessibility.ext.utils.MMKVUtil
 
 import com.google.android.accessibility.ext.wcapi.PayConfig
@@ -104,7 +105,7 @@ class MainActivity : AppCompatActivity() {
             AliveUtils.openAccessibility(this, SelectToSpeakService::class.java)
         }
         binding.btnNotification.setOnClickListener{
-       
+
             AliveUtils.openNotificationListener(this, NotificationListenerServiceImp::class.java)
         }
         binding.btnGZH.setOnClickListener{

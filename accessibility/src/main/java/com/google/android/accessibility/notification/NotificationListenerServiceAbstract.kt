@@ -1,17 +1,25 @@
 package com.google.android.accessibility.notification
+import android.Manifest
 import android.app.Notification
 import android.app.PendingIntent
+import android.content.Context
+import android.content.pm.ApplicationInfo
+import android.content.pm.PackageManager
 import android.os.Build
 import android.service.notification.NotificationListenerService
 import android.service.notification.StatusBarNotification
+import android.telecom.TelecomManager
+import android.telephony.TelephonyManager
 import android.text.TextUtils
-import android.util.Log
 import androidx.annotation.RequiresApi
 import androidx.annotation.WorkerThread
 import androidx.core.app.NotificationCompat
 import androidx.lifecycle.MutableLiveData
 import com.android.accessibility.ext.R
+import com.google.android.accessibility.ext.utils.AliveUtils
 import com.google.android.accessibility.ext.utils.LibCtxProvider.Companion.appContext
+import com.google.android.accessibility.ext.utils.MMKVConst
+import com.google.android.accessibility.ext.utils.MMKVUtil
 
 import com.google.android.accessibility.ext.utils.NotificationUtil.getAllSortedByTime
 import com.google.android.accessibility.ext.utils.NotificationUtil.getAllSortedMessagingStyleByTime
@@ -101,6 +109,25 @@ abstract class NotificationListenerServiceAbstract : NotificationListenerService
                 "UnKnown"
             }
         }
+        fun isPhoneApp(context: Context = appContext,pkg: String): Boolean {
+            val telecomManager = context.getSystemService(Context.TELECOM_SERVICE) as TelecomManager
+
+            // 获取当前的电话应用
+            val currentPackage = telecomManager.defaultDialerPackage
+            var isPhoneApp = false
+            if (currentPackage!= null){
+                isPhoneApp = currentPackage == pkg
+            }else{
+                isPhoneApp = false
+            }
+            // 如果默认的拨号应用是我们预期的电话应用（例如系统拨号器），就认为它是电话应用
+            return isPhoneApp
+        }
+
+
+
+
+
     }
 
     /**
@@ -177,6 +204,7 @@ abstract class NotificationListenerServiceAbstract : NotificationListenerService
                     notification ?: continue
                     val n_info = buildNotificationInfo(sbn,notification, null)
                     asyncHandleNotificationPostedFor(sbn,notification,n_info.title,n_info.content,n_info)
+                    clearNotification(sbn,n_info.title,n_info.content,n_info.pkgName)
                 }
             }else{
                 //带索引
@@ -188,6 +216,7 @@ abstract class NotificationListenerServiceAbstract : NotificationListenerService
                     //Log.d("LoopIndex", "当前是第 ${index + 1} 个元素")
                     val n_info = buildNotificationInfo(sbn,notification, null)
                     asyncHandleNotificationPostedFor(sbn,notification,n_info.title,n_info.content,n_info)
+                    clearNotification(sbn,n_info.title,n_info.content,n_info.pkgName)
                 }
             }
 
@@ -237,6 +266,19 @@ abstract class NotificationListenerServiceAbstract : NotificationListenerService
         notificationServiceLiveData.value = this
         runCatching { listeners.forEach { it.onListenerConnected(this) } }
         super.onListenerConnected()
+        executors.execute {
+            var sbns:List<StatusBarNotification> = emptyList()
+            sbns = getAllSortedByTime(activeNotifications)
+            for (sbn in sbns) {
+                sbn ?: continue
+                val notification = sbn.notification
+                notification ?: continue
+                val n_info = buildNotificationInfo(sbn,notification, null)
+                asyncHandleNotificationPostedFor(sbn,notification,n_info.title,n_info.content,n_info)
+                clearNotification(sbn,n_info.title,n_info.content,n_info.pkgName)
+            }
+        }
+
 
     }
 
@@ -453,6 +495,99 @@ abstract class NotificationListenerServiceAbstract : NotificationListenerService
     }
 
 
+    fun clearNotification(sbn: StatusBarNotification,title: String,content: String,pkgName: String){
+        //某些 包含本应用的  系统通知的消除
+        if (isSystemApp(pkg = pkgName)) {
+            //电话应用
+            if (isPhoneApp(pkg = pkgName))return
+            if(title.contains(getAppName(packageName))||
+                content.contains(getAppName(packageName))){
+                 sbn.key?.let {
+                     removeNotificationByKey(it)
+                     removeWanGuNotificationByKey(sbn,it)
+                }
+            }
+        }
+
+        //保活通知的自动消除
+        if (AliveUtils.getAC_AliveNotification()){
+            val aliveTitle = MMKVUtil.get(
+                MMKVConst.FORGROUNDSERVICETITLE,
+                appContext.getString(R.string.wendingrun2)
+            )
+            val aliveContent = MMKVUtil.get(
+                MMKVConst.FORGROUNDSERVICECONTENT,
+                appContext.getString(R.string.wendingrun4)
+            )
+            if (title.equals(aliveTitle) ||content.equals(aliveContent)){
+                sbn.key?.let {
+                    removeWanGuNotificationByKey(sbn,it)
+                }
+            }
+        }
+    }
+
+    /**
+     * 取消指定通知（按 key）。从 API 21 可用。
+     */
+    fun removeNotificationByKey(key: String) {
+        try {
+            cancelNotification(key)
+        } catch (e: Exception) {
+
+        }
+    }
+    /**
+     * 取消指定顽固通知（按 key）。
+     */
+    fun removeWanGuNotificationByKey(sbn: StatusBarNotification,key: String) {
+        try {
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                if (sbn.isOngoing||!sbn.isClearable){
+                    snoozeNotification(key, 12 * 60 * 60 * 1000)
+                }
+            }
+
+
+        } catch (e: Exception) {
+
+        }
+    }
+
+    /**
+     * 一键清空通知栏 — 尝试调用系统 API 清空监听到的通知。
+     * 注意：不同厂商或系统版本行为可能不同。
+     */
+    fun clearAllNotifications() {
+        try {
+            cancelAllNotifications()
+        } catch (e: Exception) {
+
+        }
+    }
+
+    fun isSystemApp(context: Context =appContext, pkg: String): Boolean {
+        try {
+            val packageInfo = context.packageManager.getPackageInfo(pkg, 0)
+            return packageInfo.applicationInfo?.flags?.and(ApplicationInfo.FLAG_SYSTEM) != 0
+        } catch (e: PackageManager.NameNotFoundException) {
+            return false
+        }
+    }
+
+
+
+    fun isPhoneAppWithPermission(context: Context, packageName: String): Boolean {
+        val pm = context.packageManager
+        try {
+            val packageInfo = pm.getPackageInfo(packageName, PackageManager.GET_PERMISSIONS)
+            val permissions = packageInfo.requestedPermissions
+            return permissions?.contains(Manifest.permission.CALL_PHONE) == true
+        } catch (e: PackageManager.NameNotFoundException) {
+            e.printStackTrace()
+            return false
+        }
+    }
 
 
 
