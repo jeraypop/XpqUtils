@@ -66,10 +66,11 @@ object AliveUtils {
     * */
     @JvmOverloads
     @JvmStatic
-    fun openAliveActivity(notificationServiceClass : Class<out NotificationListenerService> = ClearNotificationListenerServiceImp::class.java) {
+    fun openAliveActivity(showReadBar : Boolean = false,notificationServiceClass : Class<out NotificationListenerService> = ClearNotificationListenerServiceImp::class.java) {
         // 创建一个Intent，指定要启动的Activity
         val intent = Intent(appContext, QuanXianActivity::class.java)
-        intent.putExtra("notificationservice_class", notificationServiceClass)
+        intent.putExtra(MMKVConst.NOTIFICATION_SERVICE_CLASS, notificationServiceClass)
+        intent.putExtra(MMKVConst.SHOW_READ_NOTIFICATION,showReadBar)
         intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
         appContext.startActivity(intent)
     }

@@ -53,6 +53,7 @@ class QuanXianActivity : AppCompatActivity() {
     private var drawableNo: Drawable? = null
 
     private var serviceClass: Class<out NotificationListenerService>? = null
+    private  var showReadBar = false
     private var readnotificationbar:Switch? = null
 
     @RequiresApi(api = Build.VERSION_CODES.M)
@@ -96,11 +97,13 @@ class QuanXianActivity : AppCompatActivity() {
         updateUI()
         // 获取传递的 Class 对象
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-            serviceClass = intent.getSerializableExtra("notificationservice_class", Class::class.java) as? Class<out NotificationListenerService>
+            serviceClass = intent.getSerializableExtra(MMKVConst.NOTIFICATION_SERVICE_CLASS, Class::class.java) as? Class<out NotificationListenerService>
         } else {
             @Suppress("DEPRECATION")
-            serviceClass = intent.getSerializableExtra("notificationservice_class") as? Class<out NotificationListenerService>
+            serviceClass = intent.getSerializableExtra(MMKVConst.NOTIFICATION_SERVICE_CLASS) as? Class<out NotificationListenerService>
         }
+
+        showReadBar = intent.getBooleanExtra(MMKVConst.SHOW_READ_NOTIFICATION, false)
 
 
         //====================按钮监测===============================================
@@ -151,7 +154,11 @@ class QuanXianActivity : AppCompatActivity() {
             }
             //===
         }
-
+        binding.trReadNotification.visibility = if (showReadBar){
+            View.VISIBLE
+        }else{
+            View.GONE
+        }
         //读取通知栏权限
         binding.buttonReadNotifiPermission.setOnClickListener {
             //  打开让用户设置
