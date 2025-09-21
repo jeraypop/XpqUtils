@@ -47,8 +47,10 @@ import com.google.android.accessibility.ext.utils.LibCtxProvider.Companion.conte
 import com.google.android.accessibility.ext.utils.MMKVConst.CLEARAUTOBAOHUOISON
 import com.google.android.accessibility.ext.utils.MMKVConst.KEEP_ALIVE_BY_FLOATINGWINDOW
 import com.google.android.accessibility.ext.utils.MMKVConst.KEEP_ALIVE_BY_NOTIFICATION
+import com.google.android.accessibility.ext.utils.MMKVConst.READNOTIFICATIONBAR
 import com.google.android.accessibility.ext.utils.MMKVConst.UPDATE_SCOPE
 import com.google.android.accessibility.ext.utils.MMKVConst.UPDATE_VALUE
+import com.google.android.accessibility.notification.ClearNotificationListenerServiceImp
 import com.hjq.permissions.OnPermissionCallback
 import com.hjq.permissions.XXPermissions
 import com.hjq.permissions.permission.PermissionLists
@@ -64,11 +66,12 @@ object AliveUtils {
     * */
     @JvmOverloads
     @JvmStatic
-    fun openAliveActivity(@NonNull context: Context = appContext) {
+    fun openAliveActivity(notificationServiceClass : Class<out NotificationListenerService> = ClearNotificationListenerServiceImp::class.java) {
         // 创建一个Intent，指定要启动的Activity
-        val intent = Intent(context, QuanXianActivity::class.java)
+        val intent = Intent(appContext, QuanXianActivity::class.java)
+        intent.putExtra("notificationservice_class", notificationServiceClass)
         intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-        context.startActivity(intent)
+        appContext.startActivity(intent)
     }
 
 
@@ -745,6 +748,17 @@ object AliveUtils {
         SPUtils.putBoolean(CLEARAUTOBAOHUOISON,enable)
         return true
     }
+
+    @JvmStatic
+    fun getReadNotification(): Boolean {
+        return SPUtils.getBoolean(READNOTIFICATIONBAR,false)
+    }
+    @JvmStatic
+    fun setReadNotification(enable: Boolean): Boolean {
+        SPUtils.putBoolean(READNOTIFICATIONBAR,enable)
+        return true
+    }
+
 
     @JvmStatic
     fun getFirstInstallTime(context: Context): Long? {

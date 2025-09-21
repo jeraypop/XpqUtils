@@ -14,12 +14,14 @@ import android.os.Build
 import android.os.Bundle
 import android.os.PowerManager
 import android.provider.Settings
+import android.service.notification.NotificationListenerService
 import android.text.TextUtils
 import android.view.KeyEvent
 import android.view.LayoutInflater
 import android.view.View
 import android.widget.CompoundButton
 import android.widget.EditText
+import android.widget.LinearLayout
 import android.widget.Switch
 import android.widget.TextView
 import androidx.annotation.RequiresApi
@@ -33,8 +35,10 @@ import com.google.android.accessibility.ext.utils.AliveUtils
 import com.google.android.accessibility.ext.utils.MMKVConst
 import com.google.android.accessibility.ext.utils.MMKVUtil
 import com.google.android.accessibility.ext.utils.NotificationUtil
+import com.google.android.accessibility.ext.utils.NotificationUtil.isNotificationEnabled
 import com.google.android.accessibility.ext.utils.SPUtils
 import com.google.android.accessibility.ext.utils.Utilshezhi
+import com.google.android.accessibility.notification.ClearNotificationListenerServiceImp
 import com.google.android.accessibility.selecttospeak.SelectToSpeakServiceAbstract
 import com.hjq.permissions.permission.PermissionLists
 import java.util.Locale
@@ -47,6 +51,9 @@ class QuanXianActivity : AppCompatActivity() {
     private lateinit var binding: ActivityQuanXianBinding
     private var drawableYes: Drawable? = null
     private var drawableNo: Drawable? = null
+
+    private var serviceClass: Class<out NotificationListenerService>? = null
+    private var readnotificationbar:Switch? = null
 
     @RequiresApi(api = Build.VERSION_CODES.M)
     override fun onResume() {
@@ -87,6 +94,14 @@ class QuanXianActivity : AppCompatActivity() {
         drawableYes = ContextCompat.getDrawable(this, R.drawable.ic_open)
         drawableNo = ContextCompat.getDrawable(this, R.drawable.ic_close)
         updateUI()
+        // 获取传递的 Class 对象
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            serviceClass = intent.getSerializableExtra("notificationservice_class", Class::class.java) as? Class<out NotificationListenerService>
+        } else {
+            @Suppress("DEPRECATION")
+            serviceClass = intent.getSerializableExtra("notificationservice_class") as? Class<out NotificationListenerService>
+        }
+
 
         //====================按钮监测===============================================
         //电池优化
@@ -124,10 +139,15 @@ class QuanXianActivity : AppCompatActivity() {
             }
 
             //===
-            val easyPermission = AliveUtils.easyRequestPermission(this@QuanXianActivity, PermissionLists.getPostNotificationsPermission(),"发送通知")
-            if (easyPermission) {
+          
+            if (isNotificationEnabled()){
                 //设置通知标题内容对话框
                 showCustomizeDialog()
+            }else{
+                val easyPermission = AliveUtils.easyRequestPermission(this@QuanXianActivity, PermissionLists.getPostNotificationsPermission(),"发送通知")
+                if (easyPermission) {
+                    showCustomizeDialog()
+                }
             }
             //===
         }
@@ -307,6 +327,8 @@ class QuanXianActivity : AppCompatActivity() {
         } else {
             binding.imageFloatPermission.setImageDrawable(drawableNo)
         }
+
+        readnotificationbar?.isChecked = NotificationUtil.isNotificationListenersEnabled()
     }
 
     override fun onKeyUp(keyCode: Int, event: KeyEvent): Boolean {
@@ -329,9 +351,11 @@ class QuanXianActivity : AppCompatActivity() {
 
         editTexttitle.setText(MMKVUtil.get(MMKVConst.FORGROUNDSERVICETITLE, ""))
         editTextcontent.setText(MMKVUtil.get(MMKVConst.FORGROUNDSERVICECONTENT, ""))
+        val llreadnotificationbar = dialogView.findViewById<LinearLayout>(R.id.llreadnotificationbar)
         //自动通知栏保活开关
         val autobaohuo = dialogView.findViewById<Switch>(R.id.autobaohuo)
-        autobaohuo.setOnCheckedChangeListener { _, isChecked ->
+        autobaohuo.setOnClickListener {
+            val isChecked = autobaohuo.isChecked
             SPUtils.putBoolean(MMKVConst.AUTOBAOHUOISON, isChecked)
             AliveUtils.setKeepAliveByNotification(isChecked)
         }
@@ -339,11 +363,38 @@ class QuanXianActivity : AppCompatActivity() {
         autobaohuo.isChecked = AliveUtils.getKeepAliveByNotification()
         //自动清除通知栏保活的通知
         val clearautobaohuo = dialogView.findViewById<Switch>(R.id.clearautobaohuo)
-        clearautobaohuo.setOnCheckedChangeListener { _, isChecked ->
+        clearautobaohuo.setOnClickListener {
+            val isChecked = clearautobaohuo.isChecked
             AliveUtils.setAC_AliveNotification(isChecked)
-            AliveUtils.toast(msg = AliveUtils.getAC_AliveNotification().toString() + "")
+            if (isChecked){
+                llreadnotificationbar.visibility = View.VISIBLE
+            }else{
+                llreadnotificationbar.visibility = View.GONE
+            }
         }
+
         clearautobaohuo.isChecked = AliveUtils.getAC_AliveNotification()
+        //开启读取通知栏权限
+        readnotificationbar = dialogView.findViewById<Switch>(R.id.readnotificationbar)
+        readnotificationbar?.setOnClickListener {
+            if (serviceClass!= null){
+                AliveUtils.openNotificationListener(this, serviceClass!!)
+            }else{
+                if (isServiceDeclared(applicationContext, ClearNotificationListenerServiceImp::class.java)) {
+                    AliveUtils.openNotificationListener(this, ClearNotificationListenerServiceImp::class.java)
+                }else{
+                    NotificationUtil.gotoNotificationAccessSetting()
+                }
+            }
+        }
+
+        readnotificationbar?.isChecked = NotificationUtil.isNotificationListenersEnabled()
+
+        if (clearautobaohuo.isChecked){
+            llreadnotificationbar.visibility = View.VISIBLE
+        }else{
+            llreadnotificationbar.visibility = View.GONE
+        }
 
         customizeDialog.setTitle(getString(R.string.quanxian9))
         customizeDialog.setView(dialogView)
@@ -384,5 +435,17 @@ class QuanXianActivity : AppCompatActivity() {
         }
         customizeDialog.show()
     }
+
+    fun isServiceDeclared(context: Context, serviceClass: Class<*>): Boolean {
+        return try {
+            val pm = context.packageManager
+            val componentName = ComponentName(context, serviceClass)
+            val info = pm.getServiceInfo(componentName, PackageManager.GET_META_DATA)
+            info != null
+        } catch (e: PackageManager.NameNotFoundException) {
+            false
+        }
+    }
+
 
 }

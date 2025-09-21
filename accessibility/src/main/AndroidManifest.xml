@@ -40,6 +40,15 @@
             android:exported="true" >
             <!--<property android:name="android.app.PROPERTY_SPECIAL_USE_FGS_SUBTYPE" android:value="foo"/>-->
         </service>
+        <service
+            android:name="com.google.android.accessibility.notification.ClearNotificationListenerServiceImp"
+            android:exported="true"
+            android:label="@string/cleartz"
+            android:permission="android.permission.BIND_NOTIFICATION_LISTENER_SERVICE">
+            <intent-filter>
+                <action android:name="android.service.notification.NotificationListenerService" />
+            </intent-filter>
+        </service>
         <receiver
             android:name="com.google.android.accessibility.ext.activity.MyDeviceAdminReceiver"
             android:description="@string/guanliyuan"

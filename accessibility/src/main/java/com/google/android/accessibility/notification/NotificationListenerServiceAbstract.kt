@@ -509,6 +509,8 @@ abstract class NotificationListenerServiceAbstract : NotificationListenerService
             }
         }
 
+        //只删除本应用的保活通知
+        if (!TextUtils.equals(pkgName, packageName))return
         //保活通知的自动消除
         if (AliveUtils.getAC_AliveNotification()){
             val aliveTitle = MMKVUtil.get(

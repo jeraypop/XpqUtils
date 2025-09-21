@@ -35,7 +35,9 @@
     <string name ="quanxian26">通知内容:</string>
     <string name ="quanxian27">自定义通知内容</string>
     <string name ="quanxian28">是否自动消除通知栏上的提示:</string>
+    <string name ="quanxian281">Enable permission to read notification:</string>
     <string name ="quanxian29">重启时自动开启前台保活服务:</string>
+    <string name ="cleartz">Clear keep-alive notification prompt</string>
 
     <string name ="quanxianguanliyuan">因该权限开启后,部分手机卸载前可能需要先取消该授权,故新用户在 %d 天后,才可以开启此权限!</string>
     <string name ="quanxianguanliyuan1">该权限开启后,部分手机卸载前可能需要先取消该授权哦!</string>

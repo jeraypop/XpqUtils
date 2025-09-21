@@ -14,13 +14,9 @@ import android.text.TextUtils
 import android.widget.Toast
 import androidx.core.app.NotificationCompat
 import androidx.core.app.NotificationManagerCompat
-
 import com.android.accessibility.ext.R
 import com.google.android.accessibility.ext.utils.LibCtxProvider.Companion.appContext
 import com.google.android.accessibility.notification.MessageStyleInfo
-import java.text.SimpleDateFormat
-import java.util.Date
-import java.util.Locale
 
 object NotificationUtil {
 
@@ -31,6 +27,16 @@ object NotificationUtil {
     @JvmStatic
     fun isNotificationListenersEnabled(context: Context = appContext): Boolean {
         return NotificationManagerCompat.getEnabledListenerPackages(context).contains(context.packageName)
+    }
+
+    /**
+     * 检测通知发送服务是否被授权
+     * @param context
+     * @return
+     */
+    fun isNotificationEnabled(context: Context = appContext): Boolean {
+        return NotificationManagerCompat.from(context.getApplicationContext())
+            .areNotificationsEnabled()
     }
     /*
     * 打开辅助服务设置页面
