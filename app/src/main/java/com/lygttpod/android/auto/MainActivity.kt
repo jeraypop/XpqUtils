@@ -99,7 +99,7 @@ class MainActivity : AppCompatActivity() {
         }
 
         binding.btnAlive.setOnClickListener{
-            AliveUtils.openAliveActivity(NotificationListenerServiceImp::class.java)
+            AliveUtils.openAliveActivity(false,NotificationListenerServiceImp::class.java)
         }
         binding.btnAccessibility.setOnClickListener{
             AliveUtils.openAccessibility(this, SelectToSpeakService::class.java)
