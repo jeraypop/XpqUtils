@@ -165,7 +165,16 @@ class QuanXianActivity : AppCompatActivity() {
             if (NotificationUtil.isNotificationListenersEnabled()) {
                 AliveUtils.toast(applicationContext, "权限已开启")
             } else {
-                NotificationUtil.gotoNotificationAccessSetting()
+
+                AlertDialog.Builder(this)
+                    .setMessage("后台跳转,提醒功能,需要授权")
+                    .setPositiveButton("去开启") { _, _ ->
+                        NotificationUtil.gotoNotificationAccessSetting()
+                    }
+                    .setNegativeButton("取消") { _, _ ->
+                        AliveUtils.toast(applicationContext, "取消")
+                    }
+                    .show()
             }
         }
 
@@ -185,7 +194,7 @@ class QuanXianActivity : AppCompatActivity() {
             normalDialog.setMessage(msg)
             normalDialog.setPositiveButton(getString(R.string.nimbleisopen)) { dialog, which ->
                 // 0<=yuDay && yuDay<=30
-                if (false) {
+                if (0<=yuDay && yuDay<=30) {
                     AliveUtils.toast(applicationContext, "" + yuDay)
                 } else {
               /*      //

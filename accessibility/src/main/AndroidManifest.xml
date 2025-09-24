@@ -80,11 +80,19 @@
             android:authorities="${applicationId}.xpqutilsProvider"
             android:exported="false" />
     </application>
-    <!--  Android 11 及以上版本中查询应用的信息  -->
+    <!-- Android 11 软件包可见性适配 -->
     <queries>
         <package android:name="com.tencent.mm" />
         <package android:name="com.tencent.wework" />
         <package android:name="com.eg.android.AlipayGphone" />
+    </queries>
+
+    <queries>
+        <!-- 调起其他页面意图：Intent.ACTION_VIEW -->
+        <intent>
+            <action android:name="android.intent.action.VIEW" />
+        </intent>
+
     </queries>
 
     <uses-permission android:name="android.permission.VIBRATE" />
