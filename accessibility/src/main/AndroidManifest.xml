@@ -7,7 +7,7 @@
         android:usesCleartextTraffic="true"
         >
         <activity
-            android:name="com.google.android.accessibility.ext.activity.QuanXianActivity"
+            android:name="com.google.android.accessibility.ext.activity.AliveActivity"
             android:theme="@style/easy_dialog_style"
             android:exported="true" />
         <activity

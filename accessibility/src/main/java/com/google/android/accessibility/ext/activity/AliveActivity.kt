@@ -5,7 +5,6 @@ import android.accessibilityservice.AccessibilityService.GLOBAL_ACTION_RECENTS
 import android.app.admin.DevicePolicyManager
 import android.content.ComponentName
 import android.content.Context
-import android.content.DialogInterface
 import android.content.Intent
 import android.content.pm.PackageManager
 import android.graphics.drawable.Drawable
@@ -19,18 +18,14 @@ import android.text.TextUtils
 import android.view.KeyEvent
 import android.view.LayoutInflater
 import android.view.View
-import android.widget.CompoundButton
-import android.widget.EditText
-import android.widget.LinearLayout
-import android.widget.Switch
-import android.widget.TextView
 import androidx.annotation.RequiresApi
 import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.content.ContextCompat
 import com.android.accessibility.ext.R
-import com.android.accessibility.ext.databinding.ActivityQuanXianBinding
-import com.android.accessibility.ext.databinding.ForgroundserviceDialogViewBinding
+import com.android.accessibility.ext.databinding.ActivityAliveBinding
+import com.android.accessibility.ext.databinding.ForgroundserviceDialogXpqBinding
+
 import com.google.android.accessibility.ext.activity.AliveFGService.Companion.fgs_ison
 import com.google.android.accessibility.ext.utils.AliveUtils
 import com.google.android.accessibility.ext.utils.MMKVConst
@@ -44,12 +39,12 @@ import com.google.android.accessibility.selecttospeak.SelectToSpeakServiceAbstra
 import com.hjq.permissions.permission.PermissionLists
 import java.util.Locale
 
-class QuanXianActivity : AppCompatActivity() {
+class AliveActivity : AppCompatActivity() {
 
     private var devicePolicyManager: DevicePolicyManager? = null
     private var packageManager: PackageManager? = null
     private var powerManager: PowerManager? = null
-    private lateinit var binding: ActivityQuanXianBinding
+    private lateinit var binding: ActivityAliveBinding
     private var drawableYes: Drawable? = null
     private var drawableNo: Drawable? = null
 
@@ -75,7 +70,7 @@ class QuanXianActivity : AppCompatActivity() {
     @RequiresApi(api = Build.VERSION_CODES.M)
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        binding = ActivityQuanXianBinding.inflate(layoutInflater)
+        binding = ActivityAliveBinding.inflate(layoutInflater)
         setContentView(binding.root)
 
         packageManager = packageManager
@@ -123,7 +118,7 @@ class QuanXianActivity : AppCompatActivity() {
             }*/
 
             //===
-            val easyPermission = AliveUtils.easyRequestPermission(this@QuanXianActivity, PermissionLists.getRequestIgnoreBatteryOptimizationsPermission(),"忽略电池优化")
+            val easyPermission = AliveUtils.easyRequestPermission(this@AliveActivity, PermissionLists.getRequestIgnoreBatteryOptimizationsPermission(),"忽略电池优化")
             if (easyPermission) {
                 binding.imagePowerPermission.setImageDrawable(drawableYes)
             } else {
@@ -148,7 +143,7 @@ class QuanXianActivity : AppCompatActivity() {
                 //设置通知标题内容对话框
                 showCustomizeDialog()
             }else{
-                val easyPermission = AliveUtils.easyRequestPermission(this@QuanXianActivity, PermissionLists.getPostNotificationsPermission(),"发送通知")
+                val easyPermission = AliveUtils.easyRequestPermission(this@AliveActivity, PermissionLists.getPostNotificationsPermission(),"发送通知")
                 if (easyPermission) {
                     showCustomizeDialog()
                 }
@@ -189,7 +184,7 @@ class QuanXianActivity : AppCompatActivity() {
                 getString(R.string.quanxianguanliyuan1)
             }
 
-            val normalDialog = AlertDialog.Builder(this@QuanXianActivity)
+            val normalDialog = AlertDialog.Builder(this@AliveActivity)
             //                normalDialog.setIcon(R.drawable.ic_float_app);
             normalDialog.setTitle(getString(R.string.wenxintixing))
             normalDialog.setMessage(msg)
@@ -213,7 +208,7 @@ class QuanXianActivity : AppCompatActivity() {
                     }*/
 
                     //===
-                    val easyPermission = AliveUtils.easyRequestPermission(this@QuanXianActivity, PermissionLists.getBindDeviceAdminPermission(MyDeviceAdminReceiver::class.java),"设备管理员")
+                    val easyPermission = AliveUtils.easyRequestPermission(this@AliveActivity, PermissionLists.getBindDeviceAdminPermission(MyDeviceAdminReceiver::class.java),"设备管理员")
                     if (easyPermission) {
                         binding.imageGuanliyuanPermission.setImageDrawable(drawableYes)
                     } else {
@@ -267,7 +262,7 @@ class QuanXianActivity : AppCompatActivity() {
             }*/
 
             //===
-            val easyPermission = AliveUtils.easyRequestPermission(this@QuanXianActivity, PermissionLists.getSystemAlertWindowPermission(),"悬浮窗")
+            val easyPermission = AliveUtils.easyRequestPermission(this@AliveActivity, PermissionLists.getSystemAlertWindowPermission(),"悬浮窗")
             if (easyPermission) {
                 binding.imageFloatPermission.setImageDrawable(drawableYes)
             } else {
@@ -279,7 +274,7 @@ class QuanXianActivity : AppCompatActivity() {
         //===自启动
         binding.buttonPowerPermission2.setOnClickListener {
             //自启动管理界面
-            Utilshezhi.startToAutoStartSetting(this@QuanXianActivity)
+            Utilshezhi.startToAutoStartSetting(this@AliveActivity)
         }
         //==加锁免清理
         binding.buttonPowerPermission3.setOnClickListener {
@@ -294,7 +289,7 @@ class QuanXianActivity : AppCompatActivity() {
         //==设置
         binding.buttonPowerPermission4.setOnClickListener {
             //打开设置
-            Utilshezhi.gotoPermission(this@QuanXianActivity)
+            Utilshezhi.gotoPermission(this@AliveActivity)
         }
     }
 
@@ -302,7 +297,7 @@ class QuanXianActivity : AppCompatActivity() {
         //图形开关监测
 
         //电池优化
-        val packageName = this@QuanXianActivity.packageName
+        val packageName = this@AliveActivity.packageName
 
         if (powerManager!!.isIgnoringBatteryOptimizations(packageName)) {
             binding.imagePowerPermission.setImageDrawable(drawableYes)
@@ -359,8 +354,8 @@ class QuanXianActivity : AppCompatActivity() {
     private fun showCustomizeDialog() {
         /* @setView 装入自定义View ==> R.layout.dialog_customize
          */
-        val customizeDialog = AlertDialog.Builder(this@QuanXianActivity)?: return
-        val dialogBinding = ForgroundserviceDialogViewBinding.inflate(LayoutInflater.from(this@QuanXianActivity))
+        val customizeDialog = AlertDialog.Builder(this@AliveActivity)?: return
+        val dialogBinding = ForgroundserviceDialogXpqBinding.inflate(LayoutInflater.from(this@AliveActivity))
         
         // 获取EditView中的输入内容
         dialogBinding.dialogEditTitle.setText(MMKVUtil.get(MMKVConst.FORGROUNDSERVICETITLE, ""))
@@ -387,25 +382,25 @@ class QuanXianActivity : AppCompatActivity() {
         }
 
         dialogBinding.clearautobaohuo.isChecked = AliveUtils.getAC_AliveNotification()
-        
-        
-        if (dialogBinding.clearautobaohuo.isChecked) {
-            dialogBinding.readnotificationbarView.visibility = View.VISIBLE
-            //开启读取通知栏权限
-            dialogBinding.readnotificationSwitch.setOnClickListener {
-                val isChecked = dialogBinding.readnotificationSwitch.isChecked
-                if (!isChecked)return@setOnClickListener
-                if (serviceClass!= null){
-                    AliveUtils.openNotificationListener(this, serviceClass!!)
+        //开启读取通知栏权限
+        dialogBinding.getnotificationSwitch.setOnClickListener {
+            val isChecked = dialogBinding.getnotificationSwitch.isChecked
+            if (!isChecked)return@setOnClickListener
+            if (serviceClass!= null){
+                AliveUtils.openNotificationListener(this, serviceClass!!)
+            }else{
+                if (isServiceDeclared(applicationContext, ClearNotificationListenerServiceImp::class.java)) {
+                    AliveUtils.openNotificationListener(this, ClearNotificationListenerServiceImp::class.java)
                 }else{
-                    if (isServiceDeclared(applicationContext, ClearNotificationListenerServiceImp::class.java)) {
-                        AliveUtils.openNotificationListener(this, ClearNotificationListenerServiceImp::class.java)
-                    }else{
-                        NotificationUtil.gotoNotificationAccessSetting()
-                    }
+                    NotificationUtil.gotoNotificationAccessSetting()
                 }
             }
-            dialogBinding.readnotificationSwitch.isChecked = NotificationUtil.isNotificationListenersEnabled()
+        }
+        dialogBinding.getnotificationSwitch.isChecked = NotificationUtil.isNotificationListenersEnabled()
+
+
+        if (dialogBinding.clearautobaohuo.isChecked) {
+            dialogBinding.readnotificationbarView.visibility = View.VISIBLE
 
         } else {
             dialogBinding.readnotificationbarView.visibility = View.GONE

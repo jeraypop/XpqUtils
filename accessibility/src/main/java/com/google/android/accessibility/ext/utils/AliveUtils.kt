@@ -1,6 +1,5 @@
 package com.google.android.accessibility.ext.utils
 
-import android.Manifest
 import android.accessibilityservice.AccessibilityService
 import android.app.Activity
 import android.app.ActivityOptions
@@ -41,7 +40,7 @@ import androidx.core.content.ContextCompat
 import com.android.accessibility.ext.R
 import com.google.android.accessibility.ext.activity.AliveFGService
 import com.google.android.accessibility.ext.activity.AliveFGService.Companion.fgs_ison
-import com.google.android.accessibility.ext.activity.QuanXianActivity
+import com.google.android.accessibility.ext.activity.AliveActivity
 import com.google.android.accessibility.ext.utils.LibCtxProvider.Companion.appContext
 import com.google.android.accessibility.ext.utils.LibCtxProvider.Companion.contentProviderAuthority
 import com.google.android.accessibility.ext.utils.MMKVConst.CLEARAUTOBAOHUOISON
@@ -68,7 +67,7 @@ object AliveUtils {
     @JvmStatic
     fun openAliveActivity(showReadBar : Boolean = false,notificationServiceClass : Class<out NotificationListenerService> = ClearNotificationListenerServiceImp::class.java) {
         // 创建一个Intent，指定要启动的Activity
-        val intent = Intent(appContext, QuanXianActivity::class.java)
+        val intent = Intent(appContext, AliveActivity::class.java)
         intent.putExtra(MMKVConst.NOTIFICATION_SERVICE_CLASS, notificationServiceClass)
         intent.putExtra(MMKVConst.SHOW_READ_NOTIFICATION,showReadBar)
         intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
