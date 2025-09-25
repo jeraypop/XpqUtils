@@ -388,25 +388,25 @@ class QuanXianActivity : AppCompatActivity() {
 
         dialogBinding.clearautobaohuo.isChecked = AliveUtils.getAC_AliveNotification()
         
-        //开启读取通知栏权限
-        dialogBinding.readnotificationSwitch.setOnClickListener {
-            val isChecked = dialogBinding.readnotificationSwitch.isChecked
-            if (!isChecked)return@setOnClickListener
-            if (serviceClass!= null){
-                AliveUtils.openNotificationListener(this, serviceClass!!)
-            }else{
-                if (isServiceDeclared(applicationContext, ClearNotificationListenerServiceImp::class.java)) {
-                    AliveUtils.openNotificationListener(this, ClearNotificationListenerServiceImp::class.java)
-                }else{
-                    NotificationUtil.gotoNotificationAccessSetting()
-                }
-            }
-        }
-
-        dialogBinding.readnotificationSwitch.isChecked = NotificationUtil.isNotificationListenersEnabled()
-
+        
         if (dialogBinding.clearautobaohuo.isChecked) {
             dialogBinding.readnotificationbarView.visibility = View.VISIBLE
+            //开启读取通知栏权限
+            dialogBinding.readnotificationSwitch.setOnClickListener {
+                val isChecked = dialogBinding.readnotificationSwitch.isChecked
+                if (!isChecked)return@setOnClickListener
+                if (serviceClass!= null){
+                    AliveUtils.openNotificationListener(this, serviceClass!!)
+                }else{
+                    if (isServiceDeclared(applicationContext, ClearNotificationListenerServiceImp::class.java)) {
+                        AliveUtils.openNotificationListener(this, ClearNotificationListenerServiceImp::class.java)
+                    }else{
+                        NotificationUtil.gotoNotificationAccessSetting()
+                    }
+                }
+            }
+            dialogBinding.readnotificationSwitch.isChecked = NotificationUtil.isNotificationListenersEnabled()
+
         } else {
             dialogBinding.readnotificationbarView.visibility = View.GONE
         }
