@@ -389,8 +389,8 @@ class QuanXianActivity : AppCompatActivity() {
         dialogBinding.clearautobaohuo.isChecked = AliveUtils.getAC_AliveNotification()
         
         //开启读取通知栏权限
-        dialogBinding.readnotificationbar.setOnClickListener {
-            val isChecked = dialogBinding.readnotificationbar.isChecked
+        dialogBinding.readnotificationSwitch.setOnClickListener {
+            val isChecked = dialogBinding.readnotificationSwitch.isChecked
             if (!isChecked)return@setOnClickListener
             if (serviceClass!= null){
                 AliveUtils.openNotificationListener(this, serviceClass!!)
@@ -403,7 +403,7 @@ class QuanXianActivity : AppCompatActivity() {
             }
         }
 
-        dialogBinding.readnotificationbar.isChecked = NotificationUtil.isNotificationListenersEnabled()
+        dialogBinding.readnotificationSwitch.isChecked = NotificationUtil.isNotificationListenersEnabled()
 
         if (dialogBinding.clearautobaohuo.isChecked) {
             dialogBinding.readnotificationbarView.visibility = View.VISIBLE
