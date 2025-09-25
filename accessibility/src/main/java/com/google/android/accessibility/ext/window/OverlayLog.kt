@@ -7,7 +7,7 @@ import android.view.MotionEvent
 import android.view.View
 import android.view.View.OnTouchListener
 
-import com.android.accessibility.ext.databinding.LogOverlayBinding
+import com.android.accessibility.ext.databinding.LogOverlayXpqBinding
 
 import com.blankj.utilcode.util.ScreenUtils
 import com.google.android.accessibility.ext.AssistsServiceListener
@@ -43,7 +43,7 @@ object OverlayLog : AssistsServiceListener {
             return false
         }
     }
-    private var viewBinding: LogOverlayBinding? = null
+    private var viewBinding: LogOverlayXpqBinding? = null
         @SuppressLint("ClickableViewAccessibility")
         get() {
             if (field == null) {
@@ -52,7 +52,7 @@ object OverlayLog : AssistsServiceListener {
                     context = appContext
                 }
 
-                field = LogOverlayBinding.inflate(LayoutInflater.from(context)).apply {
+                field = LogOverlayXpqBinding.inflate(LayoutInflater.from(context)).apply {
                     scrollView.setOnTouchListener(onScrollTouchListener)
                     btnClean.setOnClickListener {
                         CoroutineWrapper.launch { LogWrapper.clearLog() }
