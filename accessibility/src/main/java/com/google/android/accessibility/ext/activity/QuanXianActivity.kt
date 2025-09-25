@@ -380,9 +380,9 @@ class QuanXianActivity : AppCompatActivity() {
             val isChecked = dialogBinding.clearautobaohuo.isChecked
             AliveUtils.setAC_AliveNotification(isChecked)
             if (isChecked){
-                dialogBinding.llreadnotificationbar.visibility = View.VISIBLE
+                dialogBinding.readnotificationbarView.visibility = View.VISIBLE
             }else{
-                dialogBinding.llreadnotificationbar.visibility = View.GONE
+                dialogBinding.readnotificationbarView.visibility = View.GONE
             }
         }
 
@@ -406,9 +406,9 @@ class QuanXianActivity : AppCompatActivity() {
         dialogBinding.readnotificationbar.isChecked = NotificationUtil.isNotificationListenersEnabled()
 
         if (dialogBinding.clearautobaohuo.isChecked) {
-            dialogBinding.llreadnotificationbar.visibility = View.VISIBLE
+            dialogBinding.readnotificationbarView.visibility = View.VISIBLE
         } else {
-            dialogBinding.llreadnotificationbar.visibility = View.GONE
+            dialogBinding.readnotificationbarView.visibility = View.GONE
         }
 
         customizeDialog.setTitle(getString(R.string.quanxian9))
