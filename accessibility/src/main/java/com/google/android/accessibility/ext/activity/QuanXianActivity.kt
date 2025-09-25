@@ -367,7 +367,8 @@ class QuanXianActivity : AppCompatActivity() {
 
         editTexttitle?.setText(MMKVUtil.get(MMKVConst.FORGROUNDSERVICETITLE, ""))
         editTextcontent?.setText(MMKVUtil.get(MMKVConst.FORGROUNDSERVICECONTENT, ""))
-        val llreadnotificationbar = dialogView.findViewById<LinearLayout>(R.id.llreadnotificationbar)
+        var llreadnotificationbar = dialogView.findViewById<View>(R.id.llreadnotificationbar)
+
         //自动通知栏保活开关
         val autobaohuo = dialogView.findViewById<Switch>(R.id.autobaohuo)
         autobaohuo?.setOnClickListener {
@@ -382,6 +383,9 @@ class QuanXianActivity : AppCompatActivity() {
         clearautobaohuo?.setOnClickListener {
             val isChecked = clearautobaohuo.isChecked
             AliveUtils.setAC_AliveNotification(isChecked)
+            if (llreadnotificationbar==null){
+                llreadnotificationbar = dialogView.findViewById<View>(R.id.llreadnotificationbar)
+            }
             if (isChecked){
                 llreadnotificationbar?.visibility = View.VISIBLE
             }else{
