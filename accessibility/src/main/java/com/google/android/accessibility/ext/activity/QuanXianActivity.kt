@@ -30,6 +30,7 @@ import androidx.appcompat.app.AppCompatActivity
 import androidx.core.content.ContextCompat
 import com.android.accessibility.ext.R
 import com.android.accessibility.ext.databinding.ActivityQuanXianBinding
+import com.android.accessibility.ext.databinding.ForgroundserviceDialogViewBinding
 import com.google.android.accessibility.ext.activity.AliveFGService.Companion.fgs_ison
 import com.google.android.accessibility.ext.utils.AliveUtils
 import com.google.android.accessibility.ext.utils.MMKVConst
@@ -54,7 +55,7 @@ class QuanXianActivity : AppCompatActivity() {
 
     private var serviceClass: Class<out NotificationListenerService>? = null
     private  var showReadBar = false
-    private var readnotificationbar:Switch? = null
+   
 
     @RequiresApi(api = Build.VERSION_CODES.M)
     override fun onResume() {
@@ -344,7 +345,7 @@ class QuanXianActivity : AppCompatActivity() {
             binding.imageFloatPermission.setImageDrawable(drawableNo)
         }
 
-        readnotificationbar?.isChecked = NotificationUtil.isNotificationListenersEnabled()
+
     }
 
     override fun onKeyUp(keyCode: Int, event: KeyEvent): Boolean {
@@ -359,44 +360,38 @@ class QuanXianActivity : AppCompatActivity() {
         /* @setView 装入自定义View ==> R.layout.dialog_customize
          */
         val customizeDialog = AlertDialog.Builder(this@QuanXianActivity)?: return
-        val dialogView = LayoutInflater.from(this@QuanXianActivity)
-            .inflate(R.layout.forgroundservice_dialog_view, null)?: return
+        val dialogBinding = ForgroundserviceDialogViewBinding.inflate(LayoutInflater.from(this@QuanXianActivity))
+        
         // 获取EditView中的输入内容
-        val editTexttitle = dialogView.findViewById<EditText>(R.id.dialog_edit_title)
-        val editTextcontent = dialogView.findViewById<EditText>(R.id.dialog_edit_content)
-
-        editTexttitle?.setText(MMKVUtil.get(MMKVConst.FORGROUNDSERVICETITLE, ""))
-        editTextcontent?.setText(MMKVUtil.get(MMKVConst.FORGROUNDSERVICECONTENT, ""))
-        var llreadnotificationbar = dialogView.findViewById<View>(R.id.llreadnotificationbar)
+        dialogBinding.dialogEditTitle.setText(MMKVUtil.get(MMKVConst.FORGROUNDSERVICETITLE, ""))
+        dialogBinding.dialogEditContent.setText(MMKVUtil.get(MMKVConst.FORGROUNDSERVICECONTENT, ""))
 
         //自动通知栏保活开关
-        val autobaohuo = dialogView.findViewById<Switch>(R.id.autobaohuo)
-        autobaohuo?.setOnClickListener {
-            val isChecked = autobaohuo.isChecked
+        dialogBinding.autobaohuo.setOnClickListener {
+            val isChecked = dialogBinding.autobaohuo.isChecked
             SPUtils.putBoolean(MMKVConst.AUTOBAOHUOISON, isChecked)
             AliveUtils.setKeepAliveByNotification(isChecked)
         }
 
-        autobaohuo?.isChecked = AliveUtils.getKeepAliveByNotification()
+        dialogBinding.autobaohuo.isChecked = AliveUtils.getKeepAliveByNotification()
+        
         //自动清除通知栏保活的通知
-        val clearautobaohuo = dialogView.findViewById<Switch>(R.id.clearautobaohuo)
-        clearautobaohuo?.setOnClickListener {
-            val isChecked = clearautobaohuo.isChecked
+        dialogBinding.clearautobaohuo.setOnClickListener {
+            val isChecked = dialogBinding.clearautobaohuo.isChecked
             AliveUtils.setAC_AliveNotification(isChecked)
-            if (llreadnotificationbar==null){
-                llreadnotificationbar = dialogView.findViewById<View>(R.id.llreadnotificationbar)
-            }
             if (isChecked){
-                llreadnotificationbar?.visibility = View.VISIBLE
+                dialogBinding.llreadnotificationbar.visibility = View.VISIBLE
             }else{
-                llreadnotificationbar?.visibility = View.GONE
+                dialogBinding.llreadnotificationbar.visibility = View.GONE
             }
         }
 
-        clearautobaohuo?.isChecked = AliveUtils.getAC_AliveNotification()
+        dialogBinding.clearautobaohuo.isChecked = AliveUtils.getAC_AliveNotification()
+        
         //开启读取通知栏权限
-        readnotificationbar = dialogView.findViewById<Switch>(R.id.readnotificationbar)
-        readnotificationbar?.setOnClickListener {
+        dialogBinding.readnotificationbar.setOnClickListener {
+            val isChecked = dialogBinding.readnotificationbar.isChecked
+            if (!isChecked)return@setOnClickListener
             if (serviceClass!= null){
                 AliveUtils.openNotificationListener(this, serviceClass!!)
             }else{
@@ -408,20 +403,21 @@ class QuanXianActivity : AppCompatActivity() {
             }
         }
 
-        readnotificationbar?.isChecked = NotificationUtil.isNotificationListenersEnabled()
+        dialogBinding.readnotificationbar.isChecked = NotificationUtil.isNotificationListenersEnabled()
 
-        if (clearautobaohuo?.isChecked == true){
-            llreadnotificationbar?.visibility = View.VISIBLE
-        }else{
-            llreadnotificationbar?.visibility = View.GONE
+        if (dialogBinding.clearautobaohuo.isChecked) {
+            dialogBinding.llreadnotificationbar.visibility = View.VISIBLE
+        } else {
+            dialogBinding.llreadnotificationbar.visibility = View.GONE
         }
 
         customizeDialog.setTitle(getString(R.string.quanxian9))
-        customizeDialog.setView(dialogView)
+        customizeDialog.setView(dialogBinding.root)
+        
         //确定按钮
         customizeDialog.setPositiveButton(getString(R.string.ok)) { dialog, which ->
-            val title = editTexttitle.text.toString().trim { it <= ' ' }
-            val content = editTextcontent.text.toString().trim { it <= ' ' }
+            val title = dialogBinding.dialogEditTitle.text.toString().trim { it <= ' ' }
+            val content = dialogBinding.dialogEditContent.text.toString().trim { it <= ' ' }
 
             if (TextUtils.isEmpty(title) || TextUtils.isEmpty(content)) {
                 MMKVUtil.put(MMKVConst.FORGROUNDSERVICETITLE, getString(R.string.wendingrun2))
@@ -439,6 +435,7 @@ class QuanXianActivity : AppCompatActivity() {
             AliveUtils.setKeepAliveByNotification(true)
             binding.imageQiantaifuwuPermission.setImageDrawable(drawableYes)
         }
+        
         //取消按钮
         customizeDialog.setNegativeButton(getString(R.string.quanxian14)) { dialog, which ->
             //==
