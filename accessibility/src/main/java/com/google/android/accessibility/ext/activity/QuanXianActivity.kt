@@ -358,38 +358,38 @@ class QuanXianActivity : AppCompatActivity() {
     private fun showCustomizeDialog() {
         /* @setView 装入自定义View ==> R.layout.dialog_customize
          */
-        val customizeDialog = AlertDialog.Builder(this@QuanXianActivity)
+        val customizeDialog = AlertDialog.Builder(this@QuanXianActivity)?: return
         val dialogView = LayoutInflater.from(this@QuanXianActivity)
-            .inflate(R.layout.forgroundservice_dialog_view, null)
+            .inflate(R.layout.forgroundservice_dialog_view, null)?: return
         // 获取EditView中的输入内容
         val editTexttitle = dialogView.findViewById<EditText>(R.id.dialog_edit_title)
         val editTextcontent = dialogView.findViewById<EditText>(R.id.dialog_edit_content)
 
-        editTexttitle.setText(MMKVUtil.get(MMKVConst.FORGROUNDSERVICETITLE, ""))
-        editTextcontent.setText(MMKVUtil.get(MMKVConst.FORGROUNDSERVICECONTENT, ""))
+        editTexttitle?.setText(MMKVUtil.get(MMKVConst.FORGROUNDSERVICETITLE, ""))
+        editTextcontent?.setText(MMKVUtil.get(MMKVConst.FORGROUNDSERVICECONTENT, ""))
         val llreadnotificationbar = dialogView.findViewById<LinearLayout>(R.id.llreadnotificationbar)
         //自动通知栏保活开关
         val autobaohuo = dialogView.findViewById<Switch>(R.id.autobaohuo)
-        autobaohuo.setOnClickListener {
+        autobaohuo?.setOnClickListener {
             val isChecked = autobaohuo.isChecked
             SPUtils.putBoolean(MMKVConst.AUTOBAOHUOISON, isChecked)
             AliveUtils.setKeepAliveByNotification(isChecked)
         }
 
-        autobaohuo.isChecked = AliveUtils.getKeepAliveByNotification()
+        autobaohuo?.isChecked = AliveUtils.getKeepAliveByNotification()
         //自动清除通知栏保活的通知
         val clearautobaohuo = dialogView.findViewById<Switch>(R.id.clearautobaohuo)
-        clearautobaohuo.setOnClickListener {
+        clearautobaohuo?.setOnClickListener {
             val isChecked = clearautobaohuo.isChecked
             AliveUtils.setAC_AliveNotification(isChecked)
             if (isChecked){
-                llreadnotificationbar.visibility = View.VISIBLE
+                llreadnotificationbar?.visibility = View.VISIBLE
             }else{
-                llreadnotificationbar.visibility = View.GONE
+                llreadnotificationbar?.visibility = View.GONE
             }
         }
 
-        clearautobaohuo.isChecked = AliveUtils.getAC_AliveNotification()
+        clearautobaohuo?.isChecked = AliveUtils.getAC_AliveNotification()
         //开启读取通知栏权限
         readnotificationbar = dialogView.findViewById<Switch>(R.id.readnotificationbar)
         readnotificationbar?.setOnClickListener {
@@ -406,7 +406,7 @@ class QuanXianActivity : AppCompatActivity() {
 
         readnotificationbar?.isChecked = NotificationUtil.isNotificationListenersEnabled()
 
-        if (clearautobaohuo.isChecked){
+        if (clearautobaohuo?.isChecked == true){
             llreadnotificationbar?.visibility = View.VISIBLE
         }else{
             llreadnotificationbar?.visibility = View.GONE
