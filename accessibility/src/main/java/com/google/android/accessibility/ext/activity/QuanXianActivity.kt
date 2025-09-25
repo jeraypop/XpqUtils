@@ -407,9 +407,9 @@ class QuanXianActivity : AppCompatActivity() {
         readnotificationbar?.isChecked = NotificationUtil.isNotificationListenersEnabled()
 
         if (clearautobaohuo.isChecked){
-            llreadnotificationbar.visibility = View.VISIBLE
+            llreadnotificationbar?.visibility = View.VISIBLE
         }else{
-            llreadnotificationbar.visibility = View.GONE
+            llreadnotificationbar?.visibility = View.GONE
         }
 
         customizeDialog.setTitle(getString(R.string.quanxian9))
