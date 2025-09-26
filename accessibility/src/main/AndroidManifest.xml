@@ -59,7 +59,7 @@
             >
             <meta-data
                 android:name="android.app.device_admin"
-                android:resource="@xml/configure_device_admin" />
+                android:resource="@xml/configure_device_admin_xpq" />
             <intent-filter>
                 <action android:name="android.app.action.DEVICE_ADMIN_ENABLED" />
             </intent-filter>

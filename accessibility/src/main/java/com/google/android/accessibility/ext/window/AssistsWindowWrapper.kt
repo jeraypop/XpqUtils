@@ -9,7 +9,7 @@ import android.view.WindowManager
 import androidx.core.view.isInvisible
 import androidx.core.view.isVisible
 import com.google.android.accessibility.ext.CoroutineWrapper
-import com.android.accessibility.ext.databinding.AssistsWindowLayoutWrapperBinding
+import com.android.accessibility.ext.databinding.AssistsWindowLayoutWrapperXpqBinding
 import com.blankj.utilcode.util.BarUtils
 import com.blankj.utilcode.util.ScreenUtils
 
@@ -125,8 +125,8 @@ class AssistsWindowWrapper(
      * 视图绑定对象
      * 负责初始化浮窗的布局和行为
      */
-    val viewBinding: AssistsWindowLayoutWrapperBinding by lazy {
-        AssistsWindowLayoutWrapperBinding.inflate(LayoutInflater.from(view.context)).apply {
+    val viewBinding: AssistsWindowLayoutWrapperXpqBinding by lazy {
+        AssistsWindowLayoutWrapperXpqBinding.inflate(LayoutInflater.from(view.context)).apply {
             root.isInvisible = true
             // 添加全局布局监听，处理初始位置和显示
             root.viewTreeObserver.addOnGlobalLayoutListener(object : OnGlobalLayoutListener {
