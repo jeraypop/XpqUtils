@@ -19,8 +19,7 @@ import com.android.accessibility.ext.BuildConfig
 import com.google.android.accessibility.ext.openAccessibilitySetting
 
 import com.google.android.accessibility.ext.utils.AliveUtils
-import com.google.android.accessibility.ext.utils.LibCtxProvider.Companion.appContext
-import com.google.android.accessibility.ext.utils.MMKVUtil
+import com.google.android.accessibility.ext.utils.LibCtxProvider.Companion.appBuildTime
 
 import com.google.android.accessibility.ext.wcapi.PayConfig
 import com.google.android.accessibility.ext.wcapi.decrypt
@@ -84,7 +83,7 @@ class MainActivity : AppCompatActivity() {
             val date = java.util.Date(buildTimeMillis)
             val formatted = java.text.SimpleDateFormat("yyyy-MM-dd HH:mm:ss", java.util.Locale.getDefault()).format(date)
 
-            println("构建时间戳: $buildTimeMillis")
+            println("构建时间戳: $appBuildTime")
             println("构建时间: $formatted")
 
 

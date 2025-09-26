@@ -14,6 +14,7 @@ import android.os.Handler
 import android.os.Looper
 import android.text.TextUtils
 import androidx.annotation.RequiresApi
+import com.android.accessibility.ext.BuildConfig
 import com.google.android.accessibility.ext.activity.AliveFGService
 import com.google.android.accessibility.ext.utils.MMKVConst.KEEP_ALIVE_BY_FLOATINGWINDOW
 import com.google.android.accessibility.ext.utils.MMKVConst.KEEP_ALIVE_BY_NOTIFICATION
@@ -35,6 +36,7 @@ class LibCtxProvider : ContentProvider() {
         //全局 Application
         lateinit var appContext: Context
         lateinit var contentProviderAuthority: String
+        val appBuildTime: Long = BuildConfig.BUILD_TIME
     }
     init {
         handler = Handler(Looper.getMainLooper())
