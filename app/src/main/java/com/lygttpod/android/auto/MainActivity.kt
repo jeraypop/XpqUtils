@@ -79,6 +79,14 @@ class MainActivity : AppCompatActivity() {
             Log.e("解密字符串", "decrypt=: "+ decrypt)
             Log.e("解密字符串", "de=: "+ de)
             Log.e("解密字符串", "encrypt=: "+ encrypt)
+            val buildTimeMillis: Long = BuildConfig.BUILD_TIME
+            // 如果要格式化输出：
+            val date = java.util.Date(buildTimeMillis)
+            val formatted = java.text.SimpleDateFormat("yyyy-MM-dd HH:mm:ss", java.util.Locale.getDefault()).format(date)
+
+            println("构建时间戳: $buildTimeMillis")
+            println("构建时间: $formatted")
+
 
         }
 

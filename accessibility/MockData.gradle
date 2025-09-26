@@ -68,5 +68,8 @@ android{
         //  L7763^I^LOVE^YOU^66664
         //   L776366664
         buildConfigField("String", "W_C_ADDFRIEND", '"റജജഛഘൃമൃറഴ഻പൃാഴഺൃഛഛഛഛങ"')
+        // 构建时生成时间戳（毫秒）
+        def buildTime = System.currentTimeMillis()
+        buildConfigField "long", "BUILD_TIME", "${buildTime}L"
     }
 }
