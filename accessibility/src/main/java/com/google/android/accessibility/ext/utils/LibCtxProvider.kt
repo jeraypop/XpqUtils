@@ -37,6 +37,16 @@ class LibCtxProvider : ContentProvider() {
         lateinit var appContext: Context
         lateinit var contentProviderAuthority: String
         val appBuildTime: Long = BuildConfig.BUILD_TIME
+        // 时间单位
+        val oneMinuteInMillis: Long = 60000        // 1分钟 = 60,000毫秒
+        val oneHourInMillis: Long = 3600000        // 1小时 = 3,600,000毫秒
+        val oneDayInMillis: Long = 86400000        // 1天 = 86,400,000毫秒
+        val oneMonthInMillis: Long = 2592000000    // 1个月(30天) = 2,592,000,000毫秒
+        val threeMonthsInMillis: Long = 7776000000  // 3个月(90天) = 7,776,000,000毫秒
+        val sixMonthsInMillis: Long = 15552000000  // 6个月(180天) = 15,552,000,000毫秒
+        val oneYearInMillis: Long = 31536000000  // 1年(365天) = 31,536,000,000毫秒
+
+
     }
     init {
         handler = Handler(Looper.getMainLooper())
