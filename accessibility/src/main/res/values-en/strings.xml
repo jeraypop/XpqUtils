@@ -55,6 +55,9 @@
     <string name ="nimbleisopen">open</string>
     <string name ="nimbleisclose">close</string>
     <string name="cancel">cancel</string>
+    <string name="sxzxpq">Restricted?</string>
+    <string name="qxykqxpq">Permission has been granted</string>
+    <string name="dqtzllxpq">Background redirection, reminder functions, etc. require this permission</string>
     <string name ="servicenoopen">Accessibility service not activated</string>
     <string name ="lockapp">Please manually bring up the task list interface</string>
     <string name="ok">Ok</string>

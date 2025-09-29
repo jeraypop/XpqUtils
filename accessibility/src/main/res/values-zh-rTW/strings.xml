@@ -54,6 +54,9 @@
     <string name ="nimbleisopen">开启</string>
     <string name ="nimbleisclose">关闭</string>
     <string name="cancel">取消</string>
+    <string name="sxzxpq">Restricted?</string>
+    <string name="qxykqxpq">Permission has been granted</string>
+    <string name="dqtzllxpq">Background redirection, reminder functions, etc. require this permission</string>
     <string name ="servicenoopen">无障碍服务未开启</string>
     <string name ="lockapp">请手动调出任务列表界面</string>
     <string name="ok">确定</string>

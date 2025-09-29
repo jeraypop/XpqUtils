@@ -39,7 +39,7 @@
     <string name ="quanxian29">重启时自动开启前台保活服务:</string>
     <string name ="cleartz">消除保活通知提示</string>
 
-    <string name ="quanxianguanliyuan">因该权限开启后,部分手机卸载前可能需要先取消该授权,故新用户在 %d 天后,才可以开启此权限!</string>
+    <string name ="quanxianguanliyuan">因该权限开启后,部分手机卸载前可能需要先取消该授权,导致部分用户认为软件卸载不掉,故新用户在 %d 天后,才可以开启此权限!</string>
     <string name ="quanxianguanliyuan1">该权限开启后,部分手机卸载前可能需要先取消该授权哦!</string>
     <string name ="quanxian30">授权窗口打开失败，请手动打开</string>
     <string name ="quanxian31">在最近任务列表给本软件加锁</string>
@@ -54,6 +54,10 @@
     <string name ="nimbleisopen">开启</string>
     <string name ="nimbleisclose">关闭</string>
     <string name="cancel">取消</string>
+    <string name="sxzxpq">受限制?</string>
+    <string name="qxykqxpq">权限已开启</string>
+    <string name="dqtzllxpq">后台跳转,提醒功能等需要该权限</string>
+
     <string name ="servicenoopen">无障碍服务未开启</string>
     <string name ="lockapp">请手动调出任务列表界面</string>
     <string name="ok">确定</string>

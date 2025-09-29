@@ -107,7 +107,7 @@ class AliveActivity : AppCompatActivity() {
         binding.buttonPowerPermission.setOnClickListener {
             //  打开电池优化的界面，让用户设置
         /*    if (powerManager!!.isIgnoringBatteryOptimizations(packageName)) {
-                AliveUtils.toast(applicationContext, "忽略电池优化权限已开启")
+                AliveUtils.toast(applicationContext, "忽略电池优化")
             } else {
                 val intentBatteryIgnore = Intent(Settings.ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS, Uri.parse("package:$packageName"))
                 if (intentBatteryIgnore.resolveActivity(packageManager!!) != null) {
@@ -159,16 +159,19 @@ class AliveActivity : AppCompatActivity() {
         binding.buttonReadNotifiPermission.setOnClickListener {
             //  打开让用户设置
             if (NotificationUtil.isNotificationListenersEnabled()) {
-                AliveUtils.toast(applicationContext, "权限已开启")
+                AliveUtils.toast(applicationContext, getString(R.string.qxykqxpq))
             } else {
 
                 AlertDialog.Builder(this)
-                    .setMessage("后台跳转,提醒功能,需要授权")
-                    .setPositiveButton("去开启") { _, _ ->
+                    .setMessage(getString(R.string.dqtzllxpq))
+                    .setPositiveButton(getString(R.string.ok)) { _, _ ->
                         NotificationUtil.gotoNotificationAccessSetting()
                     }
-                    .setNegativeButton("取消") { _, _ ->
-                        AliveUtils.toast(applicationContext, "取消")
+                    .setNegativeButton(getString(R.string.cancel)) { _, _ ->
+                        AliveUtils.toast(applicationContext, getString(R.string.cancel))
+                    }
+                    .setNeutralButton(getString(R.string.sxzxpq)){_, _ ->
+                        shouxianzhi()
                     }
                     .show()
             }
@@ -230,6 +233,13 @@ class AliveActivity : AppCompatActivity() {
                     AliveUtils.toast(applicationContext, getString(R.string.quanxian12))
                     binding.imageGuanliyuanPermission.setImageDrawable(drawableNo)
                 }
+
+
+            }
+
+            normalDialog.setNeutralButton(getString(R.string.sxzxpq)) { dialog, which ->
+                //...To-do
+                shouxianzhi()
 
 
             }
@@ -386,15 +396,43 @@ class AliveActivity : AppCompatActivity() {
         dialogBinding.getnotificationSwitch.setOnClickListener {
             val isChecked = dialogBinding.getnotificationSwitch.isChecked
             if (!isChecked)return@setOnClickListener
+            var b = false
             if (serviceClass!= null){
-                AliveUtils.openNotificationListener(this, serviceClass!!)
+                b = AliveUtils.openNotificationListener(this, serviceClass!!)
             }else{
                 if (isServiceDeclared(applicationContext, ClearNotificationListenerServiceImp::class.java)) {
-                    AliveUtils.openNotificationListener(this, ClearNotificationListenerServiceImp::class.java)
+                    b = AliveUtils.openNotificationListener(this, ClearNotificationListenerServiceImp::class.java)
                 }else{
-                    NotificationUtil.gotoNotificationAccessSetting()
+                    b = false
                 }
             }
+            if(b)return@setOnClickListener
+
+            AlertDialog.Builder(this@AliveActivity)
+                .setMessage(getString(R.string.quanxian281))
+                .setPositiveButton(getString(R.string.ok)) { _, _ ->
+                    if (serviceClass!= null){
+                        AliveUtils.openNotificationListener(this, serviceClass!!)
+                    }else{
+                        if (isServiceDeclared(applicationContext, ClearNotificationListenerServiceImp::class.java)) {
+                            AliveUtils.openNotificationListener(this, ClearNotificationListenerServiceImp::class.java)
+                        }else{
+                            NotificationUtil.gotoNotificationAccessSetting()
+                        }
+                    }
+                }
+                .setNegativeButton(getString(R.string.cancel)) { _, _ ->
+                    AliveUtils.toast(applicationContext, getString(R.string.cancel))
+                }
+                .setNeutralButton(getString(R.string.sxzxpq)){_, _ ->
+                    shouxianzhi()
+                }
+                .show()
+
+
+
+
+
         }
         dialogBinding.getnotificationSwitch.isChecked = NotificationUtil.isNotificationListenersEnabled()
 
@@ -460,4 +498,12 @@ class AliveActivity : AppCompatActivity() {
     }
 
 
+}
+
+private fun AliveActivity.shouxianzhi() {
+    val intent = Intent()
+    intent.setAction("android.intent.action.VIEW")
+    val content_url = Uri.parse("https://mp.weixin.qq.com/s/CbRFGUrqoKJie3JTdRmWPA")
+    intent.setData(content_url)
+    startActivity(intent)
 }
