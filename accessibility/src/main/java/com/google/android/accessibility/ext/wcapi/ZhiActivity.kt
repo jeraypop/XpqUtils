@@ -8,13 +8,12 @@ import android.os.Bundle
 import android.view.animation.AccelerateDecelerateInterpolator
 import com.android.accessibility.ext.BuildConfig
 import com.android.accessibility.ext.R
-import com.android.accessibility.ext.databinding.ZhiActivityBinding
-import com.google.android.accessibility.ext.donate.ScreenshotHelper
+import com.android.accessibility.ext.databinding.ZhiActivityXpqBinding
 
 
 class ZhiActivity : Activity() {
     private var mZhiWay = 0
-    private val binding: ZhiActivityBinding by lazy { ZhiActivityBinding.inflate(layoutInflater) }
+    private val binding: ZhiActivityXpqBinding by lazy { ZhiActivityXpqBinding.inflate(layoutInflater) }
     @SuppressLint("NewApi")
     public override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -35,7 +34,7 @@ class ZhiActivity : Activity() {
                     binding.qaImageView.setImageResource(config.aliQaImage)
                     binding.zhiBtn.text = config.aliSao ?: getString(R.string.ali_zhi_sao)
                 } else {
-                    binding.zhiBg.setBackgroundResource(R.drawable.common_bg)
+                    binding.zhiBg.setBackgroundResource(R.drawable.common_bg_xpq)
                     binding.zhiTitle.setText(R.string.wei_zhi_title)
                     binding.zhiSummery.text = config.weChatTip ?: getString(R.string.wei_zhi_tip)
                     binding.qaImageView.setImageResource(config.weChatQaImage)
@@ -50,7 +49,7 @@ class ZhiActivity : Activity() {
                     goAliPayClient(config.aliZhiKey)
                 }
             }
-            binding.zhiBg.setBackgroundResource(R.drawable.common_bg)
+            binding.zhiBg.setBackgroundResource(R.drawable.common_bg_xpq)
             binding.zhiTitle.setText(R.string.wei_zhi_title)
             binding.zhiSummery.text = config.weChatTip ?: getString(R.string.wei_zhi_tip)
             binding.qaImageView.setImageResource(config.weChatQaImage)

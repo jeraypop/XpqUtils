@@ -79,14 +79,14 @@ class DonateConfig private constructor(builder: Builder) : Serializable {
             private set
 
         constructor() {
-            wechatQaImage = R.drawable.ic_weixin
-            aliQaImage = R.drawable.ic_zhifubao
+            wechatQaImage = R.drawable.ic_weixin_xpq
+            aliQaImage = R.drawable.ic_zhifubao_xpq
             aliZhiKey = ALI_KEY
         }
 
         constructor(aliKey: String) {
-            wechatQaImage = R.drawable.ic_weixin
-            aliQaImage = R.drawable.ic_zhifubao
+            wechatQaImage = R.drawable.ic_weixin_xpq
+            aliQaImage = R.drawable.ic_zhifubao_xpq
             aliZhiKey = aliKey ?: ALI_KEY
         }
 

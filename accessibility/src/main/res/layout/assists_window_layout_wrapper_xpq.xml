@@ -4,7 +4,7 @@
     android:layout_width="match_parent"
     android:layout_height="match_parent"
     android:orientation="vertical"
-    android:background="@drawable/bg_1">
+    android:background="@drawable/bg_1_xpq">
 
     <LinearLayout
         android:id="@+id/fl_header"
@@ -18,7 +18,7 @@
             android:layout_height="40dp"
             android:layout_gravity="right"
             android:padding="10dp"
-            android:src="@drawable/move" />
+            android:src="@drawable/move_xpq" />
 
         <TextView
             android:id="@+id/tv_title"
@@ -39,7 +39,7 @@
             android:layout_height="40dp"
             android:layout_gravity="right"
             android:padding="12dp"
-            android:src="@drawable/minimize"
+            android:src="@drawable/minimize_xpq"
             android:visibility="gone" />
 
         <ImageView
@@ -48,7 +48,7 @@
             android:layout_height="40dp"
             android:layout_gravity="right"
             android:padding="12dp"
-            android:src="@drawable/icon_close" />
+            android:src="@drawable/icon_close_xpq" />
 
     </LinearLayout>
 
@@ -69,7 +69,7 @@
             android:layout_height="40dp"
             android:layout_gravity="bottom"
             android:padding="10dp"
-            android:src="@drawable/scale" />
+            android:src="@drawable/scale_xpq" />
 
         <View
             android:layout_width="0dp"
@@ -82,7 +82,7 @@
             android:layout_height="40dp"
             android:layout_gravity="bottom"
             android:padding="7dp"
-            android:src="@drawable/icon2"
+            android:src="@drawable/icon2_xpq"
             android:visibility="gone"
             tools:visibility="visible" />
 
@@ -92,7 +92,7 @@
             android:layout_height="40dp"
             android:layout_gravity="bottom"
             android:padding="7dp"
-            android:src="@drawable/icon1"
+            android:src="@drawable/icon1_xpq"
             android:visibility="gone"
             tools:visibility="visible" />
 
@@ -102,7 +102,7 @@
             android:layout_height="40dp"
             android:layout_gravity="bottom"
             android:padding="10dp"
-            android:src="@drawable/icon3"
+            android:src="@drawable/icon3_xpq"
             android:visibility="gone"
             tools:visibility="visible" />
 

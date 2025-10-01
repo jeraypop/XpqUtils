@@ -12,7 +12,7 @@
         <!-- Dialog的背景 透明 transparent-->
 
 
-        <item name="android:windowBackground">@drawable/se_btn_quanxian</item>
+        <item name="android:windowBackground">@drawable/se_btn_quanxian_xpq</item>
         <!--  后面的activity背景是否模糊显示 -->
         <item name="android:backgroundDimEnabled">true</item>
 
@@ -30,9 +30,9 @@
         <item name="android:gravity">center</item>
         <item name="android:layout_margin">16dp</item>
         <item name="android:textSize">14sp</item>
-        <item name="android:background">@drawable/roundbtn_tran</item>
+        <item name="android:background">@drawable/roundbtn_tran_xpq</item>
         <item name="android:layout_gravity">center</item>
-        <item name="android:textColor">@drawable/btn_black_text_color</item>
+        <item name="android:textColor">@drawable/btn_black_text_color_xpq</item>
     </style>
 
 </resources>

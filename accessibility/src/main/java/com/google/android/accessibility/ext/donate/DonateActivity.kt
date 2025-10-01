@@ -12,14 +12,14 @@ import android.widget.TextView
 import androidx.annotation.DrawableRes
 import androidx.appcompat.app.AppCompatActivity
 import com.android.accessibility.ext.R
-import com.android.accessibility.ext.databinding.ZhiActivityBinding
+import com.android.accessibility.ext.databinding.ZhiActivityXpqBinding
 import com.google.android.accessibility.ext.utils.MMKVConst.EXTRA_KEY_PAY_CONFIG
 
 /**
  * Created by qiang on 2025/8/9.
  */
 class DonateActivity : AppCompatActivity(), View.OnClickListener {
-    private lateinit var binding: ZhiActivityBinding
+    private lateinit var binding: ZhiActivityXpqBinding
 
     private var mTitleTv: TextView? = null
     private var mSummeryTv: TextView? = null
@@ -48,7 +48,7 @@ class DonateActivity : AppCompatActivity(), View.OnClickListener {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        binding = ZhiActivityBinding.inflate(layoutInflater)
+        binding = ZhiActivityXpqBinding.inflate(layoutInflater)
         setContentView(binding.root)
         initView()
         initData()
@@ -89,7 +89,7 @@ class DonateActivity : AppCompatActivity(), View.OnClickListener {
             if (TextUtils.isEmpty(wechatSao)) wechatSao = getString(R.string.wei_zhi_sao)
             if (TextUtils.isEmpty(aliSao)) aliSao = getString(R.string.ali_zhi_sao)
 
-            mZhiBg!!.setBackgroundResource(R.drawable.common_bg)
+            mZhiBg!!.setBackgroundResource(R.drawable.common_bg_xpq)
             mTitleTv!!.setText(R.string.wei_zhi_title)
             mSummeryTv!!.text = wechatTip
             mZhiBtn!!.text = wechatSao
@@ -149,7 +149,7 @@ class DonateActivity : AppCompatActivity(), View.OnClickListener {
                 mZhiBtn!!.text = aliSao
                 mQaImage!!.setImageResource(aliQaImage)
             } else {
-                mZhiBg!!.setBackgroundResource(R.drawable.common_bg)
+                mZhiBg!!.setBackgroundResource(R.drawable.common_bg_xpq)
                 mTitleTv!!.setText(R.string.wei_zhi_title)
                 mSummeryTv!!.text = wechatTip
                 mZhiBtn!!.text = wechatSao

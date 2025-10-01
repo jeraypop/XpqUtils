@@ -18,7 +18,7 @@
         android:layout_width="match_parent"
         android:layout_height="140dp"
         android:scaleType="centerInside"
-        android:src="@drawable/backgroundshow" />
+        android:src="@drawable/backgroundshow_xpq" />
 
     <Button
         android:id="@+id/button_close"

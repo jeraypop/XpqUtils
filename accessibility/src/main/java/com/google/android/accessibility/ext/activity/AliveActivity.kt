@@ -1,8 +1,6 @@
 package com.google.android.accessibility.ext.activity
 
 import android.Manifest
-import android.accessibilityservice.AccessibilityService.GLOBAL_ACTION_RECENTS
-import android.app.Activity
 import android.app.admin.DevicePolicyManager
 import android.content.ComponentName
 import android.content.Context
@@ -19,14 +17,12 @@ import android.text.TextUtils
 import android.view.KeyEvent
 import android.view.LayoutInflater
 import android.view.View
-import android.widget.ImageView
-import android.widget.TextView
 import androidx.annotation.RequiresApi
 import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.content.ContextCompat
 import com.android.accessibility.ext.R
-import com.android.accessibility.ext.databinding.ActivityAliveBinding
+import com.android.accessibility.ext.databinding.ActivityAliveXpqBinding
 import com.android.accessibility.ext.databinding.ForgroundserviceDialogXpqBinding
 
 import com.google.android.accessibility.ext.activity.AliveFGService.Companion.fgs_ison
@@ -36,9 +32,7 @@ import com.google.android.accessibility.ext.utils.MMKVUtil
 import com.google.android.accessibility.ext.utils.NotificationUtil
 import com.google.android.accessibility.ext.utils.NotificationUtil.isNotificationEnabled
 import com.google.android.accessibility.ext.utils.SPUtils
-import com.google.android.accessibility.ext.utils.Utilshezhi
 import com.google.android.accessibility.notification.ClearNotificationListenerServiceImp
-import com.google.android.accessibility.selecttospeak.SelectToSpeakServiceAbstract
 import com.hjq.permissions.permission.PermissionLists
 import java.util.Locale
 
@@ -47,7 +41,7 @@ class AliveActivity : AppCompatActivity() {
     private var devicePolicyManager: DevicePolicyManager? = null
     private var packageManager: PackageManager? = null
     private var powerManager: PowerManager? = null
-    private lateinit var binding: ActivityAliveBinding
+    private lateinit var binding: ActivityAliveXpqBinding
     private var drawableYes: Drawable? = null
     private var drawableNo: Drawable? = null
 
@@ -73,7 +67,7 @@ class AliveActivity : AppCompatActivity() {
     @RequiresApi(api = Build.VERSION_CODES.M)
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        binding = ActivityAliveBinding.inflate(layoutInflater)
+        binding = ActivityAliveXpqBinding.inflate(layoutInflater)
         setContentView(binding.root)
 
         packageManager = packageManager
@@ -91,8 +85,8 @@ class AliveActivity : AppCompatActivity() {
             startActivity(intenti2)
         }
 
-        drawableYes = ContextCompat.getDrawable(this, R.drawable.ic_open)
-        drawableNo = ContextCompat.getDrawable(this, R.drawable.ic_close)
+        drawableYes = ContextCompat.getDrawable(this, R.drawable.ic_open_xpq)
+        drawableNo = ContextCompat.getDrawable(this, R.drawable.ic_close_xpq)
         updateUI()
         // 获取传递的 Class 对象
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
@@ -286,17 +280,17 @@ class AliveActivity : AppCompatActivity() {
 
         //===自启动
         binding.buttonPowerPermission2.setOnClickListener {
-            AliveUtils.showCheckDialog(this@AliveActivity,R.string.yxzqdxpq,R.drawable.autostart,R.string.quanxian6,MMKVConst.BTN_AUTOSTART)
+            AliveUtils.showCheckDialog(this@AliveActivity,R.string.yxzqdxpq,R.drawable.autostart_xpq,R.string.quanxian6,MMKVConst.BTN_AUTOSTART)
         }
         //==加锁免清理
         binding.buttonPowerPermission3.setOnClickListener {
-            AliveUtils.showCheckDialog(this@AliveActivity,R.string.lockrencentxpq,R.drawable.lockalive,R.string.quanxian7,MMKVConst.BTN_RECENTS)
+            AliveUtils.showCheckDialog(this@AliveActivity,R.string.lockrencentxpq,R.drawable.lockalive_xpq,R.string.quanxian7,MMKVConst.BTN_RECENTS)
 
         }
         //==设置
         binding.buttonPowerPermission4.setOnClickListener {
 
-            AliveUtils.showCheckDialog(this@AliveActivity,R.string.httcxpq,R.drawable.backgroundshow,R.string.checkqxxpq,MMKVConst.BTN_PERMISSION)
+            AliveUtils.showCheckDialog(this@AliveActivity,R.string.httcxpq,R.drawable.backgroundshow_xpq,R.string.checkqxxpq,MMKVConst.BTN_PERMISSION)
 
 
         }

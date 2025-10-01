@@ -51,8 +51,8 @@ fun Context.openDonate(config: PayConfig) {
  */
 data class PayConfig(
     val aliZhiKey: String = ALI_KEY,
-    @DrawableRes val aliQaImage: Int = R.drawable.ic_zhifubao,
-    @DrawableRes val weChatQaImage: Int = R.drawable.ic_weixin,
+    @DrawableRes val aliQaImage: Int = R.drawable.ic_zhifubao_xpq,
+    @DrawableRes val weChatQaImage: Int = R.drawable.ic_weixin_xpq,
     val weChatTip: String? = null,
     val aliTip: String? = null,
     val aliSao: String? = null

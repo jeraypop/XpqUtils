@@ -3,7 +3,7 @@
     android:id="@+id/zhi_bg"
     android:layout_width="fill_parent"
     android:layout_height="fill_parent"
-    android:background="@drawable/common_bg"
+    android:background="@drawable/common_bg_xpq"
     android:gravity="center_horizontal"
     android:orientation="vertical"
     android:paddingBottom="16dp">
