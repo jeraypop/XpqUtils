@@ -60,7 +60,7 @@
     <string name="httcxpq">去该应用设置中检查必要权限是否已授权成功,部分设备可能还需要额外开启 后台弹出界面 权限</string>
     <string name="checkqxxpq">检查权限是否已开启</string>
     <string name="lockrencentxpq">在最近任务列表中,对本应用加锁以免被一键清理掉</string>
-    <string name="yxzqdxpq">在设置中,允许本应用自启动</string>
+    <string name="yxzqdxpq">在设置中,允许本应用自启动,后台运行,高耗电等</string>
 
     <string name ="servicenoopen">无障碍服务未开启</string>
     <string name ="lockapp">请手动调出任务列表界面</string>

@@ -21,6 +21,7 @@ class ZhiActivity : Activity() {
         val config = if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.TIRAMISU) {
             intent.getSerializableExtra(BuildConfig.EXTRA_KEY_PAY_CONFIG, PayConfig::class.java)
         } else {
+            @Suppress("DEPRECATION")
             intent.getSerializableExtra(BuildConfig.EXTRA_KEY_PAY_CONFIG)
         }
 //        val config = intent.getSerializableExtra(BuildConfig.EXTRA_KEY_PAY_CONFIG.restoreAllIllusion())

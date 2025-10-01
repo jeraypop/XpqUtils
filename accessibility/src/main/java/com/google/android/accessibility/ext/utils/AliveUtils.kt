@@ -3,6 +3,8 @@ package com.google.android.accessibility.ext.utils
 import android.accessibilityservice.AccessibilityService
 import android.accessibilityservice.AccessibilityService.GLOBAL_ACTION_RECENTS
 import android.app.Activity
+import android.app.ActivityManager
+import android.app.ActivityManager.AppTask
 import android.app.ActivityOptions
 import android.app.Notification
 import android.app.NotificationChannel
@@ -42,9 +44,9 @@ import androidx.annotation.StringRes
 import androidx.appcompat.app.AlertDialog
 import androidx.core.content.ContextCompat
 import com.android.accessibility.ext.R
+import com.google.android.accessibility.ext.activity.AliveActivity
 import com.google.android.accessibility.ext.activity.AliveFGService
 import com.google.android.accessibility.ext.activity.AliveFGService.Companion.fgs_ison
-import com.google.android.accessibility.ext.activity.AliveActivity
 import com.google.android.accessibility.ext.utils.LibCtxProvider.Companion.appContext
 import com.google.android.accessibility.ext.utils.LibCtxProvider.Companion.contentProviderAuthority
 import com.google.android.accessibility.ext.utils.MMKVConst.BTN_AUTOSTART
@@ -63,6 +65,7 @@ import com.hjq.permissions.XXPermissions
 import com.hjq.permissions.permission.PermissionLists
 import com.hjq.permissions.permission.base.IPermission
 import com.hjq.permissions.tools.PermissionUtils
+import java.util.function.Consumer
 import kotlin.math.max
 
 object AliveUtils {
@@ -920,8 +923,11 @@ object AliveUtils {
         alertDialog.show()
     }
 
-
-
+    @JvmStatic
+    fun setExcludeFromRecents(exclude: Boolean) {
+        val activityManager: ActivityManager = appContext.getSystemService<ActivityManager?>(ActivityManager::class.java)
+        activityManager.getAppTasks().forEach(Consumer { e: AppTask? -> e!!.setExcludeFromRecents(exclude) })
+    }
 
 
 }
