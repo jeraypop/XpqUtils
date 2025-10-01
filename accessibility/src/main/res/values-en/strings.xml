@@ -58,8 +58,14 @@
     <string name="sxzxpq">Restricted?</string>
     <string name="qxykqxpq">Permission has been granted</string>
     <string name="dqtzllxpq">Background redirection, reminder functions, etc. require this permission</string>
+    <string name="httcxpq">Go to the app settings to check if necessary permissions have been granted successfully. Some phones may also need to additionally enable the "Display pop-up windows while running in the background" permission.</string>
+    <string name="checkqxxpq">Check if permission is granted</string>
+    <string name="lockrencentxpq">Lock this app in the recent tasks list to prevent it from being cleared with one click</string>
+    <string name="yxzqdxpq">In settings, allow this app to auto-start</string>
+
     <string name ="servicenoopen">Accessibility service not activated</string>
     <string name ="lockapp">Please manually bring up the task list interface</string>
+    <string name="nowebb">No browser seems to be installed on the device</string>
     <string name="ok">Ok</string>
     <string name ="wendingrun1">stable run</string>
     <string name ="wendingrun2">Notification to ensure stable run of the backend</string>

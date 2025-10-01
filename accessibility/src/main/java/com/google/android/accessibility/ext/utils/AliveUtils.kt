@@ -1,6 +1,7 @@
 package com.google.android.accessibility.ext.utils
 
 import android.accessibilityservice.AccessibilityService
+import android.accessibilityservice.AccessibilityService.GLOBAL_ACTION_RECENTS
 import android.app.Activity
 import android.app.ActivityOptions
 import android.app.Notification
@@ -32,10 +33,13 @@ import android.util.Log
 import android.view.Gravity
 import android.view.View
 import android.view.WindowManager
+import android.widget.ImageView
+import android.widget.TextView
 import android.widget.Toast
 import androidx.annotation.NonNull
 import androidx.annotation.RequiresApi
 import androidx.annotation.StringRes
+import androidx.appcompat.app.AlertDialog
 import androidx.core.content.ContextCompat
 import com.android.accessibility.ext.R
 import com.google.android.accessibility.ext.activity.AliveFGService
@@ -43,6 +47,9 @@ import com.google.android.accessibility.ext.activity.AliveFGService.Companion.fg
 import com.google.android.accessibility.ext.activity.AliveActivity
 import com.google.android.accessibility.ext.utils.LibCtxProvider.Companion.appContext
 import com.google.android.accessibility.ext.utils.LibCtxProvider.Companion.contentProviderAuthority
+import com.google.android.accessibility.ext.utils.MMKVConst.BTN_AUTOSTART
+import com.google.android.accessibility.ext.utils.MMKVConst.BTN_PERMISSION
+import com.google.android.accessibility.ext.utils.MMKVConst.BTN_RECENTS
 import com.google.android.accessibility.ext.utils.MMKVConst.CLEARAUTOBAOHUOISON
 import com.google.android.accessibility.ext.utils.MMKVConst.KEEP_ALIVE_BY_FLOATINGWINDOW
 import com.google.android.accessibility.ext.utils.MMKVConst.KEEP_ALIVE_BY_NOTIFICATION
@@ -50,6 +57,7 @@ import com.google.android.accessibility.ext.utils.MMKVConst.READNOTIFICATIONBAR
 import com.google.android.accessibility.ext.utils.MMKVConst.UPDATE_SCOPE
 import com.google.android.accessibility.ext.utils.MMKVConst.UPDATE_VALUE
 import com.google.android.accessibility.notification.ClearNotificationListenerServiceImp
+import com.google.android.accessibility.selecttospeak.SelectToSpeakServiceAbstract
 import com.hjq.permissions.OnPermissionCallback
 import com.hjq.permissions.XXPermissions
 import com.hjq.permissions.permission.PermissionLists
@@ -847,6 +855,73 @@ object AliveUtils {
             Log.e("YourTag", "Unexpected exception starting activity from PendingIntent", e)
         }
     }
+
+
+    @JvmStatic
+    fun showCheckDialog(activity: Activity,tvRes: Int,imgRes: Int,titleRes: Int,btnValue: Int) {
+        // 加载自定义视图
+        val view: View = activity.layoutInflater.inflate(R.layout.dialog_image_xpq, null)
+
+        val tvimageView = view.findViewById<TextView>(R.id.tvimageView)
+        tvimageView.text = activity.getString(tvRes)
+
+        // 获取ImageView并设置图片
+        val imageView = view.findViewById<ImageView>(R.id.imageView)
+        imageView.setImageResource(imgRes) // 替换为实际图片资源ID
+
+        // 创建AlertDialog Builder
+        val builder = AlertDialog.Builder(activity)
+        builder.setView(view)
+            .setTitle(activity.getString(titleRes))
+            .setPositiveButton(
+                activity.getString(R.string.ok)
+            ) { dialog, which ->
+                dialog.dismiss()
+                when (btnValue) {
+                    BTN_AUTOSTART  -> {
+                        //自启动管理界面
+                        Utilshezhi.startToAutoStartSetting(activity)
+                    }
+                    BTN_RECENTS  ->{
+                        //打开最近任务列表
+                        if (SelectToSpeakServiceAbstract.instance == null) {
+                            AliveUtils.toast(appContext, appContext.getString(R.string.lockapp))
+                        } else {
+                            AliveUtils.toast(appContext, appContext.getString(R.string.quanxian31))
+                            SelectToSpeakServiceAbstract.instance!!.performGlobalAction(GLOBAL_ACTION_RECENTS)
+                        }
+                    }
+
+                    BTN_PERMISSION  -> Utilshezhi.gotoPermission(activity)
+                 }
+            }
+            .setNegativeButton(
+                activity.getString(R.string.cancel)
+            ) { dialog, which ->
+                dialog.dismiss()
+            }
+
+        // 只在 btnValue 为 1 或 2 时添加 Neutral 按钮
+        if (btnValue == BTN_AUTOSTART || btnValue == BTN_RECENTS || btnValue == BTN_PERMISSION) {
+            builder.setNeutralButton(activity.getString(R.string.sxzxpq)) { dialog, _ ->
+                dialog.dismiss()
+                try {
+                    val intent = Intent(Intent.ACTION_VIEW, Uri.parse("https://mp.weixin.qq.com/s/CbRFGUrqoKJie3JTdRmWPA"))
+                    activity.startActivity(intent)
+                } catch (e: Exception) {
+                    toast(appContext, appContext.getString(R.string.nowebb))
+                }
+            }
+        }
+
+
+        // 显示对话框
+        val alertDialog = builder.create()
+        alertDialog.show()
+    }
+
+
+
 
 
 }

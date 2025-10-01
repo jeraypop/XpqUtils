@@ -2,6 +2,7 @@ package com.google.android.accessibility.ext.activity
 
 import android.Manifest
 import android.accessibilityservice.AccessibilityService.GLOBAL_ACTION_RECENTS
+import android.app.Activity
 import android.app.admin.DevicePolicyManager
 import android.content.ComponentName
 import android.content.Context
@@ -18,6 +19,8 @@ import android.text.TextUtils
 import android.view.KeyEvent
 import android.view.LayoutInflater
 import android.view.View
+import android.widget.ImageView
+import android.widget.TextView
 import androidx.annotation.RequiresApi
 import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
@@ -162,7 +165,7 @@ class AliveActivity : AppCompatActivity() {
                 AliveUtils.toast(applicationContext, getString(R.string.qxykqxpq))
             } else {
 
-                AlertDialog.Builder(this)
+                AlertDialog.Builder(this@AliveActivity)
                     .setMessage(getString(R.string.dqtzllxpq))
                     .setPositiveButton(getString(R.string.ok)) { _, _ ->
                         NotificationUtil.gotoNotificationAccessSetting()
@@ -283,25 +286,22 @@ class AliveActivity : AppCompatActivity() {
 
         //===自启动
         binding.buttonPowerPermission2.setOnClickListener {
-            //自启动管理界面
-            Utilshezhi.startToAutoStartSetting(this@AliveActivity)
+            AliveUtils.showCheckDialog(this@AliveActivity,R.string.yxzqdxpq,R.drawable.autostart,R.string.quanxian6,MMKVConst.BTN_AUTOSTART)
         }
         //==加锁免清理
         binding.buttonPowerPermission3.setOnClickListener {
-            //打开最近任务列表
-            if (SelectToSpeakServiceAbstract.instance == null) {
-                AliveUtils.toast(applicationContext, getString(R.string.lockapp))
-            } else {
-                AliveUtils.toast(applicationContext, getString(R.string.quanxian31))
-                SelectToSpeakServiceAbstract.instance!!.performGlobalAction(GLOBAL_ACTION_RECENTS)
-            }
+            AliveUtils.showCheckDialog(this@AliveActivity,R.string.lockrencentxpq,R.drawable.lockalive,R.string.quanxian7,MMKVConst.BTN_RECENTS)
+
         }
         //==设置
         binding.buttonPowerPermission4.setOnClickListener {
-            //打开设置
-            Utilshezhi.gotoPermission(this@AliveActivity)
+
+            AliveUtils.showCheckDialog(this@AliveActivity,R.string.httcxpq,R.drawable.backgroundshow,R.string.checkqxxpq,MMKVConst.BTN_PERMISSION)
+
+
         }
     }
+
 
     private fun updateUI() {
         //图形开关监测

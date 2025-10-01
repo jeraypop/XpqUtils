@@ -8,6 +8,10 @@ package com.google.android.accessibility.ext.utils
  * Introduction :
  */
 object MMKVConst {
+    const val BTN_AUTOSTART = 1
+    const val BTN_RECENTS = 2
+    const val BTN_PERMISSION = 3
+
     const val KEY_LOCK_NODEID = "KEY_LOCK_NODEID"
     const val KEY_LOCK_NODEID_TIME = "KEY_LOCK_NODEID_TIME"
     const val KEY_PINLV_FIND = "KEY_PINLV_FINDER"
