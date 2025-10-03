@@ -14,7 +14,6 @@ import android.app.PendingIntent
 import android.app.Service
 import android.app.Service.STOP_FOREGROUND_REMOVE
 import android.app.admin.DevicePolicyManager
-import android.content.ActivityNotFoundException
 import android.content.ComponentName
 import android.content.ContentValues
 import android.content.Context
@@ -743,6 +742,9 @@ object AliveUtils {
                                 if (deniedList.contains(PermissionLists.getBindDeviceAdminPermission(MyDeviceAdminReceiverXpq::class.java))){
                                     openSettingAdmin(appContext)
                                 }
+                                if (deniedList.contains(PermissionLists.getSystemAlertWindowPermission())){
+                                    openSettingFloat(appContext)
+                                }
                             }
 
 
@@ -1244,6 +1246,24 @@ object AliveUtils {
             putExtra(DevicePolicyManager.EXTRA_DEVICE_ADMIN, componentName)
             putExtra(DevicePolicyManager.EXTRA_ADD_EXPLANATION, "管理员保活")
             setComponent(componentNameSettings)
+            flags = Intent.FLAG_ACTIVITY_NEW_TASK
+        }
+
+        val resolveInfo = context.getPackageManager()
+            .resolveActivity(intent, PackageManager.MATCH_DEFAULT_ONLY)
+        if (resolveInfo != null) {
+            context.startActivity(intent)
+        } else {
+            AliveUtils.toast(msg = "请去设置中手动开启")
+        }
+
+
+
+    }
+    @JvmStatic
+    fun openSettingFloat(context: Context = appContext) {
+        val intent = Intent(Settings.ACTION_MANAGE_OVERLAY_PERMISSION).apply {
+            setData(Uri.parse("package:" + appContext.getPackageName()))
             flags = Intent.FLAG_ACTIVITY_NEW_TASK
         }
 
