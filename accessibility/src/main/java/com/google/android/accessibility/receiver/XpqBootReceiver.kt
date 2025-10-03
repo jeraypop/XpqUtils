@@ -19,7 +19,16 @@ import com.google.android.accessibility.ext.utils.AliveUtils
  *
  */
 class XpqBootReceiver : BroadcastReceiver() {
+    companion object {
+        private var lastExecuteTime: Long = 0
+        private const val INTERVAL: Long = 5000 // 5秒
+    }
     override fun onReceive(context: Context, intent: Intent?) {
+        val currentTime = System.currentTimeMillis()
+        if (currentTime - lastExecuteTime < INTERVAL) {
+            return // 5秒内不重复执行
+        }
+        lastExecuteTime = currentTime
         when (intent?.action) {
             Intent.ACTION_BOOT_COMPLETED,
             Intent.ACTION_LOCKED_BOOT_COMPLETED -> {

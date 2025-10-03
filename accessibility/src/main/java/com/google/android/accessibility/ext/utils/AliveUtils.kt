@@ -1462,7 +1462,6 @@ object AliveUtils {
             if (!fgs_ison) {
                 AliveUtils.toast(ctx, ctx.getString(R.string.quanxian12))
             } else {
-                AliveUtils.toast(ctx, ctx.getString(R.string.quanxian13))
                 //停止服务 这将触发服务的 onDestroy() 方法，释放资源并关闭前台通知
                 AliveUtils.startFGAlive(enable = false)
             }
