@@ -19,7 +19,9 @@
 \n Even if the phone is turned off and restarted, the accessibility service will automatically reconnect</string>
     <string name ="quanxian9">Customize foreground service notifications</string>
     <string name ="quanxian10">Opening, please wait!</string>
-    <string name ="quanxian11">activated!</string>
+    <string name ="quanxian11">ForgroundServiece activated!</string>
+    <string name ="quanxianreadNoti">Notification reading permission is enabled!</string>
+    <string name ="quanxian0xiangsu">0 pixel floating window keep-alive activated!</string>
     <string name ="quanxian12">not enabled!</string>
     <string name ="quanxian13">closed!</string>
     <string name ="quanxian14">close</string>

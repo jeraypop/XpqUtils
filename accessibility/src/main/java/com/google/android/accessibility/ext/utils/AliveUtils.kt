@@ -1138,7 +1138,7 @@ object AliveUtils {
         val keepAliveByFloatingWindow = !AliveUtils.getKeepAliveByFloatingWindow()
         AliveUtils.setKeepAliveByFloatingWindow(keepAliveByFloatingWindow)
         AliveUtils.requestUpdateKeepAliveByFloatingWindow(keepAliveByFloatingWindow)
-        AliveUtils.toast(appContext, if (keepAliveByFloatingWindow) appContext.getString(R.string.quanxian11) else appContext.getString(R.string.quanxian13))
+        AliveUtils.toast(appContext, if (keepAliveByFloatingWindow) appContext.getString(R.string.quanxian0xiangsu) else appContext.getString(R.string.quanxian13))
         //===
         return isShow
     }
@@ -1378,7 +1378,7 @@ object AliveUtils {
                 }
             }
             if(b){
-                AliveUtils.toast(ctx, ctx.getString(R.string.quanxian11))
+                AliveUtils.toast(ctx, ctx.getString(R.string.quanxianreadNoti))
                 return@setOnClickListener
             }
             val tipDialog = AlertDialog.Builder(activity)
@@ -1452,7 +1452,7 @@ object AliveUtils {
             //启动服务
             AliveUtils.startFGAlive(enable = true)
             //===
-            AliveUtils.setKeepAliveByNotification(true)
+//            AliveUtils.setKeepAliveByNotification(true)
             imageView?.setImageDrawable(drawableYes)
         }
 
@@ -1467,7 +1467,7 @@ object AliveUtils {
                 AliveUtils.startFGAlive(enable = false)
             }
             //==
-            AliveUtils.setKeepAliveByNotification(false)
+//            AliveUtils.setKeepAliveByNotification(false)
             imageView?.setImageDrawable(drawableNo)
         }
         customizeDialog.show()

@@ -17,7 +17,9 @@
         \n就算是手机关机重启,无障碍服务也会自动重连</string>
     <string name ="quanxian9">自定义设置前台服务通知</string>
     <string name ="quanxian10">正在开启请稍候!</string>
-    <string name ="quanxian11">已开启!</string>
+    <string name ="quanxian11">前台服务已开启!</string>
+    <string name ="quanxianreadNoti">读取通知权限已开启!</string>
+    <string name ="quanxian0xiangsu">0像素悬浮窗保活已开启!</string>
     <string name ="quanxian12">未开启!</string>
     <string name ="quanxian13">已关闭!</string>
     <string name ="quanxian14">关闭</string>
