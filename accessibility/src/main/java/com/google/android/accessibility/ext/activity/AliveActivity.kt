@@ -294,8 +294,8 @@ class AliveActivity : AppCompatActivity() {
         //0像素
         binding.button0xiangsuPermission.setOnClickListener {
 
-            AliveUtils.pixl0Alive()
-            if (AliveUtils.getKeepAliveByFloatingWindow()) {
+            val isOpen = AliveUtils.pixl0Alive()
+            if (isOpen && AliveUtils.getKeepAliveByFloatingWindow()) {
                 binding.image0xiangsuPermission.setImageDrawable(drawableYes)
             } else {
                 binding.image0xiangsuPermission.setImageDrawable(drawableNo)

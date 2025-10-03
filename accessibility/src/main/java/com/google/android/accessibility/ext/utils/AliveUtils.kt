@@ -1088,16 +1088,13 @@ object AliveUtils {
         activityManager.getAppTasks().forEach(Consumer { e: AppTask? -> e!!.setExcludeFromRecents(exclude) })
     }
 
-
     @JvmStatic
-    fun pixl0Alive() {
-        //===
+    fun show0Pixl(): Boolean {
         var isShow = false
         if (accessibilityService==null){
             //辅助服务为空
-            if (!Settings.canDrawOverlays(appContext)) {
-                // 悬浮窗权限未开启，需要跳转申请
-                AliveUtils.toast(msg = appContext.getString(R.string.quanxian34))
+            if (!hasOverlayPermission(appContext)) {
+                // 悬浮窗权限未开启
                 isShow = false
             } else {
                 // 已有权限，可以显示悬浮窗
@@ -1107,12 +1104,22 @@ object AliveUtils {
         }else{
             isShow = true
         }
-        if (!isShow)return
+        return isShow
+    }
+    @JvmStatic
+    fun pixl0Alive(): Boolean {
+        //===
+        val isShow = show0Pixl()
+        if (!isShow){
+            AliveUtils.toast(msg = appContext.getString(R.string.quanxian34))
+            return isShow
+        }
         val keepAliveByFloatingWindow = !AliveUtils.getKeepAliveByFloatingWindow()
         AliveUtils.setKeepAliveByFloatingWindow(keepAliveByFloatingWindow)
         AliveUtils.requestUpdateKeepAliveByFloatingWindow(keepAliveByFloatingWindow)
         AliveUtils.toast(appContext, if (keepAliveByFloatingWindow) appContext.getString(R.string.quanxian11) else appContext.getString(R.string.quanxian13))
         //===
+        return isShow
     }
     @JvmStatic
     fun shouxianzhi(ctx: Context = appContext) {
