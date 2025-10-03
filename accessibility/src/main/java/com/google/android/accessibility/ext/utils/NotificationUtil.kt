@@ -16,6 +16,7 @@ import androidx.core.app.NotificationCompat
 import androidx.core.app.NotificationManagerCompat
 import com.android.accessibility.ext.R
 import com.google.android.accessibility.ext.utils.LibCtxProvider.Companion.appContext
+import com.google.android.accessibility.notification.ClearNotificationListenerServiceImp
 import com.google.android.accessibility.notification.MessageStyleInfo
 
 object NotificationUtil {
@@ -28,6 +29,31 @@ object NotificationUtil {
     fun isNotificationListenersEnabled(context: Context = appContext): Boolean {
         return NotificationManagerCompat.getEnabledListenerPackages(context).contains(context.packageName)
     }
+    @JvmOverloads
+    @JvmStatic
+    fun isNotificationListenerEnabled(context: Context = appContext,
+                                      listenerClass: Class<out NotificationListenerService> = ClearNotificationListenerServiceImp::class.java
+    ): Boolean {
+        val pkgName = context.packageName
+        val flatName = ComponentName(pkgName, listenerClass.name).flattenToString()
+
+        val enabledListeners = Settings.Secure.getString(
+            context.contentResolver,
+            "enabled_notification_listeners"
+        ) ?: return false
+
+        val colonSplitter = TextUtils.SimpleStringSplitter(':')
+        colonSplitter.setString(enabledListeners)
+
+        while (colonSplitter.hasNext()) {
+            val component = colonSplitter.next()
+            if (component.equals(flatName, ignoreCase = true)) {
+                return true
+            }
+        }
+        return false
+    }
+
 
     /**
      * 检测通知发送服务是否被授权

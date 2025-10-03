@@ -103,8 +103,7 @@ class AliveFGService : Service() {
         val activityClassName = component?.className // 获取目标 Activity 的完整类名
 
         AliveUtils.keepAliveByNotification_CLS(this,true,null)
-        AliveUtils.keepAliveByFloatingWindow(this,AliveUtils.getKeepAliveByFloatingWindow(),
-            false)
+        AliveUtils.keepAliveByFloatingWindow(this,AliveUtils.getKeepAliveByFloatingWindow())
 
 
         return  START_STICKY
@@ -115,7 +114,7 @@ class AliveFGService : Service() {
         fg_instance = null
         //取消前台保活服务
         AliveUtils.keepAliveByNotification_CLS(this,false,null)
-        AliveUtils.keepAliveByFloatingWindow(this,false,false)
+        AliveUtils.keepAliveByFloatingWindow(this,false)
 
     }
 

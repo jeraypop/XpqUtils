@@ -150,7 +150,7 @@ class LibCtxProvider : ContentProvider() {
         if (TextUtils.equals(updateScope, KEEP_ALIVE_BY_FLOATINGWINDOW)) {
             handler!!.post {
 
-                AliveUtils.keepAliveByFloatingWindow(service,value,isAcc)
+                AliveUtils.keepAliveByFloatingWindow(service,value)
 
             }
         }

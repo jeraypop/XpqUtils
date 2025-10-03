@@ -6,10 +6,7 @@ import android.content.Intent
 import android.util.Log
 import android.view.accessibility.AccessibilityEvent
 import android.view.accessibility.AccessibilityNodeInfo
-import androidx.lifecycle.MutableLiveData
-import com.google.android.accessibility.ext.toast
-import com.google.android.accessibility.ext.utils.AliveUtils.keepAliveByFloatingWindow
-import com.google.android.accessibility.ext.utils.AliveUtils.keepAliveByNotification_CLS
+
 import com.google.android.accessibility.notification.AccessibilityNInfo
 import com.google.android.accessibility.selecttospeak.SelectToSpeakServiceAbstract
 import com.google.android.accessibility.selecttospeak.accessibilityService

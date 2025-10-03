@@ -27,10 +27,14 @@ import com.android.accessibility.ext.databinding.ForgroundserviceDialogXpqBindin
 
 import com.google.android.accessibility.ext.activity.AliveFGService.Companion.fgs_ison
 import com.google.android.accessibility.ext.utils.AliveUtils
+import com.google.android.accessibility.ext.utils.AliveUtils.isServiceDeclared
+import com.google.android.accessibility.ext.utils.AliveUtils.shouxianzhi
+import com.google.android.accessibility.ext.utils.LibCtxProvider.Companion.appContext
 import com.google.android.accessibility.ext.utils.MMKVConst
 import com.google.android.accessibility.ext.utils.MMKVUtil
 import com.google.android.accessibility.ext.utils.NotificationUtil
 import com.google.android.accessibility.ext.utils.NotificationUtil.isNotificationEnabled
+import com.google.android.accessibility.ext.utils.NotificationUtil.isNotificationListenerEnabled
 import com.google.android.accessibility.ext.utils.SPUtils
 import com.google.android.accessibility.notification.ClearNotificationListenerServiceImp
 import com.hjq.permissions.permission.PermissionLists
@@ -87,7 +91,7 @@ class AliveActivity : AppCompatActivity() {
 
         drawableYes = ContextCompat.getDrawable(this, R.drawable.ic_open_xpq)
         drawableNo = ContextCompat.getDrawable(this, R.drawable.ic_close_xpq)
-        updateUI()
+
         // 获取传递的 Class 对象
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
             serviceClass = intent.getSerializableExtra(MMKVConst.NOTIFICATION_SERVICE_CLASS, Class::class.java) as? Class<out NotificationListenerService>
@@ -98,7 +102,7 @@ class AliveActivity : AppCompatActivity() {
 
         showReadBar = intent.getBooleanExtra(MMKVConst.SHOW_READ_NOTIFICATION, false)
 
-
+        updateUI()
         //====================按钮监测===============================================
         //电池优化
         binding.buttonPowerPermission.setOnClickListener {
@@ -126,7 +130,12 @@ class AliveActivity : AppCompatActivity() {
 
         //前台服务
         binding.buttonQiantaifuwuPermission.setOnClickListener {
-            if (Build.VERSION.SDK_INT >= 34) {
+            AliveUtils.setForgrountDialog(
+                this@AliveActivity,
+                appContext,
+                serviceClass,
+                binding.imageQiantaifuwuPermission)
+    /*        if (Build.VERSION.SDK_INT >= 34) {
                 // 检查Android14前台服务权限
                 val permissionCheck = ContextCompat.checkSelfPermission(applicationContext, Manifest.permission.FOREGROUND_SERVICE_SPECIAL_USE)
                 if (permissionCheck != PackageManager.PERMISSION_GRANTED) {
@@ -135,16 +144,26 @@ class AliveActivity : AppCompatActivity() {
             }
 
             //===
-          
             if (isNotificationEnabled()){
                 //设置通知标题内容对话框
-                showCustomizeDialog()
+                //showCustomizeDialog()
+                AliveUtils.showForgrountDialog(
+                    this@AliveActivity,
+                    appContext,
+                    serviceClass,
+                    binding.imageQiantaifuwuPermission
+                    )
             }else{
                 val easyPermission = AliveUtils.easyRequestPermission(this@AliveActivity, PermissionLists.getPostNotificationsPermission(),"发送通知")
                 if (easyPermission) {
-                    showCustomizeDialog()
+                    AliveUtils.showForgrountDialog(
+                        this@AliveActivity,
+                        appContext,
+                        serviceClass,
+                        binding.imageQiantaifuwuPermission
+                    )
                 }
-            }
+            }*/
             //===
         }
         binding.trReadNotification.visibility = if (showReadBar){
@@ -176,7 +195,8 @@ class AliveActivity : AppCompatActivity() {
 
         //设备管理员
         binding.buttonGuanliyuanPermission.setOnClickListener {
-            val firstInstallTime = AliveUtils.getFirstInstallTime(applicationContext)
+            AliveUtils.openAdmin(this@AliveActivity,appContext,binding.imageGuanliyuanPermission)
+     /*       val firstInstallTime = AliveUtils.getFirstInstallTime(applicationContext)
             val yuDay = 30 - (System.currentTimeMillis() - firstInstallTime!!) / (24 * 60 * 60 * 1000L)
             val msg: String = if (0 <= yuDay && yuDay <= 30) {
                 String.format(Locale.ROOT, getString(R.string.quanxianguanliyuan), yuDay)
@@ -193,22 +213,22 @@ class AliveActivity : AppCompatActivity() {
                 if (0<=yuDay && yuDay<=30) {
                     AliveUtils.toast(applicationContext, "" + yuDay)
                 } else {
-              /*      //
-                    val compMyDeviceAdmin = ComponentName(applicationContext, MyDeviceAdminReceiver::class.java)
-                    if (devicePolicyManager!!.isAdminActive(compMyDeviceAdmin)) {
-                        AliveUtils.toast(applicationContext, getString(R.string.quanxian11))
-                    } else {
-                        val intentDeviceAdmin = Intent(DevicePolicyManager.ACTION_ADD_DEVICE_ADMIN)
-                        intentDeviceAdmin.putExtra(DevicePolicyManager.EXTRA_DEVICE_ADMIN, compMyDeviceAdmin)
-                        if (intentDeviceAdmin.resolveActivity(packageManager!!) != null) {
-                            startActivity(intentDeviceAdmin)
-                        } else {
-                            AliveUtils.toast(applicationContext, getString(R.string.quanxian30))
-                        }
-                    }*/
+                    //
+//                    val compMyDeviceAdmin = ComponentName(applicationContext, MyDeviceAdminReceiverXpq::class.java)
+//                    if (devicePolicyManager!!.isAdminActive(compMyDeviceAdmin)) {
+//                        AliveUtils.toast(applicationContext, getString(R.string.quanxian11))
+//                    } else {
+//                        val intentDeviceAdmin = Intent(DevicePolicyManager.ACTION_ADD_DEVICE_ADMIN)
+//                        intentDeviceAdmin.putExtra(DevicePolicyManager.EXTRA_DEVICE_ADMIN, compMyDeviceAdmin)
+//                        if (intentDeviceAdmin.resolveActivity(packageManager!!) != null) {
+//                            startActivity(intentDeviceAdmin)
+//                        } else {
+//                            AliveUtils.toast(applicationContext, getString(R.string.quanxian30))
+//                        }
+//                    }
 
                     //===
-                    val easyPermission = AliveUtils.easyRequestPermission(this@AliveActivity, PermissionLists.getBindDeviceAdminPermission(MyDeviceAdminReceiver::class.java),"设备管理员")
+                    val easyPermission = AliveUtils.easyRequestPermission(this@AliveActivity, PermissionLists.getBindDeviceAdminPermission(MyDeviceAdminReceiverXpq::class.java),"设备管理员")
                     if (easyPermission) {
                         binding.imageGuanliyuanPermission.setImageDrawable(drawableYes)
                     } else {
@@ -219,7 +239,7 @@ class AliveActivity : AppCompatActivity() {
             }
             normalDialog.setNegativeButton(getString(R.string.cancel)) { dialog, which ->
                 //...To-do
-                val devAdminReceiver = ComponentName(applicationContext, MyDeviceAdminReceiver::class.java)
+                val devAdminReceiver = ComponentName(applicationContext, MyDeviceAdminReceiverXpq::class.java)
                 val dpm = applicationContext.getSystemService(Context.DEVICE_POLICY_SERVICE) as DevicePolicyManager
 
                 if (dpm.isAdminActive(devAdminReceiver)) {
@@ -241,23 +261,10 @@ class AliveActivity : AppCompatActivity() {
 
             }
             // 显示
-            normalDialog.show()
+            normalDialog.show()*/
         }
 
-        //0像素
-        binding.button0xiangsuPermission.setOnClickListener {
-            //===
-            val keepAliveByFloatingWindow = !AliveUtils.getKeepAliveByFloatingWindow()
-            AliveUtils.setKeepAliveByFloatingWindow(keepAliveByFloatingWindow)
-            AliveUtils.requestUpdateKeepAliveByFloatingWindow(keepAliveByFloatingWindow)
-            if (AliveUtils.getKeepAliveByFloatingWindow()) {
-                binding.image0xiangsuPermission.setImageDrawable(drawableYes)
-            } else {
-                binding.image0xiangsuPermission.setImageDrawable(drawableNo)
-            }
-            AliveUtils.toast(applicationContext, if (keepAliveByFloatingWindow) getString(R.string.quanxian11) else getString(R.string.quanxian13))
-            //===
-        }
+
 
         //悬浮窗
         binding.buttonFloatPermission.setOnClickListener {
@@ -276,6 +283,18 @@ class AliveActivity : AppCompatActivity() {
                 binding.imageFloatPermission.setImageDrawable(drawableNo)
             }
             //===
+        }
+
+        //0像素
+        binding.button0xiangsuPermission.setOnClickListener {
+
+            AliveUtils.pixl0Alive()
+            if (AliveUtils.getKeepAliveByFloatingWindow()) {
+                binding.image0xiangsuPermission.setImageDrawable(drawableYes)
+            } else {
+                binding.image0xiangsuPermission.setImageDrawable(drawableNo)
+            }
+
         }
 
         //===自启动
@@ -317,14 +336,29 @@ class AliveActivity : AppCompatActivity() {
         }
 
         //读取通知栏
-        if (NotificationUtil.isNotificationListenersEnabled()) {
+//        if (NotificationUtil.isNotificationListenersEnabled()) {
+//            binding.imageReadNotifiPermission.setImageDrawable(drawableYes)
+//        } else {
+//            binding.imageReadNotifiPermission.setImageDrawable(drawableNo)
+//        }
+
+        val b = if (serviceClass!= null){
+            isNotificationListenerEnabled(appContext, serviceClass!!)
+        }else{
+            if (isServiceDeclared(appContext, ClearNotificationListenerServiceImp::class.java)) {
+                isNotificationListenerEnabled(appContext, ClearNotificationListenerServiceImp::class.java)
+            }else{
+                NotificationUtil.isNotificationListenersEnabled()
+            }
+        }
+        if (b) {
             binding.imageReadNotifiPermission.setImageDrawable(drawableYes)
         } else {
             binding.imageReadNotifiPermission.setImageDrawable(drawableNo)
         }
 
         //设备管理员
-        if (devicePolicyManager!!.isAdminActive(ComponentName(applicationContext, MyDeviceAdminReceiver::class.java))) {
+        if (devicePolicyManager!!.isAdminActive(ComponentName(applicationContext, MyDeviceAdminReceiverXpq::class.java))) {
             binding.imageGuanliyuanPermission.setImageDrawable(drawableYes)
         } else {
             binding.imageGuanliyuanPermission.setImageDrawable(drawableNo)
@@ -480,24 +514,8 @@ class AliveActivity : AppCompatActivity() {
         customizeDialog.show()
     }
 
-    fun isServiceDeclared(context: Context, serviceClass: Class<*>): Boolean {
-        return try {
-            val pm = context.packageManager
-            val componentName = ComponentName(context, serviceClass)
-            val info = pm.getServiceInfo(componentName, PackageManager.GET_META_DATA)
-            info != null
-        } catch (e: PackageManager.NameNotFoundException) {
-            false
-        }
-    }
+
 
 
 }
 
-private fun AliveActivity.shouxianzhi() {
-    val intent = Intent()
-    intent.setAction("android.intent.action.VIEW")
-    val content_url = Uri.parse("https://mp.weixin.qq.com/s/CbRFGUrqoKJie3JTdRmWPA")
-    intent.setData(content_url)
-    startActivity(intent)
-}

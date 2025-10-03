@@ -98,7 +98,7 @@ abstract class SelectToSpeakServiceAbstract : AccessibilityService() {
             //前台保活服务   如果放在子类中 可传入 class了
             AliveUtils.keepAliveByNotification_CLS(this,true,null)
         }
-        AliveUtils.keepAliveByFloatingWindow(this,AliveUtils.getKeepAliveByFloatingWindow(),true)
+        AliveUtils.keepAliveByFloatingWindow(this,AliveUtils.getKeepAliveByFloatingWindow())
 
     }
     override fun onAccessibilityEvent(event: AccessibilityEvent?) {
@@ -134,7 +134,7 @@ abstract class SelectToSpeakServiceAbstract : AccessibilityService() {
             //前台保活服务   如果放在子类中 可传入 class了
             AliveUtils.keepAliveByNotification_CLS(this,false,null)
         }
-        AliveUtils.keepAliveByFloatingWindow(this,false,true)
+        AliveUtils.keepAliveByFloatingWindow(this,false)
         // 清理 ownershipMap 中可能未释放的副本，避免泄露
         cleanupOwnershipMap()
         super.onDestroy()

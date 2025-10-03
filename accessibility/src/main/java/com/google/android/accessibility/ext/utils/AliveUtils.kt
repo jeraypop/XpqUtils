@@ -1,5 +1,6 @@
 package com.google.android.accessibility.ext.utils
 
+import android.Manifest
 import android.accessibilityservice.AccessibilityService
 import android.accessibilityservice.AccessibilityService.GLOBAL_ACTION_RECENTS
 import android.app.Activity
@@ -12,6 +13,7 @@ import android.app.NotificationManager
 import android.app.PendingIntent
 import android.app.Service
 import android.app.Service.STOP_FOREGROUND_REMOVE
+import android.app.admin.DevicePolicyManager
 import android.content.ComponentName
 import android.content.ContentValues
 import android.content.Context
@@ -33,7 +35,9 @@ import android.service.notification.NotificationListenerService
 import android.text.TextUtils
 import android.util.Log
 import android.view.Gravity
+import android.view.LayoutInflater
 import android.view.View
+import android.view.ViewGroup
 import android.view.WindowManager
 import android.widget.ImageView
 import android.widget.TextView
@@ -44,9 +48,11 @@ import androidx.annotation.StringRes
 import androidx.appcompat.app.AlertDialog
 import androidx.core.content.ContextCompat
 import com.android.accessibility.ext.R
+import com.android.accessibility.ext.databinding.ForgroundserviceDialogXpqBinding
 import com.google.android.accessibility.ext.activity.AliveActivity
 import com.google.android.accessibility.ext.activity.AliveFGService
 import com.google.android.accessibility.ext.activity.AliveFGService.Companion.fgs_ison
+import com.google.android.accessibility.ext.activity.MyDeviceAdminReceiverXpq
 import com.google.android.accessibility.ext.utils.LibCtxProvider.Companion.appContext
 import com.google.android.accessibility.ext.utils.LibCtxProvider.Companion.contentProviderAuthority
 import com.google.android.accessibility.ext.utils.MMKVConst.BTN_AUTOSTART
@@ -58,13 +64,17 @@ import com.google.android.accessibility.ext.utils.MMKVConst.KEEP_ALIVE_BY_NOTIFI
 import com.google.android.accessibility.ext.utils.MMKVConst.READNOTIFICATIONBAR
 import com.google.android.accessibility.ext.utils.MMKVConst.UPDATE_SCOPE
 import com.google.android.accessibility.ext.utils.MMKVConst.UPDATE_VALUE
+import com.google.android.accessibility.ext.utils.NotificationUtil.isNotificationEnabled
+import com.google.android.accessibility.ext.utils.NotificationUtil.isNotificationListenerEnabled
 import com.google.android.accessibility.notification.ClearNotificationListenerServiceImp
 import com.google.android.accessibility.selecttospeak.SelectToSpeakServiceAbstract
+import com.google.android.accessibility.selecttospeak.accessibilityService
 import com.hjq.permissions.OnPermissionCallback
 import com.hjq.permissions.XXPermissions
 import com.hjq.permissions.permission.PermissionLists
 import com.hjq.permissions.permission.base.IPermission
 import com.hjq.permissions.tools.PermissionUtils
+import java.util.Locale
 import java.util.function.Consumer
 import kotlin.math.max
 
@@ -131,11 +141,15 @@ object AliveUtils {
 
     @JvmOverloads
     @JvmStatic
-    fun openAccessibility(context: Activity, accessibilityServiceClass : Class<out AccessibilityService>): Boolean {
+    fun openAccessibility(context: Activity, accessibilityServiceClass : Class<out AccessibilityService>?): Boolean {
         var isGranted = false
-//        val intent = Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS)
-//        intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-//        context.startActivity(intent)
+        if (accessibilityServiceClass==null){
+            val intent = Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS)
+            intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+            context.startActivity(intent)
+            return false
+        }
+
 
         val permission = easyRequestPermission(
             context,
@@ -244,80 +258,138 @@ object AliveUtils {
 
     private var ignoreView: View? = null
     private var windowManager: WindowManager? = null
+    private var lastCreatedByAccessibility: Boolean = false
+    private val mainHandler = Handler(Looper.getMainLooper())
+
     @JvmStatic
-    fun keepAliveByFloatingWindow(service: Service?,enable: Boolean, isAccessibility: Boolean) {
-        var myCtx :Context? = null
-        if (service != null){
-            myCtx = service
-        }else{
-            myCtx = appContext
-//            toast(appContext, appContext.getString(R.string.quanxian32))
-        }
-        if (myCtx==null){
-            return
-        }
-        if (windowManager==null){
-            windowManager = myCtx.getSystemService<WindowManager>(WindowManager::class.java)
+    fun keepAliveByFloatingWindow(ctx: Context? = appContext, enable: Boolean) {
+        if (ctx == null) return
+        val appCtx = ctx.applicationContext
+
+        // 当前调用是否为 AccessibilityService
+        val actuallyAccessibility = ctx is AccessibilityService
+
+        // WindowManager 上下文选择
+        val wmContext = if (actuallyAccessibility) ctx else appCtx
+
+        // lazy 获取 windowManager
+        if (windowManager == null) {
+            windowManager = try {
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+                    wmContext.getSystemService(WindowManager::class.java)
+                } else {
+                    @Suppress("DEPRECATION")
+                    wmContext.getSystemService(Context.WINDOW_SERVICE) as? WindowManager
+                }
+            } catch (t: Throwable) {
+                null
+            }
         }
 
-        if (enable) {
-            val lp = WindowManager.LayoutParams()
-            lp.flags = (WindowManager.LayoutParams.FLAG_LAYOUT_IN_SCREEN
+        if (!enable) {
+            // 移除
+            if (ignoreView != null) {
+                mainHandler.post {
+                    try {
+                        (ignoreView?.parent as? ViewGroup)?.removeView(ignoreView)
+                        windowManager?.removeViewImmediate(ignoreView)
+                    } catch (t: Throwable) {
+                        Log.e("KeepAlive", "removeView failed", t)
+                    } finally {
+                        ignoreView = null
+                        lastCreatedByAccessibility = false
+                    }
+                }
+            }
+            return
+        }
+
+        // 已存在时的逻辑
+        if (ignoreView != null) {
+            if (lastCreatedByAccessibility && !actuallyAccessibility) {
+                // 已有无障碍创建，不允许普通 Context 覆盖
+                Log.d("KeepAlive", "已有无障碍创建的悬浮窗，忽略普通 Context 创建请求")
+                return
+            }
+            if (lastCreatedByAccessibility == actuallyAccessibility) {
+                // 类型相同，直接返回
+                return
+            }
+            if (actuallyAccessibility && !lastCreatedByAccessibility) {
+                // 无障碍要覆盖非无障碍 -> 先移除再重建
+                mainHandler.post {
+                    try {
+                        (ignoreView?.parent as? ViewGroup)?.removeView(ignoreView)
+                        windowManager?.removeViewImmediate(ignoreView)
+                    } catch (_: Throwable) { }
+                    ignoreView = null
+                    lastCreatedByAccessibility = false
+                }
+                mainHandler.postDelayed({ keepAliveByFloatingWindow(ctx, true) }, 60)
+                return
+            }
+            return
+        }
+
+        // 新建前权限检查（普通 Context 分支）
+        if (!actuallyAccessibility) {
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M && !hasOverlayPermission(appCtx)) {
+                toast(appCtx, appCtx.getString(R.string.quanxian34))
+                return
+            }
+        }
+
+        val lp = WindowManager.LayoutParams().apply {
+            width = 1
+            height = 1
+            flags = (WindowManager.LayoutParams.FLAG_LAYOUT_IN_SCREEN
                     or WindowManager.LayoutParams.FLAG_LAYOUT_NO_LIMITS
                     or WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE
                     or WindowManager.LayoutParams.FLAG_NOT_TOUCHABLE)
+            gravity = Gravity.START or Gravity.TOP
+            format = PixelFormat.TRANSPARENT
+            alpha = 0f
+            x = 0
+            y = 0
 
-
-            lp.gravity = Gravity.START or Gravity.TOP
-            lp.format = PixelFormat.TRANSPARENT
-            lp.alpha = 0f
-            lp.width = 0
-            lp.height = 0
-            lp.x = 0
-            lp.y = 0
-
-            if (isAccessibility){
-                lp.type = WindowManager.LayoutParams.TYPE_ACCESSIBILITY_OVERLAY
-                ignoreView = View(myCtx)
-            }else{
-                if (Build.VERSION.SDK_INT >= 23) {
-                    // 检查Android 6悬浮窗权限
-//                    val permissionCheck = ContextCompat.checkSelfPermission(
-//                        myCtx,
-//                        Manifest.permission.SYSTEM_ALERT_WINDOW
-//                    )
-//
-//                    if (permissionCheck != PackageManager.PERMISSION_GRANTED) {
-//                        toast(myCtx, myCtx.getString(R.string.quanxian33))
-//                        return
-//                    }
-                    if (!Settings.canDrawOverlays(myCtx)){
-                        toast(myCtx, appContext.getString(R.string.quanxian34))
-                        return
+            type = if (actuallyAccessibility) {
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                    WindowManager.LayoutParams.TYPE_ACCESSIBILITY_OVERLAY
+                } else {
+                    @Suppress("DEPRECATION")
+                    WindowManager.LayoutParams.TYPE_PHONE
+                }
+            } else {
+                when {
+                    Build.VERSION.SDK_INT >= Build.VERSION_CODES.O -> WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY
+                    Build.VERSION.SDK_INT >= Build.VERSION_CODES.M -> {
+                        @Suppress("DEPRECATION")
+                        WindowManager.LayoutParams.TYPE_SYSTEM_ALERT
+                    }
+                    else -> {
+                        @Suppress("DEPRECATION")
+                        WindowManager.LayoutParams.TYPE_PHONE
                     }
                 }
-                lp.type = WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY
-                //1使用Context参数构造
-                ignoreView = View(myCtx)
-                //2使用 ViewBinding 加载布局
-//                val binding = LogOverlayBinding.inflate(LayoutInflater.from(myCtx))
-//                ignoreView = binding.root
-
-                //3使用 LayoutInflater 加载布局
-//                val inflater = myCtx.getSystemService(Context.LAYOUT_INFLATER_SERVICE) as LayoutInflater
-//                ignoreView = inflater.inflate(R.layout.log_overlay, null)
-
-
             }
+        }
 
-            ignoreView?.setBackgroundColor(Color.TRANSPARENT)
-            windowManager?.addView(ignoreView, lp)
-        } else if (ignoreView != null) {
-            windowManager?.removeView(ignoreView)
-            ignoreView = null
-            windowManager = null
+        ignoreView = View(appCtx).apply { setBackgroundColor(Color.TRANSPARENT) }
+
+        mainHandler.post {
+            try {
+                val wm = windowManager ?: return@post
+                if (ignoreView?.parent != null) return@post
+                wm.addView(ignoreView, lp)
+                lastCreatedByAccessibility = actuallyAccessibility
+                Log.d("KeepAlive", "overlay added, fromAccessibility=$actuallyAccessibility")
+            } catch (t: Throwable) {
+                Log.e("KeepAlive", "addView failed", t)
+            }
         }
     }
+
+
 
     @RequiresApi(Build.VERSION_CODES.M)
     @JvmStatic
@@ -409,7 +481,16 @@ object AliveUtils {
             fgs_ison =  false
         }
     }
-
+    @JvmStatic
+    fun hasOverlayPermission(ctx: Context): Boolean {
+        return if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+            try {
+                Settings.canDrawOverlays(ctx.applicationContext)
+            } catch (t: Throwable) {
+                false
+            }
+        } else true
+    }
 
     @JvmStatic
     fun compareVersions(v1: String, v2: String): Int {
@@ -668,6 +749,8 @@ object AliveUtils {
 
                 })
 
+        } else{
+            isGranted = true
         }
 
         return isGranted
@@ -930,4 +1013,308 @@ object AliveUtils {
     }
 
 
+    @JvmStatic
+    fun pixl0Alive() {
+        //===
+        var isShow = false
+        if (accessibilityService==null){
+            //辅助服务为空
+            if (!Settings.canDrawOverlays(appContext)) {
+                // 悬浮窗权限未开启，需要跳转申请
+                AliveUtils.toast(msg = appContext.getString(R.string.quanxian34))
+                isShow = false
+            } else {
+                // 已有权限，可以显示悬浮窗
+                isShow = true
+            }
+
+        }else{
+            isShow = true
+        }
+        if (!isShow)return
+        val keepAliveByFloatingWindow = !AliveUtils.getKeepAliveByFloatingWindow()
+        AliveUtils.setKeepAliveByFloatingWindow(keepAliveByFloatingWindow)
+        AliveUtils.requestUpdateKeepAliveByFloatingWindow(keepAliveByFloatingWindow)
+        AliveUtils.toast(appContext, if (keepAliveByFloatingWindow) appContext.getString(R.string.quanxian11) else appContext.getString(R.string.quanxian13))
+        //===
+    }
+    @JvmStatic
+    fun shouxianzhi(ctx: Context = appContext) {
+        ctx ?: return
+        val intent = Intent()
+        intent.setAction("android.intent.action.VIEW")
+        val content_url = Uri.parse("https://mp.weixin.qq.com/s/CbRFGUrqoKJie3JTdRmWPA")
+        intent.setData(content_url)
+        // 添加 FLAG_ACTIVITY_NEW_TASK 标志以确保能从 application context 启动
+        intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+        ctx.startActivity(intent)
+    }
+
+    @JvmStatic
+    fun openAdmin(activity: Activity,ctx: Context = appContext,imageView: ImageView?,ic_open: Int=R.drawable.ic_open_xpq,ic_close: Int=R.drawable.ic_close_xpq) {
+        ctx ?: return
+        val drawableYes = ContextCompat.getDrawable(ctx, ic_open)
+        val drawableNo =  ContextCompat.getDrawable(ctx, ic_close)
+        val firstInstallTime = AliveUtils.getFirstInstallTime(ctx)
+        val yuDay = 30 - (System.currentTimeMillis() - firstInstallTime!!) / (24 * 60 * 60 * 1000L)
+        val msg: String = if (0 <= yuDay && yuDay <= 30) {
+            String.format(Locale.ROOT, ctx.getString(R.string.quanxianguanliyuan), yuDay)
+        } else {
+            ctx.getString(R.string.quanxianguanliyuan1)
+        }
+
+        val normalDialog = AlertDialog.Builder(activity)
+        //                normalDialog.setIcon(R.drawable.ic_float_app);
+        normalDialog.setTitle(ctx.getString(R.string.wenxintixing))
+        normalDialog.setMessage(msg)
+        normalDialog.setPositiveButton(ctx.getString(R.string.nimbleisopen)) { dialog, which ->
+            // 0<=yuDay && yuDay<=30
+            if (0<=yuDay && yuDay<=30) {
+                AliveUtils.toast(ctx, "" + yuDay)
+            } else {
+                /*      //
+                      val compMyDeviceAdmin = ComponentName(applicationContext, MyDeviceAdminReceiver::class.java)
+                      if (devicePolicyManager!!.isAdminActive(compMyDeviceAdmin)) {
+                          AliveUtils.toast(applicationContext, getString(R.string.quanxian11))
+                      } else {
+                          val intentDeviceAdmin = Intent(DevicePolicyManager.ACTION_ADD_DEVICE_ADMIN)
+                          intentDeviceAdmin.putExtra(DevicePolicyManager.EXTRA_DEVICE_ADMIN, compMyDeviceAdmin)
+                          if (intentDeviceAdmin.resolveActivity(packageManager!!) != null) {
+                              startActivity(intentDeviceAdmin)
+                          } else {
+                              AliveUtils.toast(applicationContext, getString(R.string.quanxian30))
+                          }
+                      }*/
+
+                //===
+                val easyPermission = AliveUtils.easyRequestPermission(activity, PermissionLists.getBindDeviceAdminPermission(
+                    MyDeviceAdminReceiverXpq::class.java),"设备管理员")
+                if (easyPermission) {
+                    imageView?.setImageDrawable(drawableYes)
+                } else {
+                    imageView?.setImageDrawable(drawableNo)
+                }
+                //===
+            }
+        }
+        normalDialog.setNegativeButton(ctx.getString(R.string.cancel)) { dialog, which ->
+            //...To-do
+            val devAdminReceiver = ComponentName(ctx, MyDeviceAdminReceiverXpq::class.java)
+            val dpm = ctx.getSystemService(Context.DEVICE_POLICY_SERVICE) as DevicePolicyManager
+
+            if (dpm.isAdminActive(devAdminReceiver)) {
+                dpm.removeActiveAdmin(devAdminReceiver)
+                AliveUtils.toast(ctx, ctx.getString(R.string.quanxian13))
+                imageView?.setImageDrawable(drawableNo)
+            } else {
+                AliveUtils.toast(ctx, ctx.getString(R.string.quanxian12))
+                imageView?.setImageDrawable(drawableNo)
+            }
+
+
+        }
+
+        normalDialog.setNeutralButton(ctx.getString(R.string.sxzxpq)) { dialog, which ->
+            //...To-do
+            shouxianzhi()
+
+
+        }
+        // 显示
+        normalDialog.show()
+    }
+
+    @JvmStatic
+    fun setForgrountDialog(activity: Activity,ctx: Context = appContext,serviceClass: Class<out NotificationListenerService>?,imageView: ImageView?,ic_open: Int=R.drawable.ic_open_xpq,ic_close: Int=R.drawable.ic_close_xpq) {
+        ctx ?: return
+        if (Build.VERSION.SDK_INT >= 34) {
+            // 检查Android14前台服务权限
+            val permissionCheck = ContextCompat.checkSelfPermission(ctx, Manifest.permission.FOREGROUND_SERVICE_SPECIAL_USE)
+            if (permissionCheck != PackageManager.PERMISSION_GRANTED) {
+                return
+            }
+        }
+
+        //===
+        if (isNotificationEnabled()){
+            //设置通知标题内容对话框
+            //showCustomizeDialog()
+            AliveUtils.showForgrountDialog(
+                activity,
+                ctx,
+                serviceClass,
+                imageView,
+                ic_open,
+                ic_close
+            )
+        }else{
+            val easyPermission = AliveUtils.easyRequestPermission(activity, PermissionLists.getPostNotificationsPermission(),"发送通知")
+            if (easyPermission) {
+                AliveUtils.showForgrountDialog(
+                    activity,
+                    ctx,
+                    serviceClass,
+                    imageView,
+                    ic_open,
+                    ic_close
+                )
+            }
+        }
+
+    }
+    @JvmStatic
+    fun isServiceDeclared(context: Context, serviceClass: Class<*>): Boolean {
+        return try {
+            val pm = context.packageManager
+            val componentName = ComponentName(context, serviceClass)
+            val info = pm.getServiceInfo(componentName, PackageManager.GET_META_DATA)
+            info != null
+        } catch (e: PackageManager.NameNotFoundException) {
+            false
+        }
+    }
+    @JvmStatic
+    fun showForgrountDialog(activity: Activity,ctx: Context = appContext,serviceClass: Class<out NotificationListenerService>?,imageView: ImageView?,ic_open: Int=R.drawable.ic_open_xpq,ic_close: Int=R.drawable.ic_close_xpq) {
+        /* @setView 装入自定义View ==> R.layout.dialog_customize
+         */
+        ctx ?: return
+        val drawableYes = ContextCompat.getDrawable(ctx, ic_open)
+        val drawableNo =  ContextCompat.getDrawable(ctx, ic_close)
+        val customizeDialog = AlertDialog.Builder(activity)?: return
+        val dialogBinding = ForgroundserviceDialogXpqBinding.inflate(LayoutInflater.from(activity))
+
+        // 获取EditView中的输入内容
+        dialogBinding.dialogEditTitle.setText(MMKVUtil.get(MMKVConst.FORGROUNDSERVICETITLE, ""))
+        dialogBinding.dialogEditContent.setText(MMKVUtil.get(MMKVConst.FORGROUNDSERVICECONTENT, ""))
+
+        //自动通知栏保活开关
+        dialogBinding.autobaohuo.setOnClickListener {
+            val isChecked = dialogBinding.autobaohuo.isChecked
+            SPUtils.putBoolean(MMKVConst.AUTOBAOHUOISON, isChecked)
+            AliveUtils.setKeepAliveByNotification(isChecked)
+        }
+
+        dialogBinding.autobaohuo.isChecked = AliveUtils.getKeepAliveByNotification()
+
+        //自动清除通知栏保活的通知
+        dialogBinding.clearautobaohuo.setOnClickListener {
+            val isChecked = dialogBinding.clearautobaohuo.isChecked
+            AliveUtils.setAC_AliveNotification(isChecked)
+            if (isChecked){
+                dialogBinding.readnotificationbarView.visibility = View.VISIBLE
+            }else{
+                dialogBinding.readnotificationbarView.visibility = View.GONE
+            }
+        }
+
+        dialogBinding.clearautobaohuo.isChecked = AliveUtils.getAC_AliveNotification()
+        //开启读取通知栏权限
+        dialogBinding.getnotificationSwitch.setOnClickListener {
+            val isChecked = dialogBinding.getnotificationSwitch.isChecked
+            if (!isChecked)return@setOnClickListener
+            var b = false
+            if (serviceClass!= null){
+                b = isNotificationListenerEnabled(appContext, serviceClass)
+            }else{
+                if (isServiceDeclared(ctx, ClearNotificationListenerServiceImp::class.java)) {
+                    b = isNotificationListenerEnabled(appContext, ClearNotificationListenerServiceImp::class.java)
+                }else{
+                    b = false
+                }
+            }
+            if(b){
+                AliveUtils.toast(ctx, ctx.getString(R.string.quanxian11))
+                return@setOnClickListener
+            }
+            val tipDialog = AlertDialog.Builder(activity)
+
+            tipDialog
+                .setMessage(ctx.getString(R.string.quanxian281))
+                .setPositiveButton(ctx.getString(R.string.ok)) { _, _ ->
+                    if (serviceClass!= null){
+                        AliveUtils.openNotificationListener(activity, serviceClass!!)
+                    }else{
+                        if (isServiceDeclared(ctx, ClearNotificationListenerServiceImp::class.java)) {
+                            AliveUtils.openNotificationListener(activity, ClearNotificationListenerServiceImp::class.java)
+                        }else{
+                            NotificationUtil.gotoNotificationAccessSetting()
+                        }
+                    }
+                }
+                .setNegativeButton(ctx.getString(R.string.cancel)) { _, _ ->
+                    AliveUtils.toast(ctx, ctx.getString(R.string.cancel))
+                    dialogBinding.getnotificationSwitch.isChecked =false
+                }
+                .setNeutralButton(ctx.getString(R.string.sxzxpq)){_, _ ->
+                    dialogBinding.getnotificationSwitch.isChecked = false
+                    shouxianzhi()
+                }
+                .show()
+
+
+
+
+
+        }
+        dialogBinding.getnotificationSwitch.isChecked = if (serviceClass!= null){
+            isNotificationListenerEnabled(appContext, serviceClass!!)
+        }else{
+            if (isServiceDeclared(ctx, ClearNotificationListenerServiceImp::class.java)) {
+                isNotificationListenerEnabled(appContext, ClearNotificationListenerServiceImp::class.java)
+            }else{
+                NotificationUtil.isNotificationListenersEnabled()
+            }
+        }
+            
+
+
+
+        if (dialogBinding.clearautobaohuo.isChecked) {
+            dialogBinding.readnotificationbarView.visibility = View.VISIBLE
+
+        } else {
+            dialogBinding.readnotificationbarView.visibility = View.GONE
+        }
+
+        customizeDialog.setTitle(ctx.getString(R.string.quanxian9))
+        customizeDialog.setView(dialogBinding.root)
+
+        //确定按钮
+        customizeDialog.setPositiveButton(ctx.getString(R.string.ok)) { dialog, which ->
+            val title = dialogBinding.dialogEditTitle.text.toString().trim { it <= ' ' }
+            val content = dialogBinding.dialogEditContent.text.toString().trim { it <= ' ' }
+
+            if (TextUtils.isEmpty(title) || TextUtils.isEmpty(content)) {
+                MMKVUtil.put(MMKVConst.FORGROUNDSERVICETITLE, ctx.getString(R.string.wendingrun2))
+                MMKVUtil.put(MMKVConst.FORGROUNDSERVICECONTENT, ctx.getString(R.string.wendingrun4))
+            } else {
+                MMKVUtil.put(MMKVConst.FORGROUNDSERVICETITLE, title)
+                MMKVUtil.put(MMKVConst.FORGROUNDSERVICECONTENT, content)
+            }
+
+            AliveUtils.toast(ctx, MMKVUtil.get(MMKVConst.FORGROUNDSERVICETITLE, ctx.getString(R.string.wendingrun2)))
+            //===
+            //启动服务
+            AliveUtils.startFGAlive(enable = true)
+            //===
+            AliveUtils.setKeepAliveByNotification(true)
+            imageView?.setImageDrawable(drawableYes)
+        }
+
+        //取消按钮
+        customizeDialog.setNegativeButton(ctx.getString(R.string.quanxian14)) { dialog, which ->
+            //==
+            if (!fgs_ison) {
+                AliveUtils.toast(ctx, ctx.getString(R.string.quanxian12))
+            } else {
+                AliveUtils.toast(ctx, ctx.getString(R.string.quanxian13))
+                //停止服务 这将触发服务的 onDestroy() 方法，释放资源并关闭前台通知
+                AliveUtils.startFGAlive(enable = false)
+            }
+            //==
+            AliveUtils.setKeepAliveByNotification(false)
+            imageView?.setImageDrawable(drawableNo)
+        }
+        customizeDialog.show()
+    }
 }

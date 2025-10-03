@@ -8,8 +8,8 @@
     <string name ="quanxian2notifi">2.2 读取通知栏</string>
     <string name ="quanxianauto">自动开启:</string>
     <string name ="quanxian3">3.设备管理员</string>
-    <string name ="quanxian4">4.零像素保活</string>
-    <string name ="quanxian5">5.悬浮窗</string>
+    <string name ="quanxian4">4.悬浮窗</string>
+    <string name ="quanxian5">5.零像素保活</string>
     <string name ="quanxian6">6.允许自启动</string>
     <string name ="quanxian7">7.后台免清理</string>
     <string name ="quanxian8">8.去检查确认</string>
@@ -45,7 +45,8 @@
     <string name ="quanxian31">在最近任务列表给本软件加锁</string>
     <string name ="quanxian32">服务为空</string>
     <string name ="quanxian33">未获取悬浮窗权限</string>
-    <string name ="quanxian34">先授权悬浮窗权限</string>
+    <string name="quanxian34">Please grant floating window permission or enable accessibility service first</string>
+
 
     <string name="apponlyoff">关</string>
     <string name="apponlyon">开</string>
@@ -56,7 +57,10 @@
     <string name="cancel">取消</string>
     <string name="sxzxpq">Restricted?</string>
     <string name="qxykqxpq">Permission has been granted</string>
+    <string name="accessxpq">Accessibility</string>
+    <string name="floatxpq">Float</string>
     <string name="dqtzllxpq">Background redirection, reminder functions, etc. require this permission</string>
+    <string name="xiangsuxpq">0 pixel (floating window) keep alive, requires accessibility service or floating window permission</string>
     <string name="httcxpq">Go to the app settings to check if necessary permissions have been granted successfully. Some phones may also need to additionally enable the "Display pop-up windows while running in the background" permission.</string>
     <string name="checkqxxpq">Check if permission is granted</string>
     <string name="lockrencentxpq">Lock this app in the recent tasks list to prevent it from being cleared with one click</string>

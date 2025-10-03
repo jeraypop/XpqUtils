@@ -10,7 +10,7 @@ import android.content.Intent
  * Date       : 2025/8/14  15:35
  * Description:This is MyDeviceAdminReceiver
  */
-class MyDeviceAdminReceiver : DeviceAdminReceiver() {
+class MyDeviceAdminReceiverXpq : DeviceAdminReceiver() {
     override fun onReceive(context: Context, intent: Intent) {
         super.onReceive(context, intent)
     }

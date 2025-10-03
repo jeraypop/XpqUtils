@@ -10,8 +10,8 @@
     <string name="quanxian2notifi">2.2 Read notification bar</string>
     <string name ="quanxianauto">auto:</string>
     <string name ="quanxian3">3.Device administrator</string>
-    <string name ="quanxian4">4.Zero pixel keep alive</string>
-    <string name ="quanxian5">5.Floating window</string>
+    <string name ="quanxian4">4.Floating window</string>
+    <string name ="quanxian5">5.Zero pixel keep alive</string>
     <string name ="quanxian6">6.Self starting</string>
     <string name ="quanxian7">7.Backend lock</string>
     <string name ="quanxian8">8.Check and confirm</string>
@@ -46,7 +46,7 @@
     <string name ="quanxian31">Lock this software in the recent task list</string>
     <string name ="quanxian32">service is null</string>
     <string name ="quanxian33">Floating window permission not obtained</string>
-    <string name="quanxian34">Grant floating window permission first</string>
+    <string name="quanxian34">Please grant floating window permission or enable accessibility service first</string>
 
     <string name="apponlyoff"></string>
     <string name="apponlyon"></string>
@@ -57,7 +57,10 @@
     <string name="cancel">cancel</string>
     <string name="sxzxpq">Restricted?</string>
     <string name="qxykqxpq">Permission has been granted</string>
+    <string name="accessxpq">Accessibility</string>
+    <string name="floatxpq">Float</string>
     <string name="dqtzllxpq">Background redirection, reminder functions, etc. require this permission</string>
+    <string name="xiangsuxpq">0 pixel (floating window) keep alive, requires accessibility service or floating window permission</string>
     <string name="httcxpq">Go to the app settings to check if necessary permissions have been granted successfully. Some phones may also need to additionally enable the "Display pop-up windows while running in the background" permission.</string>
     <string name="checkqxxpq">Check if permission is granted</string>
     <string name="lockrencentxpq">Lock this app in the recent tasks list to prevent it from being cleared with one click</string>
