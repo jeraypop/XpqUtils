@@ -739,7 +739,11 @@ object AliveUtils {
                                 XXPermissions.startPermissionActivity(context,deniedList)
                             }else{
                                 toast(appContext,permissionName+"获取失败")
+                                if (deniedList.contains(PermissionLists.getBindDeviceAdminPermission(MyDeviceAdminReceiverXpq::class.java))){
+                                    XXPermissions.startPermissionActivity(context,deniedList)
+                                }
                             }
+
 
                         }else{
                             // 在这里处理权限请求成功的逻辑
@@ -799,6 +803,22 @@ object AliveUtils {
                             // 在这里处理权限请求失败的逻辑
                             isGranted = false
                             toast(appContext,permissionName+"获取失败")
+
+                            if (deniedList.contains(PermissionLists.getBindDeviceAdminPermission(MyDeviceAdminReceiverXpq::class.java))){
+//                                XXPermissions.startPermissionActivity(context,deniedList)
+                                val componentName = ComponentName(appContext, MyDeviceAdminReceiverXpq::class.java)
+                                val intent = Intent(DevicePolicyManager.ACTION_ADD_DEVICE_ADMIN).apply {
+                                    putExtra(DevicePolicyManager.EXTRA_DEVICE_ADMIN, componentName)
+                                    putExtra(DevicePolicyManager.EXTRA_ADD_EXPLANATION, "设备管理保活")
+                                    setFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                                }
+                                appContext.startActivity(intent)
+                            }
+
+
+
+
+
 
                         }else{
                             // 在这里处理权限请求成功的逻辑
@@ -1130,7 +1150,7 @@ object AliveUtils {
         normalDialog.setMessage(msg)
         normalDialog.setPositiveButton(ctx.getString(R.string.nimbleisopen)) { dialog, which ->
             // 0<=yuDay && yuDay<=30
-            if (0<=yuDay && yuDay<=30) {
+            if (false) {
                 AliveUtils.toast(ctx, "" + yuDay)
             } else {
                 /*      //
