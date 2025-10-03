@@ -14,6 +14,7 @@ import android.app.PendingIntent
 import android.app.Service
 import android.app.Service.STOP_FOREGROUND_REMOVE
 import android.app.admin.DevicePolicyManager
+import android.content.ActivityNotFoundException
 import android.content.ComponentName
 import android.content.ContentValues
 import android.content.Context
@@ -740,7 +741,7 @@ object AliveUtils {
                             }else{
                                 toast(appContext,permissionName+"获取失败")
                                 if (deniedList.contains(PermissionLists.getBindDeviceAdminPermission(MyDeviceAdminReceiverXpq::class.java))){
-                                    XXPermissions.startPermissionActivity(context,deniedList)
+                                    openSettingAdmin(appContext)
                                 }
                             }
 
@@ -806,13 +807,7 @@ object AliveUtils {
 
                             if (deniedList.contains(PermissionLists.getBindDeviceAdminPermission(MyDeviceAdminReceiverXpq::class.java))){
 //                                XXPermissions.startPermissionActivity(context,deniedList)
-                                val componentName = ComponentName(appContext, MyDeviceAdminReceiverXpq::class.java)
-                                val intent = Intent(DevicePolicyManager.ACTION_ADD_DEVICE_ADMIN).apply {
-                                    putExtra(DevicePolicyManager.EXTRA_DEVICE_ADMIN, componentName)
-                                    putExtra(DevicePolicyManager.EXTRA_ADD_EXPLANATION, "设备管理保活")
-                                    setFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-                                }
-                                appContext.startActivity(intent)
+                                openSettingAdmin(appContext)
                             }
 
 
@@ -1214,6 +1209,28 @@ object AliveUtils {
         }
         // 显示
         normalDialog.show()
+    }
+    @JvmStatic
+    fun openSettingAdmin(context: Context = appContext) {
+        val componentName = ComponentName(context, MyDeviceAdminReceiverXpq::class.java)
+        val componentNameSettings = ComponentName("com.android.settings", "com.android.settings.DeviceAdminSettings")
+        val intent = Intent(DevicePolicyManager.ACTION_ADD_DEVICE_ADMIN).apply {
+            putExtra(DevicePolicyManager.EXTRA_DEVICE_ADMIN, componentName)
+            putExtra(DevicePolicyManager.EXTRA_ADD_EXPLANATION, "管理员保活")
+            setComponent(componentNameSettings)
+            flags = Intent.FLAG_ACTIVITY_NEW_TASK
+        }
+
+        val resolveInfo = context.getPackageManager()
+            .resolveActivity(intent, PackageManager.MATCH_DEFAULT_ONLY)
+        if (resolveInfo != null) {
+            context.startActivity(intent)
+        } else {
+            AliveUtils.toast(msg = "请去设置中手动开启")
+        }
+
+
+
     }
 
     @JvmStatic
