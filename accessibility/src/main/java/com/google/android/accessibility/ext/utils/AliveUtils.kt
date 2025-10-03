@@ -47,6 +47,7 @@ import androidx.annotation.RequiresApi
 import androidx.annotation.StringRes
 import androidx.appcompat.app.AlertDialog
 import androidx.core.content.ContextCompat
+import androidx.fragment.app.Fragment
 import com.android.accessibility.ext.R
 import com.android.accessibility.ext.databinding.ForgroundserviceDialogXpqBinding
 import com.google.android.accessibility.ext.activity.AliveActivity
@@ -688,7 +689,7 @@ object AliveUtils {
         }
         return isGranted
     }
-
+    @JvmOverloads
     @JvmStatic
     fun easyRequestPermission(context: Activity, permission:IPermission, permissionName: String): Boolean {
         var isGranted = false
@@ -739,6 +740,65 @@ object AliveUtils {
                             }else{
                                 toast(appContext,permissionName+"获取失败")
                             }
+
+                        }else{
+                            // 在这里处理权限请求成功的逻辑
+                            isGranted = true
+                            toast(appContext,permissionName+"获取成功")
+                        }
+                    }
+
+                })
+
+        } else{
+            isGranted = true
+        }
+
+        return isGranted
+    }
+    @JvmOverloads
+    @JvmStatic
+    fun easyRequestPermission(context: Fragment, permission:IPermission, permissionName: String): Boolean {
+        var isGranted = false
+        if (Build.VERSION.SDK_INT >= 23){
+            XXPermissions.with(context)
+                // 申请单个权限
+                .permission(permission)
+                // 设置不触发错误检测机制（局部设置）
+                //.unchecked()
+                .request(object : OnPermissionCallback {
+
+                    fun onGranted(permissions: MutableList<IPermission>, allGranted: Boolean) {
+                        if (!allGranted) {
+                            isGranted = false
+                            toast(appContext,"获取部分权限成功，但部分权限未正常授予")
+                            return
+                        }
+                        isGranted = true
+//                        toast(appContext,"获取读取音频权限成功")
+                    }
+
+                    fun onDenied(permissions: MutableList<IPermission>, doNotAskAgain: Boolean) {
+                        if (doNotAskAgain) {
+                            isGranted = false
+                            toast(appContext,"被永久拒绝授权，请手动授予权限")
+                            // 如果是被永久拒绝就跳转到应用权限系统设置页面
+                            XXPermissions.startPermissionActivity(context, permissions)
+                        } else {
+                            isGranted = false
+                            toast(appContext,"获取权限失败")
+                        }
+                    }
+
+                    override fun onResult(
+                        grantedList: MutableList<IPermission>,
+                        deniedList: MutableList<IPermission>
+                    ) {
+                        val allGranted = deniedList.isEmpty()
+                        if (!allGranted) {
+                            // 在这里处理权限请求失败的逻辑
+                            isGranted = false
+                            toast(appContext,permissionName+"获取失败")
 
                         }else{
                             // 在这里处理权限请求成功的逻辑
@@ -1006,6 +1066,7 @@ object AliveUtils {
         alertDialog.show()
     }
 
+    @RequiresApi(Build.VERSION_CODES.N)
     @JvmStatic
     fun setExcludeFromRecents(exclude: Boolean) {
         val activityManager: ActivityManager = appContext.getSystemService<ActivityManager?>(ActivityManager::class.java)
@@ -1051,7 +1112,7 @@ object AliveUtils {
     }
 
     @JvmStatic
-    fun openAdmin(activity: Activity,ctx: Context = appContext,imageView: ImageView?,ic_open: Int=R.drawable.ic_open_xpq,ic_close: Int=R.drawable.ic_close_xpq) {
+    fun openAdmin(fragment: Fragment?=null,activity: Activity,ctx: Context = appContext,imageView: ImageView?,ic_open: Int=R.drawable.ic_open_xpq,ic_close: Int=R.drawable.ic_close_xpq) {
         ctx ?: return
         val drawableYes = ContextCompat.getDrawable(ctx, ic_open)
         val drawableNo =  ContextCompat.getDrawable(ctx, ic_close)
@@ -1087,13 +1148,24 @@ object AliveUtils {
                       }*/
 
                 //===
-                val easyPermission = AliveUtils.easyRequestPermission(activity, PermissionLists.getBindDeviceAdminPermission(
-                    MyDeviceAdminReceiverXpq::class.java),"设备管理员")
-                if (easyPermission) {
-                    imageView?.setImageDrawable(drawableYes)
-                } else {
-                    imageView?.setImageDrawable(drawableNo)
+                if (fragment==null){
+                    val easyPermission = AliveUtils.easyRequestPermission(activity, PermissionLists.getBindDeviceAdminPermission(
+                        MyDeviceAdminReceiverXpq::class.java),"设备管理员")
+                    if (easyPermission) {
+                        imageView?.setImageDrawable(drawableYes)
+                    } else {
+                        imageView?.setImageDrawable(drawableNo)
+                    }
+                }else{
+                    val easyPermission = AliveUtils.easyRequestPermission(fragment, PermissionLists.getBindDeviceAdminPermission(
+                        MyDeviceAdminReceiverXpq::class.java),"设备管理员")
+                    if (easyPermission) {
+                        imageView?.setImageDrawable(drawableYes)
+                    } else {
+                        imageView?.setImageDrawable(drawableNo)
+                    }
                 }
+
                 //===
             }
         }

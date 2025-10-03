@@ -195,7 +195,13 @@ class AliveActivity : AppCompatActivity() {
 
         //设备管理员
         binding.buttonGuanliyuanPermission.setOnClickListener {
-            AliveUtils.openAdmin(this@AliveActivity,appContext,binding.imageGuanliyuanPermission)
+            AliveUtils.openAdmin(
+                null,
+                this@AliveActivity,
+                appContext,
+                binding.
+                imageGuanliyuanPermission
+            )
      /*       val firstInstallTime = AliveUtils.getFirstInstallTime(applicationContext)
             val yuDay = 30 - (System.currentTimeMillis() - firstInstallTime!!) / (24 * 60 * 60 * 1000L)
             val msg: String = if (0 <= yuDay && yuDay <= 30) {
