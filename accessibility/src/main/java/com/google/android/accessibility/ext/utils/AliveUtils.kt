@@ -742,7 +742,7 @@ object AliveUtils {
                                 if (deniedList.contains(PermissionLists.getBindDeviceAdminPermission(MyDeviceAdminReceiverXpq::class.java))){
                                     openSettingAdmin(appContext)
                                 }
-                                if (deniedList.contains(PermissionLists.getSystemAlertWindowPermission())){
+                                else if (deniedList.contains(PermissionLists.getSystemAlertWindowPermission())){
                                     openSettingFloat(appContext)
                                 }
                             }
