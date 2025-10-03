@@ -1081,6 +1081,25 @@ object AliveUtils {
         alertDialog.show()
     }
 
+    @JvmStatic
+    fun showAcc_FloatDialog(activity: Activity) {
+        AlertDialog.Builder(activity)
+            .setMessage(appContext.getString(R.string.xiangsuxpq))
+            .setPositiveButton(appContext.getString(R.string.accessxpq)) { _, _ ->
+                //无障碍
+                AliveUtils.openAccessibility(activity,null)
+            }
+            .setNegativeButton(appContext.getString(R.string.floatxpq)) { _, _ ->
+                //悬浮窗
+                AliveUtils.easyRequestPermission(activity, PermissionLists.getSystemAlertWindowPermission(),"悬浮窗")
+
+            }
+            .setNeutralButton(appContext.getString(R.string.sxzxpq)){_, _ ->
+                shouxianzhi()
+            }
+            .show()
+    }
+
     @RequiresApi(Build.VERSION_CODES.N)
     @JvmStatic
     fun setExcludeFromRecents(exclude: Boolean) {
