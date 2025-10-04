@@ -9,9 +9,24 @@ import android.view.animation.AccelerateDecelerateInterpolator
 import com.android.accessibility.ext.BuildConfig
 import com.android.accessibility.ext.R
 import com.android.accessibility.ext.databinding.ZhiActivityXpqBinding
+import com.google.android.accessibility.ext.activity.XpqBaseActivity
 
 
-class ZhiActivity : Activity() {
+/**
+ *
+ * 1.如果传 bindingInflater = ZhiActivityXpqBinding::inflate
+ * 在initView()方法中可以用requireBinding() 也可以用 findviewbyid
+ *
+ * 2.如果传 layoutId = R.layout.zhi_activity_xpq
+ *  在initView()方法中,只可以用 findviewbyid
+ *
+ *  3.如果走onCreate()方法,还是跟以前一样的用法 传什么都无所谓
+ * */
+class ZhiActivity : XpqBaseActivity<ZhiActivityXpqBinding>(
+//    bindingInflater = ZhiActivityXpqBinding::inflate
+//            ,
+    layoutId = R.layout.zhi_activity_xpq
+) {
     private var mZhiWay = 0
     private val binding: ZhiActivityXpqBinding by lazy { ZhiActivityXpqBinding.inflate(layoutInflater) }
     @SuppressLint("NewApi")
@@ -80,5 +95,13 @@ class ZhiActivity : Activity() {
             })
             animator.start()
         }
+    }
+
+    override fun initView_Xpq() {
+        
+    }
+
+    override fun initData_Xpq() {
+
     }
 }

@@ -12,6 +12,7 @@
     <string name ="quanxian5">5.零像素保活</string>
     <string name ="quanxian6">6.允许自启动</string>
     <string name ="quanxian7">7.后台免清理</string>
+    <string name ="quanxian7taskhide">7.2 后台隐藏</string>
     <string name ="quanxian8">8.去检查确认</string>
     <string name ="quanxiantip2">只要充分设置好,软件就能长时间稳定运行
         \n就算是手机关机重启,无障碍服务也会自动重连</string>
@@ -20,6 +21,7 @@
     <string name ="quanxian11">前台服务已开启!</string>
     <string name ="quanxianreadNoti">读取通知权限已开启!</string>
     <string name ="quanxian0xiangsu">0像素悬浮窗保活已开启!</string>
+    <string name ="quanxiantaskhide">后台隐藏已开启!</string>
     <string name ="quanxian12">未开启!</string>
     <string name ="quanxian13">已关闭!</string>
     <string name ="quanxian14">关闭</string>

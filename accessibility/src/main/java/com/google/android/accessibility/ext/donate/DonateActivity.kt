@@ -10,15 +10,17 @@ import android.view.animation.AccelerateDecelerateInterpolator
 import android.widget.ImageView
 import android.widget.TextView
 import androidx.annotation.DrawableRes
-import androidx.appcompat.app.AppCompatActivity
 import com.android.accessibility.ext.R
 import com.android.accessibility.ext.databinding.ZhiActivityXpqBinding
+import com.google.android.accessibility.ext.activity.XpqBaseActivity
 import com.google.android.accessibility.ext.utils.MMKVConst.EXTRA_KEY_PAY_CONFIG
 
 /**
  * Created by qiang on 2025/8/9.
  */
-class DonateActivity : AppCompatActivity(), View.OnClickListener {
+class DonateActivity : XpqBaseActivity<ZhiActivityXpqBinding>(
+    bindingInflater = ZhiActivityXpqBinding::inflate
+), View.OnClickListener {
     private lateinit var binding: ZhiActivityXpqBinding
 
     private var mTitleTv: TextView? = null
@@ -52,6 +54,14 @@ class DonateActivity : AppCompatActivity(), View.OnClickListener {
         setContentView(binding.root)
         initView()
         initData()
+    }
+
+    override fun initView_Xpq() {
+
+    }
+
+    override fun initData_Xpq() {
+
     }
 
     private fun initView() {

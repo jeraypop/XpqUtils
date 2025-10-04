@@ -16,6 +16,7 @@ import androidx.core.view.WindowInsetsCompat
 import androidx.lifecycle.MutableLiveData
 import androidx.navigation.ui.AppBarConfiguration
 import com.android.accessibility.ext.BuildConfig
+import com.google.android.accessibility.ext.activity.XpqBaseActivity
 import com.google.android.accessibility.ext.openAccessibilitySetting
 
 import com.google.android.accessibility.ext.utils.AliveUtils
@@ -35,7 +36,9 @@ import com.lygttpod.android.auto.notification.NotificationListenerServiceImp
 import xpq.friend.databinding.ActivityMainBinding
 
 
-class MainActivity : AppCompatActivity() {
+class MainActivity : XpqBaseActivity<ActivityMainBinding>(
+    bindingInflater = ActivityMainBinding::inflate
+) {
 
     private lateinit var appBarConfiguration: AppBarConfiguration
     private lateinit var binding: ActivityMainBinding
@@ -59,7 +62,7 @@ class MainActivity : AppCompatActivity() {
             binding.content.setPadding(0, systemBars.top, 0, 0)
             insets
         }
-
+       
 
 //        val navController = findNavController(R.id.nav_host_fragment_content_main)
 //        appBarConfiguration = AppBarConfiguration(navController.graph)
@@ -106,7 +109,7 @@ class MainActivity : AppCompatActivity() {
         }
 
         binding.btnAlive.setOnClickListener{
-            AliveUtils.openAliveActivity(false,NotificationListenerServiceImp::class.java)
+            AliveUtils.openAliveActivity(true,false,NotificationListenerServiceImp::class.java)
         }
         binding.btnAccessibility.setOnClickListener{
             AliveUtils.openAccessibility(this, SelectToSpeakService::class.java)
@@ -127,6 +130,14 @@ class MainActivity : AppCompatActivity() {
            
         }
 
+
+    }
+
+    override fun initView_Xpq() {
+
+    }
+
+    override fun initData_Xpq() {
 
     }
 

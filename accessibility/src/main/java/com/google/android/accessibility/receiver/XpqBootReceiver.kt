@@ -33,7 +33,12 @@ class XpqBootReceiver : BroadcastReceiver() {
             Intent.ACTION_BOOT_COMPLETED,
             Intent.ACTION_LOCKED_BOOT_COMPLETED -> {
                 // 开机启动服务
-                AliveUtils.startFGAlive(enable = true)
+
+                if (AliveUtils.getKeepAliveByNotification()){
+                    AliveUtils.startFGAlive(enable = true)
+                }
+
+
             }
 
             Intent.ACTION_SHUTDOWN -> {

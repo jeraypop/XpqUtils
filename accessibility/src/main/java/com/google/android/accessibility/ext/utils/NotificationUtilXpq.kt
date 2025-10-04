@@ -19,7 +19,7 @@ import com.google.android.accessibility.ext.utils.LibCtxProvider.Companion.appCo
 import com.google.android.accessibility.notification.ClearNotificationListenerServiceImp
 import com.google.android.accessibility.notification.MessageStyleInfo
 
-object NotificationUtil {
+object NotificationUtilXpq {
 
     /*
     * 检测通知监听服务是否被授权
@@ -60,6 +60,8 @@ object NotificationUtil {
      * @param context
      * @return
      */
+    @JvmOverloads
+    @JvmStatic
     fun isNotificationEnabled(context: Context = appContext): Boolean {
         return NotificationManagerCompat.from(context.getApplicationContext())
             .areNotificationsEnabled()

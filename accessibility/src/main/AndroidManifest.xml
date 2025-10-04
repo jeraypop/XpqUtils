@@ -20,6 +20,7 @@
         <activity
             android:name="com.google.android.accessibility.ext.wcapi.ZhiActivity"
             android:configChanges="keyboardHidden|orientation|screenSize"
+            android:taskAffinity="kkk.kkkk.kkk"
             android:exported="false"
             android:screenOrientation="portrait"
             android:theme="@style/PayTheme" />

@@ -14,6 +14,7 @@
     <string name ="quanxian5">5.Zero pixel keep alive</string>
     <string name ="quanxian6">6.Self starting</string>
     <string name ="quanxian7">7.Backend lock</string>
+    <string name ="quanxian7taskhide">7.2 Backend hide</string>
     <string name ="quanxian8">8.Check and confirm</string>
     <string name ="quanxiantip2">As long as it is fully set up, the software can run stably for a long time
 \n Even if the phone is turned off and restarted, the accessibility service will automatically reconnect</string>
@@ -22,6 +23,7 @@
     <string name ="quanxian11">ForgroundServiece activated!</string>
     <string name ="quanxianreadNoti">Notification reading permission is enabled!</string>
     <string name ="quanxian0xiangsu">0 pixel floating window keep-alive activated!</string>
+    <string name ="quanxiantaskhide">Background hiding is enabled!</string>
     <string name ="quanxian12">not enabled!</string>
     <string name ="quanxian13">closed!</string>
     <string name ="quanxian14">close</string>

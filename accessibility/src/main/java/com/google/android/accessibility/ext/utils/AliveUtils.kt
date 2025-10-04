@@ -62,11 +62,12 @@ import com.google.android.accessibility.ext.utils.MMKVConst.BTN_RECENTS
 import com.google.android.accessibility.ext.utils.MMKVConst.CLEARAUTOBAOHUOISON
 import com.google.android.accessibility.ext.utils.MMKVConst.KEEP_ALIVE_BY_FLOATINGWINDOW
 import com.google.android.accessibility.ext.utils.MMKVConst.KEEP_ALIVE_BY_NOTIFICATION
+import com.google.android.accessibility.ext.utils.MMKVConst.KEEP_ALIVE_BY_TASKHIDE
 import com.google.android.accessibility.ext.utils.MMKVConst.READNOTIFICATIONBAR
 import com.google.android.accessibility.ext.utils.MMKVConst.UPDATE_SCOPE
 import com.google.android.accessibility.ext.utils.MMKVConst.UPDATE_VALUE
-import com.google.android.accessibility.ext.utils.NotificationUtil.isNotificationEnabled
-import com.google.android.accessibility.ext.utils.NotificationUtil.isNotificationListenerEnabled
+import com.google.android.accessibility.ext.utils.NotificationUtilXpq.isNotificationEnabled
+import com.google.android.accessibility.ext.utils.NotificationUtilXpq.isNotificationListenerEnabled
 import com.google.android.accessibility.notification.ClearNotificationListenerServiceImp
 import com.google.android.accessibility.selecttospeak.SelectToSpeakServiceAbstract
 import com.google.android.accessibility.selecttospeak.accessibilityService
@@ -87,11 +88,12 @@ object AliveUtils {
     * */
     @JvmOverloads
     @JvmStatic
-    fun openAliveActivity(showReadBar : Boolean = false,notificationServiceClass : Class<out NotificationListenerService> = ClearNotificationListenerServiceImp::class.java) {
+    fun openAliveActivity(showTaskHide : Boolean = false,showReadBar : Boolean = false,notificationServiceClass : Class<out NotificationListenerService> = ClearNotificationListenerServiceImp::class.java) {
         // 创建一个Intent，指定要启动的Activity
         val intent = Intent(appContext, AliveActivity::class.java)
         intent.putExtra(MMKVConst.NOTIFICATION_SERVICE_CLASS, notificationServiceClass)
         intent.putExtra(MMKVConst.SHOW_READ_NOTIFICATION,showReadBar)
+        intent.putExtra(MMKVConst.SHOW_TASK_HIDE,showTaskHide)
         intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
         appContext.startActivity(intent)
     }
@@ -871,6 +873,25 @@ object AliveUtils {
         return false
     }
     @JvmStatic
+    fun requestUpdateKeepAliveByTaskHide(enable: Boolean): Boolean {
+        try {
+            val contentValues = ContentValues()
+            contentValues.put(UPDATE_SCOPE, KEEP_ALIVE_BY_TASKHIDE)
+            contentValues.put(UPDATE_VALUE, enable)
+            val re: Int =
+                appContext.getContentResolver().update(
+                    Uri.parse(contentProviderAuthority),
+                    contentValues,
+                    null,
+                    null
+                )
+            return re > 0
+        } catch (e: NullPointerException) {
+            e.printStackTrace()
+        }
+        return false
+    }
+    @JvmStatic
     fun getKeepAliveByNotification(): Boolean {
         val preferences: SharedPreferences =
             appContext.getSharedPreferences(
@@ -907,6 +928,26 @@ object AliveUtils {
                 Context.MODE_PRIVATE or Context.MODE_MULTI_PROCESS
             )
         preferences.edit().putBoolean(KEEP_ALIVE_BY_FLOATINGWINDOW, enable).apply()
+        return true
+    }
+
+    @JvmStatic
+    fun getKeepAliveByTaskHide(): Boolean {
+        val preferences: SharedPreferences =
+            appContext.getSharedPreferences(
+                appContext.getPackageName(),
+                Context.MODE_PRIVATE or Context.MODE_MULTI_PROCESS
+            )
+        return preferences.getBoolean(KEEP_ALIVE_BY_TASKHIDE, false)
+    }
+    @JvmStatic
+    fun setKeepAliveByTaskHide(enable: Boolean): Boolean {
+        val preferences: SharedPreferences =
+            appContext.getSharedPreferences(
+                appContext.getPackageName(),
+                Context.MODE_PRIVATE or Context.MODE_MULTI_PROCESS
+            )
+        preferences.edit().putBoolean(KEEP_ALIVE_BY_TASKHIDE, enable).apply()
         return true
     }
 
@@ -1102,12 +1143,23 @@ object AliveUtils {
             .show()
     }
 
-    @RequiresApi(Build.VERSION_CODES.N)
+
     @JvmStatic
     fun setExcludeFromRecents(exclude: Boolean) {
-        val activityManager: ActivityManager = appContext.getSystemService<ActivityManager?>(ActivityManager::class.java)
-        activityManager.getAppTasks().forEach(Consumer { e: AppTask? -> e!!.setExcludeFromRecents(exclude) })
+        try {
+            if (appContext == null) return
+
+            val activityManager: ActivityManager? = appContext.getSystemService<ActivityManager?>(ActivityManager::class.java)
+            if (activityManager != null && Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {
+                val appTasks = activityManager.getAppTasks()
+                appTasks?.forEach(Consumer { e: AppTask? -> e?.setExcludeFromRecents(exclude) })
+            }
+        } catch (e: Exception) {
+            // 处理可能的空指针或其他异常
+            Log.e("AliveUtils", "setExcludeFromRecents failed", e)
+        }
     }
+
 
     @JvmStatic
     fun show0Pixl(): Boolean {
@@ -1141,6 +1193,17 @@ object AliveUtils {
         AliveUtils.toast(appContext, if (keepAliveByFloatingWindow) appContext.getString(R.string.quanxian0xiangsu) else appContext.getString(R.string.quanxian13))
         //===
         return isShow
+    }
+
+    @JvmStatic
+    fun backendTaskHide() {
+        //===
+        val keepAliveByTaskHide = !AliveUtils.getKeepAliveByTaskHide()
+        AliveUtils.setKeepAliveByTaskHide(keepAliveByTaskHide)
+        AliveUtils.requestUpdateKeepAliveByTaskHide(keepAliveByTaskHide)
+        AliveUtils.toast(appContext, if (keepAliveByTaskHide) appContext.getString(R.string.quanxiantaskhide) else appContext.getString(R.string.quanxian13))
+        //===
+
     }
     @JvmStatic
     fun shouxianzhi(ctx: Context = appContext) {
@@ -1291,7 +1354,7 @@ object AliveUtils {
         }
 
         //===
-        if (isNotificationEnabled()){
+        if (NotificationUtilXpq.isNotificationEnabled()){
             //设置通知标题内容对话框
             //showCustomizeDialog()
             AliveUtils.showForgrountDialog(
@@ -1342,7 +1405,7 @@ object AliveUtils {
         dialogBinding.dialogEditTitle.setText(MMKVUtil.get(MMKVConst.FORGROUNDSERVICETITLE, ""))
         dialogBinding.dialogEditContent.setText(MMKVUtil.get(MMKVConst.FORGROUNDSERVICECONTENT, ""))
 
-        //自动通知栏保活开关
+        //重启自动开启前台服务 自动通知栏保活开关
         dialogBinding.autobaohuo.setOnClickListener {
             val isChecked = dialogBinding.autobaohuo.isChecked
             SPUtils.putBoolean(MMKVConst.AUTOBAOHUOISON, isChecked)
@@ -1392,7 +1455,7 @@ object AliveUtils {
                         if (isServiceDeclared(ctx, ClearNotificationListenerServiceImp::class.java)) {
                             AliveUtils.openNotificationListener(activity, ClearNotificationListenerServiceImp::class.java)
                         }else{
-                            NotificationUtil.gotoNotificationAccessSetting()
+                            NotificationUtilXpq.gotoNotificationAccessSetting()
                         }
                     }
                 }
@@ -1417,7 +1480,7 @@ object AliveUtils {
             if (isServiceDeclared(ctx, ClearNotificationListenerServiceImp::class.java)) {
                 isNotificationListenerEnabled(appContext, ClearNotificationListenerServiceImp::class.java)
             }else{
-                NotificationUtil.isNotificationListenersEnabled()
+                NotificationUtilXpq.isNotificationListenersEnabled()
             }
         }
             

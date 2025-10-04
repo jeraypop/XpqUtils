@@ -16,8 +16,7 @@ import com.android.accessibility.ext.R
 import com.google.android.accessibility.ext.AssistsServiceListener
 import com.google.android.accessibility.ext.utils.AliveUtils
 import com.google.android.accessibility.ext.utils.LibCtxProvider.Companion.appContext
-import com.google.android.accessibility.ext.utils.NotificationUtil.getAllSortedByTime
-import com.google.android.accessibility.ext.utils.NotificationUtil.getAllSortedMessagingStyleByTime
+import com.google.android.accessibility.ext.utils.NotificationUtilXpq.getAllSortedMessagingStyleByTime
 import com.google.android.accessibility.ext.window.AssistsWindowManager
 import com.google.android.accessibility.notification.AccessibilityNInfo
 import com.google.android.accessibility.notification.MessageStyleInfo

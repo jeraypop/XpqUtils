@@ -25,8 +25,10 @@ object MMKVConst {
     const val UPDATE_VALUE = "value"
     const val KEEP_ALIVE_BY_NOTIFICATION = "autobaohuoison"
     const val KEEP_ALIVE_BY_FLOATINGWINDOW = "keepAliveByFloatingWindow"
+    const val KEEP_ALIVE_BY_TASKHIDE = "KEEP_ALIVE_BY_TASKHIDE"
     const val NOTIFICATION_SERVICE_CLASS = "NOTIFICATION_SERVICE_CLASS"
     const val SHOW_READ_NOTIFICATION = "SHOW_READ_NOTIFICATION"
+    const val SHOW_TASK_HIDE = "SHOW_TASK_HIDE"
 
     const val ALI_KEY = "fkx11204qu3e298yblfpx51"
     const val EXTRA_KEY_PAY_CONFIG = "pay_config"

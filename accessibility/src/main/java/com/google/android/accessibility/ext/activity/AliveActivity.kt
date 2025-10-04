@@ -1,6 +1,5 @@
 package com.google.android.accessibility.ext.activity
 
-import android.Manifest
 import android.app.admin.DevicePolicyManager
 import android.content.ComponentName
 import android.content.Context
@@ -13,17 +12,15 @@ import android.os.Bundle
 import android.os.PowerManager
 import android.provider.Settings
 import android.service.notification.NotificationListenerService
-import android.text.TextUtils
 import android.view.KeyEvent
-import android.view.LayoutInflater
 import android.view.View
+import android.widget.TableRow
 import androidx.annotation.RequiresApi
 import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.content.ContextCompat
 import com.android.accessibility.ext.R
 import com.android.accessibility.ext.databinding.ActivityAliveXpqBinding
-import com.android.accessibility.ext.databinding.ForgroundserviceDialogXpqBinding
 
 import com.google.android.accessibility.ext.activity.AliveFGService.Companion.fgs_ison
 import com.google.android.accessibility.ext.utils.AliveUtils
@@ -31,16 +28,14 @@ import com.google.android.accessibility.ext.utils.AliveUtils.isServiceDeclared
 import com.google.android.accessibility.ext.utils.AliveUtils.shouxianzhi
 import com.google.android.accessibility.ext.utils.LibCtxProvider.Companion.appContext
 import com.google.android.accessibility.ext.utils.MMKVConst
-import com.google.android.accessibility.ext.utils.MMKVUtil
-import com.google.android.accessibility.ext.utils.NotificationUtil
-import com.google.android.accessibility.ext.utils.NotificationUtil.isNotificationEnabled
-import com.google.android.accessibility.ext.utils.NotificationUtil.isNotificationListenerEnabled
-import com.google.android.accessibility.ext.utils.SPUtils
+import com.google.android.accessibility.ext.utils.NotificationUtilXpq
+import com.google.android.accessibility.ext.utils.NotificationUtilXpq.isNotificationListenerEnabled
 import com.google.android.accessibility.notification.ClearNotificationListenerServiceImp
 import com.hjq.permissions.permission.PermissionLists
-import java.util.Locale
 
-class AliveActivity : AppCompatActivity() {
+class AliveActivity : XpqBaseActivity<ActivityAliveXpqBinding>(
+    bindingInflater = ActivityAliveXpqBinding::inflate
+) {
 
     private var devicePolicyManager: DevicePolicyManager? = null
     private var packageManager: PackageManager? = null
@@ -51,6 +46,8 @@ class AliveActivity : AppCompatActivity() {
 
     private var serviceClass: Class<out NotificationListenerService>? = null
     private  var showReadBar = false
+    private  var showTskHide = false
+
    
 
     @RequiresApi(api = Build.VERSION_CODES.M)
@@ -101,7 +98,7 @@ class AliveActivity : AppCompatActivity() {
         }
 
         showReadBar = intent.getBooleanExtra(MMKVConst.SHOW_READ_NOTIFICATION, false)
-
+        showTskHide = intent.getBooleanExtra(MMKVConst.SHOW_TASK_HIDE, false)
         updateUI()
         //====================按钮监测===============================================
         //电池优化
@@ -166,22 +163,23 @@ class AliveActivity : AppCompatActivity() {
             }*/
             //===
         }
+
+        //读取通知栏权限
         binding.trReadNotification.visibility = if (showReadBar){
             View.VISIBLE
         }else{
             View.GONE
         }
-        //读取通知栏权限
         binding.buttonReadNotifiPermission.setOnClickListener {
             //  打开让用户设置
-            if (NotificationUtil.isNotificationListenersEnabled()) {
+            if (NotificationUtilXpq.isNotificationListenersEnabled()) {
                 AliveUtils.toast(applicationContext, getString(R.string.qxykqxpq))
             } else {
 
                 AlertDialog.Builder(this@AliveActivity)
                     .setMessage(getString(R.string.dqtzllxpq))
                     .setPositiveButton(getString(R.string.ok)) { _, _ ->
-                        NotificationUtil.gotoNotificationAccessSetting()
+                        NotificationUtilXpq.gotoNotificationAccessSetting()
                     }
                     .setNegativeButton(getString(R.string.cancel)) { _, _ ->
                         AliveUtils.toast(applicationContext, getString(R.string.cancel))
@@ -191,6 +189,22 @@ class AliveActivity : AppCompatActivity() {
                     }
                     .show()
             }
+        }
+
+        //后台隐藏
+        binding.trRecentTaskHide.visibility = if (showTskHide){
+            View.VISIBLE
+        }else{
+            View.GONE
+        }
+        binding.buttonRecentTaskHidePermission.setOnClickListener {
+            AliveUtils.backendTaskHide()
+            if (AliveUtils.getKeepAliveByTaskHide()) {
+                binding.imageRecentTaskHidePermission.setImageDrawable(drawableYes)
+            } else {
+                binding.imageRecentTaskHidePermission.setImageDrawable(drawableNo)
+            }
+
         }
 
         //设备管理员
@@ -321,6 +335,17 @@ class AliveActivity : AppCompatActivity() {
         }
     }
 
+    override fun initView_Xpq() {
+        requireBinding().trRecentTaskHide.setOnClickListener{
+
+        }
+        val row = findViewById<TableRow>(R.id.tr_recentTaskHide)
+    }
+
+    override fun initData_Xpq() {
+
+    }
+
 
     private fun updateUI() {
         //图形开关监测
@@ -335,7 +360,7 @@ class AliveActivity : AppCompatActivity() {
         }
 
         //前台服务
-        if (fgs_ison) {
+        if (fgs_ison && NotificationUtilXpq.isNotificationEnabled()) {
             binding.imageQiantaifuwuPermission.setImageDrawable(drawableYes)
         } else {
             binding.imageQiantaifuwuPermission.setImageDrawable(drawableNo)
@@ -354,7 +379,7 @@ class AliveActivity : AppCompatActivity() {
             if (isServiceDeclared(appContext, ClearNotificationListenerServiceImp::class.java)) {
                 isNotificationListenerEnabled(appContext, ClearNotificationListenerServiceImp::class.java)
             }else{
-                NotificationUtil.isNotificationListenersEnabled()
+                NotificationUtilXpq.isNotificationListenersEnabled()
             }
         }
         if (b) {
@@ -371,14 +396,20 @@ class AliveActivity : AppCompatActivity() {
         }
 
         //0像素保活
-        if (AliveUtils.getKeepAliveByFloatingWindow()) {
+        if (AliveUtils.show0Pixl() && AliveUtils.getKeepAliveByFloatingWindow()) {
             binding.image0xiangsuPermission.setImageDrawable(drawableYes)
         } else {
             binding.image0xiangsuPermission.setImageDrawable(drawableNo)
         }
+         //后台隐藏
+        if (AliveUtils.getKeepAliveByTaskHide()) {
+            binding.imageRecentTaskHidePermission.setImageDrawable(drawableYes)
+        } else {
+            binding.imageRecentTaskHidePermission.setImageDrawable(drawableNo)
+        }
 
         //悬浮窗
-        if (Settings.canDrawOverlays(this)) {
+        if (AliveUtils.hasOverlayPermission(appContext)) {
             binding.imageFloatPermission.setImageDrawable(drawableYes)
         } else {
             binding.imageFloatPermission.setImageDrawable(drawableNo)

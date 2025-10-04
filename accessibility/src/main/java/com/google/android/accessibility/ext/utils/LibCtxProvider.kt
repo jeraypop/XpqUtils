@@ -18,6 +18,7 @@ import com.android.accessibility.ext.BuildConfig
 import com.google.android.accessibility.ext.activity.AliveFGService
 import com.google.android.accessibility.ext.utils.MMKVConst.KEEP_ALIVE_BY_FLOATINGWINDOW
 import com.google.android.accessibility.ext.utils.MMKVConst.KEEP_ALIVE_BY_NOTIFICATION
+import com.google.android.accessibility.ext.utils.MMKVConst.KEEP_ALIVE_BY_TASKHIDE
 import com.google.android.accessibility.ext.utils.MMKVConst.UPDATE_SCOPE
 import com.google.android.accessibility.ext.utils.MMKVConst.UPDATE_VALUE
 import com.google.android.accessibility.selecttospeak.SelectToSpeakServiceAbstract
@@ -154,5 +155,14 @@ class LibCtxProvider : ContentProvider() {
 
             }
         }
+
+        if (TextUtils.equals(updateScope, KEEP_ALIVE_BY_TASKHIDE)) {
+            handler!!.post {
+
+                AliveUtils.setExcludeFromRecents(value)
+
+            }
+        }
+
     }
 }
