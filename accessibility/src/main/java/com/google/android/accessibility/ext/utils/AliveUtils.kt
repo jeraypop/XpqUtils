@@ -1310,6 +1310,17 @@ object AliveUtils {
     }
     @JvmOverloads
     @JvmStatic
+    fun deleteSelf(ctx: Context = appContext) {
+        if (ctx==null)return
+        // 创建卸载Intent
+        val intent = Intent(Intent.ACTION_DELETE)
+        intent.data = Uri.parse("package:"+ctx.packageName)
+        intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+        // 执行卸载Intent
+        ctx.startActivity(intent)
+    }
+    @JvmOverloads
+    @JvmStatic
     fun openSettingAdmin(context: Context = appContext) {
         val componentName = ComponentName(context, MyDeviceAdminReceiverXpq::class.java)
         val componentNameSettings = ComponentName("com.android.settings", "com.android.settings.DeviceAdminSettings")
