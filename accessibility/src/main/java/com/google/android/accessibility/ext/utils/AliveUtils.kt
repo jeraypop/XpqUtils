@@ -1205,6 +1205,7 @@ object AliveUtils {
         //===
 
     }
+    @JvmOverloads
     @JvmStatic
     fun shouxianzhi(ctx: Context = appContext) {
         ctx ?: return
@@ -1216,7 +1217,7 @@ object AliveUtils {
         intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
         ctx.startActivity(intent)
     }
-
+    @JvmOverloads
     @JvmStatic
     fun openAdmin(fragment: Fragment?=null,activity: Activity,ctx: Context = appContext,imageView: ImageView?,ic_open: Int=R.drawable.ic_open_xpq,ic_close: Int=R.drawable.ic_close_xpq) {
         ctx ?: return
@@ -1236,7 +1237,7 @@ object AliveUtils {
         normalDialog.setMessage(msg)
         normalDialog.setPositiveButton(ctx.getString(R.string.nimbleisopen)) { dialog, which ->
             // 0<=yuDay && yuDay<=30
-            if (false) {
+            if (0<=yuDay && yuDay<=30) {
                 AliveUtils.toast(ctx, "" + yuDay)
             } else {
                 /*      //
@@ -1277,17 +1278,8 @@ object AliveUtils {
         }
         normalDialog.setNegativeButton(ctx.getString(R.string.cancel)) { dialog, which ->
             //...To-do
-            val devAdminReceiver = ComponentName(ctx, MyDeviceAdminReceiverXpq::class.java)
-            val dpm = ctx.getSystemService(Context.DEVICE_POLICY_SERVICE) as DevicePolicyManager
-
-            if (dpm.isAdminActive(devAdminReceiver)) {
-                dpm.removeActiveAdmin(devAdminReceiver)
-                AliveUtils.toast(ctx, ctx.getString(R.string.quanxian13))
-                imageView?.setImageDrawable(drawableNo)
-            } else {
-                AliveUtils.toast(ctx, ctx.getString(R.string.quanxian12))
-                imageView?.setImageDrawable(drawableNo)
-            }
+            cancelAdmin()
+            imageView?.setImageDrawable(drawableNo)
 
 
         }
@@ -1301,6 +1293,22 @@ object AliveUtils {
         // 显示
         normalDialog.show()
     }
+    @JvmOverloads
+    @JvmStatic
+    fun cancelAdmin(ctx: Context = appContext) {
+        if (ctx==null)return
+        val devAdminReceiver = ComponentName(ctx, MyDeviceAdminReceiverXpq::class.java)
+        val dpm = ctx.getSystemService(Context.DEVICE_POLICY_SERVICE) as DevicePolicyManager
+        if (devAdminReceiver==null)return
+        if (dpm==null)return
+        if (dpm.isAdminActive(devAdminReceiver)) {
+            dpm.removeActiveAdmin(devAdminReceiver)
+            AliveUtils.toast(ctx, ctx.getString(R.string.quanxian13))
+        } else {
+            AliveUtils.toast(ctx, ctx.getString(R.string.quanxian12))
+        }
+    }
+    @JvmOverloads
     @JvmStatic
     fun openSettingAdmin(context: Context = appContext) {
         val componentName = ComponentName(context, MyDeviceAdminReceiverXpq::class.java)
@@ -1323,6 +1331,7 @@ object AliveUtils {
 
 
     }
+    @JvmOverloads
     @JvmStatic
     fun openSettingFloat(context: Context = appContext) {
         val intent = Intent(Settings.ACTION_MANAGE_OVERLAY_PERMISSION).apply {
@@ -1341,7 +1350,7 @@ object AliveUtils {
 
 
     }
-
+    @JvmOverloads
     @JvmStatic
     fun setForgrountDialog(activity: Activity,ctx: Context = appContext,serviceClass: Class<out NotificationListenerService>?,imageView: ImageView?,ic_open: Int=R.drawable.ic_open_xpq,ic_close: Int=R.drawable.ic_close_xpq) {
         ctx ?: return
