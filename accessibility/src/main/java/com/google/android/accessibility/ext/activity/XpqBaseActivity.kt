@@ -1,8 +1,10 @@
 package com.google.android.accessibility.ext.activity
 
 import android.content.pm.PackageManager
+import android.os.Build
 import android.os.Bundle
 import android.util.Log
+import android.view.KeyEvent
 import android.view.LayoutInflater
 import android.widget.Toast
 import androidx.activity.result.ActivityResultLauncher
@@ -122,6 +124,40 @@ abstract class XpqBaseActivity<VB : ViewBinding>(
         initView_Xpq()
         initData_Xpq()
         AliveUtils.requestUpdateKeepAliveByTaskHide(AliveUtils.getKeepAliveByTaskHide())
+    }
+
+    override fun onKeyUp(keyCode: Int, event: KeyEvent?): Boolean {
+        if (keyCode == KeyEvent.KEYCODE_BACK) {
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {
+                return super.onKeyUp(keyCode, event)
+            }
+
+            if (AliveUtils.getKeepAliveByTaskHide()) {
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+                    finishAndRemoveTask()
+                } else {
+                    finish()
+                }
+            }
+        }
+        return super.onKeyUp(keyCode, event)
+    }
+
+    override fun onStop() {
+        super.onStop()
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {
+            return
+        }
+        if (AliveUtils.getKeepAliveByTaskHide()) {
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+                finishAndRemoveTask()
+            } else {
+                finish()
+            }
+        }
+
+
+
     }
 
     @CallSuper

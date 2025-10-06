@@ -418,13 +418,7 @@ class AliveActivity : XpqBaseActivity<ActivityAliveXpqBinding>(
 
     }
 
-    override fun onKeyUp(keyCode: Int, event: KeyEvent): Boolean {
-        return super.onKeyUp(keyCode, event)
-    }
 
-    override fun onStop() {
-        super.onStop()
-    }
 
 
 
