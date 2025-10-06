@@ -1150,9 +1150,10 @@ object AliveUtils {
             .show()
     }
 
-
+    @JvmOverloads
     @JvmStatic
-    fun setExcludeFromRecents(exclude: Boolean) {
+    fun setExcludeFromRecents(exclude: Boolean,
+                              list: Collection<String> = emptyList()) {
         try {
             appContext?: return
             if (Build.VERSION.SDK_INT < Build.VERSION_CODES.N) return
@@ -1161,6 +1162,18 @@ object AliveUtils {
             activityManager.appTasks?.forEach { task ->
                 try {
                     task.setExcludeFromRecents(exclude)
+                    if (!exclude){
+                        val taskInfo = task.taskInfo
+                        val base = taskInfo?.baseActivity?.className
+                        val top = taskInfo?.topActivity?.className
+                        if (base in list || top in list) {
+                            task.setExcludeFromRecents(true) // 强制隐藏
+                        }else{
+                            task.setExcludeFromRecents(exclude)
+                        }
+                    }else{
+                        task.setExcludeFromRecents(exclude)
+                    }
                 } catch (e: Exception) {
                     // 单个 task 操作异常不应中断其它 task
                     Log.w("RecentsUtils", "setExcludeFromRecents on one task failed", e)

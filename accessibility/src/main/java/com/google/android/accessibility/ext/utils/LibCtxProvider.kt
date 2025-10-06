@@ -165,16 +165,15 @@ class LibCtxProvider : ContentProvider() {
         if (TextUtils.equals(updateScope, KEEP_ALIVE_BY_TASKHIDE)) {
             handler!!.post {
 
-                //AliveUtils.setExcludeFromRecents(value)
-
                 val jsonStr = values.getAsString(TASKHIDE_LIST)
                 val jsonArray = JSONArray(jsonStr)
                 val resultList = mutableListOf<String>()
                 for (i in 0 until jsonArray.length()) {
                     resultList.add(jsonArray.getString(i))
                 }
+                AliveUtils.setExcludeFromRecents(value,resultList)
                 // resultList 标为永久隐藏
-                RecentsUtils.setExcludeFromRecents(exclude = value, targetActivities = resultList)
+                //RecentsUtils.setExcludeFromRecents(exclude = value, targetActivities = resultList)
 
 
             }
