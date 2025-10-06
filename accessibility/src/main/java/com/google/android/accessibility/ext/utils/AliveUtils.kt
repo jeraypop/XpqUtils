@@ -1152,38 +1152,36 @@ object AliveUtils {
 
     @JvmOverloads
     @JvmStatic
-    fun setExcludeFromRecents(exclude: Boolean,
-                              list: Collection<String> = emptyList()) {
-        try {
-            appContext?: return
-            if (Build.VERSION.SDK_INT < Build.VERSION_CODES.N) return
+    fun setExcludeFromRecents(
+        exclude: Boolean,
+        list: Collection<String> = emptyList()
+    ) {
+        appContext?: return
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.N) return
 
-            val activityManager = appContext.getSystemService(ActivityManager::class.java) ?: return
-            activityManager.appTasks?.forEach { task ->
-                try {
+
+        val activityManager = appContext.getSystemService(ActivityManager::class.java) ?: return
+
+        val appTasks = activityManager.appTasks
+        appTasks?.forEach { task ->
+            if (!exclude) {
+                val taskInfo = task.taskInfo
+                val base = taskInfo?.baseActivity?.className
+                val top = taskInfo?.topActivity?.className
+                if (TextUtils.isEmpty(base) || TextUtils.isEmpty(top)) {
+                    //activity名字为空,不代表该任务已不存在了
+                    task.setExcludeFromRecents(true)
+                } else if (base in list || top in list) {
+                    task.setExcludeFromRecents(true)
+                } else {
                     task.setExcludeFromRecents(exclude)
-                    if (!exclude){
-                        val taskInfo = task.taskInfo
-                        val base = taskInfo?.baseActivity?.className
-                        val top = taskInfo?.topActivity?.className
-                        if (base in list || top in list) {
-                            task.setExcludeFromRecents(true) // 强制隐藏
-                        }else{
-                            task.setExcludeFromRecents(exclude)
-                        }
-                    }else{
-                        task.setExcludeFromRecents(exclude)
-                    }
-                } catch (e: Exception) {
-                    // 单个 task 操作异常不应中断其它 task
-                    Log.w("RecentsUtils", "setExcludeFromRecents on one task failed", e)
                 }
+            } else {
+                task.setExcludeFromRecents(exclude)
             }
 
-            Log.d("RecentsUtils", "setExcludeFromRecents: $exclude")
-        } catch (e: Exception) {
-            Log.e("RecentsUtils", "setExcludeFromRecents failed", e)
         }
+
     }
 
 
