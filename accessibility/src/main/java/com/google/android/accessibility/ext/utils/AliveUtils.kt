@@ -64,6 +64,7 @@ import com.google.android.accessibility.ext.utils.MMKVConst.KEEP_ALIVE_BY_FLOATI
 import com.google.android.accessibility.ext.utils.MMKVConst.KEEP_ALIVE_BY_NOTIFICATION
 import com.google.android.accessibility.ext.utils.MMKVConst.KEEP_ALIVE_BY_TASKHIDE
 import com.google.android.accessibility.ext.utils.MMKVConst.READNOTIFICATIONBAR
+import com.google.android.accessibility.ext.utils.MMKVConst.TASKHIDE_LIST
 import com.google.android.accessibility.ext.utils.MMKVConst.UPDATE_SCOPE
 import com.google.android.accessibility.ext.utils.MMKVConst.UPDATE_VALUE
 import com.google.android.accessibility.ext.utils.NotificationUtilXpq.isNotificationEnabled
@@ -76,6 +77,7 @@ import com.hjq.permissions.XXPermissions
 import com.hjq.permissions.permission.PermissionLists
 import com.hjq.permissions.permission.base.IPermission
 import com.hjq.permissions.tools.PermissionUtils
+import org.json.JSONArray
 import java.util.Locale
 import java.util.function.Consumer
 import kotlin.math.max
@@ -872,12 +874,17 @@ object AliveUtils {
         }
         return false
     }
+    @JvmOverloads
     @JvmStatic
-    fun requestUpdateKeepAliveByTaskHide(enable: Boolean): Boolean {
+    fun requestUpdateKeepAliveByTaskHide(enable: Boolean, list: Collection<String> = emptyList()): Boolean {
         try {
             val contentValues = ContentValues()
             contentValues.put(UPDATE_SCOPE, KEEP_ALIVE_BY_TASKHIDE)
             contentValues.put(UPDATE_VALUE, enable)
+            //val list = listOf("A", "B", "C")
+            val jsonStr = JSONArray(list).toString()   // 结果：["A","B","C"]
+            contentValues.put(TASKHIDE_LIST, jsonStr)
+
             val re: Int =
                 appContext.getContentResolver().update(
                     Uri.parse(contentProviderAuthority),
@@ -1147,16 +1154,22 @@ object AliveUtils {
     @JvmStatic
     fun setExcludeFromRecents(exclude: Boolean) {
         try {
-            if (appContext == null) return
+            appContext?: return
+            if (Build.VERSION.SDK_INT < Build.VERSION_CODES.N) return
 
-            val activityManager: ActivityManager? = appContext.getSystemService<ActivityManager?>(ActivityManager::class.java)
-            if (activityManager != null && Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {
-                val appTasks = activityManager.getAppTasks()
-                appTasks?.forEach(Consumer { e: AppTask? -> e?.setExcludeFromRecents(exclude) })
+            val activityManager = appContext.getSystemService(ActivityManager::class.java) ?: return
+            activityManager.appTasks?.forEach { task ->
+                try {
+                    task.setExcludeFromRecents(exclude)
+                } catch (e: Exception) {
+                    // 单个 task 操作异常不应中断其它 task
+                    Log.w("RecentsUtils", "setExcludeFromRecents on one task failed", e)
+                }
             }
+
+            Log.d("RecentsUtils", "setExcludeFromRecents: $exclude")
         } catch (e: Exception) {
-            // 处理可能的空指针或其他异常
-            Log.e("AliveUtils", "setExcludeFromRecents failed", e)
+            Log.e("RecentsUtils", "setExcludeFromRecents failed", e)
         }
     }
 
@@ -1194,13 +1207,13 @@ object AliveUtils {
         //===
         return isShow
     }
-
+    @JvmOverloads
     @JvmStatic
-    fun backendTaskHide() {
+    fun backendTaskHide(list: Collection<String> = emptyList()) {
         //===
         val keepAliveByTaskHide = !AliveUtils.getKeepAliveByTaskHide()
         AliveUtils.setKeepAliveByTaskHide(keepAliveByTaskHide)
-        AliveUtils.requestUpdateKeepAliveByTaskHide(keepAliveByTaskHide)
+        AliveUtils.requestUpdateKeepAliveByTaskHide(keepAliveByTaskHide,list)
         AliveUtils.toast(appContext, if (keepAliveByTaskHide) appContext.getString(R.string.quanxiantaskhide) else appContext.getString(R.string.quanxian13))
         //===
 

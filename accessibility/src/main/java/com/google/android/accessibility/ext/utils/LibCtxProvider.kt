@@ -19,9 +19,11 @@ import com.google.android.accessibility.ext.activity.AliveFGService
 import com.google.android.accessibility.ext.utils.MMKVConst.KEEP_ALIVE_BY_FLOATINGWINDOW
 import com.google.android.accessibility.ext.utils.MMKVConst.KEEP_ALIVE_BY_NOTIFICATION
 import com.google.android.accessibility.ext.utils.MMKVConst.KEEP_ALIVE_BY_TASKHIDE
+import com.google.android.accessibility.ext.utils.MMKVConst.TASKHIDE_LIST
 import com.google.android.accessibility.ext.utils.MMKVConst.UPDATE_SCOPE
 import com.google.android.accessibility.ext.utils.MMKVConst.UPDATE_VALUE
 import com.google.android.accessibility.selecttospeak.SelectToSpeakServiceAbstract
+import org.json.JSONArray
 import java.util.Objects
 
 /**
@@ -129,6 +131,10 @@ class LibCtxProvider : ContentProvider() {
     private fun updateKeepAlive(values: ContentValues) {
         val updateScope = values.getAsString(UPDATE_SCOPE)
         val value = values.getAsBoolean(UPDATE_VALUE)
+
+
+
+
         if (TextUtils.isEmpty(updateScope) || Objects.isNull(value)) {
             return
         }
@@ -159,7 +165,17 @@ class LibCtxProvider : ContentProvider() {
         if (TextUtils.equals(updateScope, KEEP_ALIVE_BY_TASKHIDE)) {
             handler!!.post {
 
-                AliveUtils.setExcludeFromRecents(value)
+                //AliveUtils.setExcludeFromRecents(value)
+
+                val jsonStr = values.getAsString(TASKHIDE_LIST)
+                val jsonArray = JSONArray(jsonStr)
+                val resultList = mutableListOf<String>()
+                for (i in 0 until jsonArray.length()) {
+                    resultList.add(jsonArray.getString(i))
+                }
+                // resultList 标为永久隐藏
+                RecentsUtils.setExcludeFromRecents(exclude = value, targetActivities = resultList)
+
 
             }
         }
