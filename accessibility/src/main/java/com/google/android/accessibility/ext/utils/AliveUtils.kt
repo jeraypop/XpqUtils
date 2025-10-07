@@ -63,7 +63,9 @@ import com.google.android.accessibility.ext.utils.MMKVConst.CLEARAUTOBAOHUOISON
 import com.google.android.accessibility.ext.utils.MMKVConst.KEEP_ALIVE_BY_FLOATINGWINDOW
 import com.google.android.accessibility.ext.utils.MMKVConst.KEEP_ALIVE_BY_NOTIFICATION
 import com.google.android.accessibility.ext.utils.MMKVConst.KEEP_ALIVE_BY_TASKHIDE
+import com.google.android.accessibility.ext.utils.MMKVConst.KEY_OPEN_YIN_CANG
 import com.google.android.accessibility.ext.utils.MMKVConst.READNOTIFICATIONBAR
+import com.google.android.accessibility.ext.utils.MMKVConst.SP_FILE_NAME
 import com.google.android.accessibility.ext.utils.MMKVConst.TASKHIDE_LIST
 import com.google.android.accessibility.ext.utils.MMKVConst.UPDATE_SCOPE
 import com.google.android.accessibility.ext.utils.MMKVConst.UPDATE_VALUE
@@ -940,21 +942,38 @@ object AliveUtils {
 
     @JvmStatic
     fun getKeepAliveByTaskHide(): Boolean {
-        val preferences: SharedPreferences =
+      /*  val preferences: SharedPreferences =
             appContext.getSharedPreferences(
                 appContext.getPackageName(),
                 Context.MODE_PRIVATE or Context.MODE_MULTI_PROCESS
             )
-        return preferences.getBoolean(KEEP_ALIVE_BY_TASKHIDE, false)
+        val boolean = preferences.getBoolean(KEEP_ALIVE_BY_TASKHIDE, false)*/
+        //2
+        val hidepre: SharedPreferences =
+            appContext.getSharedPreferences(
+                SP_FILE_NAME,
+                Context.MODE_PRIVATE or Context.MODE_MULTI_PROCESS
+            )
+        val boolean = hidepre.getBoolean(KEY_OPEN_YIN_CANG, false)
+        return boolean
     }
     @JvmStatic
     fun setKeepAliveByTaskHide(enable: Boolean): Boolean {
-        val preferences: SharedPreferences =
+     /*   val preferences: SharedPreferences =
             appContext.getSharedPreferences(
                 appContext.getPackageName(),
                 Context.MODE_PRIVATE or Context.MODE_MULTI_PROCESS
             )
-        preferences.edit().putBoolean(KEEP_ALIVE_BY_TASKHIDE, enable).apply()
+        preferences.edit().putBoolean(KEEP_ALIVE_BY_TASKHIDE, enable).apply()*/
+        //2
+        val hidepre: SharedPreferences =
+            appContext.getSharedPreferences(
+                SP_FILE_NAME,
+                Context.MODE_PRIVATE or Context.MODE_MULTI_PROCESS
+            )
+        //commit 和 apply 两者都会先把更改应用到内存的 SharedPreferences 缓存中，
+        // 所以同一进程内随后的 getXxx() 立刻能读取到新值
+        hidepre.edit().putBoolean(KEY_OPEN_YIN_CANG, enable).apply()
         return true
     }
 
