@@ -28,6 +28,7 @@ import com.google.android.accessibility.ext.utils.AliveUtils.isServiceDeclared
 import com.google.android.accessibility.ext.utils.AliveUtils.shouxianzhi
 import com.google.android.accessibility.ext.utils.LibCtxProvider.Companion.appContext
 import com.google.android.accessibility.ext.utils.MMKVConst
+import com.google.android.accessibility.ext.utils.MMKVConst.TASKHIDE_BROADCAST
 import com.google.android.accessibility.ext.utils.NotificationUtilXpq
 import com.google.android.accessibility.ext.utils.NotificationUtilXpq.isNotificationListenerEnabled
 import com.google.android.accessibility.notification.ClearNotificationListenerServiceImp
@@ -204,6 +205,7 @@ class AliveActivity : XpqBaseActivity<ActivityAliveXpqBinding>(
             } else {
                 binding.imageRecentTaskHidePermission.setImageDrawable(drawableNo)
             }
+            sendLibBroadcast()
 
         }
 
@@ -344,6 +346,15 @@ class AliveActivity : XpqBaseActivity<ActivityAliveXpqBinding>(
 
     override fun initData_Xpq() {
 
+    }
+    // 发广播（库内）
+    fun sendLibBroadcast() {
+        val intent = Intent(TASKHIDE_BROADCAST)
+        //intent.putExtra("eventId", "my_button")
+        //intent.putExtra("payload", "value")
+        // 推荐加包名来减少被外部监听
+        intent.setPackage(appContext.packageName)
+        appContext.sendBroadcast(intent)
     }
 
 

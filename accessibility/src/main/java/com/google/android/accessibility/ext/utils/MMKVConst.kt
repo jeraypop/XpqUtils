@@ -29,6 +29,7 @@ object MMKVConst {
     const val TASKHIDE_LIST = "TASKHIDE_LIST"
     const val SP_FILE_NAME = "sp_name_wxrp"
     const val KEY_OPEN_YIN_CANG = "key_open_yin_cang"
+    const val TASKHIDE_BROADCAST = "TASKHIDE_BROADCAST"
     const val NOTIFICATION_SERVICE_CLASS = "NOTIFICATION_SERVICE_CLASS"
     const val SHOW_READ_NOTIFICATION = "SHOW_READ_NOTIFICATION"
     const val SHOW_TASK_HIDE = "SHOW_TASK_HIDE"
