@@ -45,10 +45,10 @@
         app:layout_constraintHorizontal_bias="0.0"
         app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintTop_toBottomOf="@+id/text_instructions"
-        app:layout_constraintBottom_toTopOf="@+id/tablelayout" />
+        app:layout_constraintBottom_toTopOf="@+id/scrollViewtablelayout" />
 
-    <TableLayout
-        android:id="@+id/tablelayout"
+    <androidx.core.widget.NestedScrollView
+        android:id="@+id/scrollViewtablelayout"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:layout_marginStart="16dp"
@@ -58,621 +58,687 @@
         android:padding="15dp"
         app:layout_constraintEnd_toEndOf="parent"
         app:layout_constraintStart_toStartOf="parent"
-        app:layout_constraintTop_toBottomOf="@+id/tv_status_he">
-
-
-        <!--电池优化-->
-        <TableRow
+        app:layout_constraintTop_toBottomOf="@+id/tv_status_he"
+         >
+        <TableLayout
+            android:id="@+id/tablelayout"
             android:layout_width="match_parent"
-            android:layout_height="wrap_content">
+            android:layout_height="wrap_content"
+            >
 
-            <androidx.constraintlayout.widget.ConstraintLayout
-                android:layout_width="427dp"
-                android:layout_height="wrap_content"
-                android:layout_weight="1">
 
-                <ImageView
-                    android:id="@+id/image_power_permission"
-                    android:layout_width="wrap_content"
+            <!--电池优化-->
+            <TableRow
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content">
+
+                <androidx.constraintlayout.widget.ConstraintLayout
+                    android:layout_width="427dp"
                     android:layout_height="wrap_content"
-                    android:src="@drawable/ic_close_xpq"
-
-                    app:layout_constraintStart_toStartOf="parent"
-                    app:layout_constraintTop_toBottomOf="@id/text_power_permission"
-
-                    />
-
-                <TextView
-                    android:id="@+id/text_power_permission"
-                    android:layout_width="0dp"
-                    android:layout_height="wrap_content"
-                    android:layout_marginTop="16dp"
-                    android:text="@string/quanxian1"
-                    android:textSize="16sp"
-                    android:textColor="@color/colorTextPrimary"
-                    app:layout_constraintEnd_toStartOf="@id/guideline_power_permission"
-                    app:layout_constraintHorizontal_bias="0.0"
-                    app:layout_constraintStart_toStartOf="parent"
-                    app:layout_constraintTop_toTopOf="parent" />
-
-                <androidx.constraintlayout.widget.Guideline
-                    android:id="@+id/guideline_power_permission"
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:orientation="vertical"
-                    app:layout_constraintGuide_percent="1.0" />
-
-            </androidx.constraintlayout.widget.ConstraintLayout>
-
-            <ImageButton
-                android:id="@+id/button_power_permission"
-                style="@style/Widget.AppCompat.Button.Small"
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:layout_marginTop="2dp"
-                android:src="@drawable/ic_settings_xpq"
-                android:text="@string/quanxiansetting"
-                android:background="@null"
-                />
-
-        </TableRow>
-
-        <!--前台服务-->
-        <TableRow
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content">
-
-            <androidx.constraintlayout.widget.ConstraintLayout
-                android:layout_width="427dp"
-                android:layout_height="wrap_content"
-                android:layout_weight="1">
-
-                <!--        <ImageView
-                            android:id="@+id/image_qiantaifuwu_permission"
-                            android:layout_width="wrap_content"
-                            android:layout_height="wrap_content"
-                            android:src="@drawable/ic_close"
-
-                            app:layout_constraintStart_toStartOf="parent"
-                            app:layout_constraintTop_toBottomOf="@id/text_qiantaifuwu_permission"
-
-                            />-->
-
-
-                <LinearLayout
-                    android:id="@+id/autobaohuoContaner"
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:layout_gravity="center"
-                    app:layout_constraintStart_toStartOf="parent"
-                    app:layout_constraintTop_toBottomOf="@id/text_qiantaifuwu_permission"
-
-                    >
+                    android:layout_weight="1">
 
                     <ImageView
-                        android:id="@+id/image_qiantaifuwu_permission"
+                        android:id="@+id/image_power_permission"
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
                         android:src="@drawable/ic_close_xpq"
 
+                        app:layout_constraintStart_toStartOf="parent"
+                        app:layout_constraintTop_toBottomOf="@id/text_power_permission"
+
                         />
 
-       <!--             <TextView
+                    <TextView
+                        android:id="@+id/text_power_permission"
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="16dp"
+                        android:text="@string/quanxian1"
+                        android:textSize="16sp"
+                        android:textColor="@color/colorTextPrimary"
+                        app:layout_constraintEnd_toStartOf="@id/guideline_power_permission"
+                        app:layout_constraintHorizontal_bias="0.0"
+                        app:layout_constraintStart_toStartOf="parent"
+                        app:layout_constraintTop_toTopOf="parent" />
+
+                    <androidx.constraintlayout.widget.Guideline
+                        android:id="@+id/guideline_power_permission"
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
-                        android:layout_marginEnd="5dp"
-                        android:layout_marginStart="15dp"
-                        android:text="@string/quanxianauto"
-                        android:visibility="gone"
-                        android:textColor="@color/black"
-                        android:textSize="12sp"/>
+                        android:orientation="vertical"
+                        app:layout_constraintGuide_percent="1.0" />
 
-                    <Switch
-                        android:id="@+id/autobaohuo"
+                </androidx.constraintlayout.widget.ConstraintLayout>
+
+                <ImageButton
+                    android:id="@+id/button_power_permission"
+                    style="@style/Widget.AppCompat.Button.Small"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="2dp"
+                    android:src="@drawable/ic_settings_xpq"
+                    android:text="@string/quanxiansetting"
+                    android:background="@null"
+                    />
+
+            </TableRow>
+
+            <!--前台服务-->
+            <TableRow
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content">
+
+                <androidx.constraintlayout.widget.ConstraintLayout
+                    android:layout_width="427dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1">
+
+                    <!--        <ImageView
+                                android:id="@+id/image_qiantaifuwu_permission"
+                                android:layout_width="wrap_content"
+                                android:layout_height="wrap_content"
+                                android:src="@drawable/ic_close"
+
+                                app:layout_constraintStart_toStartOf="parent"
+                                app:layout_constraintTop_toBottomOf="@id/text_qiantaifuwu_permission"
+
+                                />-->
+
+
+                    <LinearLayout
+                        android:id="@+id/autobaohuoContaner"
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
-                        android:layout_marginStart="5dp"
-                        android:rotation="-360"
-                        android:showText="true"
-                        android:textOff="@string/apponlyoff"
-                        android:textOn="@string/apponlyon"
-                        android:visibility="gone"
-                        android:thumb="@drawable/switch_custom_thumb_selector"
-                        android:track="@drawable/switch_custom_track_selector" />-->
-                </LinearLayout>
+                        android:layout_gravity="center"
+                        app:layout_constraintStart_toStartOf="parent"
+                        app:layout_constraintTop_toBottomOf="@id/text_qiantaifuwu_permission"
+
+                        >
+
+                        <ImageView
+                            android:id="@+id/image_qiantaifuwu_permission"
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:src="@drawable/ic_close_xpq"
+
+                            />
+
+                        <!--             <TextView
+                                         android:layout_width="wrap_content"
+                                         android:layout_height="wrap_content"
+                                         android:layout_marginEnd="5dp"
+                                         android:layout_marginStart="15dp"
+                                         android:text="@string/quanxianauto"
+                                         android:visibility="gone"
+                                         android:textColor="@color/black"
+                                         android:textSize="12sp"/>
+
+                                     <Switch
+                                         android:id="@+id/autobaohuo"
+                                         android:layout_width="wrap_content"
+                                         android:layout_height="wrap_content"
+                                         android:layout_marginStart="5dp"
+                                         android:rotation="-360"
+                                         android:showText="true"
+                                         android:textOff="@string/apponlyoff"
+                                         android:textOn="@string/apponlyon"
+                                         android:visibility="gone"
+                                         android:thumb="@drawable/switch_custom_thumb_selector"
+                                         android:track="@drawable/switch_custom_track_selector" />-->
+                    </LinearLayout>
 
 
-                <TextView
-                    android:id="@+id/text_qiantaifuwu_permission"
-                    android:layout_width="0dp"
-                    android:layout_height="wrap_content"
-                    android:layout_marginTop="16dp"
-                    android:text="@string/quanxian2"
-                    android:textSize="16sp"
-                    android:textColor="@color/colorTextPrimary"
-                    app:layout_constraintEnd_toStartOf="@id/guideline_qiantaifuwu_permission"
-                    app:layout_constraintHorizontal_bias="0.0"
-                    app:layout_constraintStart_toStartOf="parent"
-                    app:layout_constraintTop_toTopOf="parent" />
+                    <TextView
+                        android:id="@+id/text_qiantaifuwu_permission"
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="16dp"
+                        android:text="@string/quanxian2"
+                        android:textSize="16sp"
+                        android:textColor="@color/colorTextPrimary"
+                        app:layout_constraintEnd_toStartOf="@id/guideline_qiantaifuwu_permission"
+                        app:layout_constraintHorizontal_bias="0.0"
+                        app:layout_constraintStart_toStartOf="parent"
+                        app:layout_constraintTop_toTopOf="parent" />
 
-                <androidx.constraintlayout.widget.Guideline
-                    android:id="@+id/guideline_qiantaifuwu_permission"
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:orientation="vertical"
-                    app:layout_constraintGuide_percent="1.0" />
+                    <androidx.constraintlayout.widget.Guideline
+                        android:id="@+id/guideline_qiantaifuwu_permission"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:orientation="vertical"
+                        app:layout_constraintGuide_percent="1.0" />
 
-            </androidx.constraintlayout.widget.ConstraintLayout>
-
-            <ImageButton
-                android:id="@+id/button_qiantaifuwu_permission"
-                style="@style/Widget.AppCompat.Button.Small"
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:layout_marginTop="2dp"
-                android:src="@drawable/ic_settings_xpq"
-                android:text="@string/quanxiansetting"
-                android:background="@null"
-                />
-
-        </TableRow>
-
-        <!--读取通知栏权限-->
-        <TableRow
-            android:id="@+id/tr_readNotification"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content">
-
-            <androidx.constraintlayout.widget.ConstraintLayout
-                android:layout_width="427dp"
-                android:layout_height="wrap_content"
-                android:layout_weight="1">
-
-                <ImageView
-                    android:id="@+id/image_readNotifi_permission"
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:src="@drawable/ic_close_xpq"
-
-                    app:layout_constraintStart_toStartOf="parent"
-                    app:layout_constraintTop_toBottomOf="@id/text_readNotifi_permission"
-
-                    />
-
-                <TextView
-                    android:id="@+id/text_readNotifi_permission"
-                    android:layout_width="0dp"
-                    android:layout_height="wrap_content"
-                    android:layout_marginTop="16dp"
-                    android:text="@string/quanxian2notifi"
-                    android:textSize="16sp"
-                    android:textColor="@color/colorTextPrimary"
-                    app:layout_constraintEnd_toStartOf="@id/guideline_readNotifi_permission"
-                    app:layout_constraintHorizontal_bias="0.0"
-                    app:layout_constraintStart_toStartOf="parent"
-                    app:layout_constraintTop_toTopOf="parent" />
-
-                <androidx.constraintlayout.widget.Guideline
-                    android:id="@+id/guideline_readNotifi_permission"
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:orientation="vertical"
-                    app:layout_constraintGuide_percent="1.0" />
-
-            </androidx.constraintlayout.widget.ConstraintLayout>
-
-            <ImageButton
-                android:id="@+id/button_readNotifi_permission"
-                style="@style/Widget.AppCompat.Button.Small"
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:layout_marginTop="2dp"
-                android:src="@drawable/ic_settings_xpq"
-                android:text="@string/quanxiansetting"
-                android:background="@null"
-                />
-
-        </TableRow>
-
-        <!--设备管理员-->
-        <TableRow
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content">
-
-            <androidx.constraintlayout.widget.ConstraintLayout
-                android:layout_width="427dp"
-                android:layout_height="wrap_content"
-                android:layout_weight="1">
-
-                <ImageView
-                    android:id="@+id/image_guanliyuan_permission"
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:src="@drawable/ic_close_xpq"
-
-                    app:layout_constraintStart_toStartOf="parent"
-                    app:layout_constraintTop_toBottomOf="@id/text_guanliyuan_permission"
-
-                    />
-
-                <TextView
-                    android:id="@+id/text_guanliyuan_permission"
-                    android:layout_width="0dp"
-                    android:layout_height="wrap_content"
-                    android:layout_marginTop="16dp"
-                    android:text="@string/quanxian3"
-                    android:textSize="16sp"
-                    android:textColor="@color/colorTextPrimary"
-                    app:layout_constraintEnd_toStartOf="@id/guideline_guanliyuan_permission"
-                    app:layout_constraintHorizontal_bias="0.0"
-                    app:layout_constraintStart_toStartOf="parent"
-                    app:layout_constraintTop_toTopOf="parent" />
-
-                <androidx.constraintlayout.widget.Guideline
-                    android:id="@+id/guideline_guanliyuan_permission"
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:orientation="vertical"
-                    app:layout_constraintGuide_percent="1.0" />
-
-            </androidx.constraintlayout.widget.ConstraintLayout>
-
-            <ImageButton
-                android:id="@+id/button_guanliyuan_permission"
-                style="@style/Widget.AppCompat.Button.Small"
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:layout_marginTop="2dp"
-                android:src="@drawable/ic_settings_xpq"
-                android:text="@string/quanxiansetting"
-                android:background="@null"
-                />
-
-        </TableRow>
-        <!--悬浮窗权限-->
-        <TableRow
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content">
-
-            <androidx.constraintlayout.widget.ConstraintLayout
-                android:layout_width="427dp"
-                android:layout_height="wrap_content"
-                android:layout_weight="1">
-
-                <ImageView
-                    android:id="@+id/image_float_permission"
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:src="@drawable/ic_close_xpq"
-
-                    app:layout_constraintStart_toStartOf="parent"
-                    app:layout_constraintTop_toBottomOf="@id/text_float_permission"
-
-                    />
-
-                <TextView
-                    android:id="@+id/text_float_permission"
-                    android:layout_width="0dp"
-                    android:layout_height="wrap_content"
-                    android:layout_marginTop="16dp"
-                    android:text="@string/quanxian4"
-                    android:textSize="16sp"
-                    android:textColor="@color/colorTextPrimary"
-                    app:layout_constraintEnd_toStartOf="@id/guideline_float_permission"
-                    app:layout_constraintHorizontal_bias="0.0"
-                    app:layout_constraintStart_toStartOf="parent"
-                    app:layout_constraintTop_toTopOf="parent" />
-
-                <androidx.constraintlayout.widget.Guideline
-                    android:id="@+id/guideline_float_permission"
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:orientation="vertical"
-                    app:layout_constraintGuide_percent="1.0" />
-
-            </androidx.constraintlayout.widget.ConstraintLayout>
-
-            <ImageButton
-                android:id="@+id/button_float_permission"
-                style="@style/Widget.AppCompat.Button.Small"
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:layout_marginTop="2dp"
-                android:src="@drawable/ic_settings_xpq"
-                android:text="@string/quanxiansetting"
-                android:background="@null"
-                />
-
-        </TableRow>
-        <!--0像素保活-->
-        <TableRow
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content">
-
-            <androidx.constraintlayout.widget.ConstraintLayout
-                android:layout_width="427dp"
-                android:layout_height="wrap_content"
-                android:layout_weight="1">
-
-                <ImageView
-                    android:id="@+id/image_0xiangsu_permission"
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:src="@drawable/ic_close_xpq"
-
-                    app:layout_constraintStart_toStartOf="parent"
-                    app:layout_constraintTop_toBottomOf="@id/text_0xiangsu_permission"
-
-                    />
-
-                <TextView
-                    android:id="@+id/text_0xiangsu_permission"
-                    android:layout_width="0dp"
-                    android:layout_height="wrap_content"
-                    android:layout_marginTop="16dp"
-                    android:text="@string/quanxian5"
-                    android:textSize="16sp"
-                    android:textColor="@color/colorTextPrimary"
-                    app:layout_constraintEnd_toStartOf="@id/guideline_0xiangsu_permission"
-                    app:layout_constraintHorizontal_bias="0.0"
-                    app:layout_constraintStart_toStartOf="parent"
-                    app:layout_constraintTop_toTopOf="parent" />
-
-                <androidx.constraintlayout.widget.Guideline
-                    android:id="@+id/guideline_0xiangsu_permission"
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:orientation="vertical"
-                    app:layout_constraintGuide_percent="1.0" />
-
-            </androidx.constraintlayout.widget.ConstraintLayout>
-
-            <ImageButton
-                android:id="@+id/button_0xiangsu_permission"
-                style="@style/Widget.AppCompat.Button.Small"
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:layout_marginTop="2dp"
-                android:src="@drawable/ic_settings_xpq"
-                android:text="@string/quanxiansetting"
-                android:background="@null"
-                />
-
-        </TableRow>
-
-
-        <!--自启动  -->
-        <TableRow
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content">
-
-            <androidx.constraintlayout.widget.ConstraintLayout
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:layout_weight="1">
-
-                <!--  <androidx.constraintlayout.widget.Guideline
-                      android:id="@+id/guideline_power_permission2"
-                      android:layout_width="wrap_content"
-                      android:layout_height="wrap_content"
-                      android:orientation="vertical"
-                      app:layout_constraintGuide_percent="0.85" />-->
-
-                <TextView
-                    android:id="@+id/text_power_permission2"
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:layout_marginTop="16dp"
-                    android:text="@string/quanxian6"
-                    android:textSize="16sp"
-                    android:textColor="@color/colorTextPrimary"
-                    app:layout_constraintStart_toStartOf="parent"
-                    app:layout_constraintTop_toTopOf="parent" />
-                <!--   app:layout_constraintEnd_toStartOf="@id/guideline_power_permission2"-->
+                </androidx.constraintlayout.widget.ConstraintLayout>
 
                 <ImageButton
-                    android:id="@+id/button_power_permission2"
+                    android:id="@+id/button_qiantaifuwu_permission"
                     style="@style/Widget.AppCompat.Button.Small"
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
-
+                    android:layout_marginTop="2dp"
                     android:src="@drawable/ic_settings_xpq"
                     android:text="@string/quanxiansetting"
                     android:background="@null"
-
-                    app:layout_constraintEnd_toEndOf="parent"
-
-                    app:layout_constraintTop_toTopOf="parent" />
-
-
-            </androidx.constraintlayout.widget.ConstraintLayout>
-
-        </TableRow>
-
-        <!--后台免清理  -->
-        <TableRow
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content">
-
-            <androidx.constraintlayout.widget.ConstraintLayout
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:layout_weight="1">
-
-                <!--  <androidx.constraintlayout.widget.Guideline
-                      android:id="@+id/guideline_power_permission2"
-                      android:layout_width="wrap_content"
-                      android:layout_height="wrap_content"
-                      android:orientation="vertical"
-                      app:layout_constraintGuide_percent="0.85" />-->
-
-                <TextView
-                    android:id="@+id/text_power_permission3"
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:layout_marginTop="16dp"
-                    android:text="@string/quanxian7"
-                    android:textSize="16sp"
-                    android:textColor="@color/colorTextPrimary"
-                    app:layout_constraintStart_toStartOf="parent"
-                    app:layout_constraintTop_toTopOf="parent" />
-                <!--   app:layout_constraintEnd_toStartOf="@id/guideline_power_permission2"-->
-
-                <ImageButton
-                    android:id="@+id/button_power_permission3"
-                    style="@style/Widget.AppCompat.Button.Small"
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:background="@null"
-                    android:src="@drawable/ic_settings_xpq"
-                    android:text="@string/quanxiansetting"
-                    app:layout_constraintBottom_toBottomOf="parent"
-                    app:layout_constraintEnd_toEndOf="parent"
-                    app:layout_constraintTop_toTopOf="parent" />
-
-
-            </androidx.constraintlayout.widget.ConstraintLayout>
-
-        </TableRow>
-        <!--后台隐藏-->
-        <TableRow
-            android:id="@+id/tr_recentTaskHide"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content">
-
-            <androidx.constraintlayout.widget.ConstraintLayout
-                android:layout_width="427dp"
-                android:layout_height="wrap_content"
-                android:layout_weight="1">
-
-                <ImageView
-                    android:id="@+id/image_recentTaskHide_permission"
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:src="@drawable/ic_close_xpq"
-
-                    app:layout_constraintStart_toStartOf="parent"
-                    app:layout_constraintTop_toBottomOf="@id/text_recentTaskHide_permission"
-
                     />
 
-                <TextView
-                    android:id="@+id/text_recentTaskHide_permission"
-                    android:layout_width="0dp"
-                    android:layout_height="wrap_content"
-                    android:layout_marginTop="16dp"
-                    android:text="@string/quanxian7taskhide"
-                    android:textSize="16sp"
-                    android:textColor="@color/colorTextPrimary"
-                    app:layout_constraintEnd_toStartOf="@id/guideline_recentTaskHide_permission"
-                    app:layout_constraintHorizontal_bias="0.0"
-                    app:layout_constraintStart_toStartOf="parent"
-                    app:layout_constraintTop_toTopOf="parent" />
+            </TableRow>
 
-                <androidx.constraintlayout.widget.Guideline
-                    android:id="@+id/guideline_recentTaskHide_permission"
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:orientation="vertical"
-                    app:layout_constraintGuide_percent="1.0" />
-
-            </androidx.constraintlayout.widget.ConstraintLayout>
-
-            <ImageButton
-                android:id="@+id/button_recentTaskHide_permission"
-                style="@style/Widget.AppCompat.Button.Small"
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:layout_marginTop="2dp"
-                android:src="@drawable/ic_settings_xpq"
-                android:text="@string/quanxiansetting"
-                android:background="@null"
-                />
-
-        </TableRow>
-        <!--其他权限检查  -->
-        <TableRow
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content">
-
-            <androidx.constraintlayout.widget.ConstraintLayout
+            <!--读取通知栏权限-->
+            <TableRow
+                android:id="@+id/tr_readNotification"
                 android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:layout_weight="1">
+                android:layout_height="wrap_content">
 
-                <!--  <androidx.constraintlayout.widget.Guideline
-                      android:id="@+id/guideline_power_permission2"
-                      android:layout_width="wrap_content"
-                      android:layout_height="wrap_content"
-                      android:orientation="vertical"
-                      app:layout_constraintGuide_percent="0.85" />-->
-
-                <TextView
-                    android:id="@+id/text_power_permission4"
-                    android:layout_width="match_parent"
+                <androidx.constraintlayout.widget.ConstraintLayout
+                    android:layout_width="427dp"
                     android:layout_height="wrap_content"
-                    android:layout_marginTop="16dp"
-                    android:text="@string/quanxian8"
-                    android:textSize="16sp"
-                    android:textColor="@color/colorTextPrimary"
-                    app:layout_constraintStart_toStartOf="parent"
-                    app:layout_constraintTop_toTopOf="parent" />
-                <!--   app:layout_constraintEnd_toStartOf="@id/guideline_power_permission2"-->
+                    android:layout_weight="1">
+
+                    <ImageView
+                        android:id="@+id/image_readNotifi_permission"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:src="@drawable/ic_close_xpq"
+
+                        app:layout_constraintStart_toStartOf="parent"
+                        app:layout_constraintTop_toBottomOf="@id/text_readNotifi_permission"
+
+                        />
+
+                    <TextView
+                        android:id="@+id/text_readNotifi_permission"
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="16dp"
+                        android:text="@string/quanxian2notifi"
+                        android:textSize="16sp"
+                        android:textColor="@color/colorTextPrimary"
+                        app:layout_constraintEnd_toStartOf="@id/guideline_readNotifi_permission"
+                        app:layout_constraintHorizontal_bias="0.0"
+                        app:layout_constraintStart_toStartOf="parent"
+                        app:layout_constraintTop_toTopOf="parent" />
+
+                    <androidx.constraintlayout.widget.Guideline
+                        android:id="@+id/guideline_readNotifi_permission"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:orientation="vertical"
+                        app:layout_constraintGuide_percent="1.0" />
+
+                </androidx.constraintlayout.widget.ConstraintLayout>
 
                 <ImageButton
-                    android:id="@+id/button_power_permission4"
+                    android:id="@+id/button_readNotifi_permission"
                     style="@style/Widget.AppCompat.Button.Small"
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
-                    android:background="@null"
+                    android:layout_marginTop="2dp"
                     android:src="@drawable/ic_settings_xpq"
                     android:text="@string/quanxiansetting"
-                    app:layout_constraintEnd_toEndOf="parent"
+                    android:background="@null"
+                    />
 
-                    app:layout_constraintTop_toTopOf="parent" />
+            </TableRow>
 
-
-            </androidx.constraintlayout.widget.ConstraintLayout>
-
-        </TableRow>
-
-
-        <!--8-->
-        <TableRow
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:visibility="gone"
-            >
-
-            <androidx.constraintlayout.widget.ConstraintLayout
+            <!--设备管理员-->
+            <TableRow
                 android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:layout_weight="1">
+                android:layout_height="wrap_content">
 
-                <androidx.constraintlayout.widget.Guideline
-                    android:id="@+id/guideline_taskmanager"
+                <androidx.constraintlayout.widget.ConstraintLayout
+                    android:layout_width="427dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1">
+
+                    <ImageView
+                        android:id="@+id/image_guanliyuan_permission"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:src="@drawable/ic_close_xpq"
+
+                        app:layout_constraintStart_toStartOf="parent"
+                        app:layout_constraintTop_toBottomOf="@id/text_guanliyuan_permission"
+
+                        />
+
+                    <TextView
+                        android:id="@+id/text_guanliyuan_permission"
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="16dp"
+                        android:text="@string/quanxian3"
+                        android:textSize="16sp"
+                        android:textColor="@color/colorTextPrimary"
+                        app:layout_constraintEnd_toStartOf="@id/guideline_guanliyuan_permission"
+                        app:layout_constraintHorizontal_bias="0.0"
+                        app:layout_constraintStart_toStartOf="parent"
+                        app:layout_constraintTop_toTopOf="parent" />
+
+                    <androidx.constraintlayout.widget.Guideline
+                        android:id="@+id/guideline_guanliyuan_permission"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:orientation="vertical"
+                        app:layout_constraintGuide_percent="1.0" />
+
+                </androidx.constraintlayout.widget.ConstraintLayout>
+
+                <ImageButton
+                    android:id="@+id/button_guanliyuan_permission"
+                    style="@style/Widget.AppCompat.Button.Small"
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
-                    android:orientation="vertical"
-                    app:layout_constraintGuide_percent="0.85" />
+                    android:layout_marginTop="2dp"
+                    android:src="@drawable/ic_settings_xpq"
+                    android:text="@string/quanxiansetting"
+                    android:background="@null"
+                    />
 
-                <TextView
-                    android:id="@+id/text_task_manager"
+            </TableRow>
+            <!--悬浮窗权限-->
+            <TableRow
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content">
+
+                <androidx.constraintlayout.widget.ConstraintLayout
+                    android:layout_width="427dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1">
+
+                    <ImageView
+                        android:id="@+id/image_float_permission"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:src="@drawable/ic_close_xpq"
+
+                        app:layout_constraintStart_toStartOf="parent"
+                        app:layout_constraintTop_toBottomOf="@id/text_float_permission"
+
+                        />
+
+                    <TextView
+                        android:id="@+id/text_float_permission"
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="16dp"
+                        android:text="@string/quanxian4"
+                        android:textSize="16sp"
+                        android:textColor="@color/colorTextPrimary"
+                        app:layout_constraintEnd_toStartOf="@id/guideline_float_permission"
+                        app:layout_constraintHorizontal_bias="0.0"
+                        app:layout_constraintStart_toStartOf="parent"
+                        app:layout_constraintTop_toTopOf="parent" />
+
+                    <androidx.constraintlayout.widget.Guideline
+                        android:id="@+id/guideline_float_permission"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:orientation="vertical"
+                        app:layout_constraintGuide_percent="1.0" />
+
+                </androidx.constraintlayout.widget.ConstraintLayout>
+
+                <ImageButton
+                    android:id="@+id/button_float_permission"
+                    style="@style/Widget.AppCompat.Button.Small"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="2dp"
+                    android:src="@drawable/ic_settings_xpq"
+                    android:text="@string/quanxiansetting"
+                    android:background="@null"
+                    />
+
+            </TableRow>
+            <!--0像素保活-->
+            <TableRow
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content">
+
+                <androidx.constraintlayout.widget.ConstraintLayout
+                    android:layout_width="427dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1">
+
+                    <ImageView
+                        android:id="@+id/image_0xiangsu_permission"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:src="@drawable/ic_close_xpq"
+
+                        app:layout_constraintStart_toStartOf="parent"
+                        app:layout_constraintTop_toBottomOf="@id/text_0xiangsu_permission"
+
+                        />
+
+                    <TextView
+                        android:id="@+id/text_0xiangsu_permission"
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="16dp"
+                        android:text="@string/quanxian5"
+                        android:textSize="16sp"
+                        android:textColor="@color/colorTextPrimary"
+                        app:layout_constraintEnd_toStartOf="@id/guideline_0xiangsu_permission"
+                        app:layout_constraintHorizontal_bias="0.0"
+                        app:layout_constraintStart_toStartOf="parent"
+                        app:layout_constraintTop_toTopOf="parent" />
+
+                    <androidx.constraintlayout.widget.Guideline
+                        android:id="@+id/guideline_0xiangsu_permission"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:orientation="vertical"
+                        app:layout_constraintGuide_percent="1.0" />
+
+                </androidx.constraintlayout.widget.ConstraintLayout>
+
+                <ImageButton
+                    android:id="@+id/button_0xiangsu_permission"
+                    style="@style/Widget.AppCompat.Button.Small"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="2dp"
+                    android:src="@drawable/ic_settings_xpq"
+                    android:text="@string/quanxiansetting"
+                    android:background="@null"
+                    />
+
+            </TableRow>
+
+
+            <!--自启动  -->
+            <TableRow
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content">
+
+                <androidx.constraintlayout.widget.ConstraintLayout
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:layout_marginTop="1dp"
-                    android:text="8.在某些第三方应用也设置免清理"
-                    android:textSize="16sp"
-                    app:layout_constraintEnd_toStartOf="@id/guideline_taskmanager"
-                    app:layout_constraintStart_toStartOf="parent"
-                    app:layout_constraintTop_toTopOf="parent" />
+                    android:layout_weight="1">
 
-            </androidx.constraintlayout.widget.ConstraintLayout>
+                    <!--  <androidx.constraintlayout.widget.Guideline
+                          android:id="@+id/guideline_power_permission2"
+                          android:layout_width="wrap_content"
+                          android:layout_height="wrap_content"
+                          android:orientation="vertical"
+                          app:layout_constraintGuide_percent="0.85" />-->
 
-        </TableRow>
-        <!--9-->
+                    <TextView
+                        android:id="@+id/text_power_permission2"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="16dp"
+                        android:text="@string/quanxian6"
+                        android:textSize="16sp"
+                        android:textColor="@color/colorTextPrimary"
+                        app:layout_constraintStart_toStartOf="parent"
+                        app:layout_constraintTop_toTopOf="parent" />
+                    <!--   app:layout_constraintEnd_toStartOf="@id/guideline_power_permission2"-->
 
-    </TableLayout>
+                    <ImageButton
+                        android:id="@+id/button_power_permission2"
+                        style="@style/Widget.AppCompat.Button.Small"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+
+                        android:src="@drawable/ic_settings_xpq"
+                        android:text="@string/quanxiansetting"
+                        android:background="@null"
+
+                        app:layout_constraintEnd_toEndOf="parent"
+
+                        app:layout_constraintTop_toTopOf="parent" />
+
+
+                </androidx.constraintlayout.widget.ConstraintLayout>
+
+            </TableRow>
+
+            <!--后台免清理  -->
+            <TableRow
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content">
+
+                <androidx.constraintlayout.widget.ConstraintLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1">
+
+                    <!--  <androidx.constraintlayout.widget.Guideline
+                          android:id="@+id/guideline_power_permission2"
+                          android:layout_width="wrap_content"
+                          android:layout_height="wrap_content"
+                          android:orientation="vertical"
+                          app:layout_constraintGuide_percent="0.85" />-->
+
+                    <TextView
+                        android:id="@+id/text_power_permission3"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="16dp"
+                        android:text="@string/quanxian7"
+                        android:textSize="16sp"
+                        android:textColor="@color/colorTextPrimary"
+                        app:layout_constraintStart_toStartOf="parent"
+                        app:layout_constraintTop_toTopOf="parent" />
+                    <!--   app:layout_constraintEnd_toStartOf="@id/guideline_power_permission2"-->
+
+                    <ImageButton
+                        android:id="@+id/button_power_permission3"
+                        style="@style/Widget.AppCompat.Button.Small"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:background="@null"
+                        android:src="@drawable/ic_settings_xpq"
+                        android:text="@string/quanxiansetting"
+                        app:layout_constraintBottom_toBottomOf="parent"
+                        app:layout_constraintEnd_toEndOf="parent"
+                        app:layout_constraintTop_toTopOf="parent" />
+
+
+                </androidx.constraintlayout.widget.ConstraintLayout>
+
+            </TableRow>
+            <!--后台隐藏-->
+            <TableRow
+                android:id="@+id/tr_recentTaskHide"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content">
+
+                <androidx.constraintlayout.widget.ConstraintLayout
+                    android:layout_width="427dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1">
+
+                    <ImageView
+                        android:id="@+id/image_recentTaskHide_permission"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:src="@drawable/ic_close_xpq"
+
+                        app:layout_constraintStart_toStartOf="parent"
+                        app:layout_constraintTop_toBottomOf="@id/text_recentTaskHide_permission"
+
+                        />
+
+                    <TextView
+                        android:id="@+id/text_recentTaskHide_permission"
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="16dp"
+                        android:text="@string/quanxian7taskhide"
+                        android:textSize="16sp"
+                        android:textColor="@color/colorTextPrimary"
+                        app:layout_constraintEnd_toStartOf="@id/guideline_recentTaskHide_permission"
+                        app:layout_constraintHorizontal_bias="0.0"
+                        app:layout_constraintStart_toStartOf="parent"
+                        app:layout_constraintTop_toTopOf="parent" />
+
+                    <androidx.constraintlayout.widget.Guideline
+                        android:id="@+id/guideline_recentTaskHide_permission"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:orientation="vertical"
+                        app:layout_constraintGuide_percent="1.0" />
+
+                </androidx.constraintlayout.widget.ConstraintLayout>
+
+                <ImageButton
+                    android:id="@+id/button_recentTaskHide_permission"
+                    style="@style/Widget.AppCompat.Button.Small"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="2dp"
+                    android:src="@drawable/ic_settings_xpq"
+                    android:text="@string/quanxiansetting"
+                    android:background="@null"
+                    />
+
+            </TableRow>
+            <!--后台隐藏Plus-->
+            <TableRow
+                android:id="@+id/tr_recentTaskHide_plus"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content">
+
+                <androidx.constraintlayout.widget.ConstraintLayout
+                    android:layout_width="427dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1">
+
+                    <ImageView
+                        android:id="@+id/image_recentTaskHide_permission_plus"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:src="@drawable/ic_close_xpq"
+
+                        app:layout_constraintStart_toStartOf="parent"
+                        app:layout_constraintTop_toBottomOf="@id/text_recentTaskHide_permission_plus"
+
+                        />
+
+                    <TextView
+                        android:id="@+id/text_recentTaskHide_permission_plus"
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="16dp"
+                        android:text="@string/quanxian7plustaskhide"
+                        android:textSize="16sp"
+                        android:textColor="@color/colorTextPrimary"
+                        app:layout_constraintEnd_toStartOf="@id/guideline_recentTaskHide_permission_plus"
+                        app:layout_constraintHorizontal_bias="0.0"
+                        app:layout_constraintStart_toStartOf="parent"
+                        app:layout_constraintTop_toTopOf="parent" />
+
+                    <androidx.constraintlayout.widget.Guideline
+                        android:id="@+id/guideline_recentTaskHide_permission_plus"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:orientation="vertical"
+                        app:layout_constraintGuide_percent="1.0" />
+
+                </androidx.constraintlayout.widget.ConstraintLayout>
+
+                <ImageButton
+                    android:id="@+id/button_recentTaskHide_permission_plus"
+                    style="@style/Widget.AppCompat.Button.Small"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="2dp"
+                    android:src="@drawable/ic_settings_xpq"
+                    android:text="@string/quanxiansetting"
+                    android:background="@null"
+                    />
+
+            </TableRow>
+            <!--其他权限检查  -->
+            <TableRow
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content">
+
+                <androidx.constraintlayout.widget.ConstraintLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1">
+
+                    <!--  <androidx.constraintlayout.widget.Guideline
+                          android:id="@+id/guideline_power_permission2"
+                          android:layout_width="wrap_content"
+                          android:layout_height="wrap_content"
+                          android:orientation="vertical"
+                          app:layout_constraintGuide_percent="0.85" />-->
+
+                    <TextView
+                        android:id="@+id/text_power_permission4"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="16dp"
+                        android:text="@string/quanxian8"
+                        android:textSize="16sp"
+                        android:textColor="@color/colorTextPrimary"
+                        app:layout_constraintStart_toStartOf="parent"
+                        app:layout_constraintTop_toTopOf="parent" />
+                    <!--   app:layout_constraintEnd_toStartOf="@id/guideline_power_permission2"-->
+
+                    <ImageButton
+                        android:id="@+id/button_power_permission4"
+                        style="@style/Widget.AppCompat.Button.Small"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:background="@null"
+                        android:src="@drawable/ic_settings_xpq"
+                        android:text="@string/quanxiansetting"
+                        app:layout_constraintEnd_toEndOf="parent"
+
+                        app:layout_constraintTop_toTopOf="parent" />
+
+
+                </androidx.constraintlayout.widget.ConstraintLayout>
+
+            </TableRow>
+
+
+            <!--8-->
+            <TableRow
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:visibility="gone"
+                >
+
+                <androidx.constraintlayout.widget.ConstraintLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1">
+
+                    <androidx.constraintlayout.widget.Guideline
+                        android:id="@+id/guideline_taskmanager"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:orientation="vertical"
+                        app:layout_constraintGuide_percent="0.85" />
+
+                    <TextView
+                        android:id="@+id/text_task_manager"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="1dp"
+                        android:text="8.在某些第三方应用也设置免清理"
+                        android:textSize="16sp"
+                        app:layout_constraintEnd_toStartOf="@id/guideline_taskmanager"
+                        app:layout_constraintStart_toStartOf="parent"
+                        app:layout_constraintTop_toTopOf="parent" />
+
+                </androidx.constraintlayout.widget.ConstraintLayout>
+
+            </TableRow>
+            <!--9-->
+
+        </TableLayout>
+
+    </androidx.core.widget.NestedScrollView>
+
+
 
     <TextView
         android:id="@+id/tv_status_help"
@@ -690,7 +756,7 @@
         app:layout_constraintEnd_toEndOf="parent"
         app:layout_constraintHorizontal_bias="0.0"
         app:layout_constraintStart_toStartOf="parent"
-        app:layout_constraintTop_toBottomOf="@+id/tablelayout" />
+        app:layout_constraintTop_toBottomOf="@+id/scrollViewtablelayout" />
 
 
 

@@ -15,6 +15,7 @@
     <string name ="quanxian6">6.Self starting</string>
     <string name ="quanxian7">7.Backend lock</string>
     <string name ="quanxian7taskhide">7.2 Backend hide</string>
+    <string name ="quanxian7plustaskhide">7.3 Backend hide Plus</string>
     <string name ="quanxian8">8.Check and confirm</string>
     <string name ="quanxiantip2">As long as it is fully set up, the software can run stably for a long time
 \n Even if the phone is turned off and restarted, the accessibility service will automatically reconnect</string>
@@ -24,6 +25,7 @@
     <string name ="quanxianreadNoti">Notification reading permission is enabled!</string>
     <string name ="quanxian0xiangsu">0 pixel floating window keep-alive activated!</string>
     <string name ="quanxiantaskhide">Background hiding is enabled!</string>
+    <string name ="quanxiantaskhidePlus">Background hiding Plus is enabled!</string>
     <string name ="quanxian12">not enabled!</string>
     <string name ="quanxian13">closed!</string>
     <string name ="quanxian14">close</string>
@@ -69,6 +71,10 @@
     <string name="checkqxxpq">Check if permission is granted</string>
     <string name="lockrencentxpq">Lock this app in the recent tasks list to prevent it from being cleared with one click</string>
     <string name="yxzqdxpq">In settings, allow this app to auto-start</string>
+
+    <string name="taskhide1xpq">This software is not displayed in the multitasking list interface to prevent accidental closure by hand sliding.\nPS: On some brand devices, after returning to the desktop and calling up the multitasking list, you may still see the existence of this software. You need to open another software before this software will be hidden and invisible in the multitasking list.\nThe effect is stable and will not cause unknown accidents, so it is recommended to only enable this feature.</string>
+
+    <string name="taskhide2xpq">This software is not displayed in the multitasking list interface to prevent accidental closure by hand sliding.\nPS: On some brand devices, after returning to the desktop, this software is already hidden and invisible in the multitasking list without needing to open another software.\nDue to the potential for unknown accidents, it is generally not necessary and not recommended to enable this feature.</string>
 
     <string name ="servicenoopen">Accessibility service not activated</string>
     <string name ="lockapp">Please manually bring up the task list interface</string>

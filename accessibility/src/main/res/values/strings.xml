@@ -13,6 +13,7 @@
     <string name ="quanxian6">6.允许自启动</string>
     <string name ="quanxian7">7.后台免清理</string>
     <string name ="quanxian7taskhide">7.2 后台隐藏</string>
+    <string name ="quanxian7plustaskhide">7.3 后台隐藏Plus</string>
     <string name ="quanxian8">8.去检查确认</string>
     <string name ="quanxiantip2">只要充分设置好,软件就能长时间稳定运行
         \n就算是手机关机重启,无障碍服务也会自动重连</string>
@@ -22,6 +23,7 @@
     <string name ="quanxianreadNoti">读取通知权限已开启!</string>
     <string name ="quanxian0xiangsu">0像素悬浮窗保活已开启!</string>
     <string name ="quanxiantaskhide">后台隐藏已开启!</string>
+    <string name ="quanxiantaskhidePlus">后台隐藏Plus已开启!</string>
     <string name ="quanxian12">未开启!</string>
     <string name ="quanxian13">已关闭!</string>
     <string name ="quanxian14">关闭</string>
@@ -68,6 +70,14 @@
     <string name="checkqxxpq">检查权限是否已开启</string>
     <string name="lockrencentxpq">在最近任务列表中,对本应用加锁以免被一键清理掉</string>
     <string name="yxzqdxpq">在设置中,允许本应用自启动,后台运行,高耗电等</string>
+
+    <string name="taskhide1xpq">本软件在多任务列表界面中不显示,避免手滑误关闭.
+        \nPS:部分品牌设备,返回桌面后,呼出多任务列表,可能还会看到本软件的存在,需要打开另一个软件后,本软件才会在多任务列表中隐藏不可见,
+    \n效果稳定且不会引起未知意外,故,推荐只开启这个</string>
+
+    <string name="taskhide2xpq">本软件在多任务列表界面中不显示,避免手滑误关闭.
+        \nPS:部分品牌设备,返回桌面后,本软件已在多任务列表中隐藏不可见,无需打开另外一个软件.
+        \n因为可能会引起未知意外,故一般不需要,也不建议再开启</string>
 
     <string name ="servicenoopen">无障碍服务未开启</string>
     <string name ="lockapp">请手动调出任务列表界面</string>

@@ -29,6 +29,7 @@ import com.google.android.accessibility.ext.utils.AliveUtils.shouxianzhi
 import com.google.android.accessibility.ext.utils.LibCtxProvider.Companion.appContext
 import com.google.android.accessibility.ext.utils.MMKVConst
 import com.google.android.accessibility.ext.utils.MMKVConst.TASKHIDE_BROADCAST
+import com.google.android.accessibility.ext.utils.MMKVConst.TASKHIDE_BROADCAST_PLUS
 import com.google.android.accessibility.ext.utils.NotificationUtilXpq
 import com.google.android.accessibility.ext.utils.NotificationUtilXpq.isNotificationListenerEnabled
 import com.google.android.accessibility.notification.ClearNotificationListenerServiceImp
@@ -199,13 +200,51 @@ class AliveActivity : XpqBaseActivity<ActivityAliveXpqBinding>(
             View.GONE
         }
         binding.buttonRecentTaskHidePermission.setOnClickListener {
-            AliveUtils.backendTaskHide()
+          /*  AliveUtils.backendTaskHide()
             if (AliveUtils.getKeepAliveByTaskHide()) {
                 binding.imageRecentTaskHidePermission.setImageDrawable(drawableYes)
+                binding.trRecentTaskHidePlus.visibility = View.VISIBLE
             } else {
                 binding.imageRecentTaskHidePermission.setImageDrawable(drawableNo)
+                binding.trRecentTaskHidePlus.visibility = View.GONE
             }
-            sendLibBroadcast()
+            AliveUtils.sendLibBroadcast()*/
+
+            AliveUtils.showCheckDialog(this@AliveActivity
+                ,R.string.taskhide1xpq
+                ,R.drawable.recenthidexpq
+                ,R.string.quanxian7taskhide
+                ,MMKVConst.BTN_RECENT_HIDE
+                ,binding.imageRecentTaskHidePermission
+                ,binding.trRecentTaskHidePlus
+                )
+
+
+        }
+
+        //后台隐藏Plus
+        binding.trRecentTaskHidePlus.visibility = if (AliveUtils.getKeepAliveByTaskHide()){
+            View.VISIBLE
+        }else{
+            View.GONE
+        }
+        binding.buttonRecentTaskHidePermissionPlus.setOnClickListener {
+          /*  AliveUtils.backendTaskHidePlus()
+            if (AliveUtils.getKeepAliveByTaskHidePlus()) {
+                binding.imageRecentTaskHidePermissionPlus.setImageDrawable(drawableYes)
+            } else {
+                binding.imageRecentTaskHidePermissionPlus.setImageDrawable(drawableNo)
+            }
+            AliveUtils.sendLibBroadcastPlus()*/
+
+            AliveUtils.showCheckDialog(this@AliveActivity
+                ,R.string.taskhide2xpq
+                ,R.drawable.recenthidexpq
+                ,R.string.quanxian7plustaskhide
+                ,MMKVConst.BTN_RECENT_HIDE_PLUS
+                        ,binding.imageRecentTaskHidePermissionPlus
+                , null)
+
 
         }
 
@@ -347,7 +386,7 @@ class AliveActivity : XpqBaseActivity<ActivityAliveXpqBinding>(
     override fun initData_Xpq() {
 
     }
-    // 发广播（库内）
+   /* // 发广播（库内）
     fun sendLibBroadcast() {
         val intent = Intent(TASKHIDE_BROADCAST)
         //intent.putExtra("eventId", "my_button")
@@ -356,6 +395,14 @@ class AliveActivity : XpqBaseActivity<ActivityAliveXpqBinding>(
         intent.setPackage(appContext.packageName)
         appContext.sendBroadcast(intent)
     }
+    fun sendLibBroadcastPlus() {
+        val intent = Intent(TASKHIDE_BROADCAST_PLUS)
+        //intent.putExtra("eventId", "my_button")
+        //intent.putExtra("payload", "value")
+        // 推荐加包名来减少被外部监听
+        intent.setPackage(appContext.packageName)
+        appContext.sendBroadcast(intent)
+    }*/
 
 
     private fun updateUI() {
@@ -415,8 +462,16 @@ class AliveActivity : XpqBaseActivity<ActivityAliveXpqBinding>(
          //后台隐藏
         if (AliveUtils.getKeepAliveByTaskHide()) {
             binding.imageRecentTaskHidePermission.setImageDrawable(drawableYes)
+            binding.trRecentTaskHidePlus.visibility = View.VISIBLE
         } else {
             binding.imageRecentTaskHidePermission.setImageDrawable(drawableNo)
+            binding.trRecentTaskHidePlus.visibility = View.GONE
+        }
+        //后台隐藏Plus
+        if (AliveUtils.getKeepAliveByTaskHidePlus()) {
+            binding.imageRecentTaskHidePermissionPlus.setImageDrawable(drawableYes)
+        } else {
+            binding.imageRecentTaskHidePermissionPlus.setImageDrawable(drawableNo)
         }
 
         //悬浮窗

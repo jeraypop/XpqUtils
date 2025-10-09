@@ -13,6 +13,7 @@
     <string name ="quanxian6">6.允许自启动</string>
     <string name ="quanxian7">7.后台免清理</string>
     <string name ="quanxian7taskhide">7.2 Backend hide</string>
+    <string name ="quanxian7plustaskhide">7.3 Backend hide Plus</string>
     <string name ="quanxian8">8.去检查确认</string>
     <string name ="quanxiantip2">只要充分设置好,软件就能长时间稳定运行
         \n就算是手机关机重启,无障碍服务也会自动重连</string>
@@ -22,6 +23,7 @@
     <string name ="quanxianreadNoti">读取通知权限已开启!</string>
     <string name ="quanxian0xiangsu">0像素悬浮窗保活已开启!</string>
     <string name ="quanxiantaskhide">Background hiding is enabled!</string>
+    <string name ="quanxiantaskhidePlus">Background hiding Plus is enabled!</string>
     <string name ="quanxian12">未开启!</string>
     <string name ="quanxian13">已关闭!</string>
     <string name ="quanxian14">关闭</string>
@@ -69,6 +71,11 @@
     <string name="checkqxxpq">Check if permission is granted</string>
     <string name="lockrencentxpq">Lock this app in the recent tasks list to prevent it from being cleared with one click</string>
     <string name="yxzqdxpq">In settings, allow this app to auto-start</string>
+
+    <string name="taskhide1xpq">This software is not displayed in the multitasking list interface to prevent accidental closure by hand sliding.\nPS: On some brand devices, after returning to the desktop and calling up the multitasking list, you may still see the existence of this software. You need to open another software before this software will be hidden and invisible in the multitasking list.\nThe effect is stable and will not cause unknown accidents, so it is recommended to only enable this feature.</string>
+
+    <string name="taskhide2xpq">This software is not displayed in the multitasking list interface to prevent accidental closure by hand sliding.\nPS: On some brand devices, after returning to the desktop, this software is already hidden and invisible in the multitasking list without needing to open another software.\nDue to the potential for unknown accidents, it is generally not necessary and not recommended to enable this feature.</string>
+
 
     <string name ="servicenoopen">无障碍服务未开启</string>
     <string name ="lockapp">请手动调出任务列表界面</string>

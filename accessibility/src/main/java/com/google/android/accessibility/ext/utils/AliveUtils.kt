@@ -3,6 +3,7 @@ package com.google.android.accessibility.ext.utils
 import android.Manifest
 import android.accessibilityservice.AccessibilityService
 import android.accessibilityservice.AccessibilityService.GLOBAL_ACTION_RECENTS
+import android.annotation.SuppressLint
 import android.app.Activity
 import android.app.ActivityManager
 import android.app.ActivityManager.AppTask
@@ -40,6 +41,7 @@ import android.view.View
 import android.view.ViewGroup
 import android.view.WindowManager
 import android.widget.ImageView
+import android.widget.TableLayout
 import android.widget.TextView
 import android.widget.Toast
 import androidx.annotation.NonNull
@@ -59,13 +61,18 @@ import com.google.android.accessibility.ext.utils.LibCtxProvider.Companion.conte
 import com.google.android.accessibility.ext.utils.MMKVConst.BTN_AUTOSTART
 import com.google.android.accessibility.ext.utils.MMKVConst.BTN_PERMISSION
 import com.google.android.accessibility.ext.utils.MMKVConst.BTN_RECENTS
+import com.google.android.accessibility.ext.utils.MMKVConst.BTN_RECENT_HIDE
+import com.google.android.accessibility.ext.utils.MMKVConst.BTN_RECENT_HIDE_PLUS
 import com.google.android.accessibility.ext.utils.MMKVConst.CLEARAUTOBAOHUOISON
 import com.google.android.accessibility.ext.utils.MMKVConst.KEEP_ALIVE_BY_FLOATINGWINDOW
 import com.google.android.accessibility.ext.utils.MMKVConst.KEEP_ALIVE_BY_NOTIFICATION
-import com.google.android.accessibility.ext.utils.MMKVConst.KEEP_ALIVE_BY_TASKHIDE
-import com.google.android.accessibility.ext.utils.MMKVConst.KEY_OPEN_YIN_CANG
+
+
+
 import com.google.android.accessibility.ext.utils.MMKVConst.READNOTIFICATIONBAR
 import com.google.android.accessibility.ext.utils.MMKVConst.SP_FILE_NAME
+import com.google.android.accessibility.ext.utils.MMKVConst.TASKHIDE_BROADCAST
+import com.google.android.accessibility.ext.utils.MMKVConst.TASKHIDE_BROADCAST_PLUS
 import com.google.android.accessibility.ext.utils.MMKVConst.TASKHIDE_LIST
 import com.google.android.accessibility.ext.utils.MMKVConst.UPDATE_SCOPE
 import com.google.android.accessibility.ext.utils.MMKVConst.UPDATE_VALUE
@@ -84,6 +91,7 @@ import java.util.Locale
 import java.util.function.Consumer
 import kotlin.math.max
 
+@SuppressLint("StaticFieldLeak")
 object AliveUtils {
 
 
@@ -881,7 +889,31 @@ object AliveUtils {
     fun requestUpdateKeepAliveByTaskHide(enable: Boolean, list: Collection<String> = emptyList()): Boolean {
         try {
             val contentValues = ContentValues()
-            contentValues.put(UPDATE_SCOPE, KEEP_ALIVE_BY_TASKHIDE)
+            contentValues.put(UPDATE_SCOPE, MMKVConst.KEY_OPEN_YIN_CANG)
+            contentValues.put(UPDATE_VALUE, enable)
+            //val list = listOf("A", "B", "C")
+            val jsonStr = JSONArray(list).toString()   // 结果：["A","B","C"]
+            contentValues.put(TASKHIDE_LIST, jsonStr)
+
+            val re: Int =
+                appContext.getContentResolver().update(
+                    Uri.parse(contentProviderAuthority),
+                    contentValues,
+                    null,
+                    null
+                )
+            return re > 0
+        } catch (e: NullPointerException) {
+            e.printStackTrace()
+        }
+        return false
+    }
+    @JvmOverloads
+    @JvmStatic
+    fun requestUpdateKeepAliveByTaskHidePlus(enable: Boolean, list: Collection<String> = emptyList()): Boolean {
+        try {
+            val contentValues = ContentValues()
+            contentValues.put(UPDATE_SCOPE, MMKVConst.KEY_OPEN_YIN_CANG_PLUS)
             contentValues.put(UPDATE_VALUE, enable)
             //val list = listOf("A", "B", "C")
             val jsonStr = JSONArray(list).toString()   // 结果：["A","B","C"]
@@ -954,7 +986,7 @@ object AliveUtils {
                 SP_FILE_NAME,
                 Context.MODE_PRIVATE or Context.MODE_MULTI_PROCESS
             )
-        val boolean = hidepre.getBoolean(KEY_OPEN_YIN_CANG, false)
+        val boolean = hidepre.getBoolean(MMKVConst.KEY_OPEN_YIN_CANG, false)
         return boolean
     }
     @JvmStatic
@@ -973,7 +1005,30 @@ object AliveUtils {
             )
         //commit 和 apply 两者都会先把更改应用到内存的 SharedPreferences 缓存中，
         // 所以同一进程内随后的 getXxx() 立刻能读取到新值
-        hidepre.edit().putBoolean(KEY_OPEN_YIN_CANG, enable).apply()
+        hidepre.edit().putBoolean(MMKVConst.KEY_OPEN_YIN_CANG, enable).apply()
+        return true
+    }
+
+    @JvmStatic
+    fun getKeepAliveByTaskHidePlus(): Boolean {
+        val hidepre: SharedPreferences =
+            appContext.getSharedPreferences(
+                SP_FILE_NAME,
+                Context.MODE_PRIVATE or Context.MODE_MULTI_PROCESS
+            )
+        val boolean = hidepre.getBoolean(MMKVConst.KEY_OPEN_YIN_CANG_PLUS, false)
+        return boolean
+    }
+    @JvmStatic
+    fun setKeepAliveByTaskHidePlus(enable: Boolean): Boolean {
+        val hidepre: SharedPreferences =
+            appContext.getSharedPreferences(
+                SP_FILE_NAME,
+                Context.MODE_PRIVATE or Context.MODE_MULTI_PROCESS
+            )
+        //commit 和 apply 两者都会先把更改应用到内存的 SharedPreferences 缓存中，
+        // 所以同一进程内随后的 getXxx() 立刻能读取到新值
+        hidepre.edit().putBoolean(MMKVConst.KEY_OPEN_YIN_CANG_PLUS, enable).apply()
         return true
     }
 
@@ -1088,7 +1143,7 @@ object AliveUtils {
 
 
     @JvmStatic
-    fun showCheckDialog(activity: Activity,tvRes: Int,imgRes: Int,titleRes: Int,btnValue: Int) {
+    fun showCheckDialog(activity: Activity,tvRes: Int,imgRes: Int,titleRes: Int,btnValue: Int,myImageView: ImageView?=null,tableLayout: View?=null,ic_open: Int=R.drawable.ic_open_xpq,ic_close: Int=R.drawable.ic_close_xpq) {
         // 加载自定义视图
         val view: View = activity.layoutInflater.inflate(R.layout.dialog_image_xpq, null)
 
@@ -1098,6 +1153,9 @@ object AliveUtils {
         // 获取ImageView并设置图片
         val imageView = view.findViewById<ImageView>(R.id.imageView)
         imageView.setImageResource(imgRes) // 替换为实际图片资源ID
+
+        val drawableYes = ContextCompat.getDrawable(appContext, ic_open)
+        val drawableNo = ContextCompat.getDrawable(appContext, ic_close)
 
         // 创建AlertDialog Builder
         val builder = AlertDialog.Builder(activity)
@@ -1123,12 +1181,84 @@ object AliveUtils {
                     }
 
                     BTN_PERMISSION  -> Utilshezhi.gotoPermission(activity)
+                    BTN_RECENT_HIDE  -> {
+                        //多任务隐藏
+                        //===
+                        val keepAliveByTaskHide = true
+                        AliveUtils.setKeepAliveByTaskHide(keepAliveByTaskHide)
+                        AliveUtils.requestUpdateKeepAliveByTaskHide(keepAliveByTaskHide)
+                        AliveUtils.toast(appContext, if (keepAliveByTaskHide) appContext.getString(R.string.quanxiantaskhide) else appContext.getString(R.string.quanxian13))
+                        //===
+                        if (AliveUtils.getKeepAliveByTaskHide()) {
+                            myImageView?.setImageDrawable(drawableYes)
+                            tableLayout?.visibility = View.VISIBLE
+                        } else {
+                            myImageView?.setImageDrawable(drawableNo)
+                            tableLayout?.visibility = View.GONE
+                        }
+                        AliveUtils.sendLibBroadcast()
+
+                    }
+                    BTN_RECENT_HIDE_PLUS  -> {
+                        //多任务隐藏 PLUS
+                        //===
+                        val keepAliveByTaskHidePlus = true
+                        AliveUtils.setKeepAliveByTaskHidePlus(keepAliveByTaskHidePlus)
+                        //执行后,会立即finish所有的activity,包括当前,故,只在软件处于后台运行时,才调用
+                        //AliveUtils.requestUpdateKeepAliveByTaskHidePlus(keepAliveByTaskHidePlus)
+                        AliveUtils.toast(appContext, if (keepAliveByTaskHidePlus) appContext.getString(R.string.quanxiantaskhidePlus) else appContext.getString(R.string.quanxian13))
+                        //===
+                        if (AliveUtils.getKeepAliveByTaskHidePlus()) {
+                            myImageView?.setImageDrawable(drawableYes)
+                        } else {
+                            myImageView?.setImageDrawable(drawableNo)
+                        }
+                        AliveUtils.sendLibBroadcastPlus()
+
+
+                    }
                  }
             }
             .setNegativeButton(
                 activity.getString(R.string.cancel)
             ) { dialog, which ->
                 dialog.dismiss()
+                when (btnValue) {
+                    BTN_RECENT_HIDE  -> {
+                        //多任务隐藏
+                        //===
+                        val keepAliveByTaskHide = false
+                        AliveUtils.setKeepAliveByTaskHide(keepAliveByTaskHide)
+                        AliveUtils.requestUpdateKeepAliveByTaskHide(keepAliveByTaskHide)
+                        AliveUtils.toast(appContext, if (keepAliveByTaskHide) appContext.getString(R.string.quanxiantaskhide) else appContext.getString(R.string.quanxian13))
+                        //===
+                        if (AliveUtils.getKeepAliveByTaskHide()) {
+                            myImageView?.setImageDrawable(drawableYes)
+                            tableLayout?.visibility = View.VISIBLE
+                        } else {
+                            myImageView?.setImageDrawable(drawableNo)
+                            tableLayout?.visibility = View.GONE
+                        }
+                        sendLibBroadcast()
+                    }
+                    BTN_RECENT_HIDE_PLUS  -> {
+                        //多任务隐藏 PLUS
+                        //===
+                        val keepAliveByTaskHidePlus = false
+                        AliveUtils.setKeepAliveByTaskHidePlus(keepAliveByTaskHidePlus)
+                        //执行后,会立即finish所有的activity,包括当前,故,只在软件处于后台运行时,才调用
+                        //AliveUtils.requestUpdateKeepAliveByTaskHidePlus(keepAliveByTaskHidePlus)
+                        AliveUtils.toast(appContext, if (keepAliveByTaskHidePlus) appContext.getString(R.string.quanxiantaskhidePlus) else appContext.getString(R.string.quanxian13))
+                        //===
+                        if (AliveUtils.getKeepAliveByTaskHidePlus()) {
+                            myImageView?.setImageDrawable(drawableYes)
+                        } else {
+                            myImageView?.setImageDrawable(drawableNo)
+                        }
+                        AliveUtils.sendLibBroadcastPlus()
+                    }
+                }
+
             }
 
         // 只在 btnValue 为 1 或 2 时添加 Neutral 按钮
@@ -1148,6 +1278,26 @@ object AliveUtils {
         // 显示对话框
         val alertDialog = builder.create()
         alertDialog.show()
+    }
+
+    // 发广播（库内）
+    @JvmStatic
+    fun sendLibBroadcast() {
+        val intent = Intent(TASKHIDE_BROADCAST)
+        //intent.putExtra("eventId", "my_button")
+        //intent.putExtra("payload", "value")
+        // 推荐加包名来减少被外部监听
+        intent.setPackage(appContext.packageName)
+        appContext.sendBroadcast(intent)
+    }
+    @JvmStatic
+    fun sendLibBroadcastPlus() {
+        val intent = Intent(TASKHIDE_BROADCAST_PLUS)
+        //intent.putExtra("eventId", "my_button")
+        //intent.putExtra("payload", "value")
+        // 推荐加包名来减少被外部监听
+        intent.setPackage(appContext.packageName)
+        appContext.sendBroadcast(intent)
     }
 
     @JvmStatic
@@ -1192,11 +1342,58 @@ object AliveUtils {
                     task.setExcludeFromRecents(true)
                 } else if (base in list || top in list) {
                     task.setExcludeFromRecents(true)
+                }else if (list.isNullOrEmpty()){
+                    if (base?.contains(".LaunchActivity") == true || base?.contains(".SplashADActivity") == true ||
+                        top?.contains(".LaunchActivity") == true || top?.contains(".SplashADActivity") == true
+                    ){
+                        task.setExcludeFromRecents(true)
+                    }
                 } else {
                     task.setExcludeFromRecents(exclude)
                 }
             } else {
                 task.setExcludeFromRecents(exclude)
+            }
+
+        }
+
+    }
+
+    @JvmOverloads
+    @JvmStatic
+    fun setExcludeFromRecentsPlus(
+        exclude: Boolean,
+        list: Collection<String> = emptyList()
+    ) {
+        appContext?: return
+        //if (Build.VERSION.SDK_INT < Build.VERSION_CODES.N) return
+
+
+        val activityManager = appContext.getSystemService(ActivityManager::class.java) ?: return
+
+        val appTasks = activityManager.appTasks
+        appTasks?.forEach { task ->
+            if (!exclude) {
+                val taskInfo = task.taskInfo
+                val base = taskInfo?.baseActivity?.className
+                val top = taskInfo?.topActivity?.className
+                if (TextUtils.isEmpty(base) || TextUtils.isEmpty(top)) {
+                    //activity名字为空,不代表该任务已不存在了
+                    task.finishAndRemoveTask()
+                } else if (base in list || top in list) {
+                    task.finishAndRemoveTask()
+                }else if (list.isNullOrEmpty()){
+                    if (base?.contains(".LaunchActivity") == true || base?.contains(".SplashADActivity") == true ||
+                        top?.contains(".LaunchActivity") == true || top?.contains(".SplashADActivity") == true
+                    ){
+                        task.finishAndRemoveTask()
+                    }
+                }
+                else {
+
+                }
+            } else {
+                task.finishAndRemoveTask()
             }
 
         }
@@ -1245,6 +1442,18 @@ object AliveUtils {
         AliveUtils.setKeepAliveByTaskHide(keepAliveByTaskHide)
         AliveUtils.requestUpdateKeepAliveByTaskHide(keepAliveByTaskHide,list)
         AliveUtils.toast(appContext, if (keepAliveByTaskHide) appContext.getString(R.string.quanxiantaskhide) else appContext.getString(R.string.quanxian13))
+        //===
+
+    }
+    @JvmOverloads
+    @JvmStatic
+    fun backendTaskHidePlus(list: Collection<String> = emptyList()) {
+        //===
+        val keepAliveByTaskHidePlus = !AliveUtils.getKeepAliveByTaskHidePlus()
+        AliveUtils.setKeepAliveByTaskHidePlus(keepAliveByTaskHidePlus)
+        //执行后,会立即finish所有的activity,包括当前,故,只在软件处于后台运行时,才调用
+        //AliveUtils.requestUpdateKeepAliveByTaskHidePlus(keepAliveByTaskHidePlus,list)
+        AliveUtils.toast(appContext, if (keepAliveByTaskHidePlus) appContext.getString(R.string.quanxiantaskhidePlus) else appContext.getString(R.string.quanxian13))
         //===
 
     }

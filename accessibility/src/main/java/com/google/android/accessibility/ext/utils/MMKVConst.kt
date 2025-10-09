@@ -11,6 +11,8 @@ object MMKVConst {
     const val BTN_AUTOSTART = 1
     const val BTN_RECENTS = 2
     const val BTN_PERMISSION = 3
+    const val BTN_RECENT_HIDE = 4
+    const val BTN_RECENT_HIDE_PLUS = 5
 
     const val KEY_LOCK_NODEID = "KEY_LOCK_NODEID"
     const val KEY_LOCK_NODEID_TIME = "KEY_LOCK_NODEID_TIME"
@@ -29,7 +31,9 @@ object MMKVConst {
     const val TASKHIDE_LIST = "TASKHIDE_LIST"
     const val SP_FILE_NAME = "sp_name_wxrp"
     const val KEY_OPEN_YIN_CANG = "key_open_yin_cang"
+    const val KEY_OPEN_YIN_CANG_PLUS = "key_open_yin_cang_PLUS"
     const val TASKHIDE_BROADCAST = "TASKHIDE_BROADCAST"
+    const val TASKHIDE_BROADCAST_PLUS = "TASKHIDE_BROADCAST_PLUS"
     const val NOTIFICATION_SERVICE_CLASS = "NOTIFICATION_SERVICE_CLASS"
     const val SHOW_READ_NOTIFICATION = "SHOW_READ_NOTIFICATION"
     const val SHOW_TASK_HIDE = "SHOW_TASK_HIDE"

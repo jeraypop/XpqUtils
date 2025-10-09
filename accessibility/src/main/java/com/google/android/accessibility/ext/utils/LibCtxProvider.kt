@@ -18,7 +18,7 @@ import com.android.accessibility.ext.BuildConfig
 import com.google.android.accessibility.ext.activity.AliveFGService
 import com.google.android.accessibility.ext.utils.MMKVConst.KEEP_ALIVE_BY_FLOATINGWINDOW
 import com.google.android.accessibility.ext.utils.MMKVConst.KEEP_ALIVE_BY_NOTIFICATION
-import com.google.android.accessibility.ext.utils.MMKVConst.KEEP_ALIVE_BY_TASKHIDE
+
 import com.google.android.accessibility.ext.utils.MMKVConst.TASKHIDE_LIST
 import com.google.android.accessibility.ext.utils.MMKVConst.UPDATE_SCOPE
 import com.google.android.accessibility.ext.utils.MMKVConst.UPDATE_VALUE
@@ -162,7 +162,7 @@ class LibCtxProvider : ContentProvider() {
             }
         }
 
-        if (TextUtils.equals(updateScope, KEEP_ALIVE_BY_TASKHIDE)) {
+        if (TextUtils.equals(updateScope, MMKVConst.KEY_OPEN_YIN_CANG)) {
             handler!!.post {
 
                 val jsonStr = values.getAsString(TASKHIDE_LIST)
@@ -178,6 +178,28 @@ class LibCtxProvider : ContentProvider() {
 
             }
         }
+
+        if (TextUtils.equals(updateScope, MMKVConst.KEY_OPEN_YIN_CANG_PLUS)) {
+            if (!AliveUtils.getKeepAliveByTaskHide()){
+                //普通的未开启,则plus无论怎样也不执行
+               return
+            }
+            handler!!.post {
+
+                val jsonStr = values.getAsString(TASKHIDE_LIST)
+                val jsonArray = JSONArray(jsonStr)
+                val resultList = mutableListOf<String>()
+                for (i in 0 until jsonArray.length()) {
+                    resultList.add(jsonArray.getString(i))
+                }
+                AliveUtils.setExcludeFromRecentsPlus(value,resultList)
+                // resultList 标为永久隐藏
+
+
+
+            }
+        }
+
 
     }
 }
