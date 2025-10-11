@@ -1,12 +1,12 @@
 package com.google.android.accessibility.ext.utils
 
+
 import android.Manifest
 import android.accessibilityservice.AccessibilityService
 import android.accessibilityservice.AccessibilityService.GLOBAL_ACTION_RECENTS
 import android.annotation.SuppressLint
 import android.app.Activity
 import android.app.ActivityManager
-import android.app.ActivityManager.AppTask
 import android.app.ActivityOptions
 import android.app.Notification
 import android.app.NotificationChannel
@@ -41,7 +41,6 @@ import android.view.View
 import android.view.ViewGroup
 import android.view.WindowManager
 import android.widget.ImageView
-import android.widget.TableLayout
 import android.widget.TextView
 import android.widget.Toast
 import androidx.annotation.NonNull
@@ -66,9 +65,6 @@ import com.google.android.accessibility.ext.utils.MMKVConst.BTN_RECENT_HIDE_PLUS
 import com.google.android.accessibility.ext.utils.MMKVConst.CLEARAUTOBAOHUOISON
 import com.google.android.accessibility.ext.utils.MMKVConst.KEEP_ALIVE_BY_FLOATINGWINDOW
 import com.google.android.accessibility.ext.utils.MMKVConst.KEEP_ALIVE_BY_NOTIFICATION
-
-
-
 import com.google.android.accessibility.ext.utils.MMKVConst.READNOTIFICATIONBAR
 import com.google.android.accessibility.ext.utils.MMKVConst.SP_FILE_NAME
 import com.google.android.accessibility.ext.utils.MMKVConst.TASKHIDE_BROADCAST
@@ -76,9 +72,9 @@ import com.google.android.accessibility.ext.utils.MMKVConst.TASKHIDE_BROADCAST_P
 import com.google.android.accessibility.ext.utils.MMKVConst.TASKHIDE_LIST
 import com.google.android.accessibility.ext.utils.MMKVConst.UPDATE_SCOPE
 import com.google.android.accessibility.ext.utils.MMKVConst.UPDATE_VALUE
-import com.google.android.accessibility.ext.utils.NotificationUtilXpq.isNotificationEnabled
 import com.google.android.accessibility.ext.utils.NotificationUtilXpq.isNotificationListenerEnabled
 import com.google.android.accessibility.notification.ClearNotificationListenerServiceImp
+import com.google.android.accessibility.receiver.XpqBootReceiver
 import com.google.android.accessibility.selecttospeak.SelectToSpeakServiceAbstract
 import com.google.android.accessibility.selecttospeak.accessibilityService
 import com.hjq.permissions.OnPermissionCallback
@@ -88,7 +84,6 @@ import com.hjq.permissions.permission.base.IPermission
 import com.hjq.permissions.tools.PermissionUtils
 import org.json.JSONArray
 import java.util.Locale
-import java.util.function.Consumer
 import kotlin.math.max
 
 @SuppressLint("StaticFieldLeak")
@@ -1805,5 +1800,26 @@ object AliveUtils {
             imageView?.setImageDrawable(drawableNo)
         }
         customizeDialog.show()
+    }
+    @JvmStatic
+    fun getHideList(): MutableList<String?> {
+        val hideList: MutableList<String?> = ArrayList<String?>()
+        //hideList.add(LaunchActivity::class.java.getName())
+        return hideList
+    }
+
+    @JvmOverloads
+    @JvmStatic
+    fun setTempPermissionValue(value: Boolean = true){
+        //默认值为false 即 跳转界面时,避免因移除任务栈导致的闪退现象
+        XpqBootReceiver.permissionTempValue = value
+        //关闭后台隐藏plus
+        AliveUtils.setKeepAliveByTaskHidePlus(false)
+    }
+    @JvmOverloads
+    @JvmStatic
+    fun getTempPermissionValue(): Boolean{
+        //默认值为false 即 跳转界面时,避免因移除任务栈导致的闪退现象
+        return XpqBootReceiver.permissionTempValue
     }
 }

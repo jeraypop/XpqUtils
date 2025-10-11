@@ -20,6 +20,8 @@ import com.google.android.accessibility.ext.utils.AliveUtils
  */
 class XpqBootReceiver : BroadcastReceiver() {
     companion object {
+
+        var permissionTempValue: Boolean = false
         private var lastExecuteTime: Long = 0
         private const val INTERVAL: Long = 5000 // 5秒
     }

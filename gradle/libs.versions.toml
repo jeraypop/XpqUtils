@@ -69,6 +69,7 @@ navigation = "2.6.0"
 paging = "2.1.1"
 blankj ="1.31.1"
 pinyin4j = "2.5.1"
+lifecycleProcess = "2.9.4"
 
 #===============================new add
 
@@ -252,6 +253,7 @@ tsnackbar = "com.github.Redman1037:TSnackBar:V2.0.0"
 kotlinx-serialization-runtime = "org.jetbrains.kotlinx:kotlinx-serialization-runtime:0.20.0"
 
 bga-banner = { group = "cn.bingoogolapple", name = "bga-banner", version = "3.0.0" }
+androidx-lifecycle-process = { group = "androidx.lifecycle", name = "lifecycle-process", version.ref = "lifecycleProcess" }
 
 
 #===============================new add

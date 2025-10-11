@@ -25,6 +25,7 @@ import com.android.accessibility.ext.databinding.ActivityAliveXpqBinding
 import com.google.android.accessibility.ext.activity.AliveFGService.Companion.fgs_ison
 import com.google.android.accessibility.ext.utils.AliveUtils
 import com.google.android.accessibility.ext.utils.AliveUtils.isServiceDeclared
+import com.google.android.accessibility.ext.utils.AliveUtils.setTempPermissionValue
 import com.google.android.accessibility.ext.utils.AliveUtils.shouxianzhi
 import com.google.android.accessibility.ext.utils.LibCtxProvider.Companion.appContext
 import com.google.android.accessibility.ext.utils.MMKVConst
@@ -81,6 +82,7 @@ class AliveActivity : XpqBaseActivity<ActivityAliveXpqBinding>(
 
         //教程指导
         binding.textInstructions.setOnClickListener {
+            setTempPermissionValue()
             val intenti2 = Intent()
             intenti2.action = "android.intent.action.VIEW"
             val content_url2 = Uri.parse("https://mp.weixin.qq.com/s/umGL41SgEapebNA8Pz1Tjw")
@@ -105,6 +107,7 @@ class AliveActivity : XpqBaseActivity<ActivityAliveXpqBinding>(
         //====================按钮监测===============================================
         //电池优化
         binding.buttonPowerPermission.setOnClickListener {
+            setTempPermissionValue()
             //  打开电池优化的界面，让用户设置
         /*    if (powerManager!!.isIgnoringBatteryOptimizations(packageName)) {
                 AliveUtils.toast(applicationContext, "忽略电池优化")
@@ -129,6 +132,7 @@ class AliveActivity : XpqBaseActivity<ActivityAliveXpqBinding>(
 
         //前台服务
         binding.buttonQiantaifuwuPermission.setOnClickListener {
+            setTempPermissionValue()
             AliveUtils.setForgrountDialog(
                 this@AliveActivity,
                 appContext,
@@ -173,6 +177,7 @@ class AliveActivity : XpqBaseActivity<ActivityAliveXpqBinding>(
             View.GONE
         }
         binding.buttonReadNotifiPermission.setOnClickListener {
+            setTempPermissionValue()
             //  打开让用户设置
             if (NotificationUtilXpq.isNotificationListenersEnabled()) {
                 AliveUtils.toast(applicationContext, getString(R.string.qxykqxpq))
@@ -200,6 +205,7 @@ class AliveActivity : XpqBaseActivity<ActivityAliveXpqBinding>(
             View.GONE
         }
         binding.buttonRecentTaskHidePermission.setOnClickListener {
+            setTempPermissionValue()
           /*  AliveUtils.backendTaskHide()
             if (AliveUtils.getKeepAliveByTaskHide()) {
                 binding.imageRecentTaskHidePermission.setImageDrawable(drawableYes)
@@ -229,6 +235,7 @@ class AliveActivity : XpqBaseActivity<ActivityAliveXpqBinding>(
             View.GONE
         }
         binding.buttonRecentTaskHidePermissionPlus.setOnClickListener {
+            setTempPermissionValue()
           /*  AliveUtils.backendTaskHidePlus()
             if (AliveUtils.getKeepAliveByTaskHidePlus()) {
                 binding.imageRecentTaskHidePermissionPlus.setImageDrawable(drawableYes)
@@ -250,6 +257,7 @@ class AliveActivity : XpqBaseActivity<ActivityAliveXpqBinding>(
 
         //设备管理员
         binding.buttonGuanliyuanPermission.setOnClickListener {
+            setTempPermissionValue()
             AliveUtils.openAdmin(
                 null,
                 this@AliveActivity,
@@ -329,6 +337,7 @@ class AliveActivity : XpqBaseActivity<ActivityAliveXpqBinding>(
 
         //悬浮窗
         binding.buttonFloatPermission.setOnClickListener {
+            setTempPermissionValue()
         /*    val intentAlertWindow = Intent(Settings.ACTION_MANAGE_OVERLAY_PERMISSION, Uri.parse("package:$packageName"))
             if (intentAlertWindow.resolveActivity(packageManager!!) != null) {
                 startActivity(intentAlertWindow)
@@ -348,7 +357,7 @@ class AliveActivity : XpqBaseActivity<ActivityAliveXpqBinding>(
 
         //0像素
         binding.button0xiangsuPermission.setOnClickListener {
-
+            setTempPermissionValue()
             val isOpen = AliveUtils.pixl0Alive()
             if (isOpen && AliveUtils.getKeepAliveByFloatingWindow()) {
                 binding.image0xiangsuPermission.setImageDrawable(drawableYes)
@@ -360,16 +369,18 @@ class AliveActivity : XpqBaseActivity<ActivityAliveXpqBinding>(
 
         //===自启动
         binding.buttonPowerPermission2.setOnClickListener {
+            setTempPermissionValue()
             AliveUtils.showCheckDialog(this@AliveActivity,R.string.yxzqdxpq,R.drawable.autostart_xpq,R.string.quanxian6,MMKVConst.BTN_AUTOSTART)
         }
         //==加锁免清理
         binding.buttonPowerPermission3.setOnClickListener {
+            setTempPermissionValue()
             AliveUtils.showCheckDialog(this@AliveActivity,R.string.lockrencentxpq,R.drawable.lockalive_xpq,R.string.quanxian7,MMKVConst.BTN_RECENTS)
 
         }
         //==设置
         binding.buttonPowerPermission4.setOnClickListener {
-
+            setTempPermissionValue()
             AliveUtils.showCheckDialog(this@AliveActivity,R.string.httcxpq,R.drawable.backgroundshow_xpq,R.string.checkqxxpq,MMKVConst.BTN_PERMISSION)
 
 
@@ -386,23 +397,7 @@ class AliveActivity : XpqBaseActivity<ActivityAliveXpqBinding>(
     override fun initData_Xpq() {
 
     }
-   /* // 发广播（库内）
-    fun sendLibBroadcast() {
-        val intent = Intent(TASKHIDE_BROADCAST)
-        //intent.putExtra("eventId", "my_button")
-        //intent.putExtra("payload", "value")
-        // 推荐加包名来减少被外部监听
-        intent.setPackage(appContext.packageName)
-        appContext.sendBroadcast(intent)
-    }
-    fun sendLibBroadcastPlus() {
-        val intent = Intent(TASKHIDE_BROADCAST_PLUS)
-        //intent.putExtra("eventId", "my_button")
-        //intent.putExtra("payload", "value")
-        // 推荐加包名来减少被外部监听
-        intent.setPackage(appContext.packageName)
-        appContext.sendBroadcast(intent)
-    }*/
+
 
 
     private fun updateUI() {

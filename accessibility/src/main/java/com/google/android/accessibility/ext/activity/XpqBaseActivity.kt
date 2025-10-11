@@ -123,11 +123,11 @@ abstract class XpqBaseActivity<VB : ViewBinding>(
 
         initView_Xpq()
         initData_Xpq()
-        AliveUtils.requestUpdateKeepAliveByTaskHide(AliveUtils.getKeepAliveByTaskHide())
+        //AliveUtils.requestUpdateKeepAliveByTaskHide(AliveUtils.getKeepAliveByTaskHide())
     }
 
     override fun onKeyUp(keyCode: Int, event: KeyEvent?): Boolean {
-        if (keyCode == KeyEvent.KEYCODE_BACK) {
+       /* if (keyCode == KeyEvent.KEYCODE_BACK) {
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {
                 return super.onKeyUp(keyCode, event)
             }
@@ -139,13 +139,13 @@ abstract class XpqBaseActivity<VB : ViewBinding>(
                     finish()
                 }
             }
-        }
+        }*/
         return super.onKeyUp(keyCode, event)
     }
 
     override fun onStop() {
         super.onStop()
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {
+       /* if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {
             return
         }
         if (AliveUtils.getKeepAliveByTaskHide()) {
@@ -154,7 +154,7 @@ abstract class XpqBaseActivity<VB : ViewBinding>(
             } else {
                 finish()
             }
-        }
+        }*/
 
 
 
