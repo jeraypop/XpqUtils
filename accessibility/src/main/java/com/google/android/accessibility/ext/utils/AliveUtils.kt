@@ -1822,4 +1822,11 @@ object AliveUtils {
         //默认值为false 即 跳转界面时,避免因移除任务栈导致的闪退现象
         return XpqBootReceiver.permissionTempValue
     }
+
+    @JvmStatic
+    fun finishAndRemoveTask(activity: Activity?){
+        activity?.finishAndRemoveTask()
+    }
+
+
 }
