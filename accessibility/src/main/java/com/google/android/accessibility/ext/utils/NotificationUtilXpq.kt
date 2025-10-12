@@ -15,6 +15,7 @@ import android.widget.Toast
 import androidx.core.app.NotificationCompat
 import androidx.core.app.NotificationManagerCompat
 import com.android.accessibility.ext.R
+import com.google.android.accessibility.ext.utils.AliveUtils.closeTaskHidePlus
 import com.google.android.accessibility.ext.utils.LibCtxProvider.Companion.appContext
 import com.google.android.accessibility.notification.ClearNotificationListenerServiceImp
 import com.google.android.accessibility.notification.MessageStyleInfo
@@ -72,6 +73,7 @@ object NotificationUtilXpq {
     @JvmOverloads
     @JvmStatic
     fun gotoAccessibilitySetting(context: Context = appContext) {
+        AliveUtils.closeTaskHidePlus()
         val intent = Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS)
         intent.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
         context.startActivity(intent)
@@ -82,6 +84,7 @@ object NotificationUtilXpq {
     @JvmOverloads
     @JvmStatic
     fun gotoNotificationAccessSetting(context: Context = appContext): Boolean {
+        AliveUtils.closeTaskHidePlus()
         return try {
             var action: String =""
             if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.LOLLIPOP_MR1) {
