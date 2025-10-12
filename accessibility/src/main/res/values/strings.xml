@@ -113,5 +113,7 @@
     <string name="url_code_error">urlCode有误!</string>
     <string name="alipay_is_not_installed">支付宝是否已安装？</string>
 
+    <string name="closehideplus">后台隐藏Plus已关闭,可重新开启</string>
+
 
 </resources>

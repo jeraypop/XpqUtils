@@ -10,14 +10,11 @@ import android.net.Uri
 import android.os.Build
 import android.os.Bundle
 import android.os.PowerManager
-import android.provider.Settings
 import android.service.notification.NotificationListenerService
-import android.view.KeyEvent
 import android.view.View
 import android.widget.TableRow
 import androidx.annotation.RequiresApi
 import androidx.appcompat.app.AlertDialog
-import androidx.appcompat.app.AppCompatActivity
 import androidx.core.content.ContextCompat
 import com.android.accessibility.ext.R
 import com.android.accessibility.ext.databinding.ActivityAliveXpqBinding
@@ -25,12 +22,10 @@ import com.android.accessibility.ext.databinding.ActivityAliveXpqBinding
 import com.google.android.accessibility.ext.activity.AliveFGService.Companion.fgs_ison
 import com.google.android.accessibility.ext.utils.AliveUtils
 import com.google.android.accessibility.ext.utils.AliveUtils.isServiceDeclared
-import com.google.android.accessibility.ext.utils.AliveUtils.setTempPermissionValue
+import com.google.android.accessibility.ext.utils.AliveUtils.closeTaskHidePlus
 import com.google.android.accessibility.ext.utils.AliveUtils.shouxianzhi
 import com.google.android.accessibility.ext.utils.LibCtxProvider.Companion.appContext
 import com.google.android.accessibility.ext.utils.MMKVConst
-import com.google.android.accessibility.ext.utils.MMKVConst.TASKHIDE_BROADCAST
-import com.google.android.accessibility.ext.utils.MMKVConst.TASKHIDE_BROADCAST_PLUS
 import com.google.android.accessibility.ext.utils.NotificationUtilXpq
 import com.google.android.accessibility.ext.utils.NotificationUtilXpq.isNotificationListenerEnabled
 import com.google.android.accessibility.notification.ClearNotificationListenerServiceImp
@@ -82,7 +77,7 @@ class AliveActivity : XpqBaseActivity<ActivityAliveXpqBinding>(
 
         //教程指导
         binding.textInstructions.setOnClickListener {
-            setTempPermissionValue()
+            closeTaskHidePlus(binding.imageRecentTaskHidePermissionPlus)
             val intenti2 = Intent()
             intenti2.action = "android.intent.action.VIEW"
             val content_url2 = Uri.parse("https://mp.weixin.qq.com/s/umGL41SgEapebNA8Pz1Tjw")
@@ -107,7 +102,7 @@ class AliveActivity : XpqBaseActivity<ActivityAliveXpqBinding>(
         //====================按钮监测===============================================
         //电池优化
         binding.buttonPowerPermission.setOnClickListener {
-            setTempPermissionValue()
+            closeTaskHidePlus(binding.imageRecentTaskHidePermissionPlus)
             //  打开电池优化的界面，让用户设置
         /*    if (powerManager!!.isIgnoringBatteryOptimizations(packageName)) {
                 AliveUtils.toast(applicationContext, "忽略电池优化")
@@ -132,7 +127,7 @@ class AliveActivity : XpqBaseActivity<ActivityAliveXpqBinding>(
 
         //前台服务
         binding.buttonQiantaifuwuPermission.setOnClickListener {
-            setTempPermissionValue()
+            closeTaskHidePlus(binding.imageRecentTaskHidePermissionPlus)
             AliveUtils.setForgrountDialog(
                 this@AliveActivity,
                 appContext,
@@ -177,7 +172,7 @@ class AliveActivity : XpqBaseActivity<ActivityAliveXpqBinding>(
             View.GONE
         }
         binding.buttonReadNotifiPermission.setOnClickListener {
-            setTempPermissionValue()
+            closeTaskHidePlus(binding.imageRecentTaskHidePermissionPlus)
             //  打开让用户设置
             if (NotificationUtilXpq.isNotificationListenersEnabled()) {
                 AliveUtils.toast(applicationContext, getString(R.string.qxykqxpq))
@@ -205,7 +200,7 @@ class AliveActivity : XpqBaseActivity<ActivityAliveXpqBinding>(
             View.GONE
         }
         binding.buttonRecentTaskHidePermission.setOnClickListener {
-            setTempPermissionValue()
+
           /*  AliveUtils.backendTaskHide()
             if (AliveUtils.getKeepAliveByTaskHide()) {
                 binding.imageRecentTaskHidePermission.setImageDrawable(drawableYes)
@@ -235,7 +230,7 @@ class AliveActivity : XpqBaseActivity<ActivityAliveXpqBinding>(
             View.GONE
         }
         binding.buttonRecentTaskHidePermissionPlus.setOnClickListener {
-            setTempPermissionValue()
+
           /*  AliveUtils.backendTaskHidePlus()
             if (AliveUtils.getKeepAliveByTaskHidePlus()) {
                 binding.imageRecentTaskHidePermissionPlus.setImageDrawable(drawableYes)
@@ -257,7 +252,7 @@ class AliveActivity : XpqBaseActivity<ActivityAliveXpqBinding>(
 
         //设备管理员
         binding.buttonGuanliyuanPermission.setOnClickListener {
-            setTempPermissionValue()
+            closeTaskHidePlus(binding.imageRecentTaskHidePermissionPlus)
             AliveUtils.openAdmin(
                 null,
                 this@AliveActivity,
@@ -337,7 +332,7 @@ class AliveActivity : XpqBaseActivity<ActivityAliveXpqBinding>(
 
         //悬浮窗
         binding.buttonFloatPermission.setOnClickListener {
-            setTempPermissionValue()
+            closeTaskHidePlus(binding.imageRecentTaskHidePermissionPlus)
         /*    val intentAlertWindow = Intent(Settings.ACTION_MANAGE_OVERLAY_PERMISSION, Uri.parse("package:$packageName"))
             if (intentAlertWindow.resolveActivity(packageManager!!) != null) {
                 startActivity(intentAlertWindow)
@@ -357,7 +352,7 @@ class AliveActivity : XpqBaseActivity<ActivityAliveXpqBinding>(
 
         //0像素
         binding.button0xiangsuPermission.setOnClickListener {
-            setTempPermissionValue()
+            closeTaskHidePlus(binding.imageRecentTaskHidePermissionPlus)
             val isOpen = AliveUtils.pixl0Alive()
             if (isOpen && AliveUtils.getKeepAliveByFloatingWindow()) {
                 binding.image0xiangsuPermission.setImageDrawable(drawableYes)
@@ -369,18 +364,18 @@ class AliveActivity : XpqBaseActivity<ActivityAliveXpqBinding>(
 
         //===自启动
         binding.buttonPowerPermission2.setOnClickListener {
-            setTempPermissionValue()
+            closeTaskHidePlus(binding.imageRecentTaskHidePermissionPlus)
             AliveUtils.showCheckDialog(this@AliveActivity,R.string.yxzqdxpq,R.drawable.autostart_xpq,R.string.quanxian6,MMKVConst.BTN_AUTOSTART)
         }
         //==加锁免清理
         binding.buttonPowerPermission3.setOnClickListener {
-            setTempPermissionValue()
+            closeTaskHidePlus(binding.imageRecentTaskHidePermissionPlus)
             AliveUtils.showCheckDialog(this@AliveActivity,R.string.lockrencentxpq,R.drawable.lockalive_xpq,R.string.quanxian7,MMKVConst.BTN_RECENTS)
 
         }
         //==设置
         binding.buttonPowerPermission4.setOnClickListener {
-            setTempPermissionValue()
+            closeTaskHidePlus(binding.imageRecentTaskHidePermissionPlus)
             AliveUtils.showCheckDialog(this@AliveActivity,R.string.httcxpq,R.drawable.backgroundshow_xpq,R.string.checkqxxpq,MMKVConst.BTN_PERMISSION)
 
 

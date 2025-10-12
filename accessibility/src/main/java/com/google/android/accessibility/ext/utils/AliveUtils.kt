@@ -1810,12 +1810,26 @@ object AliveUtils {
 
     @JvmOverloads
     @JvmStatic
+    fun closeTaskHidePlus(imageViewPlus: ImageView? = null,ic_close: Int =R.drawable.ic_close_xpq){
+        //跳转界面时,避免因移除任务栈导致的闪退现象
+        //关闭后台隐藏plus
+        if (AliveUtils.getKeepAliveByTaskHidePlus()){
+            AliveUtils.setKeepAliveByTaskHidePlus(false)
+            imageViewPlus?.setImageResource(ic_close)
+            if (appContext==null)return
+            AliveUtils.toast(appContext, appContext.getString(R.string.closehideplus))
+
+        }
+
+    }
+
+    @JvmOverloads
+    @JvmStatic
     fun setTempPermissionValue(value: Boolean = true){
         //默认值为false 即 跳转界面时,避免因移除任务栈导致的闪退现象
         XpqBootReceiver.permissionTempValue = value
-        //关闭后台隐藏plus
-        AliveUtils.setKeepAliveByTaskHidePlus(false)
     }
+
     @JvmOverloads
     @JvmStatic
     fun getTempPermissionValue(): Boolean{

@@ -1,23 +1,13 @@
 package com.lygttpod.android.auto
 
 import android.app.Application
-import android.app.admin.DevicePolicyManager
-import android.content.ComponentName
-import android.content.Context
 import android.os.SystemClock
-import androidx.core.content.getSystemService
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.ProcessLifecycleOwner
-import com.android.accessibility.ext.R
-import com.google.android.accessibility.ext.activity.MyDeviceAdminReceiverXpq
 import com.google.android.accessibility.ext.utils.AliveUtils
-import com.google.android.accessibility.ext.utils.AliveUtils.getKeepAliveByTaskHidePlus
-import com.google.android.accessibility.ext.utils.AliveUtils.setTempPermissionValue
-import com.google.android.accessibility.ext.utils.LibCtxProvider.Companion.appContext
 import com.google.android.accessibility.ext.utils.NotificationUtilXpq
 import com.lygttpod.android.auto.notification.NotificationListenerServiceImp
-import java.util.Locale
 
 
 class App : Application() {
