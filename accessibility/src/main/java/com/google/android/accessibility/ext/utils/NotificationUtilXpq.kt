@@ -6,7 +6,10 @@ import android.content.ComponentName
 import android.content.Context
 import android.content.Intent
 import android.content.pm.PackageManager
+import android.os.Build
 import android.os.Bundle
+import android.os.Handler
+import android.os.Looper
 import android.provider.Settings
 import android.service.notification.NotificationListenerService
 import android.service.notification.StatusBarNotification
@@ -136,21 +139,55 @@ object NotificationUtilXpq {
      */
     @JvmOverloads
     @JvmStatic
-    fun toggleNotificationListenerService(context: Context = appContext, notificationcls: Class<out NotificationListenerService> ) {
-        val pm = context.packageManager
-        pm.setComponentEnabledSetting(ComponentName(context, notificationcls),
-            PackageManager.COMPONENT_ENABLED_STATE_DISABLED, PackageManager.DONT_KILL_APP)
-        pm.setComponentEnabledSetting(ComponentName(context, notificationcls),
-            PackageManager.COMPONENT_ENABLED_STATE_ENABLED, PackageManager.DONT_KILL_APP)
+    fun toggleNotificationListenerService(context: Context = appContext, notificationCls: Class<out NotificationListenerService> ) {
+        val runnable = Runnable {
+            try {
+                val pm = context.packageManager
+                val cn = ComponentName(context, notificationCls)
 
-        if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.N) {
-            NotificationListenerService.requestRebind(ComponentName(context, notificationcls))
+                // 先 disable 再 enable，强制系统刷新组件状态
+                pm.setComponentEnabledSetting(
+                    cn,
+                    PackageManager.COMPONENT_ENABLED_STATE_DISABLED,
+                    PackageManager.DONT_KILL_APP
+                )
+                pm.setComponentEnabledSetting(
+                    cn,
+                    PackageManager.COMPONENT_ENABLED_STATE_ENABLED,
+                    PackageManager.DONT_KILL_APP
+                )
+
+                // Android N+ 可请求重绑定
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {
+                    try {
+                        NotificationListenerService.requestRebind(cn)
+                    } catch (e: Exception) {
+                        // 有些厂商/ROM 在这里可能抛异常，捕获以免崩溃
+
+                    }
+                }
+
+                //Log.d(TAG, "rebindNotificationListener executed on thread: ${Thread.currentThread().name}")
+            } catch (e: Exception) {
+                //Log.e(TAG, "rebindNotificationListenerSafe error", e)
+            }
+        }
+
+        // 如果已经在主线程则直接执行，否则 post 到主线程
+        if (Looper.myLooper() == Looper.getMainLooper()) {
+            runnable.run()
         } else {
-
+            Handler(Looper.getMainLooper()).post(runnable)
         }
 
 
     }
+
+
+
+
+
+
     /**
      * 从 activeNotifications 中获取最新的一条通知
      */
