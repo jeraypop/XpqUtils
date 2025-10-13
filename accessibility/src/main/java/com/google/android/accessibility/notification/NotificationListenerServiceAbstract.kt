@@ -1,4 +1,5 @@
 package com.google.android.accessibility.notification
+
 import android.Manifest
 import android.app.Notification
 import android.app.PendingIntent
@@ -26,20 +27,42 @@ import com.google.android.accessibility.ext.utils.NotificationUtilXpq.getAllSort
 import com.google.android.accessibility.ext.utils.NotificationUtilXpq.getNotificationData
 import java.util.Collections
 import java.util.concurrent.Executors
+import java.util.concurrent.ExecutorService
+import java.util.concurrent.ThreadFactory
+import java.util.concurrent.atomic.AtomicInteger
 
-
-/**
- * 4.3之后系统受到新的通知或者通知被删除时，会触发该service的回调方法
- * 4.4新增extras字段用于获取系统通知具体信息，之前的版本则需要通过反射区获取
- * 注意，需要在 "Settings > Security > Notification access"中，勾选NotificationTask
- */
 val notificationServiceLiveData = MutableLiveData<NotificationListenerService?>(null)
 val notificationService: NotificationListenerService? get() = notificationServiceLiveData.value
+
+/**
+ * 应用级（全局） Executor 提供者 —— 单例
+ *
+ * 注意：
+ * - 线程被设置为守护线程（daemon），避免线程池阻止进程退出。
+ * - 因为 executor 与 Service 生命周期解耦，请确保提交到 executor 的任务不要持有短生命周期对象（如 Activity/Service 的非静态引用）。
+ *   在提交任务前尽量把需要的数据拷贝出来（例如 buildNotificationInfo 的返回值），以避免在 Service 已销毁时访问已释放资源导致 NPE。
+ */
+object AppExecutors {
+    private fun daemonThreadFactory(namePrefix: String): ThreadFactory {
+        val threadNumber = AtomicInteger(1)
+        return ThreadFactory { r ->
+            Thread(r, "$namePrefix-${threadNumber.getAndIncrement()}").apply {
+                isDaemon = true
+                priority = Thread.NORM_PRIORITY
+            }
+        }
+    }
+
+    // 两个单线程 Executor，分别对应你原先的 executors 和 executors2
+    val executors: ExecutorService = Executors.newSingleThreadExecutor(daemonThreadFactory("notif-exec-1"))
+    val executors2: ExecutorService = Executors.newSingleThreadExecutor(daemonThreadFactory("notif-exec-2"))
+}
+
 abstract class NotificationListenerServiceAbstract : NotificationListenerService() {
     private val TAG = this::class.java.simpleName
 
-    private val executors = Executors.newSingleThreadExecutor()
-    private val executors2 = Executors.newSingleThreadExecutor()
+    // 由 AppExecutors 提供（全局单例），不要在 Service.onDestroy() 调用 shutdown。
+    // 使用时直接调用 AppExecutors.executors.execute { ... } 或 AppExecutors.executors2.execute { ... }
 
     abstract fun targetPackageName(): String
     @WorkerThread
@@ -63,23 +86,8 @@ abstract class NotificationListenerServiceAbstract : NotificationListenerService
     private val MIN_HANDLE_INTERVAL = 500L // 500毫秒间隔
 
     companion object {
-        /**
-         * 全局服务实例
-         * 用于在应用中获取通知栏服务实例
-         * 当服务未启动或被销毁时为null
-         *
-         * 这段代码声明了一个名为 instance 的可变变量，类型为 NotificationListenerServiceAbstract?（可空类型），
-         * 并将其 setter 设为私有，表示外部无法直接修改该变量值。
-         * 作用：实现一个私有可变、外部只读的单例引用。
-         *
-         */
         var instance: NotificationListenerServiceAbstract? = null
             private set
-        /**
-         * 服务监听器列表
-         * 使用线程安全的集合存储所有监听器
-         * 用于分发服务生命周期和无障碍事件
-         */
         val listeners: MutableList<NotificationInterface> = Collections.synchronizedList(arrayListOf<NotificationInterface>())
 
         fun isTitleAndContentEmpty(title: String, content: String): Boolean {
@@ -92,16 +100,6 @@ abstract class NotificationListenerServiceAbstract : NotificationListenerService
         fun getAppName(pkgName: String): String {
             val packageManager = appContext.packageManager
             return try {
-                /*   if (Build.VERSION.SDK_INT >= 33) {
-                       //ApplicationInfoFlags
-                       val applicationInfo = packageManager.getApplicationInfo(pkgName, PackageManager.ApplicationInfoFlags.of(PackageManager.GET_META_DATA.toLong()))
-                       packageManager.getApplicationLabel(applicationInfo).toString()
-
-                   }else{
-                       val applicationInfo = packageManager.getApplicationInfo(pkgName, PackageManager.GET_META_DATA)
-                       packageManager.getApplicationLabel(applicationInfo).toString()
-
-                   }*/
                 val applicationInfo = packageManager.getApplicationInfo(pkgName, 0)
                 packageManager.getApplicationLabel(applicationInfo).toString()
             } catch (e: Exception) {
@@ -123,10 +121,6 @@ abstract class NotificationListenerServiceAbstract : NotificationListenerService
             return isPhoneApp
         }
 
-
-
-
-
     }
 
     /**
@@ -136,7 +130,9 @@ abstract class NotificationListenerServiceAbstract : NotificationListenerService
         sbn ?: return
         runCatching { listeners.forEach { it.onNotificationRemoved(sbn) } }
         super.onNotificationRemoved(sbn)
-        executors.execute {
+
+        // 注意：将需要的数据 (如 NotificationInfo) 在提交前拷贝出来，避免后台线程访问到已销毁的 Service 资源。
+        AppExecutors.executors.execute {
             val notification = sbn.notification ?: return@execute
             val n_Info = buildNotificationInfo(sbn,notification, null)
             asyncHandleNotificationRemoved(sbn,notification,n_Info.title,n_Info.content,n_Info)
@@ -153,7 +149,7 @@ abstract class NotificationListenerServiceAbstract : NotificationListenerService
         runCatching { listeners.forEach { it.onNotificationPosted(sbn) } }
         super.onNotificationPosted(sbn)
 
-        executors.execute {
+        AppExecutors.executors.execute {
             val notification = sbn.notification ?: return@execute
             //避免短时间内连续两次调用
             if (!should2Handle(sbn)) return@execute
@@ -178,7 +174,7 @@ abstract class NotificationListenerServiceAbstract : NotificationListenerService
                         }else{
                             asyncHandleNotificationPosted(third_sbn,third_n,third_n_info.title,third_n_info.content,third_n_info)
                         }
-                        
+
                     }else{
                         asyncHandleNotificationPosted(second_sbn,second_n,second_n_info.title,second_n_info.content,second_n_info)
 
@@ -219,10 +215,6 @@ abstract class NotificationListenerServiceAbstract : NotificationListenerService
                 }
             }
 
-
-
-
-
         }
 
     }
@@ -235,7 +227,7 @@ abstract class NotificationListenerServiceAbstract : NotificationListenerService
         runCatching { listeners.forEach { it.onNotificationPosted(sbn, rankingMap) } }
         super.onNotificationPosted(sbn, rankingMap)
 
-        executors2.execute {
+        AppExecutors.executors2.execute {
             val notification = sbn.notification ?: return@execute
             //避免短时间内连续两次调用
             if (!should2Handle(sbn)) return@execute
@@ -265,7 +257,7 @@ abstract class NotificationListenerServiceAbstract : NotificationListenerService
         notificationServiceLiveData.value = this
         runCatching { listeners.forEach { it.onListenerConnected(this) } }
         super.onListenerConnected()
-        executors.execute {
+        AppExecutors.executors.execute {
             var sbns:List<StatusBarNotification> = emptyList()
             sbns = getAllSortedByTime(activeNotifications)
             for (sbn in sbns) {
@@ -314,12 +306,11 @@ abstract class NotificationListenerServiceAbstract : NotificationListenerService
 
 
     override fun onDestroy() {
-        //Kotlin 标准库中的一个函数，类似于 try-catch。
         runCatching { listeners.forEach { it.onDestroy() } }
         super.onDestroy()
-        // 关闭执行器以避免内存泄露
-        executors.shutdownNow()
-        executors2.shutdownNow()
+        // **注意**：现在我们将 executors 保持为应用级单例，不在这里 shutdown。
+        // 这样可以避免 Service.onDestroy() 与系统随后可能触发的回调（race）导致的 RejectedExecutionException。
+        // 仍然建议在提交任务时拷贝所需数据，避免后台执行访问已释放的短生命周期对象。
     }
 
     /**
@@ -376,13 +367,10 @@ abstract class NotificationListenerServiceAbstract : NotificationListenerService
         return true
     }
 
-
-
-
     // 获取通知的详细信息，包含从 NotificationCompat.MessagingStyle 提取的消息
 
-     fun buildNotificationInfo(sbn: StatusBarNotification,n: Notification, rankingMap: RankingMap?): NotificationInfo {
-         val ex = n.extras
+    fun buildNotificationInfo(sbn: StatusBarNotification,n: Notification, rankingMap: RankingMap?): NotificationInfo {
+        val ex = n.extras
         fun getStringOrFallback(key: String, fallback: String): String {
             return ex?.getCharSequence(key)?.toString()?.takeIf { it.isNotBlank() }
                 ?: ex?.getString(key, fallback)
@@ -399,8 +387,8 @@ abstract class NotificationListenerServiceAbstract : NotificationListenerService
 
         // 尝试判断 解析 MessagingStyle（如果是聊天类型的通知）
         val messagingStyle = NotificationCompat.MessagingStyle.extractMessagingStyleFromNotification(n)
-         // 如果是 MessagingStyle 类型的通知，解析该类型的标题和内容
-         // 获取对话标题（例如联系人名称或群聊名称）
+        // 如果是 MessagingStyle 类型的通知，解析该类型的标题和内容
+        // 获取对话标题（例如联系人名称或群聊名称）
         val conversationTitle: String = (messagingStyle?.conversationTitle ?: appContext.getString(R.string.notificationtitlenull)).toString()
         // 获取消息列表
         val messageList = messagingStyle?.messages?:emptyList()
@@ -422,20 +410,17 @@ abstract class NotificationListenerServiceAbstract : NotificationListenerService
             )
         } ?: emptyList()
 
-         if (isTitleAndContentEmpty(title, text)){
-             //获取最新一条消息
-             msgmaplist.firstOrNull()?.let {
-                 title = it.title
-                 text =  if (TextUtils.equals(appContext.getString(R.string.notificationcontentnull), it.text)){
-                     it.text
-                 }else{
-                     it.sender + ":" + it.text
-                 }
-             }
-         }
-
-
-
+        if (isTitleAndContentEmpty(title, text)){
+            //获取最新一条消息
+            msgmaplist.firstOrNull()?.let {
+                title = it.title
+                text =  if (TextUtils.equals(appContext.getString(R.string.notificationcontentnull), it.text)){
+                    it.text
+                }else{
+                    it.sender + ":" + it.text
+                }
+            }
+        }
 
         // 获取其他重要字段
         val category = n.category // e.g. CALL, MESSAGE, EMAIL, ALARM...
@@ -501,9 +486,9 @@ abstract class NotificationListenerServiceAbstract : NotificationListenerService
             if (isPhoneApp(pkg = pkgName))return
             if(title.contains(getAppName(packageName))||
                 content.contains(getAppName(packageName))){
-                 sbn.key?.let {
-                     removeNotificationByKey(it)
-                     removeWanGuNotificationByKey(sbn,it)
+                sbn.key?.let {
+                    removeNotificationByKey(it)
+                    removeWanGuNotificationByKey(sbn,it)
                 }
             }
         }
@@ -589,7 +574,6 @@ abstract class NotificationListenerServiceAbstract : NotificationListenerService
             return false
         }
     }
-
 
 
 
