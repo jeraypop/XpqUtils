@@ -22,7 +22,7 @@ class App : Application() {
         instance = this
 
         //重新绑定服务
-        NotificationUtilXpq.toggleNotificationListenerService(notificationcls = NotificationListenerServiceImp::class.java)
+        NotificationUtilXpq.toggleNotificationListenerService(notificationCls = NotificationListenerServiceImp::class.java)
 
         // 监听进程生命周期，应用进入后台时隐藏
         ProcessLifecycleOwner.get().lifecycle.addObserver(LifecycleEventObserver { _, event ->
