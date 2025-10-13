@@ -157,7 +157,7 @@ abstract class NotificationListenerServiceAbstract : NotificationListenerService
             val n_info = buildNotificationInfo(sbn,notification, null)
             if (isTitleAndContentEmpty(n_info.title, n_info.content)){
                 sbns = getAllSortedByTime(activeNotifications)
-                val first_sbn = sbns.getOrNull(0) ?:return@execute
+              /*  val first_sbn = sbns.getOrNull(0) ?:return@execute
                 val first_n = first_sbn.notification ?: return@execute
                 val first_n_info = buildNotificationInfo(first_sbn,first_n, null)
                 if (isTitleAndContentEmpty(first_n_info.title, first_n_info.content)){
@@ -182,6 +182,13 @@ abstract class NotificationListenerServiceAbstract : NotificationListenerService
 
                 }else{
                     asyncHandleNotificationPosted(first_sbn,first_n,first_n_info.title,first_n_info.content,first_n_info)
+                }*/
+
+                val target = findFirstNonEmptyNotification(sbns, limit = 3)
+                target?.let {
+                    val tn = it.notification ?: return@execute
+                    val tinfo = buildNotificationInfo(it, tn, null)
+                    asyncHandleNotificationPosted(it, tn, tinfo.title, tinfo.content, tinfo)
                 }
 
             } else{
@@ -574,6 +581,18 @@ abstract class NotificationListenerServiceAbstract : NotificationListenerService
             return false
         }
     }
+
+    private fun findFirstNonEmptyNotification(candidates: List<StatusBarNotification>, limit: Int = 3): StatusBarNotification? {
+        for (sbn in candidates.take(limit)) {
+            val n = sbn?.notification ?: continue
+            val info = buildNotificationInfo(sbn, n, null)
+            if (!isTitleAndContentEmpty(info.title, info.content)) {
+                return sbn
+            }
+        }
+        return null
+    }
+
 
 
 
