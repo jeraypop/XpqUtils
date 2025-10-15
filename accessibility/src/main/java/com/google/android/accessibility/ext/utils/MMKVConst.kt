@@ -14,6 +14,12 @@ object MMKVConst {
     const val BTN_RECENT_HIDE = 4
     const val BTN_RECENT_HIDE_PLUS = 5
 
+    const val KEY_SCREEN_WIDTH = "screen_width"
+    const val KEY_SCREEN_HEIGHT = "screen_height"
+    const val KEY_LOCK_SCREEN_PASSWORD = "lock_screen_passwordsend"
+    const val KEY_JIESUO_MIMA = "key_jiesuo_mima"
+    const val clickDu_Time = 50L
+
     const val KEY_LOCK_NODEID = "KEY_LOCK_NODEID"
     const val KEY_LOCK_NODEID_TIME = "KEY_LOCK_NODEID_TIME"
     const val KEY_PINLV_FIND = "KEY_PINLV_FINDER"

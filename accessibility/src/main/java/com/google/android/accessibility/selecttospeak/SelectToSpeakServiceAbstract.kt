@@ -19,6 +19,7 @@ import com.google.android.accessibility.ext.utils.LibCtxProvider.Companion.appCo
 import com.google.android.accessibility.ext.utils.NotificationUtilXpq.getAllSortedMessagingStyleByTime
 import com.google.android.accessibility.ext.window.AssistsWindowManager
 import com.google.android.accessibility.notification.AccessibilityNInfo
+import com.google.android.accessibility.notification.AppExecutors
 import com.google.android.accessibility.notification.MessageStyleInfo
 import com.google.android.accessibility.notification.NotificationListenerServiceAbstract.Companion.getAppName
 import com.google.android.accessibility.notification.NotificationListenerServiceAbstract.Companion.isTitleAndContentEmpty
@@ -38,7 +39,6 @@ abstract class SelectToSpeakServiceAbstract : AccessibilityService() {
 
     @Volatile
     private var lastEventTime: Long = 0L
-    private val executors = Executors.newSingleThreadExecutor()
     // 如果你只对特定包感兴趣，可以在这里维护白名单/黑名单
     private val packageNamesFilter: Set<String>? = null // e.g. setOf("com.whatsapp", "com.tencent.mm")
 
@@ -104,7 +104,7 @@ abstract class SelectToSpeakServiceAbstract : AccessibilityService() {
         event ?: return
         instance = this
         // 把事件丢给单线程 executor 处理（保证有序）
-        executors.execute {
+        AppExecutors.executors3.execute {
             asyncHandleAccessibilityEvent(event)
             dealEvent(event)
         }
@@ -137,9 +137,7 @@ abstract class SelectToSpeakServiceAbstract : AccessibilityService() {
         // 清理 ownershipMap 中可能未释放的副本，避免泄露
         cleanupOwnershipMap()
         super.onDestroy()
-        // 关闭执行器以避免内存泄露
-        executors.shutdownNow()
-        //executors2.shutdownNow()
+
     }
 
     companion object {
@@ -160,7 +158,10 @@ abstract class SelectToSpeakServiceAbstract : AccessibilityService() {
          * 使用线程安全的集合存储所有监听器
          * 用于分发服务生命周期和无障碍事件
          */
-        val listeners: MutableList<AssistsServiceListener> = Collections.synchronizedList(arrayListOf<AssistsServiceListener>())
+        //val listeners: MutableList<AssistsServiceListener> = Collections.synchronizedList(arrayListOf<AssistsServiceListener>())
+
+        // 改成 CopyOnWriteArrayList，更安全，适合回调监听器场景
+        val listeners = java.util.concurrent.CopyOnWriteArrayList<AssistsServiceListener>()
     }
 
     fun shouldHandle(eventTime: Long): Boolean {
@@ -246,7 +247,7 @@ abstract class SelectToSpeakServiceAbstract : AccessibilityService() {
             //通知改变
             AccessibilityEvent.TYPE_NOTIFICATION_STATE_CHANGED -> {
                 val eventTime = event.eventTime
-                shouldHandle(eventTime)
+                if (!shouldHandle(eventTime)) return
                 val pkgName = event.packageName?.toString() ?: "UnKnown"
                 // 方式一：直接从 event.text 获取（简单但可能不完整）
                 val eventText = event.text?.joinToString(separator = " ")?.takeIf { it.isNotBlank() } ?: "（event.text 为空或不完整）"

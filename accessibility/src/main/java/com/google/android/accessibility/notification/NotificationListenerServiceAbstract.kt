@@ -26,6 +26,7 @@ import com.google.android.accessibility.ext.utils.NotificationUtilXpq.getAllSort
 
 import com.google.android.accessibility.ext.utils.NotificationUtilXpq.getNotificationData
 import java.util.Collections
+import java.util.concurrent.CopyOnWriteArrayList
 import java.util.concurrent.Executors
 import java.util.concurrent.ExecutorService
 import java.util.concurrent.ThreadFactory
@@ -43,6 +44,8 @@ val notificationService: NotificationListenerService? get() = notificationServic
  *   在提交任务前尽量把需要的数据拷贝出来（例如 buildNotificationInfo 的返回值），以避免在 Service 已销毁时访问已释放资源导致 NPE。
  */
 object AppExecutors {
+
+    // 创建守护线程工厂
     private fun daemonThreadFactory(namePrefix: String): ThreadFactory {
         val threadNumber = AtomicInteger(1)
         return ThreadFactory { r ->
@@ -53,9 +56,17 @@ object AppExecutors {
         }
     }
 
-    // 两个单线程 Executor，分别对应你原先的 executors 和 executors2
-    val executors: ExecutorService = Executors.newSingleThreadExecutor(daemonThreadFactory("notif-exec-1"))
-    val executors2: ExecutorService = Executors.newSingleThreadExecutor(daemonThreadFactory("notif-exec-2"))
+    // ✅ 单线程守护执行器 1
+    val executors: ExecutorService =
+        Executors.newSingleThreadExecutor(daemonThreadFactory("notif-exec-1"))
+
+    // ✅ 单线程守护执行器 2
+    val executors2: ExecutorService =
+        Executors.newSingleThreadExecutor(daemonThreadFactory("notif-exec-2"))
+
+    // ✅ 新增：单线程守护执行器 3
+    val executors3: ExecutorService =
+        Executors.newSingleThreadExecutor(daemonThreadFactory("notif-exec-3"))
 }
 
 abstract class NotificationListenerServiceAbstract : NotificationListenerService() {
@@ -83,12 +94,14 @@ abstract class NotificationListenerServiceAbstract : NotificationListenerService
     private var lastHandleTime: Long = 0L
     @Volatile
     private var lastNotificationKey: String = ""
-    private val MIN_HANDLE_INTERVAL = 500L // 500毫秒间隔
+
 
     companion object {
+        private const val MIN_HANDLE_INTERVAL = 500L   // 500毫秒间隔
         var instance: NotificationListenerServiceAbstract? = null
             private set
-        val listeners: MutableList<NotificationInterface> = Collections.synchronizedList(arrayListOf<NotificationInterface>())
+        //val listeners: MutableList<NotificationInterface> = Collections.synchronizedList(arrayListOf<NotificationInterface>())
+        val listeners = CopyOnWriteArrayList<NotificationInterface>()
 
         fun isTitleAndContentEmpty(title: String, content: String): Boolean {
             val bool = TextUtils.equals(title, appContext.getString(R.string.notificationtitlenull)) &&
