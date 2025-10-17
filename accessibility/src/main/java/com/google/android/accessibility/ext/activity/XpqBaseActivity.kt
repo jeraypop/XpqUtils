@@ -6,16 +6,19 @@ import android.os.Bundle
 import android.util.Log
 import android.view.KeyEvent
 import android.view.LayoutInflater
+import android.view.WindowManager
 import android.widget.Toast
+import androidx.activity.enableEdgeToEdge
 import androidx.activity.result.ActivityResultLauncher
 import androidx.activity.result.contract.ActivityResultContracts
-import androidx.annotation.LayoutRes
 import androidx.annotation.CallSuper
+import androidx.annotation.LayoutRes
 import androidx.appcompat.app.AppCompatActivity
 import androidx.appcompat.widget.Toolbar
 import androidx.core.content.ContextCompat
 import androidx.viewbinding.ViewBinding
-import com.google.android.accessibility.ext.utils.AliveUtils
+import com.google.android.accessibility.ext.utils.KeyguardUnLock
+
 
 /**
  * 通用 XpqBaseActivity，支持两种布局方式（强制二选一）：
@@ -95,7 +98,7 @@ abstract class XpqBaseActivity<VB : ViewBinding>(
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-
+        enableEdgeToEdge()
         // ----------- 强制约束：必须二选一 ----------
         if ((bindingInflater == null && layoutId == null) || (bindingInflater != null && layoutId != null)) {
             throw IllegalStateException(
@@ -209,4 +212,6 @@ abstract class XpqBaseActivity<VB : ViewBinding>(
     protected fun isPermissionGranted(permission: String): Boolean {
         return ContextCompat.checkSelfPermission(this, permission) == PackageManager.PERMISSION_GRANTED
     }
+
+
 }

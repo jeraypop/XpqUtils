@@ -5,9 +5,10 @@ import android.accessibilityservice.AccessibilityService.GestureResultCallback
 import android.accessibilityservice.GestureDescription
 import android.accessibilityservice.GestureDescription.StrokeDescription
 import android.annotation.SuppressLint
+import android.app.Activity
 import android.app.KeyguardManager
+import android.app.KeyguardManager.OnKeyguardExitResult
 import android.content.Context
-import android.content.SharedPreferences
 import android.graphics.Path
 import android.graphics.Rect
 import android.os.Build
@@ -15,12 +16,11 @@ import android.os.PowerManager
 import android.os.SystemClock
 import android.text.TextUtils
 import android.util.Log
+import android.view.WindowManager
 import android.view.accessibility.AccessibilityNodeInfo
 import androidx.annotation.IntRange
-import androidx.annotation.RequiresApi
 import com.google.android.accessibility.ext.utils.LibCtxProvider.Companion.appContext
 import com.google.android.accessibility.ext.window.LogWrapper
-import com.google.android.accessibility.notification.AccessibilityNInfo
 import com.google.android.accessibility.selecttospeak.accessibilityService
 import java.util.Locale
 
@@ -31,6 +31,106 @@ import java.util.Locale
  * Description:This is KeyguardUnLock
  */
 object KeyguardUnLock {
+    /**
+     * 设置 Activity 在锁屏时显示，并点亮屏幕。
+     * @param activity 需要操作的 Activity 实例。
+     * 从Android 12开始，setShowWhenLocked(true) 的行为受到了限制
+     * 如果你的应用需要在后台启动一个在锁屏上显示的 Activity（例如来电界面、闹钟），
+     * 你必须在 AndroidManifest.xml 中声明 USE_FULL_SCREEN_INTENT 权限，
+     * 并使用与全屏 Intent 相关的通知
+     * <uses-permission android:name="android.permission.USE_FULL_SCREEN_INTENT" />
+     */
+    @JvmStatic
+    fun showWhenLockedAndTurnScreenOn(activity: Activity) {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O_MR1) {
+            //第一步:点亮屏幕 显示内容
+            activity.setShowWhenLocked(true)
+            activity.setTurnScreenOn(true)
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+                //activity.setDismissKeyguard(true)
+            }
+            //第二步:解锁
+            requestDeviceUnlock(activity)
+
+        } else {
+            @Suppress("DEPRECATION")
+            activity.window.addFlags(
+                WindowManager.LayoutParams.FLAG_SHOW_WHEN_LOCKED or
+                        WindowManager.LayoutParams.FLAG_TURN_SCREEN_ON or
+                        WindowManager.LayoutParams.FLAG_DISMISS_KEYGUARD
+            )
+        }
+    }
+
+    /**
+     * 8.0下还需要清单文件中申请权限
+     * 系统只会解除非安全锁屏（例如滑动解锁）。
+     * 如果设备有密码、PIN 或生物识别锁，用户仍需手动解锁
+     * */
+    @SuppressLint("MissingPermission")
+    @JvmStatic
+    fun requestDeviceUnlock(activity: Activity) {
+
+        val keyguardManager = activity.getSystemService(Context.KEYGUARD_SERVICE) as? KeyguardManager
+        keyguardManager?: return
+
+
+        // 检查设备是否设置了安全锁屏
+        if (keyguardManager.isDeviceSecure) {
+            /**
+             * 从 Android O (API 26) 开始，应使用 KeyguardManager.requestDismissKeyguard()。
+             * 它会向用户展示解锁界面（PIN、图案或指纹），并通过 KeyguardDismissCallback 返回结果。
+             * 系统只会解除非安全锁屏（例如滑动解锁）。
+             *
+             * 如果设备有密码、PIN 或生物识别锁，用户仍需手动解锁。
+             * */
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                //不需要关注 回调的话 传null
+                keyguardManager.requestDismissKeyguard(activity, object : KeyguardManager.KeyguardDismissCallback() {
+                    override fun onDismissSucceeded() {
+                        super.onDismissSucceeded()
+                        // 解锁成功，执行需要安全验证的操作
+                        AliveUtils.toast(msg = "解锁成功")
+                        // 例如：跳转到应用的敏感部分
+                    }
+
+                    override fun onDismissCancelled() {
+                        super.onDismissCancelled()
+                        // 用户取消了解锁（例如按了返回键）
+                        AliveUtils.toast(msg = "解锁被取消")
+                    }
+
+                    override fun onDismissError() {
+                        super.onDismissError()
+                        // 发生错误，无法显示解锁界面
+                        // 常见原因：Activity 不可见或没有设置 setShowWhenLocked(true)
+                        AliveUtils.toast(msg = "解锁出错")
+                    }
+                })
+            }else{
+                // 旧的回调接口
+                @Suppress("DEPRECATION")
+                keyguardManager.exitKeyguardSecurely(object : OnKeyguardExitResult {
+                    override fun onKeyguardExitResult(success: Boolean) {
+                        if (success) {
+                            // 解锁成功
+                            AliveUtils.toast(msg = "解锁成功")
+                        } else {
+                            // 解锁失败
+                            AliveUtils.toast(msg = "解锁出错")
+                        }
+                    }
+                });
+
+
+
+            }
+        } else {
+            // 没有安全锁，直接执行操作
+            AliveUtils.toast(msg = "设备未设置安全锁")
+        }
+    }
+
     @JvmStatic
     fun getLockID(): String {
         val brand = Build.BRAND.uppercase(Locale.getDefault()) //获取设备品牌

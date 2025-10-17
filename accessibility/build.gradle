@@ -64,6 +64,8 @@ dependencies {
     api(libs.devicecompat)
     // 权限请求框架：https://github.com/getActivity/XXPermissions
     api(libs.easy.permission)
+    implementation libs.activity.activity
+    implementation libs.androidx.constraintlayout
 
 //    implementation 'androidx.core:core-ktx:1.7.0'
 //    implementation 'androidx.appcompat:appcompat:1.4.1'

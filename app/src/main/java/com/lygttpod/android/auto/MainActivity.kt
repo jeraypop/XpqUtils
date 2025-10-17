@@ -16,6 +16,7 @@ import androidx.core.view.WindowInsetsCompat
 import androidx.lifecycle.MutableLiveData
 import androidx.navigation.ui.AppBarConfiguration
 import com.android.accessibility.ext.BuildConfig
+import com.google.android.accessibility.ext.activity.LockScreenActivity
 import com.google.android.accessibility.ext.activity.XpqBaseActivity
 import com.google.android.accessibility.ext.openAccessibilitySetting
 
@@ -88,7 +89,7 @@ class MainActivity : XpqBaseActivity<ActivityMainBinding>(
 
             println("构建时间戳: $appBuildTime")
             println("构建时间: $formatted")
-
+            LockScreenActivity.openLockScreenActivity()
 
         }
 
