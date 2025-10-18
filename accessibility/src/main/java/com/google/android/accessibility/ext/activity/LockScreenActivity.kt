@@ -37,7 +37,7 @@ class LockScreenActivity : XpqBaseActivity<ActivityLockScreenBinding>(
     override fun onResume() {
         super.onResume()
         // 在可见时再尝试一次，确保在解锁流程中的交互是最新的
-        KeyguardUnLock.showWhenLockedAndTurnScreenOn(this@LockScreenActivity)
+        //KeyguardUnLock.showWhenLockedAndTurnScreenOn(this@LockScreenActivity)
     }
 
     override fun initView_Xpq() {

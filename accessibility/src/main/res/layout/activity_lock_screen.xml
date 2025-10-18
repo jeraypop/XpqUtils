@@ -8,6 +8,7 @@
     tools:context="com.google.android.accessibility.ext.activity.LockScreenActivity">
 
     <TextView
+        android:id="@+id/tv_unLockxpq"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
         android:text="准备解锁"

@@ -30,7 +30,52 @@ import java.util.Locale
  * Date       : 2025/10/15  10:38
  * Description:This is KeyguardUnLock
  */
+
+// 表示设备锁定与安全配置的组合状态
+sealed class DeviceLockState {
+    // 设备已解锁（可能设置了安全锁，也可能未设置）
+    data class Unlocked(val isDeviceSecure: Boolean) : DeviceLockState()
+
+    // 设备当前被锁，但没有安全锁（例如滑动解锁） —— 可直接解除
+    object LockedNotSecure : DeviceLockState()
+
+    // 设备当前被锁，并且设置了安全锁（PIN/图案/密码/生物） —— 需要用户验证
+    object LockedSecure : DeviceLockState()
+}
 object KeyguardUnLock {
+
+    /**
+     * 根据 KeyguardManager 的两个 API 判断当前设备状态，返回 DeviceLockState。
+     *
+     * 使用场景：
+     *  - 如果返回 Unlocked(isDeviceSecure = true) 表示设备已解锁，但用户设置了安全锁（已验证）。
+     *  - 如果 LockedNotSecure：设备被锁但无安全锁，可直接解除/继续敏感操作。
+     *  - 如果 LockedSecure：设备被锁且有安全保护，需要调用 requestDismissKeyguard() 或引导用户验证。
+     */
+    @JvmStatic
+    fun getDeviceLockState(context: Context): DeviceLockState {
+        val km = context.getSystemService(KeyguardManager::class.java)
+            ?: return DeviceLockState.Unlocked(isDeviceSecure = false) // 保守默认：当无法获取时当作未配置安全锁并解锁
+
+        val deviceSecure = km.isDeviceSecure  // 设备是否配置了 PIN/Pattern/密码/生物 等
+        val deviceLocked = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+            km.isDeviceLocked   // 当前设备是否处于“锁定”状态（需要验证才能访问用户数据）
+        } else {
+            km.isKeyguardLocked
+        }
+        return when {
+            // 设备没有被锁（可直接使用），无论是否配置安全锁
+            !deviceLocked -> DeviceLockState.Unlocked(isDeviceSecure = deviceSecure)
+
+            // 设备被锁并且没有配置安全锁（例如只有滑动解锁） -> 可以自动解除（系统可以直接 dismiss）
+            deviceLocked && !deviceSecure -> DeviceLockState.LockedNotSecure
+
+            // 设备被锁且配置了安全锁 -> 需要用户验证
+            deviceLocked && deviceSecure -> DeviceLockState.LockedSecure
+
+            else -> DeviceLockState.Unlocked(isDeviceSecure = deviceSecure) // 保守兜底
+        }
+    }
     /**
      * 设置 Activity 在锁屏时显示，并点亮屏幕。
      * @param activity 需要操作的 Activity 实例。
@@ -49,16 +94,19 @@ object KeyguardUnLock {
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
                 //activity.setDismissKeyguard(true)
             }
+            sendLog("设备系统大于8.1  点亮屏幕")
             //第二步:解锁
             requestDeviceUnlock(activity)
 
         } else {
+
             @Suppress("DEPRECATION")
             activity.window.addFlags(
                 WindowManager.LayoutParams.FLAG_SHOW_WHEN_LOCKED or
                         WindowManager.LayoutParams.FLAG_TURN_SCREEN_ON or
                         WindowManager.LayoutParams.FLAG_DISMISS_KEYGUARD
             )
+            sendLog("设备系统小于8.1  点亮屏幕")
         }
     }
 
@@ -90,6 +138,7 @@ object KeyguardUnLock {
                     override fun onDismissSucceeded() {
                         super.onDismissSucceeded()
                         // 解锁成功，执行需要安全验证的操作
+                        sendLog("解锁成功")
                         AliveUtils.toast(msg = "解锁成功")
                         // 例如：跳转到应用的敏感部分
                     }
@@ -97,6 +146,7 @@ object KeyguardUnLock {
                     override fun onDismissCancelled() {
                         super.onDismissCancelled()
                         // 用户取消了解锁（例如按了返回键）
+                        sendLog("解锁被取消")
                         AliveUtils.toast(msg = "解锁被取消")
                     }
 
@@ -105,6 +155,7 @@ object KeyguardUnLock {
                         // 发生错误，无法显示解锁界面
                         // 常见原因：Activity 不可见或没有设置 setShowWhenLocked(true)
                         AliveUtils.toast(msg = "解锁出错")
+                        sendLog("解锁出错")
                     }
                 })
             }else{
@@ -114,9 +165,11 @@ object KeyguardUnLock {
                     override fun onKeyguardExitResult(success: Boolean) {
                         if (success) {
                             // 解锁成功
+                            sendLog("解锁成功")
                             AliveUtils.toast(msg = "解锁成功")
                         } else {
                             // 解锁失败
+                            sendLog("解锁出错")
                             AliveUtils.toast(msg = "解锁出错")
                         }
                     }
@@ -127,7 +180,8 @@ object KeyguardUnLock {
             }
         } else {
             // 没有安全锁，直接执行操作
-            AliveUtils.toast(msg = "设备未设置安全锁")
+            sendLog("设备未设置安全锁,不需要解锁")
+            //AliveUtils.toast(msg = "设备未设置安全锁")
         }
     }
 

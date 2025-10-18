@@ -46,5 +46,5 @@ object MMKVConst {
 
     const val ALI_KEY = "fkx11204qu3e298yblfpx51"
     const val EXTRA_KEY_PAY_CONFIG = "pay_config"
-
+    const val SEND_MSG_LIST = "SEND_MSG_LIST"
 }
