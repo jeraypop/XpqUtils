@@ -307,12 +307,29 @@ object KeyguardUnLock {
         }
         return isKeyguardOn
     }
+    /**
+     * 其它都一样,只有 锁屏上弹出“闹钟界面”  这个时候 再进行判定
+     * true（设备仍锁定isDeviceLocked）	false（Keyguard 被临时隐藏）
+     * */
+    @JvmOverloads
+    @JvmStatic
+    fun deviceIsOn(context: Context = appContext): Boolean {
+        var isDeviceOn = false
+        val mKeyguardManager = context.getSystemService(Context.KEYGUARD_SERVICE) as KeyguardManager
+        if (mKeyguardManager.isDeviceLocked){
+            //设备锁定,需要解锁
+            isDeviceOn = false
+        }else{
+            //设备没锁定,不需要解锁
+            isDeviceOn = true
+        }
+        return isDeviceOn
+    }
     @JvmOverloads
     @JvmStatic
     fun unlockScreen(access_Service: AccessibilityService? = accessibilityService, password: String=""): Boolean {
         var    isSuc = false
         if (access_Service == null) {
-            Log.e("解锁", "辅助服务为空")
             return isSuc
         }
         if (Build.VERSION.SDK_INT < Build.VERSION_CODES.N) {
@@ -383,7 +400,8 @@ object KeyguardUnLock {
             Log.e("解锁", "第五.二步,输入密码: 成功次数=$trueCount, 失败次数=$falseCount")
             sendLog("第五.二步,输入密码: 成功次数=$trueCount, 失败次数=$falseCount")
 
-            if (trueCount == 4 && falseCount == 0){
+            if (falseCount == 0){
+                isSuc = true
                 sendLog("第六步,解锁成功")
                 Log.e("解锁", "第六步,解锁成功")
             }else{
@@ -417,6 +435,79 @@ object KeyguardUnLock {
             })
         return isSuc
     }
+    @JvmOverloads
+    @JvmStatic
+    fun unlockScreenNew(access_Service: AccessibilityService? = accessibilityService, password: String=""): Boolean {
+        var    isSuc = false
+        if (access_Service == null) {
+            return isSuc
+        }
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.N) {
+            return isSuc
+        }
+        //val password = MMKVUtil.get(MMKVConst.KEY_LOCK_SCREEN_PASSWORD, "")
+        if (TextUtils.isEmpty(password)) {
+            return isSuc
+        }
+        //===============
+        fun jiesuoRun(digitId: String) {
+            //====================
+            if (TextUtils.equals("0",password)|| (password.length>0 && password.length<4)){
+                return
+            }
+            Log.e("解锁", "第1步:获得解锁界面节点id= "+digitId)
+            sendLog("第1步:获得解锁界面节点id= "+digitId)
+            //====================
+            //3.模拟锁屏密码输入完成解锁
+            Log.e("解锁", "第2步,准备遍历并输入保存的密码= "+password)
+            sendLog("第2步,准备遍历并输入保存的密码= "+password)
+            var num=1
+            fun inputMiMa(s: Char) =
+                findAndPerformClickNodeInfo(
+                    access_Service!!,
+                    digitId,
+                    s.toString(),
+                    s.toString()
+                )
+            var trueCount = 0
+            var falseCount = 0
+            for (s in password!!) {
+                val inputSuccess = inputMiMa(s)
+                if (!inputSuccess) {
+                    isSuc = false
+                    falseCount++
+                    val i = num++
+                    Log.e("解锁", "第3.1步,输入密码"+s+"失败"+"第"+ i+"次输入")
+                    sendLog("第3.1步,输入密码"+s+"失败"+"第"+ i +"次输入")
+                } else {
+                    isSuc = true
+                    trueCount++
+                    val i = num++
+                    Log.e("解锁", "第3.1步,输入密码"+s+"成功"+"第"+ i+"次输入")
+                    sendLog("第3.1步,输入密码"+s+"成功"+"第"+ i +"次输入")
+                }
+            }
+            Log.e("解锁", "第3.2步,输入密码: 成功次数=$trueCount, 失败次数=$falseCount")
+            sendLog("第3.2步,输入密码: 成功次数=$trueCount, 失败次数=$falseCount")
+
+            if (falseCount == 0){
+                isSuc = true
+                sendLog("第4步,解锁成功")
+                Log.e("解锁", "第4步,解锁成功")
+            }else{
+                sendLog("第4步,解锁失败")
+                Log.e("解锁", "第4步,解锁失败")
+            }
+
+            return
+        }
+
+
+        //===================
+        jiesuoRun(getLockViewID(access_Service.rootInActiveWindow))
+        return isSuc
+    }
+
     @JvmStatic
     fun getScreenSize(context: Context): Pair<Int, Int> {
         val displayMetrics = context.resources.displayMetrics
