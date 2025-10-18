@@ -52,13 +52,14 @@ object KeyguardUnLock {
      *  - 如果 LockedNotSecure：设备被锁但无安全锁，可直接解除/继续敏感操作。
      *  - 如果 LockedSecure：设备被锁且有安全保护，需要调用 requestDismissKeyguard() 或引导用户验证。
      */
+    @JvmOverloads
     @JvmStatic
-    fun getDeviceLockState(context: Context): DeviceLockState {
-        val km = context.getSystemService(KeyguardManager::class.java)
+    fun getDeviceLockState(byKeyguard: Boolean = true): DeviceLockState {
+        val km = appContext.getSystemService(KeyguardManager::class.java)
             ?: return DeviceLockState.Unlocked(isDeviceSecure = false) // 保守默认：当无法获取时当作未配置安全锁并解锁
 
         val deviceSecure = km.isDeviceSecure  // 设备是否配置了 PIN/Pattern/密码/生物 等
-        val deviceLocked = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+        val deviceLocked = if (!byKeyguard) {
             km.isDeviceLocked   // 当前设备是否处于“锁定”状态（需要验证才能访问用户数据）
         } else {
             km.isKeyguardLocked
@@ -402,11 +403,11 @@ object KeyguardUnLock {
 
             if (falseCount == 0){
                 isSuc = true
-                sendLog("第六步,解锁成功")
-                Log.e("解锁", "第六步,解锁成功")
+                sendLog("第六步,所有密码输入成功")
+                Log.e("解锁", "第六步,所有密码输入成功")
             }else{
-                sendLog("第六步,解锁失败")
-                Log.e("解锁", "第六步,解锁失败")
+                sendLog("第六步,所有密码输入失败")
+                Log.e("解锁", "第六步,所有密码输入失败")
             }
 
             return
@@ -492,10 +493,10 @@ object KeyguardUnLock {
 
             if (falseCount == 0){
                 isSuc = true
-                sendLog("第4步,解锁成功")
+                sendLog("第4步,所有密码输入成功")
                 Log.e("解锁", "第4步,解锁成功")
             }else{
-                sendLog("第4步,解锁失败")
+                sendLog("第4步,所有密码输入失败")
                 Log.e("解锁", "第4步,解锁失败")
             }
 
