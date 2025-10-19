@@ -227,15 +227,23 @@ object KeyguardUnLock {
 
     private fun findLockView(nodeInfo: AccessibilityNodeInfo): String? {
         val className = nodeInfo.className?.toString() ?: ""
+        val className_lower = className.lowercase()
         val viewIdName = nodeInfo.viewIdResourceName ?: ""
         val viewIdName_lower = viewIdName.lowercase()
 
         // 检查是否为目标TextView节点
-        if (className.lowercase().contains("textview") &&
-            viewIdName_lower.contains(".systemui:id/")&&
-            (viewIdName_lower.contains("digit_text")||
-                    viewIdName_lower.contains("digittext")
-             )
+        if (
+            (
+                    className_lower.contains("text")||
+                    className_lower.contains("button")||
+                    className_lower.contains("chip")
+            )&&
+            viewIdName_lower.contains("id")&&
+            (
+                    viewIdName_lower.contains("digit")||
+                    viewIdName_lower.contains("text")||
+                    viewIdName_lower.contains("number")
+            )
             ) {
             sendLog("本次查询解锁界面节点id= "+viewIdName)
             return viewIdName
@@ -331,14 +339,16 @@ object KeyguardUnLock {
     fun unlockScreen(access_Service: AccessibilityService? = accessibilityService, password: String=""): Boolean {
         var    isSuc = false
         if (access_Service == null) {
+            sendLog("无障碍服务未开启!")
             return isSuc
         }
         if (Build.VERSION.SDK_INT < Build.VERSION_CODES.N) {
+            sendLog("系统版本小于7.0")
             return isSuc
         }
         //val password = MMKVUtil.get(MMKVConst.KEY_LOCK_SCREEN_PASSWORD, "")
         if (TextUtils.isEmpty(password)) {
-
+            sendLog("解锁密码为空,请先输入密码")
             return isSuc
         }
         //1.获取设备的宽和高
@@ -361,15 +371,13 @@ object KeyguardUnLock {
             //====================
 
             if (TextUtils.equals("0",password)|| (password.length>0 && password.length<4)){
-                return
+                //return
             }
             Log.e("解锁", "第三步:获得解锁界面节点id= "+digitId)
             sendLog("第三步:获得解锁界面节点id= "+digitId)
             //====================
-            //睡眠一下 等待 解锁界面加载出来
-            SystemClock.sleep(1500)
-            //3.模拟锁屏密码输入完成解锁
 
+            //3.模拟锁屏密码输入完成解锁
             Log.e("解锁", "第四步,准备遍历并输入保存的密码= "+password)
             sendLog("第四步,准备遍历并输入保存的密码= "+password)
             var num=1
@@ -380,18 +388,17 @@ object KeyguardUnLock {
                     s.toString(),
                     s.toString()
                 )
+
             var trueCount = 0
             var falseCount = 0
             for (s in password!!) {
                 val inputSuccess = inputMiMa(s)
                 if (!inputSuccess) {
-                    isSuc = false
                     falseCount++
                     val i = num++
                     Log.e("解锁", "第五.一步,输入密码"+s+"失败"+"第"+ i+"次输入")
                     sendLog("第五.一步,输入密码"+s+"失败"+"第"+ i +"次输入")
                 } else {
-                    isSuc = true
                     trueCount++
                     val i = num++
                     Log.e("解锁", "第五.一步,输入密码"+s+"成功"+"第"+ i+"次输入")
@@ -406,6 +413,7 @@ object KeyguardUnLock {
                 sendLog("第六步,所有密码输入成功")
                 Log.e("解锁", "第六步,所有密码输入成功")
             }else{
+                isSuc = false
                 sendLog("第六步,所有密码输入失败")
                 Log.e("解锁", "第六步,所有密码输入失败")
             }
@@ -423,6 +431,7 @@ object KeyguardUnLock {
                 override fun onSuccess() {
                     sendLog("第二步,手势上划成功,然后开始输入密码解锁")
                     Log.e("解锁", "第二步,手势上划成功,然后开始输入密码解锁")
+                    //睡眠一下 等待 解锁界面加载出来
                     SystemClock.sleep(1000)
                     jiesuoRun(getLockViewID(access_Service.rootInActiveWindow))
                     //===
@@ -441,13 +450,16 @@ object KeyguardUnLock {
     fun unlockScreenNew(access_Service: AccessibilityService? = accessibilityService, password: String=""): Boolean {
         var    isSuc = false
         if (access_Service == null) {
+            sendLog("无障碍服务未开启!")
             return isSuc
         }
         if (Build.VERSION.SDK_INT < Build.VERSION_CODES.N) {
+            sendLog("系统版本小于7.0")
             return isSuc
         }
         //val password = MMKVUtil.get(MMKVConst.KEY_LOCK_SCREEN_PASSWORD, "")
         if (TextUtils.isEmpty(password)) {
+            sendLog("解锁密码为空,请先输入密码")
             return isSuc
         }
         //===============
@@ -475,13 +487,11 @@ object KeyguardUnLock {
             for (s in password!!) {
                 val inputSuccess = inputMiMa(s)
                 if (!inputSuccess) {
-                    isSuc = false
                     falseCount++
                     val i = num++
                     Log.e("解锁", "第3.1步,输入密码"+s+"失败"+"第"+ i+"次输入")
                     sendLog("第3.1步,输入密码"+s+"失败"+"第"+ i +"次输入")
                 } else {
-                    isSuc = true
                     trueCount++
                     val i = num++
                     Log.e("解锁", "第3.1步,输入密码"+s+"成功"+"第"+ i+"次输入")
@@ -496,11 +506,11 @@ object KeyguardUnLock {
                 sendLog("第4步,所有密码输入成功")
                 Log.e("解锁", "第4步,解锁成功")
             }else{
+                isSuc = false
                 sendLog("第4步,所有密码输入失败")
                 Log.e("解锁", "第4步,解锁失败")
             }
 
-            return
         }
 
 
@@ -584,33 +594,54 @@ object KeyguardUnLock {
      */
 
     @JvmStatic
-    fun performClickNodeInfo(service: AccessibilityService,nodeInfo: AccessibilityNodeInfo?): Boolean {
-        if (nodeInfo != null) {
-            if (nodeInfo.isClickable) {
-                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {
-                    //==模拟点击解锁
+    fun performClickNodeInfo(
+        service: AccessibilityService,
+        nodeInfo: AccessibilityNodeInfo?
+    ): Boolean {
+        if (nodeInfo == null) return false
+
+        try {
+            // 1️⃣ 当前节点可点击
+            if (nodeInfo.isClickable && nodeInfo.isVisibleToUser) {
+                return if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {
+                    // 模拟真实点击（绕过部分系统限制）
                     val rect = Rect()
                     nodeInfo.getBoundsInScreen(rect)
-                    moniClick(rect.centerX(), rect.centerY() , service)
+                    if (rect.centerX() > 0 && rect.centerY() > 0) {
+                        moniClick(rect.centerX(), rect.centerY(), service)
+                        true
+                    } else {
+                        false
+                    }
                 } else {
                     nodeInfo.performAction(AccessibilityNodeInfo.ACTION_CLICK)
                 }
-                //==
-
-                return true
-            } else {
-                val parent = nodeInfo.parent
-                if (parent != null) {
-                    val isParentClickSuccess = performClickNodeInfo(service,parent)
-                    if (Build.VERSION.SDK_INT < 34) {
-                        try {  parent.recycle() } catch (_: Throwable) { /* ignore */ }
-                    }
-                    return isParentClickSuccess
-                }
             }
+
+            // 2️⃣ 当前节点不可点击，则尝试父节点
+            val parent = nodeInfo.parent
+            if (parent != null) {
+                val clicked = performClickNodeInfo(service, parent)
+
+                // ⚠️ 避免 Android 14+ 因 "recycled object" 崩溃
+                if (Build.VERSION.SDK_INT < 34) {
+                    try {
+                        parent.recycle()
+                    } catch (_: Throwable) {
+                    }
+                }
+
+                return clicked
+            }
+
+        } catch (t: Throwable) {
+            // 避免部分设备 AccessibilityNodeInfo 异常崩溃
+            t.printStackTrace()
         }
+
         return false
     }
+
 
     /**
      * 查找节点信息
@@ -627,34 +658,86 @@ object KeyguardUnLock {
         text: String,
         contentDescription: String
     ): AccessibilityNodeInfo? {
-        if (TextUtils.isEmpty(text) && TextUtils.isEmpty(contentDescription)) {
+        if (TextUtils.isEmpty(id) && TextUtils.isEmpty(text) && TextUtils.isEmpty(contentDescription)) {
             return null
         }
-        SystemClock.sleep(500)
-        val nodeInfo = service.rootInActiveWindow
-        if (nodeInfo != null) {
-            val list = nodeInfo
-                .findAccessibilityNodeInfosByViewId(id)
-            for (n in list) {
-                val nodeInfoText =
-                    if (TextUtils.isEmpty(n.text)) "" else n.text
-                        .toString()
-                val nodeContentDescription =
-                    if (TextUtils.isEmpty(n.contentDescription)) "" else n.contentDescription
-                        .toString()
-                if (TextUtils.isEmpty(text)) {
-                    if (contentDescription == nodeContentDescription) {
-                        return n
-                    }
-                } else {
-                    if (text == nodeInfoText) {
-                        return n
+
+        // 最多尝试 5 次（适配页面加载延迟）
+        repeat(5) {attempt ->
+            try {
+                val root = service.rootInActiveWindow ?: return@repeat
+
+                // === Step 1: 先根据 id 查找 ===
+                val idNodes = try {
+                    if (!TextUtils.isEmpty(id))
+                        root.findAccessibilityNodeInfosByViewId(id)
+                    else
+                        emptyList()
+                } catch (_: Exception) {
+                    emptyList()
+                }
+
+                for (node in idNodes) {
+                    if (!node.isVisibleToUser) continue
+
+                    val nodeText = node.text?.toString() ?: ""
+                    val nodeDesc = node.contentDescription?.toString() ?: ""
+
+                    // ✅ 核心逻辑：只有 text 或 description 匹配才返回
+                    val matchByText = !TextUtils.isEmpty(text) && text == nodeText
+                    val matchByDesc = !TextUtils.isEmpty(contentDescription) && contentDescription == nodeDesc
+
+                    if (matchByText || matchByDesc) {
+                        return node
                     }
                 }
+
+                // === Step 2: 根据 text 查找 ===
+                if (!TextUtils.isEmpty(text)) {
+                    val textNodes = root.findAccessibilityNodeInfosByText(text)
+                    val foundByText = textNodes.firstOrNull {
+                        it.isVisibleToUser && (it.text?.toString() == text)
+                    }
+                    if (foundByText != null) return foundByText
+                }
+
+                // === Step 3: 根据 contentDescription 查找 ===
+                if (!TextUtils.isEmpty(contentDescription)) {
+                    val descNode = findNodeByContentDescription(root, contentDescription)
+                    if (descNode != null) return descNode
+                }
+
+            } catch (_: Exception) {
+                // 防止 rootInActiveWindow 还没准备好导致崩溃
             }
+
+            SystemClock.sleep(100L + attempt * 100)
+
+        }
+
+        return null
+    }
+
+    /**
+     * 递归查找 contentDescription 匹配的节点
+     */
+    @JvmStatic
+    fun findNodeByContentDescription(
+        node: AccessibilityNodeInfo?,
+        targetDesc: String
+    ): AccessibilityNodeInfo? {
+        if (node == null || !node.isVisibleToUser) return null
+        val desc = node.contentDescription?.toString()
+        if (desc == targetDesc) return node
+
+        for (i in 0 until node.childCount) {
+            val result = findNodeByContentDescription(node.getChild(i), targetDesc)
+            if (result != null) return result
         }
         return null
     }
+
+
 
     /**
      * 模拟
@@ -666,14 +749,20 @@ object KeyguardUnLock {
         if (service == null) {
             return false
         }
-        val path = Path()
-        path.moveTo(X.toFloat(), Y.toFloat())
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {
-            val builder = GestureDescription.Builder().addStroke(StrokeDescription(path, 0, MMKVConst.clickDu_Time))
-            return service.dispatchGesture(builder.build(), null, null)
-        } else {
+        try {
+            val path = Path()
+            path.apply { moveTo(X.toFloat(), Y.toFloat()) }
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {
+                val builder = GestureDescription.Builder().addStroke(StrokeDescription(path, 0, MMKVConst.clickDu_Time))
+                return service.dispatchGesture(builder.build(), null, null)
+            } else {
+                return false
+            }
+        } catch (e: Exception) {
             return false
         }
+
+
 
     }
 
