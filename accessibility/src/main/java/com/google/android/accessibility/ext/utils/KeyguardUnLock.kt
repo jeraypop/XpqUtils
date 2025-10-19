@@ -241,7 +241,6 @@ object KeyguardUnLock {
             viewIdName_lower.contains("id")&&
             (
                     viewIdName_lower.contains("digit")||
-                    viewIdName_lower.contains("text")||
                     viewIdName_lower.contains("number")
             )
             ) {
