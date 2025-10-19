@@ -601,7 +601,7 @@ object KeyguardUnLock {
 
         try {
             // 1️⃣ 当前节点可点击
-            if (nodeInfo.isClickable && nodeInfo.isVisibleToUser) {
+            if (nodeInfo.isClickable) {
                 return if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {
                     // 模拟真实点击（绕过部分系统限制）
                     val rect = Rect()
