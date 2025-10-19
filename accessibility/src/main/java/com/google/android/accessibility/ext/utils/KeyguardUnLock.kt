@@ -650,7 +650,7 @@ object KeyguardUnLock {
      * @param contentDescription 控件描述 eg: 表情
      * @return null表示未找到
      */
-    @JvmStatic
+/*    @JvmStatic
     fun findNodeInfo(
         service: AccessibilityService,
         id: String,
@@ -684,7 +684,130 @@ object KeyguardUnLock {
             }
         }
         return null
+    }*/
+
+
+    @JvmOverloads
+    @JvmStatic
+    fun findNodeInfo(
+        service: AccessibilityService,
+        id: String?,
+        text: String?,
+        contentDescription: String?,
+        maxAttempts: Int = 5,
+        baseDelayMillis: Long = 100L
+    ): AccessibilityNodeInfo? {
+        if (id.isNullOrEmpty() && text.isNullOrEmpty() && contentDescription.isNullOrEmpty()) {
+            return null
+        }
+
+        repeat(maxAttempts) { attempt ->
+            try {
+                val root = service.rootInActiveWindow ?: run {
+                    SystemClock.sleep(baseDelayMillis + attempt * baseDelayMillis)
+                    return@repeat
+                }
+
+                // === Step 1: 根据 id 查找 ===
+                if (!id.isNullOrEmpty()) {
+                    val idNodes = try {
+                        root.findAccessibilityNodeInfosByViewId(id)
+                    } catch (_: Exception) {
+                        emptyList<AccessibilityNodeInfo>()
+                    }
+
+                    if (idNodes.isNotEmpty()) {
+                        for (node in idNodes) {
+                            try {
+                                if (!node.isVisibleToUser) continue
+                                val nodeText = node.text?.toString() ?: ""
+                                val nodeDesc = node.contentDescription?.toString() ?: ""
+
+                                val matchByText = !text.isNullOrEmpty() && text == nodeText
+                                val matchByDesc = !contentDescription.isNullOrEmpty() && contentDescription == nodeDesc
+
+                                if (matchByText || matchByDesc) {
+                                    return node
+                                }
+                            } catch (_: Throwable) {
+                                continue
+                            }
+                        }
+                        // ❗ 已经有 idNodes，但没有匹配到 ⇒ 不再执行 text/contentDescription 查询
+                        SystemClock.sleep(baseDelayMillis + attempt * baseDelayMillis)
+                        return@repeat
+                    }
+                }
+
+                // === Step 2: 根据 text 查找 ===
+                if (!text.isNullOrEmpty()) {
+                    val textNodes = try {
+                        root.findAccessibilityNodeInfosByText(text)
+                    } catch (_: Exception) {
+                        emptyList<AccessibilityNodeInfo>()
+                    }
+
+                    if (textNodes.isNotEmpty()) {
+                        val foundByText = textNodes.firstOrNull {
+                            try {
+                                it.isVisibleToUser && (it.text?.toString() == text)
+                            } catch (_: Throwable) {
+                                false
+                            }
+                        }
+                        if (foundByText != null) return foundByText
+                        // ❗ 已有 textNodes，但未匹配到，停止向下继续查
+                        SystemClock.sleep(baseDelayMillis + attempt * baseDelayMillis)
+                        return@repeat
+                    }
+                }
+
+                // === Step 3: 根据 contentDescription 查找 ===
+                if (!contentDescription.isNullOrEmpty()) {
+                    val descNode = findNodeByContentDescription(root, contentDescription)
+                    if (descNode != null) return descNode
+                    // 无论找到与否，都到此为止
+                    SystemClock.sleep(baseDelayMillis + attempt * baseDelayMillis)
+                    return@repeat
+                }
+
+            } catch (_: Throwable) {
+                // 忽略单次异常
+            }
+
+            SystemClock.sleep(baseDelayMillis + attempt * baseDelayMillis)
+        }
+
+        return null
     }
+
+    /**
+     * 按 contentDescription 递归查找节点。
+     */
+    private fun findNodeByContentDescription(root: AccessibilityNodeInfo, targetDesc: String): AccessibilityNodeInfo? {
+        val stack = ArrayDeque<AccessibilityNodeInfo>()
+        stack.add(root)
+        var visited = 0
+        val maxVisit = 2000
+
+        while (stack.isNotEmpty() && visited++ < maxVisit) {
+            val node = stack.removeFirst()
+            try {
+                val desc = node.contentDescription?.toString()
+                if (!desc.isNullOrEmpty() && desc == targetDesc && node.isVisibleToUser) {
+                    return node
+                }
+                val count = node.childCount
+                for (i in 0 until count) {
+                    node.getChild(i)?.let { stack.add(it) }
+                }
+            } catch (_: Throwable) {
+                continue
+            }
+        }
+        return null
+    }
+
 
 
     /**
