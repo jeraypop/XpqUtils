@@ -653,88 +653,123 @@ object KeyguardUnLock {
     @JvmStatic
     fun findNodeInfo(
         service: AccessibilityService,
-        id: String,
-        text: String,
-        contentDescription: String
+        id: String?,
+        text: String?,
+        contentDescription: String?,
+        maxAttempts: Int = 5,
+        baseDelayMillis: Long = 100L
     ): AccessibilityNodeInfo? {
-        if (TextUtils.isEmpty(id) && TextUtils.isEmpty(text) && TextUtils.isEmpty(contentDescription)) {
+        if (id.isNullOrEmpty() && text.isNullOrEmpty() && contentDescription.isNullOrEmpty()) {
             return null
         }
 
-        // 最多尝试 5 次（适配页面加载延迟）
-        repeat(5) {attempt ->
+        repeat(maxAttempts) { attempt ->
             try {
-                val root = service.rootInActiveWindow ?: return@repeat
-
-                // === Step 1: 先根据 id 查找 ===
-                val idNodes = try {
-                    if (!TextUtils.isEmpty(id))
-                        root.findAccessibilityNodeInfosByViewId(id)
-                    else
-                        emptyList()
-                } catch (_: Exception) {
-                    emptyList()
+                val root = service.rootInActiveWindow ?: run {
+                    SystemClock.sleep(baseDelayMillis + attempt * baseDelayMillis)
+                    return@repeat
                 }
 
-                for (node in idNodes) {
-                    if (!node.isVisibleToUser) continue
+                // === Step 1: 根据 id 查找 ===
+                if (!id.isNullOrEmpty()) {
+                    val idNodes = try {
+                        root.findAccessibilityNodeInfosByViewId(id)
+                    } catch (_: Exception) {
+                        emptyList<AccessibilityNodeInfo>()
+                    }
 
-                    val nodeText = node.text?.toString() ?: ""
-                    val nodeDesc = node.contentDescription?.toString() ?: ""
+                    if (idNodes.isNotEmpty()) {
+                        for (node in idNodes) {
+                            try {
+                                if (!node.isVisibleToUser) continue
+                                val nodeText = node.text?.toString() ?: ""
+                                val nodeDesc = node.contentDescription?.toString() ?: ""
 
-                    // ✅ 核心逻辑：只有 text 或 description 匹配才返回
-                    val matchByText = !TextUtils.isEmpty(text) && text == nodeText
-                    val matchByDesc = !TextUtils.isEmpty(contentDescription) && contentDescription == nodeDesc
+                                val matchByText = !text.isNullOrEmpty() && text == nodeText
+                                val matchByDesc = !contentDescription.isNullOrEmpty() && contentDescription == nodeDesc
 
-                    if (matchByText || matchByDesc) {
-                        return node
+                                if (matchByText || matchByDesc) {
+                                    return node
+                                }
+                            } catch (_: Throwable) {
+                                continue
+                            }
+                        }
+                        // ❗ 已经有 idNodes，但没有匹配到 ⇒ 不再执行 text/contentDescription 查询
+                        SystemClock.sleep(baseDelayMillis + attempt * baseDelayMillis)
+                        return@repeat
                     }
                 }
 
                 // === Step 2: 根据 text 查找 ===
-                if (!TextUtils.isEmpty(text)) {
-                    val textNodes = root.findAccessibilityNodeInfosByText(text)
-                    val foundByText = textNodes.firstOrNull {
-                        it.isVisibleToUser && (it.text?.toString() == text)
+                if (!text.isNullOrEmpty()) {
+                    val textNodes = try {
+                        root.findAccessibilityNodeInfosByText(text)
+                    } catch (_: Exception) {
+                        emptyList<AccessibilityNodeInfo>()
                     }
-                    if (foundByText != null) return foundByText
+
+                    if (textNodes.isNotEmpty()) {
+                        val foundByText = textNodes.firstOrNull {
+                            try {
+                                it.isVisibleToUser && (it.text?.toString() == text)
+                            } catch (_: Throwable) {
+                                false
+                            }
+                        }
+                        if (foundByText != null) return foundByText
+                        // ❗ 已有 textNodes，但未匹配到，停止向下继续查
+                        SystemClock.sleep(baseDelayMillis + attempt * baseDelayMillis)
+                        return@repeat
+                    }
                 }
 
                 // === Step 3: 根据 contentDescription 查找 ===
-                if (!TextUtils.isEmpty(contentDescription)) {
+                if (!contentDescription.isNullOrEmpty()) {
                     val descNode = findNodeByContentDescription(root, contentDescription)
                     if (descNode != null) return descNode
+                    // 无论找到与否，都到此为止
+                    SystemClock.sleep(baseDelayMillis + attempt * baseDelayMillis)
+                    return@repeat
                 }
 
-            } catch (_: Exception) {
-                // 防止 rootInActiveWindow 还没准备好导致崩溃
+            } catch (_: Throwable) {
+                // 忽略单次异常
             }
 
-            SystemClock.sleep(100L + attempt * 100)
-
+            SystemClock.sleep(baseDelayMillis + attempt * baseDelayMillis)
         }
 
         return null
     }
 
     /**
-     * 递归查找 contentDescription 匹配的节点
+     * 按 contentDescription 递归查找节点。
      */
-    @JvmStatic
-    fun findNodeByContentDescription(
-        node: AccessibilityNodeInfo?,
-        targetDesc: String
-    ): AccessibilityNodeInfo? {
-        if (node == null || !node.isVisibleToUser) return null
-        val desc = node.contentDescription?.toString()
-        if (desc == targetDesc) return node
+    private fun findNodeByContentDescription(root: AccessibilityNodeInfo, targetDesc: String): AccessibilityNodeInfo? {
+        val stack = ArrayDeque<AccessibilityNodeInfo>()
+        stack.add(root)
+        var visited = 0
+        val maxVisit = 2000
 
-        for (i in 0 until node.childCount) {
-            val result = findNodeByContentDescription(node.getChild(i), targetDesc)
-            if (result != null) return result
+        while (stack.isNotEmpty() && visited++ < maxVisit) {
+            val node = stack.removeFirst()
+            try {
+                val desc = node.contentDescription?.toString()
+                if (!desc.isNullOrEmpty() && desc == targetDesc && node.isVisibleToUser) {
+                    return node
+                }
+                val count = node.childCount
+                for (i in 0 until count) {
+                    node.getChild(i)?.let { stack.add(it) }
+                }
+            } catch (_: Throwable) {
+                continue
+            }
         }
         return null
     }
+
 
 
 
