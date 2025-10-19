@@ -454,7 +454,7 @@ object KeyguardUnLock {
         fun jiesuoRun(digitId: String) {
             //====================
             if (TextUtils.equals("0",password)|| (password.length>0 && password.length<4)){
-                return
+                //return
             }
             Log.e("解锁", "第1步:获得解锁界面节点id= "+digitId)
             sendLog("第1步:获得解锁界面节点id= "+digitId)
