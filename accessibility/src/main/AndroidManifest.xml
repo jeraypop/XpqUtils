@@ -36,7 +36,7 @@
             android:turnScreenOn="true"
             android:showWhenLocked="true"
             android:launchMode="singleTask"
-            android:theme="@style/Theme.AlarmDialog"
+            android:theme="@style/Theme.AlarmDialog.xpq"
             >
 
         </activity>
