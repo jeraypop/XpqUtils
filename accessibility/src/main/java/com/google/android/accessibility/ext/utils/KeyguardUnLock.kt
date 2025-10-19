@@ -657,9 +657,10 @@ object KeyguardUnLock {
         text: String,
         contentDescription: String
     ): AccessibilityNodeInfo? {
-        if (TextUtils.isEmpty(text) && TextUtils.isEmpty(contentDescription)) {
+        if (TextUtils.isEmpty(id) && TextUtils.isEmpty(text)) {
             return null
         }
+        SystemClock.sleep(500)
         val nodeInfo = service.rootInActiveWindow
         if (nodeInfo != null) {
             val list = nodeInfo
@@ -698,7 +699,7 @@ object KeyguardUnLock {
         }
         try {
             val path = Path()
-            path.apply { moveTo(X.toFloat(), Y.toFloat()) }
+            path.moveTo(X.toFloat(), Y.toFloat())
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {
                 val builder = GestureDescription.Builder().addStroke(StrokeDescription(path, 0, MMKVConst.clickDu_Time))
                 return service.dispatchGesture(builder.build(), null, null)
