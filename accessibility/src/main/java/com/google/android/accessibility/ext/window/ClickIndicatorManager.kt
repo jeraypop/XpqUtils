@@ -31,7 +31,7 @@ object ClickIndicatorManager {
     // 每个红点显示时长（毫秒）
     private const val DURATION_MS: Long = 500
     // 红点直径
-    private const val DIAMETER_DP = 36
+    private const val DIAMETER_DP = 10
 
     /**
      * 每次点击都会创建一个独立的红点

@@ -48,4 +48,6 @@ object MMKVConst {
     const val EXTRA_KEY_PAY_CONFIG = "pay_config"
     const val SEND_MSG_LIST = "SEND_MSG_LIST"
     const val SEND_MSG_INDEX = "SEND_MSG_INDEX"
+    const val UNLOCK_METHOD = "UNLOCK_METHOD"
+    const val SHOW_DO_GUIJI = "SHOW_DO_GUIJI"
 }

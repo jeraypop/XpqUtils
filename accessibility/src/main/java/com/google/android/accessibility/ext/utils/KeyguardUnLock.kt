@@ -492,14 +492,32 @@ object KeyguardUnLock {
         clickScope?.cancel()
     }
 
+    @JvmStatic
+    fun setUnLockOldOrNew(isNew: Boolean = false) {
+        MMKVUtil.put(MMKVConst.UNLOCK_METHOD,isNew)
+    }
+    @JvmStatic
+    fun getUnLockOldOrNew(): Boolean {
+       return MMKVUtil.get(MMKVConst.UNLOCK_METHOD,false)
+    }
+
+    @JvmStatic
+    fun setShowClickIndicator(isShow: Boolean) {
+       MMKVUtil.put(MMKVConst.SHOW_DO_GUIJI, isShow)
+    }
 
     @JvmStatic
     fun showClickIndicator(service: AccessibilityService, x: Int, y: Int) {
-        // 在主线程显示指示器
-        Handler(Looper.getMainLooper()).post {
-            ClickIndicatorManager.show(service, x, y)
+        val showguiji = MMKVUtil.get(MMKVConst.SHOW_DO_GUIJI, false)
+        if (showguiji){
+            // 在主线程显示指示器
+            Handler(Looper.getMainLooper()).post {
+                ClickIndicatorManager.show(service, x, y)
+            }
         }
+
     }
+
     @JvmOverloads
     @JvmStatic
     fun performClickNodeInfo(
