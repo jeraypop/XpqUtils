@@ -234,14 +234,14 @@ object KeyguardUnLock {
         // 检查是否为目标TextView节点
         if (
             (
-                    className_lower.contains("text")||
-                    className_lower.contains("button")||
-                    className_lower.contains("chip")
+                    className_lower.contains("text")
+                    ||className_lower.contains("button")
+                    ||className_lower.contains("chip")
             )&&
             viewIdName_lower.contains("id")&&
             (
-                    viewIdName_lower.contains("digit")||
-                    viewIdName_lower.contains("number")
+                    viewIdName_lower.contains("digittext")
+                    ||viewIdName_lower.contains("digit_text")
             )
             ) {
             sendLog("本次查询解锁界面节点id= "+viewIdName)
@@ -686,7 +686,15 @@ object KeyguardUnLock {
         return null
     }*/
 
-
+    /**
+     * 查找节点（优先级：id -> text -> contentDescription）
+     *
+     * 行为要点：
+     * - 如果 idNodes 不为空且有匹配的节点（按 text 或 desc）则直接返回；
+     * - 如果 idNodes 不为空但没有任何匹配，则继续做 text 查找；
+     * - 如果 textNodes 不为空但没有匹配，则不再做 contentDescription 查找（直接下一次重试）；
+     * - 只有在 textNodes 为空时，才做 contentDescription 查找；
+     */
     @JvmOverloads
     @JvmStatic
     fun findNodeInfo(
@@ -703,12 +711,15 @@ object KeyguardUnLock {
 
         repeat(maxAttempts) { attempt ->
             try {
-                val root = service.rootInActiveWindow ?: run {
+                val root = service.rootInActiveWindow
+                if (root == null) {
+                    // 根节点不可用 -> 等待下一次重试
                     SystemClock.sleep(baseDelayMillis + attempt * baseDelayMillis)
                     return@repeat
                 }
 
                 // === Step 1: 根据 id 查找 ===
+                var hadIdCandidates = false
                 if (!id.isNullOrEmpty()) {
                     val idNodes = try {
                         root.findAccessibilityNodeInfosByViewId(id)
@@ -717,6 +728,7 @@ object KeyguardUnLock {
                     }
 
                     if (idNodes.isNotEmpty()) {
+                        hadIdCandidates = true
                         for (node in idNodes) {
                             try {
                                 if (!node.isVisibleToUser) continue
@@ -727,19 +739,19 @@ object KeyguardUnLock {
                                 val matchByDesc = !contentDescription.isNullOrEmpty() && contentDescription == nodeDesc
 
                                 if (matchByText || matchByDesc) {
+                                    // 找到满足要求的节点，直接返回（结束函数）
                                     return node
                                 }
                             } catch (_: Throwable) {
-                                continue
+                                // 单个节点异常，继续检查下一个
                             }
                         }
-                        // ❗ 已经有 idNodes，但没有匹配到 ⇒ 不再执行 text/contentDescription 查询
-                        SystemClock.sleep(baseDelayMillis + attempt * baseDelayMillis)
-                        return@repeat
+                        // idNodes 非空但没有找到匹配 -> 按你的要求，继续进行 text 查找（不要跳过）
                     }
                 }
 
                 // === Step 2: 根据 text 查找 ===
+                var hadTextCandidates = false
                 if (!text.isNullOrEmpty()) {
                     val textNodes = try {
                         root.findAccessibilityNodeInfosByText(text)
@@ -748,6 +760,7 @@ object KeyguardUnLock {
                     }
 
                     if (textNodes.isNotEmpty()) {
+                        hadTextCandidates = true
                         val foundByText = textNodes.firstOrNull {
                             try {
                                 it.isVisibleToUser && (it.text?.toString() == text)
@@ -755,26 +768,34 @@ object KeyguardUnLock {
                                 false
                             }
                         }
-                        if (foundByText != null) return foundByText
-                        // ❗ 已有 textNodes，但未匹配到，停止向下继续查
-                        SystemClock.sleep(baseDelayMillis + attempt * baseDelayMillis)
-                        return@repeat
+                        if (foundByText != null) {
+                            // 找到精确匹配的 text 节点，返回（结束函数）
+                            return foundByText
+                        } else {
+                            // textNodes 非空但没有匹配 -> **根据你的规则，不再做 contentDescription 查找**
+                            // 直接等待并进行下一次重试
+                            SystemClock.sleep(baseDelayMillis + attempt * baseDelayMillis)
+                            return@repeat
+                        }
                     }
                 }
 
-                // === Step 3: 根据 contentDescription 查找 ===
+                // === Step 3: 根据 contentDescription 查找（仅当 textNodes 为空时才做） ===
                 if (!contentDescription.isNullOrEmpty()) {
-                    val descNode = findNodeByContentDescription(root, contentDescription)
-                    if (descNode != null) return descNode
-                    // 无论找到与否，都到此为止
-                    SystemClock.sleep(baseDelayMillis + attempt * baseDelayMillis)
-                    return@repeat
+                    // 只有在 textNodes 为空时才查找 contentDescription
+                    if (!hadTextCandidates) {
+                        val descNode = findNodeByContentDescription(root, contentDescription)
+                        if (descNode != null) return descNode
+                    } else {
+                        // hadTextCandidates == true 并且没有 text 精确匹配 -> 已在上面返回@repeat（因此这里通常不会到达）
+                    }
                 }
 
             } catch (_: Throwable) {
                 // 忽略单次异常
             }
 
+            // 重试等待（渐进退避）
             SystemClock.sleep(baseDelayMillis + attempt * baseDelayMillis)
         }
 
@@ -782,7 +803,7 @@ object KeyguardUnLock {
     }
 
     /**
-     * 按 contentDescription 递归查找节点。
+     * 辅助：按 contentDescription 逐节点查找（广度优先，带访问上限）
      */
     private fun findNodeByContentDescription(root: AccessibilityNodeInfo, targetDesc: String): AccessibilityNodeInfo? {
         val stack = ArrayDeque<AccessibilityNodeInfo>()
@@ -797,17 +818,17 @@ object KeyguardUnLock {
                 if (!desc.isNullOrEmpty() && desc == targetDesc && node.isVisibleToUser) {
                     return node
                 }
-                val count = node.childCount
+                val count = try { node.childCount } catch (_: Throwable) { 0 }
                 for (i in 0 until count) {
-                    node.getChild(i)?.let { stack.add(it) }
+                    val child = try { node.getChild(i) } catch (_: Throwable) { null }
+                    child?.let { stack.add(it) }
                 }
             } catch (_: Throwable) {
-                continue
+                // 忽略单节点异常，继续遍历
             }
         }
         return null
     }
-
 
 
     /**

@@ -424,7 +424,7 @@ abstract class NotificationListenerServiceAbstract : NotificationListenerService
             MessageStyleInfo(
                 timestamp = it.timestamp,  // 时间戳，假设它不会为 null，但可能为 0
                 title = conversationTitle,
-                sender = it.person?.toString() ?: "Unknown",  // 发送者，可能为 null，使用默认值 "Unknown"
+                sender = it.person?.name?.toString() ?: "Unknown",  // 发送者，可能为 null，使用默认值 "Unknown"
                 text = it.text?.toString()?.takeIf { it.isNotBlank() }
                     ?: appContext.getString(R.string.notificationcontentnull) // 消息内容，可能为 null 或空白，使用默认值
             )
