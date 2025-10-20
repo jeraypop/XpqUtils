@@ -12,6 +12,8 @@ import android.content.Context
 import android.graphics.Path
 import android.graphics.Rect
 import android.os.Build
+import android.os.Handler
+import android.os.Looper
 import android.os.PowerManager
 import android.os.SystemClock
 import android.text.TextUtils
@@ -20,8 +22,14 @@ import android.view.WindowManager
 import android.view.accessibility.AccessibilityNodeInfo
 import androidx.annotation.IntRange
 import com.google.android.accessibility.ext.utils.LibCtxProvider.Companion.appContext
+import com.google.android.accessibility.ext.window.ClickIndicatorManager
 import com.google.android.accessibility.ext.window.LogWrapper
 import com.google.android.accessibility.selecttospeak.accessibilityService
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.cancel
+import kotlinx.coroutines.launch
 import java.util.Locale
 
 /**
@@ -77,114 +85,7 @@ object KeyguardUnLock {
             else -> DeviceLockState.Unlocked(isDeviceSecure = deviceSecure) // 保守兜底
         }
     }
-    /**
-     * 设置 Activity 在锁屏时显示，并点亮屏幕。
-     * @param activity 需要操作的 Activity 实例。
-     * 从Android 12开始，setShowWhenLocked(true) 的行为受到了限制
-     * 如果你的应用需要在后台启动一个在锁屏上显示的 Activity（例如来电界面、闹钟），
-     * 你必须在 AndroidManifest.xml 中声明 USE_FULL_SCREEN_INTENT 权限，
-     * 并使用与全屏 Intent 相关的通知
-     * <uses-permission android:name="android.permission.USE_FULL_SCREEN_INTENT" />
-     */
-    @JvmStatic
-    fun showWhenLockedAndTurnScreenOn(activity: Activity) {
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O_MR1) {
-            //第一步:点亮屏幕 显示内容
-            activity.setShowWhenLocked(true)
-            activity.setTurnScreenOn(true)
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
-                //activity.setDismissKeyguard(true)
-            }
-            sendLog("设备系统大于8.1  点亮屏幕")
-            //第二步:解锁
-            requestDeviceUnlock(activity)
 
-        } else {
-
-            @Suppress("DEPRECATION")
-            activity.window.addFlags(
-                WindowManager.LayoutParams.FLAG_SHOW_WHEN_LOCKED or
-                        WindowManager.LayoutParams.FLAG_TURN_SCREEN_ON or
-                        WindowManager.LayoutParams.FLAG_DISMISS_KEYGUARD
-            )
-            sendLog("设备系统小于8.1  点亮屏幕")
-        }
-    }
-
-    /**
-     * 8.0下还需要清单文件中申请权限
-     * 系统只会解除非安全锁屏（例如滑动解锁）。
-     * 如果设备有密码、PIN 或生物识别锁，用户仍需手动解锁
-     * */
-    @SuppressLint("MissingPermission")
-    @JvmStatic
-    fun requestDeviceUnlock(activity: Activity) {
-
-        val keyguardManager = activity.getSystemService(Context.KEYGUARD_SERVICE) as? KeyguardManager
-        keyguardManager?: return
-
-
-        // 检查设备是否设置了安全锁屏
-        if (keyguardManager.isDeviceSecure) {
-            /**
-             * 从 Android O (API 26) 开始，应使用 KeyguardManager.requestDismissKeyguard()。
-             * 它会向用户展示解锁界面（PIN、图案或指纹），并通过 KeyguardDismissCallback 返回结果。
-             * 系统只会解除非安全锁屏（例如滑动解锁）。
-             *
-             * 如果设备有密码、PIN 或生物识别锁，用户仍需手动解锁。
-             * */
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-                //不需要关注 回调的话 传null
-                keyguardManager.requestDismissKeyguard(activity, object : KeyguardManager.KeyguardDismissCallback() {
-                    override fun onDismissSucceeded() {
-                        super.onDismissSucceeded()
-                        // 解锁成功，执行需要安全验证的操作
-                        sendLog("解锁成功")
-                        AliveUtils.toast(msg = "解锁成功")
-                        // 例如：跳转到应用的敏感部分
-                    }
-
-                    override fun onDismissCancelled() {
-                        super.onDismissCancelled()
-                        // 用户取消了解锁（例如按了返回键）
-                        sendLog("解锁被取消")
-                        AliveUtils.toast(msg = "解锁被取消")
-                    }
-
-                    override fun onDismissError() {
-                        super.onDismissError()
-                        // 发生错误，无法显示解锁界面
-                        // 常见原因：Activity 不可见或没有设置 setShowWhenLocked(true)
-                        AliveUtils.toast(msg = "解锁出错")
-                        sendLog("解锁出错")
-                    }
-                })
-            }else{
-                // 旧的回调接口
-                @Suppress("DEPRECATION")
-                keyguardManager.exitKeyguardSecurely(object : OnKeyguardExitResult {
-                    override fun onKeyguardExitResult(success: Boolean) {
-                        if (success) {
-                            // 解锁成功
-                            sendLog("解锁成功")
-                            AliveUtils.toast(msg = "解锁成功")
-                        } else {
-                            // 解锁失败
-                            sendLog("解锁出错")
-                            AliveUtils.toast(msg = "解锁出错")
-                        }
-                    }
-                });
-
-
-
-            }
-        } else {
-            // 没有安全锁，直接执行操作
-            sendLog("设备未设置安全锁,不需要解锁")
-            //AliveUtils.toast(msg = "设备未设置安全锁")
-        }
-    }
 
     @JvmStatic
     fun getLockID(): String {
@@ -222,6 +123,7 @@ object KeyguardUnLock {
             return getLockID()
         }
 
+        //return ""
         return findLockView(nodeInfo) ?: getLockID()
     }
 
@@ -235,15 +137,15 @@ object KeyguardUnLock {
         if (
             (
                     className_lower.contains("text")
-                    ||className_lower.contains("button")
-                    ||className_lower.contains("chip")
-            )&&
+                            ||className_lower.contains("button")
+                            ||className_lower.contains("chip")
+                    )&&
             viewIdName_lower.contains("id")&&
             (
                     viewIdName_lower.contains("digittext")
-                    ||viewIdName_lower.contains("digit_text")
-            )
-            ) {
+                            ||viewIdName_lower.contains("digit_text")
+                    )
+        ) {
             sendLog("本次查询解锁界面节点id= "+viewIdName)
             return viewIdName
         }
@@ -270,7 +172,7 @@ object KeyguardUnLock {
             //屏幕黑屏需要唤醒
             isScreenOn = false
         }else{
-          //屏幕是亮着的 不需要唤醒
+            //屏幕是亮着的 不需要唤醒
             isScreenOn = true
         }
         return isScreenOn
@@ -359,8 +261,8 @@ object KeyguardUnLock {
         Log.e("解锁", "screenHeight" + screenHeight)
         Log.e("解锁", "screenWidth" + screenWidth)
         val y = screenHeight / 12 * 9f
-        Log.e("解锁", "第一步,上划屏幕呼出输入解锁密码界面")
-        sendLog("第一步,上划屏幕呼出输入解锁密码界面")
+        Log.e("解锁", "第1.1步,上划屏幕呼出输入解锁密码界面")
+        sendLog("第1.1步,上划屏幕呼出输入解锁密码界面")
         //===============
         //1.向上滑动进入密码解锁界面
         val path = Path()
@@ -372,13 +274,13 @@ object KeyguardUnLock {
             if (TextUtils.equals("0",password)|| (password.length>0 && password.length<4)){
                 //return
             }
-            Log.e("解锁", "第三步:获得解锁界面节点id= "+digitId)
-            sendLog("第三步:获得解锁界面节点id= "+digitId)
+            Log.e("解锁", "第2步:获得解锁界面节点id= "+digitId)
+            sendLog("第2步:获得解锁界面节点id= "+digitId)
             //====================
 
             //3.模拟锁屏密码输入完成解锁
-            Log.e("解锁", "第四步,准备遍历并输入保存的密码= "+password)
-            sendLog("第四步,准备遍历并输入保存的密码= "+password)
+            Log.e("解锁", "第3步,准备遍历并输入保存的密码= "+password)
+            sendLog("第3步,准备遍历并输入保存的密码= "+password)
             var num=1
             fun inputMiMa(s: Char) =
                 findAndPerformClickNodeInfo(
@@ -395,26 +297,26 @@ object KeyguardUnLock {
                 if (!inputSuccess) {
                     falseCount++
                     val i = num++
-                    Log.e("解锁", "第五.一步,输入密码"+s+"失败"+"第"+ i+"次输入")
-                    sendLog("第五.一步,输入密码"+s+"失败"+"第"+ i +"次输入")
+                    Log.e("解锁", "输入密码 "+s+" 失败,"+" 第 "+ i+" 位密码")
+                    sendLog("自动输入第 "+i+" 位密码, "+ s +" 失败")
                 } else {
                     trueCount++
                     val i = num++
-                    Log.e("解锁", "第五.一步,输入密码"+s+"成功"+"第"+ i+"次输入")
-                    sendLog("第五.一步,输入密码"+s+"成功"+"第"+ i +"次输入")
+                    Log.e("解锁", "输入密码 "+s+" 成功,"+" 第 "+ i+" 位密码")
+                    sendLog("自动输入第 "+i+" 位密码, "+ s +" 成功")
                 }
             }
-            Log.e("解锁", "第五.二步,输入密码: 成功次数=$trueCount, 失败次数=$falseCount")
-            sendLog("第五.二步,输入密码: 成功次数=$trueCount, 失败次数=$falseCount")
+            Log.e("解锁", "第3.2步,输入密码: 成功次数=$trueCount, 失败次数=$falseCount")
+            sendLog("第3.2步,输入密码: 成功次数=$trueCount, 失败次数=$falseCount")
 
             if (falseCount == 0){
                 isSuc = true
-                sendLog("第六步,所有密码输入成功")
-                Log.e("解锁", "第六步,所有密码输入成功")
+                sendLog("第3.3步,所有密码输入成功")
+
             }else{
                 isSuc = false
-                sendLog("第六步,所有密码输入失败")
-                Log.e("解锁", "第六步,所有密码输入失败")
+                sendLog("第3.3步,所有密码输入失败")
+
             }
 
             return
@@ -428,8 +330,7 @@ object KeyguardUnLock {
             500, 500,
             object : Callback {
                 override fun onSuccess() {
-                    sendLog("第二步,手势上划成功,然后开始输入密码解锁")
-                    Log.e("解锁", "第二步,手势上划成功,然后开始输入密码解锁")
+                    sendLog("第1.2步,手势上划成功,然后开始输入密码解锁")
                     //睡眠一下 等待 解锁界面加载出来
                     SystemClock.sleep(1000)
                     jiesuoRun(getLockViewID(access_Service.rootInActiveWindow))
@@ -438,8 +339,7 @@ object KeyguardUnLock {
 
                 //==============================================================
                 override fun onError() {
-                    sendLog("第二步,手势上划失败")
-                    Log.e("解锁", "第二步,手势上划失败")
+                    sendLog("第1.2步,手势上划失败")
                 }
             })
         return isSuc
@@ -472,7 +372,7 @@ object KeyguardUnLock {
             //====================
             //3.模拟锁屏密码输入完成解锁
             Log.e("解锁", "第2步,准备遍历并输入保存的密码= "+password)
-            sendLog("第2步,准备遍历并输入保存的密码= "+password)
+            sendLog("第2.1步,准备遍历并输入保存的密码= "+password)
             var num=1
             fun inputMiMa(s: Char) =
                 findAndPerformClickNodeInfo(
@@ -488,26 +388,21 @@ object KeyguardUnLock {
                 if (!inputSuccess) {
                     falseCount++
                     val i = num++
-                    Log.e("解锁", "第3.1步,输入密码"+s+"失败"+"第"+ i+"次输入")
-                    sendLog("第3.1步,输入密码"+s+"失败"+"第"+ i +"次输入")
+                    sendLog("自动输入第 "+i+" 位密码, "+ s +" 失败")
                 } else {
                     trueCount++
                     val i = num++
-                    Log.e("解锁", "第3.1步,输入密码"+s+"成功"+"第"+ i+"次输入")
-                    sendLog("第3.1步,输入密码"+s+"成功"+"第"+ i +"次输入")
+                    sendLog("自动输入第 "+i+" 位密码, "+ s +" 成功")
                 }
             }
-            Log.e("解锁", "第3.2步,输入密码: 成功次数=$trueCount, 失败次数=$falseCount")
-            sendLog("第3.2步,输入密码: 成功次数=$trueCount, 失败次数=$falseCount")
+            sendLog("第2.2步,输入密码: 成功次数=$trueCount, 失败次数=$falseCount")
 
             if (falseCount == 0){
                 isSuc = true
-                sendLog("第4步,所有密码输入成功")
-                Log.e("解锁", "第4步,解锁成功")
+                sendLog("第2.3步,所有密码输入成功")
             }else{
                 isSuc = false
-                sendLog("第4步,所有密码输入失败")
-                Log.e("解锁", "第4步,解锁失败")
+                sendLog("第2.3步,所有密码输入失败")
             }
 
         }
@@ -591,55 +486,107 @@ object KeyguardUnLock {
      *
      * @return true表示点击成功
      */
+    private val clickScope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
+    @JvmStatic
+    fun release() {
+        clickScope?.cancel()
+    }
 
+
+    @JvmStatic
+    fun showClickIndicator(service: AccessibilityService, x: Int, y: Int) {
+        // 在主线程显示指示器
+        Handler(Looper.getMainLooper()).post {
+            ClickIndicatorManager.show(service, x, y)
+        }
+    }
+    @JvmOverloads
     @JvmStatic
     fun performClickNodeInfo(
         service: AccessibilityService,
-        nodeInfo: AccessibilityNodeInfo?
+        nodeInfo: AccessibilityNodeInfo? ,
+        isMoNi: Boolean = true
     ): Boolean {
         if (nodeInfo == null) return false
+        if (isMoNi){
+            // 模拟真实点击（不依赖 isClickable）
+            //只要点击坐标有效，就一定会触发系统的点击事件
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {
+                // 模拟真实点击（不依赖 isClickable）
+                val rect = Rect()
+                nodeInfo.getBoundsInScreen(rect)
+                if (rect.centerX() > 0 && rect.centerY() > 0) {
+                    sendLog("模拟点击解锁按钮 (${rect.centerX()}, ${rect.centerY()})")
+                    // 在主线程显示指示器
+                    showClickIndicator(service, rect.centerX(), rect.centerY())
+                    // 在后台真正点击（避免阻塞主线程）
+                    clickScope.launch {
+                        try {
+                            moniClick(rect.centerX(), rect.centerY(), service)
+                        } catch (t: Throwable) {
+                            t.printStackTrace()
+                        }
+                    }
+                    return true
+                }
+            } else {
+                // 旧系统使用 ACTION_CLICK，需要检查 isClickable
+                if (nodeInfo.isClickable) {
+                    nodeInfo.performAction(AccessibilityNodeInfo.ACTION_CLICK)
+                    return true
+                }
+            }
+        }else{
+            // 非模拟点击
+            try {
+                // 1️⃣ 当前节点可点击
 
-        try {
-            // 1️⃣ 当前节点可点击
-            if (nodeInfo.isClickable) {
-                return if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {
-                    // 模拟真实点击（绕过部分系统限制）
+                if (nodeInfo.isClickable) {
                     val rect = Rect()
                     nodeInfo.getBoundsInScreen(rect)
-                    if (rect.centerX() > 0 && rect.centerY() > 0) {
-                        moniClick(rect.centerX(), rect.centerY(), service)
-                        true
+                    return  if (rect.centerX() > 0 && rect.centerY() > 0) {
+                        sendLog("点击解锁按钮 (${rect.centerX()}, ${rect.centerY()})")
+                        // 在主线程显示指示器
+                        showClickIndicator(service, rect.centerX(), rect.centerY())
+                        // 在后台真正点击（避免阻塞主线程）
+                        clickScope.launch {
+                            try {
+                                nodeInfo.performAction(AccessibilityNodeInfo.ACTION_CLICK)
+                            } catch (t: Throwable) {
+                                false
+                            }
+                        }
+                      true
                     } else {
                         false
                     }
-                } else {
-                    nodeInfo.performAction(AccessibilityNodeInfo.ACTION_CLICK)
                 }
-            }
 
-            // 2️⃣ 当前节点不可点击，则尝试父节点
-            val parent = nodeInfo.parent
-            if (parent != null) {
-                val clicked = performClickNodeInfo(service, parent)
+                // 2️⃣ 当前节点不可点击，则尝试父节点
+                val parent = nodeInfo.parent
+                if (parent != null) {
+                    val clicked = performClickNodeInfo(service, parent)
 
-                // ⚠️ 避免 Android 14+ 因 "recycled object" 崩溃
-                if (Build.VERSION.SDK_INT < 34) {
-                    try {
-                        parent.recycle()
-                    } catch (_: Throwable) {
+                    // ⚠️ 避免 Android 14+ 因 "recycled object" 崩溃
+                    if (Build.VERSION.SDK_INT < 34) {
+                        try {
+                            parent.recycle()
+                        } catch (_: Throwable) {
+                        }
                     }
+
+                    return clicked
                 }
 
-                return clicked
-            }
+            } catch (t: Throwable) {
+                // 避免部分设备 AccessibilityNodeInfo 异常崩溃
 
-        } catch (t: Throwable) {
-            // 避免部分设备 AccessibilityNodeInfo 异常崩溃
-            t.printStackTrace()
+            }
         }
 
         return false
     }
+
 
 
     /**
@@ -650,41 +597,41 @@ object KeyguardUnLock {
      * @param contentDescription 控件描述 eg: 表情
      * @return null表示未找到
      */
-/*    @JvmStatic
-    fun findNodeInfo(
-        service: AccessibilityService,
-        id: String,
-        text: String,
-        contentDescription: String
-    ): AccessibilityNodeInfo? {
-        if (TextUtils.isEmpty(id) && TextUtils.isEmpty(text)) {
-            return null
-        }
-        SystemClock.sleep(500)
-        val nodeInfo = service.rootInActiveWindow
-        if (nodeInfo != null) {
-            val list = nodeInfo
-                .findAccessibilityNodeInfosByViewId(id)
-            for (n in list) {
-                val nodeInfoText =
-                    if (TextUtils.isEmpty(n.text)) "" else n.text
-                        .toString()
-                val nodeContentDescription =
-                    if (TextUtils.isEmpty(n.contentDescription)) "" else n.contentDescription
-                        .toString()
-                if (TextUtils.isEmpty(text)) {
-                    if (contentDescription == nodeContentDescription) {
-                        return n
-                    }
-                } else {
-                    if (text == nodeInfoText) {
-                        return n
+    /*    @JvmStatic
+        fun findNodeInfo(
+            service: AccessibilityService,
+            id: String,
+            text: String,
+            contentDescription: String
+        ): AccessibilityNodeInfo? {
+            if (TextUtils.isEmpty(id) && TextUtils.isEmpty(text)) {
+                return null
+            }
+            SystemClock.sleep(500)
+            val nodeInfo = service.rootInActiveWindow
+            if (nodeInfo != null) {
+                val list = nodeInfo
+                    .findAccessibilityNodeInfosByViewId(id)
+                for (n in list) {
+                    val nodeInfoText =
+                        if (TextUtils.isEmpty(n.text)) "" else n.text
+                            .toString()
+                    val nodeContentDescription =
+                        if (TextUtils.isEmpty(n.contentDescription)) "" else n.contentDescription
+                            .toString()
+                    if (TextUtils.isEmpty(text)) {
+                        if (contentDescription == nodeContentDescription) {
+                            return n
+                        }
+                    } else {
+                        if (text == nodeInfoText) {
+                            return n
+                        }
                     }
                 }
             }
-        }
-        return null
-    }*/
+            return null
+        }*/
 
     /**
      * 查找节点（优先级：id -> text -> contentDescription）
@@ -708,7 +655,7 @@ object KeyguardUnLock {
         if (id.isNullOrEmpty() && text.isNullOrEmpty() && contentDescription.isNullOrEmpty()) {
             return null
         }
-
+        SystemClock.sleep(500)
         repeat(maxAttempts) { attempt ->
             try {
                 val root = service.rootInActiveWindow
@@ -736,18 +683,25 @@ object KeyguardUnLock {
                                 val nodeDesc = node.contentDescription?.toString() ?: ""
 
                                 val matchByText = !text.isNullOrEmpty() && text == nodeText
-                                val matchByDesc = !contentDescription.isNullOrEmpty() && contentDescription == nodeDesc
+                                val matchByDesc =
+                                    !contentDescription.isNullOrEmpty() && contentDescription == nodeDesc
 
                                 if (matchByText || matchByDesc) {
                                     // 找到满足要求的节点，直接返回（结束函数）
+                                    sendLog("通过 $id 找到解锁按钮")
                                     return node
                                 }
                             } catch (_: Throwable) {
                                 // 单个节点异常，继续检查下一个
+                                sendLog("单个节点异常，继续检查下一个")
                             }
                         }
                         // idNodes 非空但没有找到匹配 -> 按你的要求，继续进行 text 查找（不要跳过）
+                    }else{
+                        sendLog("通过 $id 找不到解锁按钮")
                     }
+                }else{
+                    sendLog("id 为空, 准备通过文字来查找解锁按钮")
                 }
 
                 // === Step 2: 根据 text 查找 ===
@@ -763,13 +717,16 @@ object KeyguardUnLock {
                         hadTextCandidates = true
                         val foundByText = textNodes.firstOrNull {
                             try {
-                                it.isVisibleToUser && (it.text?.toString() == text)
+                                val viewIdName = it.viewIdResourceName ?: ""
+                                val viewIdName_lower = viewIdName.lowercase()
+                                it.isVisibleToUser && (it.text?.toString() == text) && ( viewIdName_lower.contains("digit"))
                             } catch (_: Throwable) {
                                 false
                             }
                         }
                         if (foundByText != null) {
                             // 找到精确匹配的 text 节点，返回（结束函数）
+                            sendLog("通过 文字 $text 找到解锁按钮")
                             return foundByText
                         } else {
                             // textNodes 非空但没有匹配 -> **根据你的规则，不再做 contentDescription 查找**
@@ -777,7 +734,11 @@ object KeyguardUnLock {
                             SystemClock.sleep(baseDelayMillis + attempt * baseDelayMillis)
                             return@repeat
                         }
+                    }else{
+                        sendLog("通过 文字 $text 找不到解锁按钮")
                     }
+                } else{
+                    sendLog("文字 为空, 准备通过描述来查找解锁按钮")
                 }
 
                 // === Step 3: 根据 contentDescription 查找（仅当 textNodes 为空时才做） ===
@@ -785,10 +746,15 @@ object KeyguardUnLock {
                     // 只有在 textNodes 为空时才查找 contentDescription
                     if (!hadTextCandidates) {
                         val descNode = findNodeByContentDescription(root, contentDescription)
-                        if (descNode != null) return descNode
+                        if (descNode != null){
+                            sendLog("通过 描述 $contentDescription 找到解锁按钮")
+                            return descNode
+                        }
                     } else {
                         // hadTextCandidates == true 并且没有 text 精确匹配 -> 已在上面返回@repeat（因此这里通常不会到达）
                     }
+                }else{
+                    sendLog("描述 为空, 找不到解锁按钮")
                 }
 
             } catch (_: Throwable) {
@@ -814,8 +780,11 @@ object KeyguardUnLock {
         while (stack.isNotEmpty() && visited++ < maxVisit) {
             val node = stack.removeFirst()
             try {
+                val viewIdName = node.viewIdResourceName ?: ""
+                val viewIdName_lower = viewIdName.lowercase()
+
                 val desc = node.contentDescription?.toString()
-                if (!desc.isNullOrEmpty() && desc == targetDesc && node.isVisibleToUser) {
+                if (!desc.isNullOrEmpty() && desc == targetDesc && node.isVisibleToUser && ( viewIdName_lower.contains("digit"))) {
                     return node
                 }
                 val count = try { node.childCount } catch (_: Throwable) { 0 }

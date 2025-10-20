@@ -15,6 +15,7 @@ import androidx.lifecycle.MutableLiveData
 import com.android.accessibility.ext.R
 import com.google.android.accessibility.ext.AssistsServiceListener
 import com.google.android.accessibility.ext.utils.AliveUtils
+import com.google.android.accessibility.ext.utils.KeyguardUnLock
 import com.google.android.accessibility.ext.utils.LibCtxProvider.Companion.appContext
 import com.google.android.accessibility.ext.utils.NotificationUtilXpq.getAllSortedMessagingStyleByTime
 import com.google.android.accessibility.ext.window.AssistsWindowManager
@@ -136,6 +137,8 @@ abstract class SelectToSpeakServiceAbstract : AccessibilityService() {
         AliveUtils.keepAliveByFloatingWindow(this,false)
         // 清理 ownershipMap 中可能未释放的副本，避免泄露
         cleanupOwnershipMap()
+        //释放 clickScope
+        KeyguardUnLock.release()
         super.onDestroy()
 
     }
