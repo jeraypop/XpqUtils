@@ -32,7 +32,7 @@ class LockScreenActivity : XpqBaseActivity<ActivityLockScreenBinding>(
             v.setPadding(systemBars.left, systemBars.top, systemBars.right, systemBars.bottom)
             insets
         }
-        KeyguardUnLock.showWhenLockedAndTurnScreenOn(this@LockScreenActivity)
+        
     }
     override fun onResume() {
         super.onResume()
