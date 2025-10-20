@@ -505,6 +505,10 @@ object KeyguardUnLock {
     fun setShowClickIndicator(isShow: Boolean) {
        MMKVUtil.put(MMKVConst.SHOW_DO_GUIJI, isShow)
     }
+    @JvmStatic
+    fun getShowClickIndicator(): Boolean {
+        return MMKVUtil.get(MMKVConst.SHOW_DO_GUIJI, false)
+    }
 
     @JvmStatic
     fun showClickIndicator(service: AccessibilityService, x: Int, y: Int) {
