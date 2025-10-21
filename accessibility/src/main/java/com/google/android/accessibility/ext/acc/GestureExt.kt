@@ -5,6 +5,7 @@ import android.accessibilityservice.GestureDescription
 import android.graphics.Path
 import android.graphics.Rect
 import android.view.accessibility.AccessibilityNodeInfo
+import com.google.android.accessibility.ext.utils.KeyguardUnLock
 
 /**
  * 利用手势模拟点击
@@ -21,6 +22,9 @@ fun AccessibilityService?.gestureClick(node: AccessibilityNodeInfo): Boolean {
     // 确保边界值非负
     val x = Math.max(0, nodeBounds.centerX()).toFloat()
     val y = Math.max(0, nodeBounds.centerY()).toFloat()
+    //点击轨迹提示
+    KeyguardUnLock.showClickIndicator(this, x.toInt(), y.toInt())
+
     return dispatchGesture(
         GestureDescription.Builder().apply {
             addStroke(
