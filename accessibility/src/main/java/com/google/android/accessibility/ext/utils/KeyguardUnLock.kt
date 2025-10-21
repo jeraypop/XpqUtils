@@ -108,7 +108,7 @@ object KeyguardUnLock {
     }
     @JvmOverloads
     @JvmStatic
-    fun getDeviceStatus(context: Context , byKeyguard: Boolean = true): DeviceStatus {
+    fun getDeviceStatusPlus(context: Context =appContext , byKeyguard: Boolean = true): DeviceStatus {
         val appCtx = context.applicationContext
 
         val pm = appCtx.getSystemService(PowerManager::class.java)
