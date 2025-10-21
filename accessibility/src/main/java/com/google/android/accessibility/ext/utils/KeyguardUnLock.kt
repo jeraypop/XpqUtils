@@ -5,9 +5,7 @@ import android.accessibilityservice.AccessibilityService.GestureResultCallback
 import android.accessibilityservice.GestureDescription
 import android.accessibilityservice.GestureDescription.StrokeDescription
 import android.annotation.SuppressLint
-import android.app.Activity
 import android.app.KeyguardManager
-import android.app.KeyguardManager.OnKeyguardExitResult
 import android.content.Context
 import android.graphics.Path
 import android.graphics.Rect
@@ -20,7 +18,6 @@ import android.os.SystemClock
 import android.text.TextUtils
 import android.util.Log
 import android.view.Display
-import android.view.WindowManager
 import android.view.accessibility.AccessibilityNodeInfo
 import androidx.annotation.IntRange
 import com.google.android.accessibility.ext.utils.LibCtxProvider.Companion.appContext
@@ -57,8 +54,8 @@ sealed class DeviceLockState {
  */
 enum class ScreenState {
     ON,        // 屏幕亮并可交互
-    AOD,       // Always-On Display（显示常亮信息）
-    DOZING,    // 正在 Doze（深度省电，通常屏幕黑或仅极少量唤醒）
+    AOD,       // Always-On Display（显示常亮信息） 屏幕“看似关”，但在显示时间通知
+    DOZING,    // 正在 Doze（深度省电，通常屏幕黑或仅极少量唤醒）  屏幕完全黑、CPU 降频
     OFF,       // 屏幕关闭（非交互、非 AOD/Doze）
     UNKNOWN    // 无法判断
 }
@@ -430,7 +427,7 @@ object KeyguardUnLock {
             access_Service!!,
             path,
             500, 500,
-            object : Callback {
+            object : MoveCallback {
                 override fun onSuccess() {
                     sendLog("第1.2步,手势上划成功,然后开始输入密码解锁")
                     //睡眠一下 等待 解锁界面加载出来
@@ -446,6 +443,7 @@ object KeyguardUnLock {
             })
         return isSuc
     }
+
     @JvmOverloads
     @JvmStatic
     fun unlockScreenNew(access_Service: AccessibilityService? = accessibilityService, password: String=""): Boolean {
@@ -466,9 +464,6 @@ object KeyguardUnLock {
         //===============
         fun jiesuoRun(digitId: String) {
             //====================
-            if (TextUtils.equals("0",password)|| (password.length>0 && password.length<4)){
-                //return
-            }
             Log.e("解锁", "第1步:获得解锁界面节点id= "+digitId)
             sendLog("第1步:获得解锁界面节点id= "+digitId)
             //====================
@@ -515,6 +510,67 @@ object KeyguardUnLock {
         return isSuc
     }
 
+    /**
+     * (0,0) ─────────────────────────► X（向右增加）
+     *   │
+     *   │
+     *   ▼
+     *   Y（向下增加）
+     *
+     *
+     * */
+    @JvmOverloads
+    @JvmStatic
+    fun unlockMove(access_Service: AccessibilityService? = accessibilityService, password: String=""): Boolean {
+        var    isSuc = false
+        if (access_Service == null) {
+            sendLog("无障碍服务未开启!")
+            return isSuc
+        }
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.N) {
+            sendLog("系统版本小于7.0")
+            return isSuc
+        }
+
+        //1.获取设备的宽和高
+        val screenSize = getScreenSize(appContext)
+        val screenWidth = screenSize.first
+        val screenHeight = screenSize.second
+
+        sendLog("设备的宽度= "+screenWidth+", 高度= "+screenHeight)
+        Log.e("解锁", "screenHeight" + screenHeight)
+        Log.e("解锁", "screenWidth" + screenWidth)
+        val y = screenHeight / 12 * 9f
+        Log.e("解锁", "第1.1步,上划屏幕呼出输入解锁密码界面")
+        sendLog("第1.1步,上划屏幕呼出输入解锁密码界面")
+        //===============
+        //1.向上滑动进入密码解锁界面
+        val path = Path()
+        path.moveTo(screenWidth / 8f, y)   //滑动起点
+        path.lineTo(screenWidth / 8f, y - 800f)//滑动终点
+
+        //===================
+        move(access_Service!!, path, 0, 500,
+            object : MoveCallback {
+                override fun onSuccess() {
+                    sendLog("第1.2步,手势上划成功,然后开始输入密码解锁")
+                    if (!TextUtils.isEmpty(password)){
+                        //睡眠一下 等待 解锁界面加载出来
+                        SystemClock.sleep(1000)
+                        //===
+                        unlockScreenNew(access_Service, password)
+                    }
+
+                }
+
+                //==============================================================
+                override fun onError() {
+                    sendLog("第1.2步,手势上划失败")
+                }
+            })
+        return isSuc
+    }
+
     @JvmStatic
     fun getScreenSize(context: Context): Pair<Int, Int> {
         val displayMetrics = context.resources.displayMetrics
@@ -539,10 +595,10 @@ object KeyguardUnLock {
         path: Path,
         @IntRange(from = 0) startTime: Long,
         @IntRange(from = 0) duration: Long,
-        callback: Callback?
+        moveCallback: MoveCallback?
     ) {
         if (Build.VERSION.SDK_INT < Build.VERSION_CODES.N) return
-        if (callback == null) {
+        if (moveCallback == null) {
             service.dispatchGesture(
                 GestureDescription.Builder()
                     .addStroke(StrokeDescription(path, startTime, duration)).build(),
@@ -556,18 +612,19 @@ object KeyguardUnLock {
                 object : GestureResultCallback() {
                     override fun onCompleted(gestureDescription: GestureDescription) {
                         super.onCompleted(gestureDescription)
-                        callback.onSuccess()
+                        moveCallback.onSuccess()
                     }
 
                     override fun onCancelled(gestureDescription: GestureDescription) {
                         super.onCancelled(gestureDescription)
-                        callback.onError()
+                        moveCallback.onError()
                     }
                 },
                 null
             )
         }
     }
+
 
     /**
      * 查找并点击节点
@@ -1009,7 +1066,7 @@ object KeyguardUnLock {
 
 }
 //---------------- 结果回调 ----------------
-interface Callback {
+interface MoveCallback {
     fun onSuccess()
     fun onError()
 }
