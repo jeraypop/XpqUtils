@@ -521,7 +521,7 @@ object KeyguardUnLock {
      * */
     @JvmOverloads
     @JvmStatic
-    fun unlockMove(access_Service: AccessibilityService? = accessibilityService, password: String=""): Boolean {
+    fun unlockMove(access_Service: AccessibilityService? = accessibilityService, start: Long=500L, duration: Long=500L, password: String=""): Boolean {
         var    isSuc = false
         if (access_Service == null) {
             sendLog("无障碍服务未开启!")
@@ -550,7 +550,7 @@ object KeyguardUnLock {
         path.lineTo(screenWidth / 8f, y - 800f)//滑动终点
 
         //===================
-        move(access_Service!!, path, 0, 500,
+        move(access_Service!!, path, start, duration,
             object : MoveCallback {
                 override fun onSuccess() {
                     sendLog("第1.2步,手势上划成功,然后开始输入密码解锁")
