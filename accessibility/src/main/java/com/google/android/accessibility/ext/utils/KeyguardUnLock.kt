@@ -118,7 +118,8 @@ object KeyguardUnLock {
         var rawScreenState = ScreenState.UNKNOWN
         if (isInteractive) {
             rawScreenState = ScreenState.ON
-        } else {
+        }
+        else {
             // 非交互状态，尝试通过 DisplayManager / PowerManager 辨别 AOD / DOZING / OFF
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
                 // 优先使用 Display.state 判断 AOD / DOZE 状态（更直接）
@@ -155,7 +156,7 @@ object KeyguardUnLock {
             )
         }
 
-        val deviceSecure = km.isDeviceSecure
+        val deviceSecure = km.isDeviceSecure  // 设备是否配置了 PIN/Pattern/密码/生物 等
 
         val deviceLocked = try {
             if (byKeyguard) km.isKeyguardLocked else km.isDeviceLocked
@@ -172,9 +173,16 @@ object KeyguardUnLock {
         }
 
         val lockState = when {
+            // 设备没有被锁（可直接使用），无论是否配置安全锁
             !deviceLocked -> DeviceLockState.Unlocked(isDeviceSecure = deviceSecure)
-            !deviceSecure -> DeviceLockState.LockedNotSecure
-            else -> DeviceLockState.LockedSecure
+
+            // 设备被锁并且没有配置安全锁（例如只有滑动解锁） -> 可以自动解除（系统可以直接 dismiss）
+            deviceLocked && !deviceSecure -> DeviceLockState.LockedNotSecure
+
+            // 设备被锁且配置了安全锁 -> 需要用户验证
+            deviceLocked && deviceSecure -> DeviceLockState.LockedSecure
+
+            else -> DeviceLockState.Unlocked(isDeviceSecure = deviceSecure) // 保守兜底
         }
 
         return DeviceStatus(lockState = lockState, screenState = effectiveScreenState)
