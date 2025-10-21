@@ -541,8 +541,8 @@ object KeyguardUnLock {
         Log.e("解锁", "screenHeight" + screenHeight)
         Log.e("解锁", "screenWidth" + screenWidth)
         val y = screenHeight / 12 * 9f
-        Log.e("解锁", "第1.1步,上划屏幕呼出输入解锁密码界面")
-        sendLog("第1.1步,上划屏幕呼出输入解锁密码界面")
+        Log.e("解锁", "上划屏幕呼出输入解锁密码界面")
+        sendLog("上划屏幕呼出输入解锁密码界面")
         //===============
         //1.向上滑动进入密码解锁界面
         val path = Path()
@@ -553,10 +553,10 @@ object KeyguardUnLock {
         move(access_Service!!, path, start, duration,
             object : MoveCallback {
                 override fun onSuccess() {
-                    sendLog("第1.2步,手势上划成功,然后开始输入密码解锁")
+                    sendLog("手势上划成功,然后开始输入密码解锁")
                     if (!TextUtils.isEmpty(password)){
                         //睡眠一下 等待 解锁界面加载出来
-                        SystemClock.sleep(1000)
+                        SystemClock.sleep(500)
                         //===
                         unlockScreenNew(access_Service, password)
                     }
@@ -565,7 +565,7 @@ object KeyguardUnLock {
 
                 //==============================================================
                 override fun onError() {
-                    sendLog("第1.2步,手势上划失败")
+                    sendLog("手势上划失败")
                 }
             })
         return isSuc
