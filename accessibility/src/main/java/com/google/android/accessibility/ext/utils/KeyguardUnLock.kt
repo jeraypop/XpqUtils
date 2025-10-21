@@ -11,6 +11,7 @@ import android.app.KeyguardManager.OnKeyguardExitResult
 import android.content.Context
 import android.graphics.Path
 import android.graphics.Rect
+import android.hardware.display.DisplayManager
 import android.os.Build
 import android.os.Handler
 import android.os.Looper
@@ -18,6 +19,7 @@ import android.os.PowerManager
 import android.os.SystemClock
 import android.text.TextUtils
 import android.util.Log
+import android.view.Display
 import android.view.WindowManager
 import android.view.accessibility.AccessibilityNodeInfo
 import androidx.annotation.IntRange
@@ -50,10 +52,29 @@ sealed class DeviceLockState {
     // 设备当前被锁，并且设置了安全锁（PIN/图案/密码/生物） —— 需要用户验证
     object LockedSecure : DeviceLockState()
 }
+/**
+ * 更丰富的屏幕状态枚举，支持 AOD / Doze 场景。
+ */
+enum class ScreenState {
+    ON,        // 屏幕亮并可交互
+    AOD,       // Always-On Display（显示常亮信息）
+    DOZING,    // 正在 Doze（深度省电，通常屏幕黑或仅极少量唤醒）
+    OFF,       // 屏幕关闭（非交互、非 AOD/Doze）
+    UNKNOWN    // 无法判断
+}
+data class DeviceStatus(
+    val lockState: DeviceLockState,
+    val screenState: ScreenState
+)
+
+
 object KeyguardUnLock {
 
     /**
+     * 返回组合的设备状态：锁定状态 + 更丰富的屏幕状态（支持 AOD / DOZING 判断）
      * 根据 KeyguardManager 的两个 API 判断当前设备状态，返回 DeviceLockState。
+     *@param context 任意 Context（使用 applicationContext 更安全）
+     *@param byKeyguard 如果 true 使用 isKeyguardLocked 判断“锁”，否则使用 isDeviceLocked 判断（更严格）
      *
      * 使用场景：
      *  - 如果返回 Unlocked(isDeviceSecure = true) 表示设备已解锁，但用户设置了安全锁（已验证）。
@@ -84,6 +105,79 @@ object KeyguardUnLock {
 
             else -> DeviceLockState.Unlocked(isDeviceSecure = deviceSecure) // 保守兜底
         }
+    }
+    @JvmOverloads
+    @JvmStatic
+    fun getDeviceStatus(context: Context , byKeyguard: Boolean = true): DeviceStatus {
+        val appCtx = context.applicationContext
+
+        val pm = appCtx.getSystemService(PowerManager::class.java)
+        val isInteractive = pm?.isInteractive ?: false
+
+        // 初步 raw display state 检测（需要 API 23+ 来支持 DOZE display states）
+        var rawScreenState = ScreenState.UNKNOWN
+        if (isInteractive) {
+            rawScreenState = ScreenState.ON
+        } else {
+            // 非交互状态，尝试通过 DisplayManager / PowerManager 辨别 AOD / DOZING / OFF
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+                // 优先使用 Display.state 判断 AOD / DOZE 状态（更直接）
+                val dm = appCtx.getSystemService(DisplayManager::class.java)
+                val display = dm?.getDisplay(Display.DEFAULT_DISPLAY)
+                val dispState = display?.state ?: Display.STATE_UNKNOWN
+
+                rawScreenState = when (dispState) {
+                    Display.STATE_DOZE -> ScreenState.AOD
+                    Display.STATE_DOZE_SUSPEND -> ScreenState.DOZING
+                    else -> {
+                        // dispState 未指示 doze：再看 PowerManager 的 device idle（Doze 模式）
+                        val isDeviceIdle = try {
+                            pm?.isDeviceIdleMode ?: false
+                        } catch (t: Throwable) {
+                            false
+                        }
+
+                        if (isDeviceIdle) ScreenState.DOZING else ScreenState.OFF
+                    }
+                }
+            } else {
+                // 低版本没有 DOZE display state，退回到简单判断
+                rawScreenState = if (isInteractive) ScreenState.ON else ScreenState.OFF
+            }
+        }
+
+        val km = appCtx.getSystemService(KeyguardManager::class.java)
+        if (km == null) {
+            // 无法获取 KeyguardManager：保守认为未配置安全锁，返回当前检测到的屏幕状态
+            return DeviceStatus(
+                lockState = DeviceLockState.Unlocked(isDeviceSecure = false),
+                screenState = rawScreenState
+            )
+        }
+
+        val deviceSecure = km.isDeviceSecure
+
+        val deviceLocked = try {
+            if (byKeyguard) km.isKeyguardLocked else km.isDeviceLocked
+        } catch (e: Throwable) {
+            // 厂商兼容问题：若调用出错，兜底认为未锁
+            false
+        }
+
+        // 实效屏幕状态策略：若设备未锁定，则视为 ON（避免短暂竞态导致的误判）
+        val effectiveScreenState = if (!deviceLocked) {
+            ScreenState.ON
+        } else {
+            rawScreenState
+        }
+
+        val lockState = when {
+            !deviceLocked -> DeviceLockState.Unlocked(isDeviceSecure = deviceSecure)
+            !deviceSecure -> DeviceLockState.LockedNotSecure
+            else -> DeviceLockState.LockedSecure
+        }
+
+        return DeviceStatus(lockState = lockState, screenState = effectiveScreenState)
     }
 
 

@@ -22,9 +22,14 @@ fun AccessibilityService?.gestureClick(node: AccessibilityNodeInfo): Boolean {
     // 确保边界值非负
     val x = Math.max(0, nodeBounds.centerX()).toFloat()
     val y = Math.max(0, nodeBounds.centerY()).toFloat()
-    //点击轨迹提示
-    KeyguardUnLock.showClickIndicator(this, x.toInt(), y.toInt())
 
+    //===
+    if (KeyguardUnLock.getShowClickIndicator()){
+        //点击轨迹提示
+        KeyguardUnLock.showClickIndicator(this, x.toInt(), y.toInt())
+    }
+    //===
+    //===
     return dispatchGesture(
         GestureDescription.Builder().apply {
             addStroke(

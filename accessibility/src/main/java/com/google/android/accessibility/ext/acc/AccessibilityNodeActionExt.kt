@@ -3,8 +3,11 @@ package com.google.android.accessibility.ext.acc
 import android.content.ClipData
 import android.content.ClipboardManager
 import android.content.Context
+import android.graphics.Rect
 import android.os.Bundle
 import android.view.accessibility.AccessibilityNodeInfo
+import com.google.android.accessibility.ext.utils.KeyguardUnLock
+import com.google.android.accessibility.selecttospeak.accessibilityService
 import kotlinx.coroutines.delay
 
 /**
@@ -12,6 +15,14 @@ import kotlinx.coroutines.delay
  */
 fun AccessibilityNodeInfo?.click(): Boolean {
     this ?: return false
+    //===
+    val nodeBounds = Rect().apply(this::getBoundsInScreen)
+    // 确保边界值非负
+    val x = Math.max(0, nodeBounds.centerX()).toFloat()
+    val y = Math.max(0, nodeBounds.centerY()).toFloat()
+    //点击轨迹提示
+    accessibilityService?.let { KeyguardUnLock.showClickIndicator(it, x.toInt(), y.toInt()) }
+    //===
     return if (isClickable) {
         performAction(AccessibilityNodeInfo.ACTION_CLICK)
     } else {
@@ -23,6 +34,17 @@ fun AccessibilityNodeInfo?.click(): Boolean {
  * 长按事件
  */
 fun AccessibilityNodeInfo.longClick(): Boolean {
+    //===
+    if (KeyguardUnLock.getShowClickIndicator()){
+        val nodeBounds = Rect().apply(this::getBoundsInScreen)
+        // 确保边界值非负
+        val x = Math.max(0, nodeBounds.centerX()).toFloat()
+        val y = Math.max(0, nodeBounds.centerY()).toFloat()
+        //点击轨迹提示
+        accessibilityService?.let { KeyguardUnLock.showClickIndicator(it, x.toInt(), y.toInt()) }
+
+    }
+    //===
     return if (isClickable) {
         performAction(AccessibilityNodeInfo.ACTION_LONG_CLICK)
     } else {
@@ -34,6 +56,17 @@ fun AccessibilityNodeInfo.longClick(): Boolean {
  * 输入内容
  */
 fun AccessibilityNodeInfo.inputText(input: String): Boolean {
+    //===
+    if (KeyguardUnLock.getShowClickIndicator()){
+        val nodeBounds = Rect().apply(this::getBoundsInScreen)
+        // 确保边界值非负
+        val x = Math.max(0, nodeBounds.centerX()).toFloat()
+        val y = Math.max(0, nodeBounds.centerY()).toFloat()
+        //点击轨迹提示
+        accessibilityService?.let { KeyguardUnLock.showClickIndicator(it, x.toInt(), y.toInt()) }
+
+    }
+    //===
     val arguments = Bundle().apply {
         putCharSequence(AccessibilityNodeInfo.ACTION_ARGUMENT_SET_TEXT_CHARSEQUENCE, input)
     }
@@ -42,7 +75,17 @@ fun AccessibilityNodeInfo.inputText(input: String): Boolean {
 
 fun AccessibilityNodeInfo.inputTextNew(input: String): Boolean {
 
+    //===
+    if (KeyguardUnLock.getShowClickIndicator()){
+        val nodeBounds = Rect().apply(this::getBoundsInScreen)
+        // 确保边界值非负
+        val x = Math.max(0, nodeBounds.centerX()).toFloat()
+        val y = Math.max(0, nodeBounds.centerY()).toFloat()
+        //点击轨迹提示
+        accessibilityService?.let { KeyguardUnLock.showClickIndicator(it, x.toInt(), y.toInt()) }
 
+    }
+    //===
 
 
 
