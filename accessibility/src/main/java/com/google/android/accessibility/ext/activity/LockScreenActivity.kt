@@ -32,7 +32,7 @@ class LockScreenActivity : XpqBaseActivity<ActivityLockScreenBinding>(
             v.setPadding(systemBars.left, systemBars.top, systemBars.right, systemBars.bottom)
             insets
         }
-        
+
     }
     override fun onResume() {
         super.onResume()
@@ -48,3 +48,4 @@ class LockScreenActivity : XpqBaseActivity<ActivityLockScreenBinding>(
 
     }
 }
+

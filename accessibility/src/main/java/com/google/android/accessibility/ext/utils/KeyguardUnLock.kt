@@ -1039,7 +1039,7 @@ object KeyguardUnLock {
         )
         //点亮屏幕
         unLock!!.acquire(1 * 1 * 66 * 1000L)
-        sendLog("临时禁用锁屏")
+        sendLog("尝试解除锁屏,可能失效")
         //        wl.acquire();
         //释放
         //        wl.release();
@@ -1052,7 +1052,7 @@ object KeyguardUnLock {
         kl?.let {
             // 锁屏
             it.reenableKeyguard()
-            sendLog("重新恢复锁屏")
+            sendLog("尝试恢复锁屏")
         }
         unLock?.let {
             // 释放wakeLock，关灯
