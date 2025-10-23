@@ -29,7 +29,11 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.suspendCancellableCoroutine
+import kotlinx.coroutines.withContext
+import kotlinx.coroutines.withTimeoutOrNull
 import java.util.Locale
+import kotlin.coroutines.resume
 
 /**
  * Company    :
@@ -625,6 +629,95 @@ object KeyguardUnLock {
         }
     }
 
+    @JvmOverloads
+    @JvmStatic
+    suspend fun moveAwait(
+        service: AccessibilityService? =accessibilityService,
+        path: Path = Path().apply {
+            //1.获取设备的宽和高
+            val screenSize = getScreenSize(appContext)
+            val screenWidth = screenSize.first
+            val screenHeight = screenSize.second
+            KeyguardUnLock.sendLog("设备的宽度= " + screenWidth + ", 高度= " + screenHeight)
+            val y = screenHeight / 12 * 9f
+            KeyguardUnLock.sendLog("上划屏幕呼出输入解锁密码界面")
+            moveTo(screenWidth / 8f, y)   //滑动起点
+            lineTo(screenWidth / 8f, y - 800f)//滑动终点
+        },
+        @IntRange(from = 0) startTime: Long =500,
+        @IntRange(from = 0) duration: Long =500,
+        moveCallback: MoveCallback? = null,
+        timeoutMs: Long = 2000L
+    ): Boolean = withContext(Dispatchers.Main) {
+        if (startTime < 0 || duration < 0) {
+            moveCallback?.onError()
+            return@withContext false
+        }
+
+        if (service == null) {
+            KeyguardUnLock.sendLog("无障碍服务未开启!")
+            return@withContext false
+        }
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.N) {
+            KeyguardUnLock.sendLog("系统版本小于7.0")
+            return@withContext false
+        }
+
+        val gesture = GestureDescription.Builder()
+            .addStroke(GestureDescription.StrokeDescription(path, startTime, duration))
+            .build()
+
+        // 无回调：保持原行为 -> 立即返回
+        if (moveCallback == null) {
+            return@withContext try {
+                service.dispatchGesture(gesture, null, null)
+                true
+            } catch (_: Throwable) {
+                false
+            }
+        }
+
+        // 有回调：等待结果（可选超时）
+        val block: suspend () -> Boolean = suspend {
+            suspendCancellableCoroutine { cont ->
+                val callback = object : AccessibilityService.GestureResultCallback() {
+                    override fun onCompleted(gestureDescription: GestureDescription) {
+                        try {
+                            moveCallback.onSuccess()
+                        } catch (_: Throwable) {}
+                        if (cont.isActive) cont.resume(true)
+                    }
+
+                    override fun onCancelled(gestureDescription: GestureDescription) {
+                        try {
+                            moveCallback.onError()
+                        } catch (_: Throwable) {}
+                        if (cont.isActive) cont.resume(false)
+                    }
+                }
+
+                try {
+                    service.dispatchGesture(gesture, callback, null)
+                } catch (_: Throwable) {
+                    try {
+                        moveCallback.onError()
+                    } catch (_: Throwable) {}
+                    if (cont.isActive) cont.resume(false)
+                }
+
+                cont.invokeOnCancellation {
+                    // 不额外调用回调，保持原语义
+                }
+            }
+        }
+
+        if (timeoutMs > 0) {
+            withTimeoutOrNull(timeoutMs) { block() } ?: false
+        } else {
+            block()
+        }
+    }
+
 
     /**
      * 查找并点击节点
@@ -1025,11 +1118,7 @@ object KeyguardUnLock {
     @JvmOverloads
     @JvmStatic
     fun wakeUpAndUnlock(context: Context = appContext) {
-        //屏锁管理器
-        km = context.getSystemService(Context.KEYGUARD_SERVICE) as KeyguardManager
-        kl = km!!.newKeyguardLock("unLock")
-        //解锁
-        kl!!.disableKeyguard()
+
         //获取电源管理器对象
         val pm = context.getSystemService(Context.POWER_SERVICE) as PowerManager
         //获取PowerManager.WakeLock对象,后面的参数|表示同时传入两个值,最后的是LogCat里用的Tag
@@ -1039,10 +1128,14 @@ object KeyguardUnLock {
         )
         //点亮屏幕
         unLock!!.acquire(1 * 1 * 66 * 1000L)
-        sendLog("尝试解除锁屏,可能失效")
-        //        wl.acquire();
-        //释放
-        //        wl.release();
+
+        //屏锁管理器
+        km = context.getSystemService(Context.KEYGUARD_SERVICE) as KeyguardManager
+        kl = km!!.newKeyguardLock("unLock")
+        //无安全锁时  解锁
+        kl!!.disableKeyguard()
+        sendLog("无安全锁时尝试解除锁屏(可能失效)")
+
     }
 
     @Suppress("DEPRECATION")
@@ -1052,7 +1145,7 @@ object KeyguardUnLock {
         kl?.let {
             // 锁屏
             it.reenableKeyguard()
-            sendLog("尝试恢复锁屏")
+            sendLog("无安全锁时尝试恢复锁屏")
         }
         unLock?.let {
             // 释放wakeLock，关灯

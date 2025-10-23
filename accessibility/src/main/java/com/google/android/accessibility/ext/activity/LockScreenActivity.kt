@@ -33,6 +33,9 @@ class LockScreenActivity : XpqBaseActivity<ActivityLockScreenBinding>(
             insets
         }
 
+        setShowWhenLocked(true)
+        setTurnScreenOn(true)
+
     }
     override fun onResume() {
         super.onResume()
