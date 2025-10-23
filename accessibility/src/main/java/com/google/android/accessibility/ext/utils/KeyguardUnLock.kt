@@ -34,6 +34,7 @@ import kotlinx.coroutines.withContext
 import kotlinx.coroutines.withTimeoutOrNull
 import java.util.Locale
 import kotlin.coroutines.resume
+import kotlin.random.Random
 
 /**
  * Company    :
@@ -575,13 +576,35 @@ object KeyguardUnLock {
         return isSuc
     }
 
-    @JvmStatic
+/*    @JvmStatic
     fun getScreenSize(context: Context): Pair<Int, Int> {
         val displayMetrics = context.resources.displayMetrics
         val width = displayMetrics.widthPixels
         val height = displayMetrics.heightPixels
         return Pair(width, height)
+    }*/
+
+    @Suppress("DEPRECATION")
+    @JvmStatic
+    fun getScreenSize(context: Context = appContext): Pair<Int, Int> {
+        val wm = context.applicationContext.getSystemService(Context.WINDOW_SERVICE) as android.view.WindowManager
+
+        return if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.R) {
+            // Android 11+ 推荐方式
+            val metrics = wm.currentWindowMetrics
+            val bounds = metrics.bounds
+            val width = bounds.width()
+            val height = bounds.height()
+            Pair(width, height)
+        } else {
+            // 旧版兼容
+            val display = wm.defaultDisplay
+            val outMetrics = android.util.DisplayMetrics()
+            display.getRealMetrics(outMetrics) // 注意：getMetrics() 拿到的可能是去掉系统栏后的
+            Pair(outMetrics.widthPixels, outMetrics.heightPixels)
+        }
     }
+
 
 
     /**
@@ -628,22 +651,78 @@ object KeyguardUnLock {
             )
         }
     }
+    /**
+     * 生成一个更自然的上划手势路径（可选曲线 + 轻微随机化）
+     *
+     * @param context 用于获取屏幕尺寸的 Context
+     * @param useCurve 是否使用曲线路径（true：cubic 曲线；false：直线）
+     * @param curveIntensity 曲线强度比例（0..1），0 = 无曲线，0.1~0.2 为轻微弧线
+     * @param horizontalOffsetRatio 水平偏移比例，相对于屏幕宽度（用于左右微调）
+     * @param jitterRatio 随机抖动强度（0..1），用于模拟手指的不规则性
+     *
+     * 推荐参数：useCurve=true,
+     * curveIntensity=0.08..0.15, jitterRatio=0.01..0.03，这样既自然又稳定。
+     */
+    @JvmOverloads
+    @JvmStatic
+    fun createNaturalSwipePath(
+        context: Context = appContext,
+        useCurve: Boolean = true,
+        curveIntensity: Float = 0.12f,
+        horizontalOffsetRatio: Float = 0.0f,
+        jitterRatio: Float = 0.02f
+    ): Path {
+        val (screenWidth, screenHeight) = getScreenSize(context) // 你已有的工具
+        KeyguardUnLock.sendLog("设备的宽度= " + screenWidth + ", 高度= " + screenHeight)
+        val startXBase = screenWidth / 2f
+        val startYBase = screenHeight * 0.88f
+        val endXBase = screenWidth / 2f + screenWidth * horizontalOffsetRatio
+        val endYBase = screenHeight * 0.30f
+
+        // 防止极端值
+        val curveFactor = curveIntensity.coerceIn(0f, 0.5f)
+        val jitterFactor = jitterRatio.coerceIn(0f, 0.1f)
+
+        // 小随机，用来模拟手指微抖（每次可能不同）
+        val rand = Random.Default
+        fun jitter(amountRatio: Float) = (rand.nextFloat() * 2f - 1f) * amountRatio
+
+        val startX = startXBase + screenWidth * jitter(jitterFactor)
+        val startY = startYBase + screenHeight * jitter(jitterFactor * 0.5f)
+        val endX = endXBase + screenWidth * jitter(jitterFactor * 0.5f)
+        val endY = endYBase + screenHeight * jitter(jitterFactor * 0.2f)
+
+        val distance = (startY - endY).coerceAtLeast(1f)
+
+        // 控制点位置：基于距离分段，并加入曲线强度与少量水平偏移
+        val cp1x = startX + screenWidth * (0.05f * curveFactor) + screenWidth * jitter(jitterFactor)
+        val cp1y = startY - distance * 0.33f - screenHeight * (0.02f * curveFactor)
+
+        val cp2x = endX - screenWidth * (0.05f * curveFactor) + screenWidth * jitter(jitterFactor)
+        val cp2y = startY - distance * 0.66f + screenHeight * (0.01f * curveFactor)
+
+        KeyguardUnLock.sendLog("模拟人手轻微抖动轨迹: start=($startX,$startY) end=($endX,$endY) cp1=($cp1x,$cp1y) cp2=($cp2x,$cp2y)")
+
+        return Path().apply {
+            moveTo(startX, startY)
+            if (useCurve && curveFactor > 0f) {
+                cubicTo(cp1x, cp1y, cp2x, cp2y, endX, endY)
+            } else {
+                // 直线（保留一点微抖使其不显僵硬）
+                val midX = (startX + endX) / 2f + screenWidth * jitter(jitterFactor * 0.3f)
+                val midY = (startY + endY) / 2f + screenHeight * jitter(jitterFactor * 0.3f)
+                lineTo(midX, midY)
+                lineTo(endX, endY)
+            }
+        }
+
+    }
 
     @JvmOverloads
     @JvmStatic
     suspend fun moveAwait(
         service: AccessibilityService? =accessibilityService,
-        path: Path = Path().apply {
-            //1.获取设备的宽和高
-            val screenSize = getScreenSize(appContext)
-            val screenWidth = screenSize.first
-            val screenHeight = screenSize.second
-            KeyguardUnLock.sendLog("设备的宽度= " + screenWidth + ", 高度= " + screenHeight)
-            val y = screenHeight / 12 * 9f
-            KeyguardUnLock.sendLog("上划屏幕呼出输入解锁密码界面")
-            moveTo(screenWidth / 8f, y)   //滑动起点
-            lineTo(screenWidth / 8f, y - 800f)//滑动终点
-        },
+        path: Path = createNaturalSwipePath(),
         @IntRange(from = 0) startTime: Long =500,
         @IntRange(from = 0) duration: Long =500,
         moveCallback: MoveCallback? = null,
@@ -662,7 +741,7 @@ object KeyguardUnLock {
             KeyguardUnLock.sendLog("系统版本小于7.0")
             return@withContext false
         }
-
+        KeyguardUnLock.sendLog("上划屏幕呼出输入解锁密码界面")
         val gesture = GestureDescription.Builder()
             .addStroke(GestureDescription.StrokeDescription(path, startTime, duration))
             .build()
