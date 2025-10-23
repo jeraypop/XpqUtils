@@ -16,6 +16,7 @@ import android.os.Looper
 import android.os.PowerManager
 import android.os.SystemClock
 import android.text.TextUtils
+import android.util.DisplayMetrics
 import android.util.Log
 import android.view.Display
 import android.view.accessibility.AccessibilityNodeInfo
@@ -34,6 +35,9 @@ import kotlinx.coroutines.withContext
 import kotlinx.coroutines.withTimeoutOrNull
 import java.util.Locale
 import kotlin.coroutines.resume
+import kotlin.math.abs
+import kotlin.math.max
+import kotlin.math.roundToLong
 import kotlin.random.Random
 
 /**
@@ -651,6 +655,35 @@ object KeyguardUnLock {
             )
         }
     }
+
+    // ---------- computeAutoDuration（智能计算时长） ----------
+    /**
+     * 根据滑动距离与屏幕密度计算智能时长（ms）
+     */
+    fun computeAutoDuration(
+        context: Context,
+        distancePx: Float,
+        curveIntensity: Float = 0.12f,
+        minMs: Long = 80L,
+        maxMs: Long = 900L
+    ): Long {
+        val dist = max(1f, distancePx)
+
+        val densityDpi = context.resources.displayMetrics.densityDpi.takeIf { it > 0 } ?: DisplayMetrics.DENSITY_DEFAULT
+        val baseDensityRef = 420f
+        val baseSpeedPxPerMs = 2.5f
+        val densityFactor = (densityDpi / baseDensityRef).coerceIn(0.7f, 1.4f)
+        var speedPxPerMs = baseSpeedPxPerMs * densityFactor
+
+        val distFactor = (dist / 1000f).coerceIn(0.6f, 2.0f)
+        speedPxPerMs *= (1.0f + (distFactor - 1f) * 0.2f)
+
+        val curveSlowdown = 1f + (curveIntensity.coerceIn(0f, 0.5f) * 0.6f)
+        speedPxPerMs /= curveSlowdown
+
+        val duration = (dist / speedPxPerMs).roundToLong().coerceIn(minMs, maxMs)
+        return duration
+    }
     /**
      * 生成一个更自然的上划手势路径（可选曲线 + 轻微随机化）
      *
@@ -665,13 +698,13 @@ object KeyguardUnLock {
      */
     @JvmOverloads
     @JvmStatic
-    fun createNaturalSwipePath(
+    fun createNaturalSwipePathInfo(
         context: Context = appContext,
         useCurve: Boolean = true,
         curveIntensity: Float = 0.12f,
         horizontalOffsetRatio: Float = 0.0f,
         jitterRatio: Float = 0.02f
-    ): Path {
+    ): SwipePathInfo {
         val (screenWidth, screenHeight) = getScreenSize(context) // 你已有的工具
         KeyguardUnLock.sendLog("设备的宽度= " + screenWidth + ", 高度= " + screenHeight)
         val startXBase = screenWidth / 2f
@@ -702,8 +735,7 @@ object KeyguardUnLock {
         val cp2y = startY - distance * 0.66f + screenHeight * (0.01f * curveFactor)
 
         KeyguardUnLock.sendLog("模拟人手轻微抖动轨迹: start=($startX,$startY) end=($endX,$endY) cp1=($cp1x,$cp1y) cp2=($cp2x,$cp2y)")
-
-        return Path().apply {
+        val path = Path().apply {
             moveTo(startX, startY)
             if (useCurve && curveFactor > 0f) {
                 cubicTo(cp1x, cp1y, cp2x, cp2y, endX, endY)
@@ -715,6 +747,7 @@ object KeyguardUnLock {
                 lineTo(endX, endY)
             }
         }
+        return  SwipePathInfo(path, startX, startY, endX, endY)
 
     }
 
@@ -722,11 +755,17 @@ object KeyguardUnLock {
     @JvmStatic
     suspend fun moveAwait(
         service: AccessibilityService? =accessibilityService,
-        path: Path = createNaturalSwipePath(),
+        pathInfo: SwipePathInfo? = null,
         @IntRange(from = 0) startTime: Long =500,
-        @IntRange(from = 0) duration: Long =500,
+        @IntRange(from = 0) duration: Long =500, // <=0 表示自动计算
         moveCallback: MoveCallback? = null,
-        timeoutMs: Long = 2000L
+        timeoutMs: Long = 2000L,
+        autoDurationEnabled: Boolean = true,
+        // createNaturalSwipePathInfo 可配置参数（如需自定义）
+        useCurve: Boolean = true,
+        curveIntensity: Float = 0.12f,
+        horizontalOffsetRatio: Float = 0.0f,
+        jitterRatio: Float = 0.02f
     ): Boolean = withContext(Dispatchers.Main) {
         if (startTime < 0 || duration < 0) {
             moveCallback?.onError()
@@ -741,9 +780,38 @@ object KeyguardUnLock {
             KeyguardUnLock.sendLog("系统版本小于7.0")
             return@withContext false
         }
+        // 如果没有传入 pathInfo，则生成一个默认的
+        val finalPathInfo = pathInfo ?: createNaturalSwipePathInfo(
+            context = service.applicationContext,
+            useCurve = useCurve,
+            curveIntensity = curveIntensity,
+            horizontalOffsetRatio = horizontalOffsetRatio,
+            jitterRatio = jitterRatio
+        )
+
+        // 真实像素距离（Y 方向）
+        val distancePx = abs(finalPathInfo.startY - finalPathInfo.endY)
+
+        // 选择时长：传入 duration >0 优先；否则若允许自动计算则计算
+        val finalDuration = if (duration > 0L) {
+            duration.coerceAtLeast(50L)
+        } else if (autoDurationEnabled) {
+            // 智能计算（min/max 可按需调整）
+            computeAutoDuration(
+                context = service.applicationContext,
+                distancePx = distancePx,
+                curveIntensity = curveIntensity,
+                minMs = 80L,
+                maxMs = 900L
+            )
+        } else {
+            // fallback（若不自动计算且未传入时长）使用一个合理默认
+            500L
+        }
+
         KeyguardUnLock.sendLog("上划屏幕呼出输入解锁密码界面")
         val gesture = GestureDescription.Builder()
-            .addStroke(GestureDescription.StrokeDescription(path, startTime, duration))
+            .addStroke(GestureDescription.StrokeDescription(finalPathInfo.path, startTime, finalDuration))
             .build()
 
         // 无回调：保持原行为 -> 立即返回
@@ -1237,6 +1305,15 @@ object KeyguardUnLock {
 
 
 }
+// ---------- 数据类：包含 Path 与起终点信息 ----------
+data class SwipePathInfo(
+    val path: Path,
+    val startX: Float,
+    val startY: Float,
+    val endX: Float,
+    val endY: Float
+)
+
 //---------------- 结果回调 ----------------
 interface MoveCallback {
     fun onSuccess()
