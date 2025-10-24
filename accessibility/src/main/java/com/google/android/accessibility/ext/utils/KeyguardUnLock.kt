@@ -30,6 +30,7 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.suspendCancellableCoroutine
 import kotlinx.coroutines.withContext
@@ -810,8 +811,9 @@ object KeyguardUnLock {
             500L
         }
 
-        showGestureIndicator(service, finalPathInfo.path, finalDuration)
 
+        showGestureIndicator(service, finalPathInfo.path, finalDuration)
+        delay(60)
         KeyguardUnLock.sendLog("上划屏幕呼出输入解锁密码界面")
         val gesture = GestureDescription.Builder()
             .addStroke(GestureDescription.StrokeDescription(finalPathInfo.path, startTime, finalDuration))

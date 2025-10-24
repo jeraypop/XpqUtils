@@ -287,7 +287,10 @@ open class BaseLockScreenActivity : XpqBaseActivity<ActivityLockScreenBinding>(
                             delay(1000)
                             if (resumed.get()) return@launch
 
-                            if (KeyguardUnLock.deviceIsOn() && KeyguardUnLock.keyguardIsOn()) return@launch
+                            if (KeyguardUnLock.deviceIsOn() && KeyguardUnLock.keyguardIsOn()){
+                                sendLog("设备已解锁")
+                                return@launch
+                            }
 
                             //1.额外增加手势滑动,来呼出输入解锁密码界面
                             //2.requestDismissKeyguard(),也能呼出解锁密码界面

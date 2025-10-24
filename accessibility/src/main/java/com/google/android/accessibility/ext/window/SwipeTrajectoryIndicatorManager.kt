@@ -1,5 +1,7 @@
 package com.google.android.accessibility.ext.window
 
+
+
 import android.animation.ValueAnimator
 import android.content.Context
 import android.graphics.*
@@ -11,6 +13,15 @@ import android.view.*
 import android.view.animation.DecelerateInterpolator
 import androidx.annotation.MainThread
 
+/**
+ * SwipeTrajectoryIndicatorManager
+ *
+ * - 把轨迹 overlay 添加到 WindowManager（优先使用 TYPE_ACCESSIBILITY_OVERLAY）
+ * - 轨迹颜色为红色系，前端圆点有呼吸动画
+ *
+ * 使用：SwipeTrajectoryIndicatorManager.show(context, path, duration = 600L)
+ * 隐藏：SwipeTrajectoryIndicatorManager.hide()
+ */
 object SwipeTrajectoryIndicatorManager {
     private val mainHandler = Handler(Looper.getMainLooper())
     private const val TAG = "SwipeTrajectoryIndicator"
@@ -29,6 +40,12 @@ object SwipeTrajectoryIndicatorManager {
 
     /**
      * 显示轨迹动画（path 为屏幕坐标系，单位 px）
+     *
+     * @param context 建议传 applicationContext
+     * @param path 屏幕坐标系 Path（px）
+     * @param duration 动画时长（ms）
+     * @param strokeDp 轨迹线宽（dp）
+     * @param trailFraction 轨迹尾迹占比（0..1）
      */
     fun show(
         context: Context,
@@ -117,7 +134,7 @@ object SwipeTrajectoryIndicatorManager {
     }
 
     /**
-     * 立即隐藏
+     * 立即隐藏 overlay（若存在）
      */
     fun hide() {
         try {
@@ -147,6 +164,7 @@ object SwipeTrajectoryIndicatorManager {
         return try {
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
                 if (Build.VERSION.SDK_INT >= 28) {
+                    // 优先 TYPE_ACCESSIBILITY_OVERLAY（在 AccessibilityService 下可用）
                     WindowManager.LayoutParams.TYPE_ACCESSIBILITY_OVERLAY
                 } else {
                     WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY
@@ -167,18 +185,20 @@ object SwipeTrajectoryIndicatorManager {
     }
 
     // =========================
-    // 内部 TrajectoryOverlayView
+    // 内部 TrajectoryOverlayView（轨迹与圆点绘制 + 圆点呼吸动画）
     // =========================
     private class TrajectoryOverlayView(context: Context) : View(context) {
+        // 轨迹画笔（红色半透明，带轻微发光以便锁屏上更明显）
         private val trackPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
             style = Paint.Style.STROKE
             strokeCap = Paint.Cap.ROUND
             strokeJoin = Paint.Join.ROUND
-            color = 0xAA33B5E5.toInt()
+            color = 0x88FF3333.toInt() // 半透明红
         }
+        // 圆点画笔（纯红，带光晕）
         private val dotPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
             style = Paint.Style.FILL
-            color = 0xFF33B5E5.toInt()
+            color = 0xFFFF4444.toInt() // 纯红点
         }
 
         private val fullPath = Path()
@@ -188,6 +208,20 @@ object SwipeTrajectoryIndicatorManager {
 
         private var progress = 0f
         private var animator: ValueAnimator? = null
+
+        // 圆点呼吸动画
+        private var dotPulsePhase = 0f
+        private val dotPulseAnimator = ValueAnimator.ofFloat(0f, 1f).apply {
+            duration = 800L
+            repeatCount = ValueAnimator.INFINITE
+            repeatMode = ValueAnimator.REVERSE
+            interpolator = DecelerateInterpolator()
+            addUpdateListener {
+                dotPulsePhase = it.animatedValue as Float
+                invalidate()
+            }
+        }
+
         var trailFraction = DEFAULT_TRAIL_FRACTION
         var strokeWidthPx = pxFromDp(context, DEFAULT_STROKE_DP).toFloat()
         private var dotRadius = (strokeWidthPx * 1.1f).coerceAtLeast(6f)
@@ -196,6 +230,14 @@ object SwipeTrajectoryIndicatorManager {
             isClickable = false
             isFocusable = false
             trackPaint.strokeWidth = strokeWidthPx
+            // 给轨迹和点增加阴影以增强可见度（在某些锁屏上会被忽略）
+            try {
+                trackPaint.setShadowLayer(6f, 0f, 0f, 0x55FF3333.toInt())
+                dotPaint.setShadowLayer(12f, 0f, 0f, 0x66FF4444.toInt())
+                // 需要在 view 层启用软件层以显示 shadow（在某些设备上）
+                setLayerType(LAYER_TYPE_SOFTWARE, null)
+            } catch (_: Throwable) {
+            }
         }
 
         fun setPath(path: Path) {
@@ -211,6 +253,7 @@ object SwipeTrajectoryIndicatorManager {
 
         fun startAnimation(durationMs: Long = DEFAULT_DURATION_MS) {
             animator?.cancel()
+            dotPulseAnimator.start()
             if (pathLen <= 0f) {
                 visibility = GONE
                 return
@@ -234,6 +277,7 @@ object SwipeTrajectoryIndicatorManager {
         fun stopAnimation() {
             animator?.cancel()
             animator = null
+            dotPulseAnimator.cancel()
             progress = 0f
             drawPath.reset()
             visibility = GONE
@@ -262,14 +306,18 @@ object SwipeTrajectoryIndicatorManager {
             super.onDraw(canvas)
             if (!drawPath.isEmpty) {
                 canvas.drawPath(drawPath, trackPaint)
-                canvas.drawCircle(dotX, dotY, dotRadius, dotPaint)
+                // 圆点呼吸：让半径在 0.85x ~ 1.15x 间波动
+                val dynamicRadius = dotRadius * (0.85f + 0.3f * dotPulsePhase)
+                canvas.drawCircle(dotX, dotY, dynamicRadius, dotPaint)
             }
         }
 
         override fun onDetachedFromWindow() {
             animator?.cancel()
+            dotPulseAnimator.cancel()
             animator = null
             super.onDetachedFromWindow()
         }
     }
 }
+
