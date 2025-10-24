@@ -104,7 +104,7 @@ open class BaseLockScreenActivity : XpqBaseActivity<ActivityLockScreenBinding>(
     override fun onNewIntent(intent: Intent?) {
         super.onNewIntent(intent)
         intent ?: return
-        AliveUtils.toast(msg = "onNewIntent")
+        sendLog("onNewIntent")
         setIntent(intent)
         handleIntent(intent)
     }
