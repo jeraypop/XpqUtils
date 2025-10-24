@@ -17,6 +17,7 @@ import com.google.android.accessibility.ext.utils.DeviceLockState
 import com.google.android.accessibility.ext.utils.KeyguardUnLock
 import com.google.android.accessibility.ext.utils.KeyguardUnLock.getDeviceStatusPlus
 import com.google.android.accessibility.ext.utils.KeyguardUnLock.sendLog
+import com.google.android.accessibility.ext.utils.LibCtxProvider.Companion.appContext
 import com.google.android.accessibility.ext.utils.MMKVConst
 import com.google.android.accessibility.ext.utils.MMKVUtil
 import com.google.android.accessibility.ext.utils.MoveCallback
@@ -50,10 +51,11 @@ open class BaseLockScreenActivity : XpqBaseActivity<ActivityLockScreenBinding>(
 
     companion object {
         /**
-         * 通用启动方法：接收一个 Context（避免依赖全局 appContext），以及要启动的 Activity class
+         * 要启动的 Activity class
          */
+        @JvmOverloads
         @JvmStatic
-        fun openBaseLockScreenActivity(context: Context, cls: Class<out Activity>, i: Int) {
+        fun openBaseLockScreenActivity(context: Context = appContext, cls: Class<out Activity>, i: Int) {
             val intent = Intent(context, cls)
             intent.putExtra(MMKVConst.SEND_MSG_INDEX, i)
             intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK)
@@ -131,11 +133,17 @@ open class BaseLockScreenActivity : XpqBaseActivity<ActivityLockScreenBinding>(
                 activity.setTurnScreenOn(true)
                 if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) { /* optional */ }
                 sendLog("设备系统大于8.1  执行点亮屏幕")
-                delay(500)
-                if (!KeyguardUnLock.screenIsOn()) {
-                    sendLog("屏幕依然黑屏,部分品牌机型上,请检查是否开启了,[后台弹出界面权限], [允许在锁屏上显示]")
-                    sendLog("尝试采取旧方法重新点亮(建议开启上述提到的 两个权限)")
-                    KeyguardUnLock.wakeScreenOn()
+                //判定 是否点亮
+                if (!KeyguardUnLock.screenIsOn()){
+                    //延时一会 再次判定 是否点亮
+                    delay(500)
+                    if (!KeyguardUnLock.screenIsOn()){
+                        sendLog("屏幕依然黑屏,部分品牌机型上,请检查是否开启了,[后台弹出界面权限]" +
+                                ", [允许在锁屏上显示]")
+                        sendLog("尝试采取旧方法重新点亮(建议开启上述提到的 两个权限)")
+                        KeyguardUnLock.wakeScreenOn()
+                    }
+
                 }
 
             }
@@ -205,22 +213,8 @@ open class BaseLockScreenActivity : XpqBaseActivity<ActivityLockScreenBinding>(
     }
 
     protected open suspend fun tryRequestDismissKeyguard(activity: Activity, timeoutMs: Long = 5000L): Boolean {
-        val ok = KeyguardUnLock.moveAwait(
-            service = accessibilityService,
-            moveCallback = object : MoveCallback {
-                override fun onSuccess() {
-                    println("🟢 手势完成")
-                }
 
-                override fun onError() {
-                    println("🔴 手势取消或失败")
-                }
-            }
 
-        )
-        if (ok) {
-            sendLog("上滑成功")
-        }
 
         val result = withTimeoutOrNull(timeoutMs) {
             suspendCancellableCoroutine<Boolean> { cont ->
@@ -257,14 +251,31 @@ open class BaseLockScreenActivity : XpqBaseActivity<ActivityLockScreenBinding>(
                     }
 
                     // 在非挂起上下文切回主线程触发系统解锁界面
-                    activity.runOnUiThread {
+
+                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P){
                         try {
-                            //2.呼出输入解锁密码界面
-                            km.requestDismissKeyguard(activity, cb)
+                            activity.mainExecutor.execute {
+                                try {
+                                    km.requestDismissKeyguard(activity, cb)
+                                } catch (t: Throwable) {
+                                    Log.w("BaseLockScreenActivity", "requestDismissKeyguard failed", t)
+                                }
+                            }
                         } catch (t: Throwable) {
-                            Log.w("BaseLockScreenActivity", "requestDismissKeyguard failed", t)
+
+                        }
+                    }else{
+                        activity.runOnUiThread {
+                            try {
+                                //2.呼出输入解锁密码界面
+                                km.requestDismissKeyguard(activity, cb)
+                            } catch (t: Throwable) {
+                                Log.w("BaseLockScreenActivity", "requestDismissKeyguard failed", t)
+                            }
                         }
                     }
+
+
 
                     // 如果协程被取消，避免继续尝试自动输入并尽量清理
                     cont.invokeOnCancellation { _ -> /* nothing to cleanup */ }
@@ -278,9 +289,34 @@ open class BaseLockScreenActivity : XpqBaseActivity<ActivityLockScreenBinding>(
 
                             if (KeyguardUnLock.deviceIsOn() && KeyguardUnLock.keyguardIsOn()) return@launch
 
+                            //1.额外增加手势滑动,来呼出输入解锁密码界面
+                            //2.requestDismissKeyguard(),也能呼出解锁密码界面
+                            if (hasGesture()){
+                                val ok = KeyguardUnLock.moveAwait(
+                                    service = accessibilityService,
+                                    moveCallback = object : MoveCallback {
+                                        override fun onSuccess() {
+                                            println("🟢 手势完成")
+                                        }
+
+                                        override fun onError() {
+                                            println("🔴 手势取消或失败")
+                                        }
+                                    }
+
+                                )
+                                if (ok) {
+                                    sendLog("上滑成功")
+                                }
+                            }
+                            delay(500)
+                            if (resumed.get()) return@launch
                             // 从子类提供的接口获取密码，子类可以覆盖 getUnlockPassword() 来改变自动输入的密码来源
                             val pwd = getUnlockPassword() ?: ""
-
+                            if (pwd.isEmpty()) {
+                                sendLog("未配置自动解锁密码，跳过自动输入")
+                                return@launch
+                            }
                             val unlockSuccess = withContext(Dispatchers.IO) {
                                 try {
                                     KeyguardUnLock.unlockScreenNew(password = pwd)
@@ -351,6 +387,15 @@ open class BaseLockScreenActivity : XpqBaseActivity<ActivityLockScreenBinding>(
             Log.w("BaseLockScreenActivity", "getUnlockPassword failed", t)
             ""
         }
+    }
+
+    /**
+     * 是否 增加 模拟手势上划
+     *
+     *
+     */
+    protected open fun hasGesture(): Boolean {
+        return false
     }
 
 }

@@ -24,6 +24,7 @@ import androidx.annotation.IntRange
 import com.google.android.accessibility.ext.utils.LibCtxProvider.Companion.appContext
 import com.google.android.accessibility.ext.window.ClickIndicatorManager
 import com.google.android.accessibility.ext.window.LogWrapper
+import com.google.android.accessibility.ext.window.SwipeTrajectoryIndicatorManager
 import com.google.android.accessibility.selecttospeak.accessibilityService
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -809,6 +810,8 @@ object KeyguardUnLock {
             500L
         }
 
+        showGestureIndicator(service, finalPathInfo.path, finalDuration)
+
         KeyguardUnLock.sendLog("上划屏幕呼出输入解锁密码界面")
         val gesture = GestureDescription.Builder()
             .addStroke(GestureDescription.StrokeDescription(finalPathInfo.path, startTime, finalDuration))
@@ -916,6 +919,19 @@ object KeyguardUnLock {
             // 在主线程显示指示器
             Handler(Looper.getMainLooper()).post {
                 ClickIndicatorManager.show(service, x, y)
+            }
+        }
+
+    }
+
+    @JvmStatic
+    fun showGestureIndicator(service: AccessibilityService, path: Path, duration: Long) {
+        val showguiji = MMKVUtil.get(MMKVConst.SHOW_DO_GUIJI, false)
+        if (showguiji){
+            // 在主线程显示指示器
+            Handler(Looper.getMainLooper()).post {
+                SwipeTrajectoryIndicatorManager.show(service, path, duration = 600L)
+
             }
         }
 
