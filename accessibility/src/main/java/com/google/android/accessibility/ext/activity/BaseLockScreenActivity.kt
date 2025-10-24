@@ -200,12 +200,12 @@ open class BaseLockScreenActivity : XpqBaseActivity<ActivityLockScreenBinding>(
             DeviceLockState.LockedNotSecure -> {
                 sendLog("设备被锁屏,未设置安全锁,[可能是 滑动解锁或无锁屏]")
                 sendLog("准备直接解锁")
-                tryRequestDismissKeyguard(activity, timeoutMs)
+                tryRequestDismissKeyguard(activity,false, timeoutMs)
             }
             DeviceLockState.LockedSecure -> {
                 sendLog("设备被锁屏,设置了安全锁 [PIN、图案、密码、指纹、Face ID 等]")
                 sendLog("准备呼出锁屏输入解锁密码界面")
-                tryRequestDismissKeyguard(activity, timeoutMs)
+                tryRequestDismissKeyguard(activity,true, timeoutMs)
             }
             else -> false
         }
@@ -213,17 +213,108 @@ open class BaseLockScreenActivity : XpqBaseActivity<ActivityLockScreenBinding>(
         return lockResult
     }
 
-    protected open suspend fun tryRequestDismissKeyguard(activity: Activity, timeoutMs: Long = 5000L): Boolean {
-
-
+    protected open suspend fun tryRequestDismissKeyguard(activity: Activity, doInput: Boolean, timeoutMs: Long = 5000L): Boolean {
 
         val result = withTimeoutOrNull(timeoutMs) {
             suspendCancellableCoroutine<Boolean> { cont ->
                 val resumed = AtomicBoolean(false)
+                val attemptStarted = AtomicBoolean(false) // 防止重复尝试上划/自动解锁
+
+                // 封装：执行上划 + （可选）自动输入密码 的补救流程
+                fun attemptGestureAndAutoUnlockOnce() {
+                    if (!attemptStarted.compareAndSet(false, true)) {
+                        // 已经开始尝试一次，忽略后续重复触发
+                        sendLog("手势:已经开始尝试一次上划，忽略后续重复触发")
+                        return
+                    }
+
+                    lifecycleScope.launch {
+                        try {
+                            // 先检查是否已经被其他路径解锁
+                            if (resumed.get()) return@launch
+
+                            // 如果设备已解锁，直接 resume true（防御）
+                            if (KeyguardUnLock.deviceIsOn() && KeyguardUnLock.keyguardIsOn()) {
+                                sendLog("手势: 设备已解锁（尝试前检测），直接结束")
+                                if (resumed.compareAndSet(false, true)) cont.resume(true)
+                                return@launch
+                            }
+
+                            // 1) 如果支持手势则执行上划以尝试呼出输入框或直接解锁（对于 LockedNotSecure/similar 场景）
+                            if (hasGesture()) {
+                                sendLog("手势: 开始执行上划手势（补救）")
+                                val ok = try {
+                                    KeyguardUnLock.moveAwait(
+                                        service = accessibilityService,
+                                        moveCallback = object : MoveCallback {
+                                            override fun onSuccess() { /* log in callback if needed */ }
+                                            override fun onError() { /* log in callback if needed */ }
+                                        }
+                                    )
+                                } catch (t: Throwable) {
+                                    Log.w("BaseLockScreenActivity", "attempt: moveAwait failed", t)
+                                    false
+                                }
+
+                                if (ok) {
+                                    sendLog("手势: 上滑手势成功")
+                                } else {
+                                    sendLog("手势: 上滑手势失败或被取消")
+                                }
+
+                                // 给系统一点时间渲染（不同机型差异较大）
+                                delay(300)
+                                if (resumed.get()) return@launch
+                            } else {
+                                sendLog("手势:: 设备不支持手势或 hasGesture() 返回 false，跳过上划")
+                            }
+
+                            // 2) 若 doInput == true, 再尝试自动输入密码；如果 doInput == false 则在此结束（返回 false）
+                            if (!doInput) {
+                                sendLog("手势: 跳过自动输入密码，结束尝试（返回失败）")
+                                if (resumed.compareAndSet(false, true)) cont.resume(false)
+                                return@launch
+                            }
+
+                            // 获取密码（子类覆盖 getUnlockPassword()）
+                            val pwd = try { getUnlockPassword() ?: "" } catch (t: Throwable) {
+                                Log.w("BaseLockScreenActivity", "attempt: getUnlockPassword threw", t)
+                                ""
+                            }
+                            if (pwd.isEmpty()) {
+                                sendLog("手势: 未配置自动解锁密码，无法执行自动输入，结束尝试（返回失败）")
+                                if (resumed.compareAndSet(false, true)) cont.resume(false)
+                                return@launch
+                            }
+
+                            // 3) 在IO线程尝试解锁（自动输入）
+                            val unlockSuccess = withContext(Dispatchers.IO) {
+                                try {
+                                    KeyguardUnLock.unlockScreenNew(password = pwd)
+                                } catch (t: Throwable) {
+                                    Log.w("BaseLockScreenActivity", "attempt: unlockScreenNew failed", t)
+                                    false
+                                }
+                            }
+
+                            if (unlockSuccess) {
+                                sendLog("手势: 自动输入密码成功，设备解锁")
+                                if (resumed.compareAndSet(false, true)) cont.resume(true)
+                            } else {
+                                sendLog("手势: 自动输入密码失败，设备仍未解锁")
+                                if (resumed.compareAndSet(false, true)) cont.resume(false)
+                            }
+                        } catch (t: Throwable) {
+                            Log.w("BaseLockScreenActivity", "attemptGestureAndAutoUnlockOnce failed", t)
+                            if (resumed.compareAndSet(false, true)) cont.resume(false)
+                        }
+                    }
+                }
 
                 try {
                     val km = activity.getSystemService(KeyguardManager::class.java)
                     if (km == null || Build.VERSION.SDK_INT < Build.VERSION_CODES.O) {
+                        // 低版本或无法获取 KeyguardManager，认为无须等待系统回调
                         if (resumed.compareAndSet(false, true)) cont.resume(true)
                         return@suspendCancellableCoroutine
                     }
@@ -231,124 +322,77 @@ open class BaseLockScreenActivity : XpqBaseActivity<ActivityLockScreenBinding>(
                     val cb = object : KeyguardManager.KeyguardDismissCallback() {
                         override fun onDismissSucceeded() {
                             if (resumed.compareAndSet(false, true)) {
-                                sendLog("binggo 设备解锁成功")
+                                sendLog("onDismissSucceeded: 设备解锁成功")
                                 cont.resume(true)
                             }
                         }
 
                         override fun onDismissCancelled() {
-                            if (resumed.compareAndSet(false, true)) {
-                                sendLog("解锁被取消")
-                                cont.resume(false)
-                            }
+                            // 注意：不要在这里直接 resume(false)，而是触发补救流程
+                            sendLog("onDismissCancelled: 系统返回解锁取消，触发补救上划/自动输入流程")
+                            // 触发一次补救流程（不会重复）
+                            attemptGestureAndAutoUnlockOnce()
                         }
 
                         override fun onDismissError() {
-                            if (resumed.compareAndSet(false, true)) {
-                                sendLog("解锁出错")
-                                cont.resume(false)
-                            }
+                            // 同上：触发补救流程
+                            sendLog("onDismissError: 系统返回解锁出错，触发补救上划/自动输入流程")
+                            attemptGestureAndAutoUnlockOnce()
                         }
                     }
 
-                    // 在非挂起上下文切回主线程触发系统解锁界面
-
-                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P){
+                    // 在主线程触发系统解锁界面（兼容 mainExecutor / runOnUiThread）
+                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
                         try {
                             activity.mainExecutor.execute {
                                 try {
                                     km.requestDismissKeyguard(activity, cb)
                                 } catch (t: Throwable) {
                                     Log.w("BaseLockScreenActivity", "requestDismissKeyguard failed", t)
+                                    // 如果请求出错，直接触发补救流程
+                                    attemptGestureAndAutoUnlockOnce()
                                 }
                             }
                         } catch (t: Throwable) {
-
+                            Log.w("BaseLockScreenActivity", "dispatch to mainExecutor failed", t)
+                            attemptGestureAndAutoUnlockOnce()
                         }
-                    }else{
+                    } else {
                         activity.runOnUiThread {
                             try {
-                                //2.呼出输入解锁密码界面
                                 km.requestDismissKeyguard(activity, cb)
                             } catch (t: Throwable) {
                                 Log.w("BaseLockScreenActivity", "requestDismissKeyguard failed", t)
+                                attemptGestureAndAutoUnlockOnce()
                             }
                         }
                     }
 
-
-
-                    // 如果协程被取消，避免继续尝试自动输入并尽量清理
+                    // 在协程被取消时不做额外清理（attempt 内部受 attemptStarted 控制）
                     cont.invokeOnCancellation { _ -> /* nothing to cleanup */ }
 
-                    // 后备：延时 1s 后尝试自动输入密码（在 lifecycleScope 中运行，不阻塞当前 lambda）
+                    // 原来的后备入口：延时后尝试（仅在尚未由回调触发 attempt 时执行）
                     lifecycleScope.launch {
                         try {
-
                             delay(1000)
                             if (resumed.get()) return@launch
 
-                            if (KeyguardUnLock.deviceIsOn() && KeyguardUnLock.keyguardIsOn()){
-                                sendLog("设备已解锁")
+                            // 如果 keyguard 已不在，可能已经被解锁
+                            if (KeyguardUnLock.deviceIsOn() && KeyguardUnLock.keyguardIsOn()) {
+                                sendLog("后备检查：设备已解锁（无需补救）")
+                                if (resumed.compareAndSet(false, true)) cont.resume(true)
                                 return@launch
                             }
 
-                            //1.额外增加手势滑动,来呼出输入解锁密码界面
-                            //2.requestDismissKeyguard(),也能呼出解锁密码界面
-                            if (hasGesture()){
-                                val ok = KeyguardUnLock.moveAwait(
-                                    service = accessibilityService,
-                                    moveCallback = object : MoveCallback {
-                                        override fun onSuccess() {
-                                            println("🟢 手势完成")
-                                        }
-
-                                        override fun onError() {
-                                            println("🔴 手势取消或失败")
-                                        }
-                                    }
-
-                                )
-                                if (ok) {
-                                    sendLog("上滑成功")
-                                }
-                                delay(500)
-                                if (resumed.get()) return@launch
-                            }
-
-                            // 从子类提供的接口获取密码，子类可以覆盖 getUnlockPassword() 来改变自动输入的密码来源
-                            val pwd = getUnlockPassword() ?: ""
-                            if (pwd.isEmpty()) {
-                                sendLog("未配置自动解锁密码，跳过自动输入")
-                                return@launch
-                            }
-                            val unlockSuccess = withContext(Dispatchers.IO) {
-                                try {
-                                    KeyguardUnLock.unlockScreenNew(password = pwd)
-                                } catch (t: Throwable) {
-                                    Log.w("BaseLockScreenActivity", "unlockScreenNew failed", t)
-                                    false
-                                }
-                            }
-
-                            if (unlockSuccess) {
-                                if (resumed.compareAndSet(false, true)) {
-                                    sendLog("自动输入密码完毕,解锁成功")
-                                    cont.resume(true)
-                                }
-                            } else {
-                                sendLog("自动输入密码失败,解锁失败")
-                            }
-
+                            // 还未开始补救，则由这里触发一次
+                            attemptGestureAndAutoUnlockOnce()
                         } catch (t: Throwable) {
-                            Log.w("BaseLockScreenActivity", "auto-unlock task failed", t)
+                            Log.w("BaseLockScreenActivity", "backup auto-unlock task failed", t)
                         }
                     }
 
                 } catch (e: Throwable) {
-                    if (resumed.compareAndSet(false, true)) {
-                        cont.resumeWithException(e)
-                    }
+                    if (resumed.compareAndSet(false, true)) cont.resumeWithException(e)
                 }
             }
         }
