@@ -54,6 +54,7 @@ dependencies {
     implementation(libs.appcompat.appcompat)
     //google
     implementation(libs.material)
+    implementation(libs.gson)
 
     implementation(libs.navigationktx)
     implementation(libs.blankj)

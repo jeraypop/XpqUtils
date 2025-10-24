@@ -2,19 +2,10 @@ package com.google.android.accessibility.ext.activity
 
 import android.content.Context
 import android.content.Intent
-import android.os.Bundle
-import androidx.activity.enableEdgeToEdge
-import androidx.appcompat.app.AppCompatActivity
-import androidx.core.view.ViewCompat
-import androidx.core.view.WindowInsetsCompat
-import com.android.accessibility.ext.R
-import com.android.accessibility.ext.databinding.ActivityLockScreenBinding
-import com.google.android.accessibility.ext.utils.KeyguardUnLock
+
 import com.google.android.accessibility.ext.utils.LibCtxProvider.Companion.appContext
 
-class LockScreenActivity : XpqBaseActivity<ActivityLockScreenBinding>(
-    bindingInflater = ActivityLockScreenBinding::inflate
-) {
+class LockScreenActivity : BaseLockScreenActivity() {
     companion object {
         @JvmOverloads
         @JvmStatic
@@ -24,31 +15,20 @@ class LockScreenActivity : XpqBaseActivity<ActivityLockScreenBinding>(
             context.startActivity(i)
         }
     }
-    override fun onCreate(savedInstanceState: Bundle?) {
-        super.onCreate(savedInstanceState)
-        setContentView(R.layout.activity_lock_screen)
-        ViewCompat.setOnApplyWindowInsetsListener(findViewById(R.id.main)) { v, insets ->
-            val systemBars = insets.getInsets(WindowInsetsCompat.Type.systemBars())
-            v.setPadding(systemBars.left, systemBars.top, systemBars.right, systemBars.bottom)
-            insets
-        }
 
-        setShowWhenLocked(true)
-        setTurnScreenOn(true)
-
-    }
-    override fun onResume() {
-        super.onResume()
-        // 在可见时再尝试一次，确保在解锁流程中的交互是最新的
-        //KeyguardUnLock.showWhenLockedAndTurnScreenOn(this@LockScreenActivity)
+    override suspend fun doMyWork(i: Int) {
+        // 如果你想自定义执行逻辑，覆写此方法
+        super.doMyWork(i)
     }
 
-    override fun initView_Xpq() {
-
+    //覆盖密码方法
+    override fun getUnlockPassword(): String? {
+        // 从安全存储或运行时来源返回密码
+        return "123456"
     }
 
-    override fun initData_Xpq() {
-
+    override fun handleIntent(intent: Intent) {
+        super.handleIntent(intent)
     }
 }
 
