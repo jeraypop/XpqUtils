@@ -94,6 +94,7 @@ open class BaseLockScreenActivity : XpqBaseActivity<ActivityLockScreenBinding>(
             } catch (t: Throwable) {
                 sendLog("【自动解锁(方案2)】执行出错")
             }finally {
+                delay(5000L)
                 sendLog("【自动解锁(方案2)】界面自动清理")
                 finishAndRemoveTask()
             }
@@ -311,9 +312,10 @@ open class BaseLockScreenActivity : XpqBaseActivity<ActivityLockScreenBinding>(
                                 if (ok) {
                                     sendLog("上滑成功")
                                 }
+                                delay(500)
+                                if (resumed.get()) return@launch
                             }
-                            delay(500)
-                            if (resumed.get()) return@launch
+
                             // 从子类提供的接口获取密码，子类可以覆盖 getUnlockPassword() 来改变自动输入的密码来源
                             val pwd = getUnlockPassword() ?: ""
                             if (pwd.isEmpty()) {
