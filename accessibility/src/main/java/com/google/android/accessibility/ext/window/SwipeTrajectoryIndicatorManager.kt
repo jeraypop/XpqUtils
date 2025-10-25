@@ -18,7 +18,7 @@ import androidx.annotation.MainThread
  *
  * - 把轨迹 overlay 添加到 WindowManager（优先使用 TYPE_ACCESSIBILITY_OVERLAY）
  * - 轨迹颜色为红色系，前端圆点有呼吸动画
- *
+ *滑动轨迹
  * 使用：SwipeTrajectoryIndicatorManager.show(context, path, duration = 600L)
  * 隐藏：SwipeTrajectoryIndicatorManager.hide()
  */
@@ -26,7 +26,7 @@ object SwipeTrajectoryIndicatorManager {
     private val mainHandler = Handler(Looper.getMainLooper())
     private const val TAG = "SwipeTrajectoryIndicator"
 
-    private const val DEFAULT_DURATION_MS: Long = 600L
+    private const val DEFAULT_DURATION_MS: Long = 1000L
     private const val DEFAULT_STROKE_DP = 6
     private const val DEFAULT_TRAIL_FRACTION = 0.25f
 

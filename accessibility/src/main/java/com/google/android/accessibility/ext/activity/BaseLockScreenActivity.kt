@@ -12,6 +12,7 @@ import androidx.core.view.ViewCompat
 import androidx.core.view.WindowInsetsCompat
 import androidx.lifecycle.lifecycleScope
 import com.android.accessibility.ext.databinding.ActivityLockScreenBinding
+import com.google.android.accessibility.ext.task.formatTime
 import com.google.android.accessibility.ext.utils.AliveUtils
 import com.google.android.accessibility.ext.utils.DeviceLockState
 import com.google.android.accessibility.ext.utils.KeyguardUnLock
@@ -82,9 +83,14 @@ open class BaseLockScreenActivity : XpqBaseActivity<ActivityLockScreenBinding>(
         handleIntent(intent)
 
         lifecycleScope.launch {
+
             try {
                 sendLog("开始执行【自动解锁(方案2)】任务")
+                val start = System.currentTimeMillis()
                 val unlocked = showWhenLockedAndTurnScreenOn(this@BaseLockScreenActivity)
+                val end = System.currentTimeMillis()
+                val totalTime = end - start
+                sendLog("♥♥ 【自动解锁(方案2)】任务耗时：${totalTime.formatTime()}")
                 if (unlocked){
                     onUnlockedAndProceed()
                 }
