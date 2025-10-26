@@ -11,6 +11,7 @@ import android.service.notification.NotificationListenerService
 import android.service.notification.StatusBarNotification
 import android.telecom.TelecomManager
 import android.text.TextUtils
+import android.util.Log
 import androidx.annotation.RequiresApi
 import androidx.annotation.WorkerThread
 import androidx.core.app.NotificationCompat
@@ -25,7 +26,6 @@ import com.google.android.accessibility.ext.utils.NotificationUtilXpq.getAllSort
 import com.google.android.accessibility.ext.utils.NotificationUtilXpq.getAllSortedMessagingStyleByTime
 
 import com.google.android.accessibility.ext.utils.NotificationUtilXpq.getNotificationData
-import java.util.Collections
 import java.util.concurrent.CopyOnWriteArrayList
 import java.util.concurrent.Executors
 import java.util.concurrent.ExecutorService
@@ -90,13 +90,23 @@ abstract class NotificationListenerServiceAbstract : NotificationListenerService
     open var content:String=""
     @Volatile
     private var lastPostTime: Long = 0L
+
+    private val postWhenLock = Any()
+    @Volatile
+    private var lastPostWhenKey: String? = null
     @Volatile
     private var lastHandleTime: Long = 0L
-    @Volatile
-    private var lastNotificationKey: String = ""
 
+
+
+    private val handleLock = Any()
+    @Volatile private var lastHandleTime2: Long = 0L
+    @Volatile private var lastHandledUniqueKey: String = ""
 
     companion object {
+        // 过期保护：超过这个时间即便 key 相同也会重新处理（单位毫秒）
+        private const val EXPIRY_MS: Long = 1_000L // 1 秒，可改为 60_000L (1 分钟) 等
+
         private const val MIN_HANDLE_INTERVAL = 500L   // 500毫秒间隔
         var instance: NotificationListenerServiceAbstract? = null
             private set
@@ -134,6 +144,24 @@ abstract class NotificationListenerServiceAbstract : NotificationListenerService
             return isPhoneApp
         }
 
+        /**
+         * 生成通知的唯一标识 key：
+         * 使用 sbn.key + pkg + id + tag + postTime + notification.when 组合，
+         * 兼容各种厂商 ROM，防止重复、误判。
+         */
+        @JvmStatic
+        fun buildNotificationUniqueKey(sbn: StatusBarNotification): String {
+            val n = sbn.notification
+            return buildString {
+                append(sbn.key)                // 系统级 key
+                append("|").append(sbn.packageName)
+                append("|").append(sbn.id)
+                append("|").append(sbn.tag ?: "")
+                append("|").append(sbn.postTime)
+                append("|").append(n.`when`)
+            }
+        }
+
     }
 
     /**
@@ -149,6 +177,11 @@ abstract class NotificationListenerServiceAbstract : NotificationListenerService
             val notification = sbn.notification ?: return@execute
             val n_Info = buildNotificationInfo(sbn,notification, null)
             asyncHandleNotificationRemoved(sbn,notification,n_Info.title,n_Info.content,n_Info)
+            // 若你希望当通知被移除时也清理仓库（避免失效的 pendingIntent 被触发）
+            val current = LatestPendingIntentStore.peek()
+            if (current?.first == n_Info.key) {
+                LatestPendingIntentStore.clear()
+            }
         }
 
 
@@ -162,10 +195,11 @@ abstract class NotificationListenerServiceAbstract : NotificationListenerService
         runCatching { listeners.forEach { it.onNotificationPosted(sbn) } }
         super.onNotificationPosted(sbn)
 
+
         AppExecutors.executors.execute {
             val notification = sbn.notification ?: return@execute
             //避免短时间内连续两次调用
-            if (!should2Handle(sbn)) return@execute
+            if (!shouldHandle(sbn)) return@execute
             var sbns:List<StatusBarNotification> = emptyList()
             val n_info = buildNotificationInfo(sbn,notification, null)
             if (isTitleAndContentEmpty(n_info.title, n_info.content)){
@@ -334,25 +368,46 @@ abstract class NotificationListenerServiceAbstract : NotificationListenerService
     }
 
     /**
+     * 轻量去重：使用 postTime + notification.when 组合。
+     * - 若 key 与上次相同且未过期 -> 忽略
+     * - 若 key 相同但已过期 -> 放行并更新记录
+     * - 若 key 不同 -> 放行并更新记录
      * 是否处理该通知：忽略持久系统通知、正在前台的本应用通知等
+     * 如果需要也可以在函数内按需忽略本 app 的通知或 ongoing 通知（通过把下面的 false 换成 true 开启）
      */
     fun shouldHandle(sbn: StatusBarNotification): Boolean {
-        val postTime = sbn.postTime
-        // 检查通知时间是否重复
-        if (postTime == lastPostTime) {
-            //Log.e("通知去重", "重复的通知时间，已忽略")
-            return false
-        }
-        // 更新上次处理的通知时间
-        lastPostTime = postTime
-        if (false){
-            // 忽略本应用的通知（按需）
+        // 可选过滤：忽略本应用或 ongoing 通知（按需启用）
+        if (false) {
             if (sbn.packageName == packageName) return false
-            // 忽略 ongoing（常驻）通知（按需）
             val ongoing = (sbn.notification.flags and Notification.FLAG_ONGOING_EVENT) != 0
             if (ongoing) return false
         }
-        return true
+
+        val key = buildNotificationUniqueKey(sbn)
+        val now = System.currentTimeMillis()
+
+        synchronized(postWhenLock) {
+            // 如果 key 相同
+            if (TextUtils.equals(key, lastPostWhenKey)) {
+                // 检查是否已过期（允许重新处理）
+                if (now - lastHandleTime > EXPIRY_MS) {
+                    // 过期 -> 允许处理并更新时间（保留相同 key）
+                    lastHandleTime = now
+                    // lastPostWhenKey 保持不变（也可以重新赋值）
+                    // lastPostWhenKey = key
+                    return true
+                } else {
+                    // 未过期 -> 忽略
+                    // Log.d(TAG, "重复通知且未过期，忽略: $key")
+                    return false
+                }
+            }
+
+            // key 不同 -> 允许处理并更新记录
+            lastPostWhenKey = key
+            lastHandleTime = now
+            return true
+        }
     }
 
     /**
@@ -360,31 +415,34 @@ abstract class NotificationListenerServiceAbstract : NotificationListenerService
      */
     fun should2Handle(sbn: StatusBarNotification): Boolean {
         val currentTime = System.currentTimeMillis()
-        val key = sbn.key
+        val uniqueKey =  buildNotificationUniqueKey(sbn)
+        synchronized(handleLock) {
+            // 检查是否为完全相同的通知
+            if (TextUtils.equals(uniqueKey, lastHandledUniqueKey)) {
+                Log.e("通知去重", "完全相同的通知，已忽略")
+                return false
+            }
 
-        // 检查是否为完全相同的通知
-        if (TextUtils.equals(key, lastNotificationKey)) {
-            //Log.e("通知去重", "完全相同的通知，已忽略")
-            return false
+            // 检查时间间隔
+            if (currentTime - lastHandleTime2 < MIN_HANDLE_INTERVAL) {
+                Log.e("通知去重", "处理间隔过短，已忽略")
+                return false
+            }
+
+            // 更新记录
+            lastHandleTime2 = currentTime
+            lastHandledUniqueKey = uniqueKey
+            if (false){
+                // 忽略本应用的通知（按需）
+                if (sbn.packageName == packageName) return false
+                // 忽略 ongoing（常驻）通知（按需）
+                val ongoing = (sbn.notification.flags and Notification.FLAG_ONGOING_EVENT) != 0
+                if (ongoing) return false
+            }
+            return true
+
         }
 
-        // 检查时间间隔
-        if (currentTime - lastHandleTime < MIN_HANDLE_INTERVAL) {
-            //Log.e("通知去重", "处理间隔过短，已忽略")
-            return false
-        }
-
-        // 更新记录
-        lastHandleTime = currentTime
-        lastNotificationKey = key
-        if (false){
-            // 忽略本应用的通知（按需）
-            if (sbn.packageName == packageName) return false
-            // 忽略 ongoing（常驻）通知（按需）
-            val ongoing = (sbn.notification.flags and Notification.FLAG_ONGOING_EVENT) != 0
-            if (ongoing) return false
-        }
-        return true
     }
 
     // 获取通知的详细信息，包含从 NotificationCompat.MessagingStyle 提取的消息
