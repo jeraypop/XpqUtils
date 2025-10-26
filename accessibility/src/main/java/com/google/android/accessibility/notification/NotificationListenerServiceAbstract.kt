@@ -102,6 +102,8 @@ abstract class NotificationListenerServiceAbstract : NotificationListenerService
     private val handleLock = Any()
     @Volatile private var lastHandleTime2: Long = 0L
     @Volatile private var lastHandledUniqueKey: String = ""
+    // 是否启用 shouldHandle 过滤器 子类可覆盖
+    open val enableShouldHandleFilter: Boolean = true
 
     companion object {
         // 过期保护：超过这个时间即便 key 相同也会重新处理（单位毫秒）
@@ -199,7 +201,7 @@ abstract class NotificationListenerServiceAbstract : NotificationListenerService
         AppExecutors.executors.execute {
             val notification = sbn.notification ?: return@execute
             //避免短时间内连续两次调用
-            if (!shouldHandle(sbn)) return@execute
+            if (enableShouldHandleFilter && !shouldHandle(sbn)) return@execute
             var sbns:List<StatusBarNotification> = emptyList()
             val n_info = buildNotificationInfo(sbn,notification, null)
             if (isTitleAndContentEmpty(n_info.title, n_info.content)){
@@ -284,7 +286,7 @@ abstract class NotificationListenerServiceAbstract : NotificationListenerService
         AppExecutors.executors2.execute {
             val notification = sbn.notification ?: return@execute
             //避免短时间内连续两次调用
-            if (!should2Handle(sbn)) return@execute
+            if (enableShouldHandleFilter && !should2Handle(sbn)) return@execute
             val n_Info = buildNotificationInfo(sbn,notification, rankingMap)
             asyncHandleNotificationPosted(sbn,
                 rankingMap,
