@@ -1249,6 +1249,10 @@ object KeyguardUnLock {
         if (service == null) {
             return false
         }
+        if (Looper.myLooper() != Looper.getMainLooper()) {
+            Handler(Looper.getMainLooper()).post { moniClick(X, Y, service) }
+            return false
+        }
         try {
             val path = Path()
             path.moveTo(X.toFloat(), Y.toFloat())

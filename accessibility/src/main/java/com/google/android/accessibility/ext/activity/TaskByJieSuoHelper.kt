@@ -73,9 +73,12 @@ open class TaskByJieSuoHelper(
             val end = System.currentTimeMillis()
             val totalTime = end - start
             sendLog("♥♥ 【自动解锁(方案1)】任务耗时：${totalTime.formatTime()}")
-            sendLog("♥♥ 未点亮屏幕,尝试采用【自动解锁(方案2)】点亮")
-            //尝试 新方法 点亮屏幕  用 activity
-            jieSuoBy2(i)
+            if (hasActivity()){
+                sendLog("♥♥ 未点亮屏幕,尝试采用【自动解锁(方案2)】点亮")
+                //尝试 新方法 点亮屏幕  用 activity
+                jieSuoBy2(i)
+            }
+
             return
         }
         // 获取键盘是否锁定状态
@@ -84,9 +87,12 @@ open class TaskByJieSuoHelper(
             val end = System.currentTimeMillis()
             val totalTime = end - start
             sendLog("♥♥ 【自动解锁(方案1)】任务耗时：${totalTime.formatTime()}")
-            sendLog("♥♥ 未解锁屏幕,尝试采用【自动解锁(方案2)】解锁")
-            //尝试 新方法 点亮屏幕  用 activity
-            jieSuoBy2(i)
+            if (hasActivity()){
+                sendLog("♥♥ 未解锁屏幕,尝试采用【自动解锁(方案2)】解锁")
+                //尝试 新方法 点亮屏幕  用 activity
+                jieSuoBy2(i)
+            }
+
             return
         }
         //解锁任务结束
@@ -123,6 +129,14 @@ open class TaskByJieSuoHelper(
      */
     open fun getUnlockPassword(): String {
         return ""
+    }
+    /**
+     * 是否 增加 activity 解锁
+     *
+     *
+     */
+    protected open fun hasActivity(): Boolean {
+        return true
     }
 
     // 保留工具方法
