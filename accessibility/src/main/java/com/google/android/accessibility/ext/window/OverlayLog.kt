@@ -1,7 +1,7 @@
 package com.google.android.accessibility.ext.window
-
 import android.annotation.SuppressLint
 import android.content.Context
+import android.os.Looper
 import android.view.LayoutInflater
 import android.view.MotionEvent
 import android.view.View
@@ -37,12 +37,15 @@ object OverlayLog : AssistsServiceListener {
                 }
 
                 MotionEvent.ACTION_UP -> {
-//                    runAutoScrollList()
+                    //滚动监听
+                    //runAutoScrollList()
                 }
             }
             return false
         }
     }
+
+    // ---------- 视图绑定 ----------
     private var viewBinding: LogOverlayXpqBinding? = null
         @SuppressLint("ClickableViewAccessibility")
         get() {
@@ -97,7 +100,74 @@ object OverlayLog : AssistsServiceListener {
             return field
         }
 
+
+    // ---------- 智能线程检测版 show ----------
     fun show() {
+        if (Looper.myLooper() == Looper.getMainLooper()) {
+            internalShow()
+        } else {
+            CoroutineWrapper.launch(isMain = true) {
+                internalShow()
+            }
+        }
+    }
+
+    private fun internalShow() {
+        if (!SelectToSpeakServiceAbstract.listeners.contains(this)) {
+            SelectToSpeakServiceAbstract.listeners.add(this)
+        }
+        if (!AssistsWindowManager.contains(assistWindowWrapper?.getView())) {
+            AssistsWindowManager.add(assistWindowWrapper)
+            initLogCollect()
+            runAutoScrollList(delay = 0)
+        }
+    }
+
+    // ---------- 智能线程检测版 hide ----------
+    fun hide() {
+        if (Looper.myLooper() == Looper.getMainLooper()) {
+            internalHide()
+        } else {
+            CoroutineWrapper.launch(isMain = true) {
+                internalHide()
+            }
+        }
+    }
+
+    private fun internalHide() {
+        AssistsWindowManager.removeView(assistWindowWrapper?.getView())
+        logCollectJob?.cancel()
+        runAutoScrollListJob?.cancel()
+        logCollectJob = null
+        runAutoScrollListJob = null
+    }
+
+    // ---------- 智能线程检测版 onUnbind ----------
+    override fun onUnbind() {
+        if (Looper.myLooper() == Looper.getMainLooper()) {
+            internalUnbind()
+        } else {
+            CoroutineWrapper.launch(isMain = true) {
+                internalUnbind()
+            }
+        }
+    }
+
+    private fun internalUnbind() {
+        try {
+            AssistsWindowManager.removeView(assistWindowWrapper?.getView())
+        } catch (_: Exception) {
+        }
+
+        viewBinding = null
+        assistWindowWrapper = null
+        logCollectJob?.cancel()
+        logCollectJob = null
+        runAutoScrollListJob?.cancel()
+        runAutoScrollListJob = null
+    }
+
+/*    fun show() {
         if (!SelectToSpeakServiceAbstract.listeners.contains(this)) {
             SelectToSpeakServiceAbstract.listeners.add(this)
         }
@@ -123,7 +193,7 @@ object OverlayLog : AssistsServiceListener {
         logCollectJob = null
         runAutoScrollListJob?.cancel()
         runAutoScrollListJob = null
-    }
+    }*/
 
 
     private fun runAutoScrollList(delay: Long = 5000) {
