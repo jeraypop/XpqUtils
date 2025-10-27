@@ -138,6 +138,8 @@ open class BaseLockScreenActivity : XpqBaseActivity<ActivityLockScreenBinding>(
             withContext(Dispatchers.Main) {
                 activity.setShowWhenLocked(true)
                 activity.setTurnScreenOn(true)
+                // 如果需要保持屏幕不灭
+                window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
                 if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) { /* optional */ }
                 sendLog("设备系统大于8.1  执行点亮屏幕")
                 //判定 是否点亮

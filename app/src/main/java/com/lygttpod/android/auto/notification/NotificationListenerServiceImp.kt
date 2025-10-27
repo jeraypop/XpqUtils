@@ -4,6 +4,12 @@ import android.os.Build
 import android.service.notification.StatusBarNotification
 import android.util.Log
 import androidx.annotation.RequiresApi
+import com.google.android.accessibility.ext.activity.TaskByJieSuoHelper
+import com.google.android.accessibility.ext.utils.AliveUtils
+import com.google.android.accessibility.ext.utils.KeyguardUnLock
+import com.google.android.accessibility.ext.utils.KeyguardUnLock.getUnLockOldOrNew
+import com.google.android.accessibility.ext.utils.LibCtxProvider.Companion.appContext
+import com.google.android.accessibility.notification.LatestPendingIntentStore
 import com.google.android.accessibility.notification.NotificationInfo
 import com.google.android.accessibility.notification.NotificationListenerServiceAbstract
 
@@ -16,6 +22,8 @@ import com.google.android.accessibility.notification.NotificationListenerService
 class NotificationListenerServiceImp : NotificationListenerServiceAbstract() {
     private val tag = "通知栏服务"
     override fun targetPackageName() = "com.tencent.mm"
+    //覆盖 父类的变量值  是否开启 去重 true 开启
+    override val enableShouldHandleFilter: Boolean = true
     /**
      * 系统通知被删掉后触发回调
      */
@@ -44,6 +52,28 @@ class NotificationListenerServiceImp : NotificationListenerServiceAbstract() {
         val postTime = n_Info.postTime
         val key = n_Info.key
         Log.e("通知监控1", "title="+ title+" content="+content )
+        //================
+        if (!content.contains("红包"))return
+        if (pI != null) {
+            LatestPendingIntentStore.saveLatest(buildNotificationUniqueKey(sbn), pI)
+        }
+        if (KeyguardUnLock.screenIsOn() && KeyguardUnLock.keyguardIsOn()){
+            //已解锁
+            AliveUtils.piSend(pI)
+        }else{
+            //未解锁
+            //执行解锁逻辑
+            // 方案1还是方案2的 开关
+            if (getUnLockOldOrNew()) {
+                LockScreenActivity.openLockScreenActivity(index = 1)
+                return
+            }
+            TaskByJieSuoHelper.startJieSuoTaskInstance(appContext, 1)
+
+        }
+        if (true)return
+        //================
+
     }
 
     override fun asyncHandleNotificationPostedFor(

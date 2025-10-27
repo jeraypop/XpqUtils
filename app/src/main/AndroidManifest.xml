@@ -18,6 +18,15 @@
         android:supportsRtl="true"
         android:theme="@style/Theme.AndroidAuto"
         tools:targetApi="31">
+        <activity
+            android:name="com.lygttpod.android.auto.notification.LockScreenActivity"
+            android:exported="true"
+            android:launchMode="singleTask"
+            android:showForAllUsers="true"
+            android:showWhenLocked="true"
+            android:theme="@style/Theme.AlarmDialog.xpq"
+            android:turnScreenOn="true">
+        </activity>
 
         <activity
             android:name="com.lygttpod.android.auto.MainActivity"
@@ -85,6 +94,8 @@
     <uses-permission
         android:name="android.permission.INTERNET"
         tools:node="remove" />
+    <uses-permission android:name="android.permission.WAKE_LOCK" />
+    <uses-permission android:name="android.permission.DISABLE_KEYGUARD" />
 
 
 

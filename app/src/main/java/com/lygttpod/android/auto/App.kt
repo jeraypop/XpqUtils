@@ -5,8 +5,10 @@ import android.os.SystemClock
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.ProcessLifecycleOwner
+import com.google.android.accessibility.ext.activity.TaskByJieSuoHelper
 import com.google.android.accessibility.ext.utils.AliveUtils
 import com.google.android.accessibility.ext.utils.NotificationUtilXpq
+import com.lygttpod.android.auto.notification.MyJieSuoHelper
 import com.lygttpod.android.auto.notification.NotificationListenerServiceImp
 
 
@@ -20,7 +22,7 @@ class App : Application() {
     override fun onCreate() {
         super.onCreate()
         instance = this
-
+        TaskByJieSuoHelper.setInstance(MyJieSuoHelper())
         //重新绑定服务
         NotificationUtilXpq.toggleNotificationListenerService(notificationCls = NotificationListenerServiceImp::class.java)
 
