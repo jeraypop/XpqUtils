@@ -34,7 +34,7 @@ class MyJieSuoHelper : TaskByJieSuoHelper() {
         //轨迹
         MMKVUtil.put(MMKVConst.SHOW_DO_GUIJI, true)
 
-        return "12346" // 真实密码或配置读取
+        return "1234" // 真实密码或配置读取
     }
 
     override fun hasActivity(): Boolean {

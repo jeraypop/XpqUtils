@@ -34,6 +34,8 @@ import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.suspendCancellableCoroutine
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
 import kotlinx.coroutines.withTimeoutOrNull
 import java.util.Locale
@@ -753,7 +755,8 @@ object KeyguardUnLock {
         return  SwipePathInfo(path, startX, startY, endX, endY)
 
     }
-
+    // 🟡【新增】互斥锁，防止手势并发重叠执行
+    private val moveMutex = Mutex()
     @JvmOverloads
     @JvmStatic
    /* suspend fun moveAwait(
@@ -882,91 +885,111 @@ object KeyguardUnLock {
         useCurve: Boolean = true,
         curveIntensity: Float = 0.12f,
         horizontalOffsetRatio: Float = 0.0f,
-        jitterRatio: Float = 0.02f
+        jitterRatio: Float = 0.02f,
+        retryCount: Int = 1 // 🟡【新增】重试次数配置（默认重试 1 次）
     ): Boolean = withContext(Dispatchers.Default) {
-        // ====== 1️⃣ 参数和前置检查（后台执行） ======
-        if (startTime < 0 || duration < 0) {
-            moveCallback?.onError()
-            return@withContext false
-        }
 
-        if (service == null) {
-            KeyguardUnLock.sendLog("无障碍服务未开启!")
-            return@withContext false
-        }
-        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.N) {
-            KeyguardUnLock.sendLog("系统版本小于7.0")
-            return@withContext false
-        }
+        moveMutex.withLock {
+            var attempt = 0
+            var result = false
 
-        val finalPathInfo = pathInfo ?: createNaturalSwipePathInfo(
-            context = service.applicationContext,
-            useCurve = useCurve,
-            curveIntensity = curveIntensity,
-            horizontalOffsetRatio = horizontalOffsetRatio,
-            jitterRatio = jitterRatio
-        )
+            // 🟡【新增】增加循环重试逻辑
+            while (attempt <= retryCount && !result) {
+                attempt++
 
-        val distancePx = abs(finalPathInfo.startY - finalPathInfo.endY)
-        val finalDuration = when {
-            duration > 0L -> duration.coerceAtLeast(50L)
-            autoDurationEnabled -> computeAutoDuration(
-                context = service.applicationContext,
-                distancePx = distancePx,
-                curveIntensity = curveIntensity,
-                minMs = 80L,
-                maxMs = 900L
-            )
-            else -> 500L
-        }
-
-        // ====== 2️⃣ 在主线程执行手势 ======
-        safeRunOnMain {
-            showGestureIndicator(service, finalPathInfo.path, finalDuration)
-            delay(60)
-            KeyguardUnLock.sendLog("上划屏幕呼出输入解锁密码界面")
-
-            val gesture = GestureDescription.Builder()
-                .addStroke(GestureDescription.StrokeDescription(finalPathInfo.path, startTime, finalDuration))
-                .build()
-
-            if (moveCallback == null) {
-                try {
-                    service.dispatchGesture(gesture, null, null)
-                    return@safeRunOnMain true
-                } catch (_: Throwable) {
-                    return@safeRunOnMain false
+                // ====== 1️⃣ 参数和前置检查 ======
+                if (startTime < 0 || duration < 0) {
+                    moveCallback?.onError()
+                    return@withContext false
                 }
-            }
 
-            val block: suspend () -> Boolean = suspend {
-                suspendCancellableCoroutine { cont ->
-                    val callback = object : AccessibilityService.GestureResultCallback() {
-                        override fun onCompleted(gestureDescription: GestureDescription) {
-                            try { moveCallback.onSuccess() } catch (_: Throwable) {}
-                            if (cont.isActive) cont.resume(true)
-                        }
+                if (service == null) {
+                    KeyguardUnLock.sendLog("无障碍服务未开启!")
+                    return@withContext false
+                }
+                if (Build.VERSION.SDK_INT < Build.VERSION_CODES.N) {
+                    KeyguardUnLock.sendLog("系统版本小于7.0")
+                    return@withContext false
+                }
 
-                        override fun onCancelled(gestureDescription: GestureDescription) {
-                            try { moveCallback.onError() } catch (_: Throwable) {}
-                            if (cont.isActive) cont.resume(false)
+                val finalPathInfo = pathInfo ?: createNaturalSwipePathInfo(
+                    context = service.applicationContext,
+                    useCurve = useCurve,
+                    curveIntensity = curveIntensity,
+                    horizontalOffsetRatio = horizontalOffsetRatio,
+                    jitterRatio = jitterRatio
+                )
+
+                val distancePx = abs(finalPathInfo.startY - finalPathInfo.endY)
+                val finalDuration = when {
+                    duration > 0L -> duration.coerceAtLeast(50L)
+                    autoDurationEnabled -> computeAutoDuration(
+                        context = service.applicationContext,
+                        distancePx = distancePx,
+                        curveIntensity = curveIntensity,
+                        minMs = 80L,
+                        maxMs = 900L
+                    )
+                    else -> 500L
+                }
+
+                // ====== 2️⃣ 在主线程执行手势 ======
+                result = safeRunOnMain {
+                    showGestureIndicator(service, finalPathInfo.path, finalDuration)
+                    delay(60)
+                    KeyguardUnLock.sendLog("上划屏幕呼出输入解锁密码界面")
+
+                    val gesture = GestureDescription.Builder()
+                        .addStroke(GestureDescription.StrokeDescription(finalPathInfo.path, startTime, finalDuration))
+                        .build()
+
+                    if (moveCallback == null) {
+                        try {
+                            service.dispatchGesture(gesture, null, null)
+                            return@safeRunOnMain true
+                        } catch (_: Throwable) {
+                            return@safeRunOnMain false
                         }
                     }
 
-                    try {
-                        service.dispatchGesture(gesture, callback, null)
-                    } catch (_: Throwable) {
-                        try { moveCallback.onError() } catch (_: Throwable) {}
-                        if (cont.isActive) cont.resume(false)
+                    val block: suspend () -> Boolean = suspend {
+                        suspendCancellableCoroutine { cont ->
+                            val callback = object : AccessibilityService.GestureResultCallback() {
+                                override fun onCompleted(gestureDescription: GestureDescription) {
+                                    try { moveCallback.onSuccess() } catch (_: Throwable) {}
+                                    if (cont.isActive) cont.resume(true)
+                                }
+
+                                override fun onCancelled(gestureDescription: GestureDescription) {
+                                    try { moveCallback.onError() } catch (_: Throwable) {}
+                                    if (cont.isActive) cont.resume(false)
+                                }
+                            }
+
+                            try {
+                                service.dispatchGesture(gesture, callback, null)
+                            } catch (_: Throwable) {
+                                try { moveCallback.onError() } catch (_: Throwable) {}
+                                if (cont.isActive) cont.resume(false)
+                            }
+                        }
                     }
+
+                    if (timeoutMs > 0) {
+                        withTimeoutOrNull(timeoutMs) { block() } ?: false
+                    } else {
+                        block()
+                    }
+                }
+
+                // 🟡【新增】失败重试提示
+                if (!result && attempt <= retryCount) {
+                    KeyguardUnLock.sendLog("手势执行失败，第${attempt}次重试中…")
+                    delay(200L) // 稍微等一等再重试
                 }
             }
 
-            if (timeoutMs > 0) {
-                withTimeoutOrNull(timeoutMs) { block() } ?: false
-            } else {
-                block()
-            }
+            result
         }
     }
 

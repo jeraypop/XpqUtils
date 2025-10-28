@@ -96,7 +96,7 @@ open class TaskByJieSuoHelper(
             return
         }
         //解锁任务结束
-        if (KeyguardUnLock.screenIsOn() && KeyguardUnLock.keyguardIsOn() && KeyguardUnLock.deviceIsOn()) {
+        if (KeyguardUnLock.screenIsOn() && KeyguardUnLock.keyguardIsOn()) {
             sendLog("♥♥ 【自动解锁(方案1)】任务成功结束,屏幕已被点亮,且解除锁定")
             //直接启动
             doMyWork(i)
@@ -150,8 +150,8 @@ open class TaskByJieSuoHelper(
      * 如果黑屏,调用 旧版 点亮方法
      */
     suspend fun waitScreenLiang(): Boolean {
-        return delayAction {
-            retryCheckTaskWithLog("等待点亮屏幕",2000L,1000L) {
+        return delayAction(10) {
+            retryCheckTaskWithLog("等待点亮屏幕",1000L,500L) {
                 var isOn = false
                 val status = getDeviceStatusPlus()
                 // 访问屏幕状态
@@ -192,8 +192,8 @@ open class TaskByJieSuoHelper(
      * 如果黑屏,调用 旧版 点亮方法
      */
     suspend fun waitJianPanUnLock(pwd: String): Boolean {
-        return delayAction {
-            retryCheckTaskWithLog("等待解除锁定屏幕",10000L,5000L) {
+        return delayAction(10) {
+            retryCheckTaskWithLog("等待解除锁定屏幕",5000L,5000L) {
                 var isOn = false
                 val status = getDeviceStatusPlus()
                 // 访问锁状态
@@ -210,63 +210,90 @@ open class TaskByJieSuoHelper(
                         //旧版 解锁键盘
                         KeyguardUnLock.wakeUpAndUnlock()
                         KeyguardUnLock.lockScreen()
-                        delay(1000L)
+                         //判断是否解锁
                         if (KeyguardUnLock.keyguardIsOn()) {
                             sendLog("屏幕已成功解锁")
                             isOn = true
-                        }else {
-                            sendLog("屏幕解锁失败,尝试上划解锁")
-                            //上划
-                            val ok = KeyguardUnLock.moveAwait(
-                                service = accessibilityService,
-                                moveCallback = object : MoveCallback {
-                                    override fun onSuccess() {
-                                        println("🟢 手势完成")
+                        }else{
+                            //延时500 再次判断是否解锁
+                            delay(500L)
+                            if (KeyguardUnLock.keyguardIsOn()) {
+                                sendLog("屏幕已成功解锁")
+                                isOn = true
+                            }
+                            else {
+                                sendLog("屏幕解锁失败,尝试上划解锁")
+                                //上划
+                                val ok = KeyguardUnLock.moveAwait(
+                                    service = accessibilityService,
+                                    moveCallback = object : MoveCallback {
+                                        override fun onSuccess() {
+                                            println("🟢 手势完成")
+                                        }
+
+                                        override fun onError() {
+                                            println("🔴 手势取消或失败")
+                                        }
                                     }
 
-                                    override fun onError() {
-                                        println("🔴 手势取消或失败")
+                                )
+                                if (ok){
+                                    if (KeyguardUnLock.keyguardIsOn()){
+                                        sendLog("屏幕已成功上划解锁")
+                                        isOn = true
+                                    } else{
+                                        //延时500 再次判断是否解锁
+                                        delay(500L)
+                                        if (KeyguardUnLock.keyguardIsOn()){
+                                            sendLog("屏幕已成功上划解锁")
+                                            isOn = true
+                                        }
                                     }
-                                }
 
-                            )
-                            if (ok){
-                                delay(1000L)
-                                if (KeyguardUnLock.keyguardIsOn()){
-                                    sendLog("屏幕已成功上划解锁")
-                                    isOn = true
                                 }
                             }
                         }
+
 
                     }
                     DeviceLockState.LockedSecure -> {
                         //设备被锁屏了，并且有安全锁 （如 PIN、图案、指纹、人脸）
                         sendLog("设备被锁屏,设置了安全锁 [PIN、图案、密码、指纹、Face ID 等]")
-                        sendLog("准备呼出锁屏输入解锁密码界面")
+                        sendLog("准备上划,呼出锁屏输入解锁密码界面")
                         //上划
-                        val ok = KeyguardUnLock.moveAwait(
+                        val huaOK = KeyguardUnLock.moveAwait(
                             service = accessibilityService,
                             moveCallback = object : MoveCallback {
                                 override fun onSuccess() {
                                     println("🟢 手势完成")
+                                    sendLog("手势完成")
                                 }
 
                                 override fun onError() {
                                     println("🔴 手势取消或失败")
+                                    sendLog("手势取消或失败")
                                 }
                             }
 
                         )
-                        if (ok){
+                        if (huaOK){
+                            sendLog("屏幕上划成功")
+                            delay(500)
                             //输入密码
-                            val ok2 = KeyguardUnLock.unlockScreenNew(password = pwd)
-                            if (ok2){
-                                delay(1000L)
-                                if (KeyguardUnLock.keyguardIsOn()) {
+                            val inputOK = KeyguardUnLock.unlockScreenNew(password = pwd)
+                            if (inputOK){
+                                if (KeyguardUnLock.keyguardIsOn()){
                                     sendLog("屏幕已成功解锁")
                                     isOn = true
+                                }else{
+                                    //延时500 再次判断是否解锁
+                                    delay(500L)
+                                    if (KeyguardUnLock.keyguardIsOn()) {
+                                        sendLog("屏幕已成功解锁")
+                                        isOn = true
+                                    }
                                 }
+
                             }
 
                         }

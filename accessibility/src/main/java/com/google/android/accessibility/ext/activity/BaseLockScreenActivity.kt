@@ -298,6 +298,7 @@ open class BaseLockScreenActivity : XpqBaseActivity<ActivityLockScreenBinding>(
                             // 3) 在IO线程尝试解锁（自动输入）
                             val unlockSuccess = withContext(Dispatchers.IO) {
                                 try {
+                                    delay(500)
                                     KeyguardUnLock.unlockScreenNew(password = pwd)
                                 } catch (t: Throwable) {
                                     Log.w("BaseLockScreenActivity", "attempt: unlockScreenNew failed", t)
