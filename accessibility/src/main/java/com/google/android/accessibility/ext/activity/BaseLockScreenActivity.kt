@@ -83,10 +83,10 @@ open class BaseLockScreenActivity : XpqBaseActivity<ActivityLockScreenBinding>(
         handleIntent(intent)
 
         lifecycleScope.launch {
-
+            val start = System.currentTimeMillis()
             try {
                 sendLog("开始执行【自动解锁(方案2)】任务")
-                val start = System.currentTimeMillis()
+
                 val unlocked = showWhenLockedAndTurnScreenOn(this@BaseLockScreenActivity)
                 val end = System.currentTimeMillis()
                 val totalTime = end - start
@@ -96,6 +96,9 @@ open class BaseLockScreenActivity : XpqBaseActivity<ActivityLockScreenBinding>(
                 }
                 else {
                     sendLog("【自动解锁(方案2)】未成功或超时")
+                    val end = System.currentTimeMillis()
+                    val totalTime = end - start
+                    sendLog("♥♥ 【自动解锁(方案2)】任务耗时：${totalTime.formatTime()}")
                 }
             } catch (t: Throwable) {
                 sendLog("【自动解锁(方案2)】执行出错")

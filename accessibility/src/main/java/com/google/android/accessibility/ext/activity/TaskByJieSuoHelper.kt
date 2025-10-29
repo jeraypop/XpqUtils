@@ -70,9 +70,7 @@ open class TaskByJieSuoHelper(
         // 获取屏幕状态
         val isLiang = waitScreenLiang()
         if (!isLiang) {
-            val end = System.currentTimeMillis()
-            val totalTime = end - start
-            sendLog("♥♥ 【自动解锁(方案1)】任务耗时：${totalTime.formatTime()}")
+            haoshiTip(start)
             if (hasActivity()){
                 sendLog("♥♥ 未点亮屏幕,尝试采用【自动解锁(方案2)】点亮")
                 //尝试 新方法 点亮屏幕  用 activity
@@ -84,9 +82,7 @@ open class TaskByJieSuoHelper(
         // 获取键盘是否锁定状态
         val isJianPanUnLock = waitJianPanUnLock(pwd)
         if (!isJianPanUnLock){
-            val end = System.currentTimeMillis()
-            val totalTime = end - start
-            sendLog("♥♥ 【自动解锁(方案1)】任务耗时：${totalTime.formatTime()}")
+            haoshiTip(start)
             if (hasActivity()){
                 sendLog("♥♥ 未解锁屏幕,尝试采用【自动解锁(方案2)】解锁")
                 //尝试 新方法 点亮屏幕  用 activity
@@ -97,15 +93,23 @@ open class TaskByJieSuoHelper(
         }
         //解锁任务结束
         if (KeyguardUnLock.screenIsOn() && KeyguardUnLock.keyguardIsOn()) {
+            haoshiTip(start)
             sendLog("♥♥ 【自动解锁(方案1)】任务成功结束,屏幕已被点亮,且解除锁定")
             //直接启动
             doMyWork(i)
         } else{
+            haoshiTip(start)
             sendLog("♥♥ 【自动解锁(方案1)】任务虽然结束,但屏幕未正常解锁,,尝试采用【自动解锁(方案2)】解锁")
             //尝试 新方法 点亮屏幕  用 activity
             jieSuoBy2(i)
         }
 
+    }
+
+    private fun haoshiTip(start: Long) {
+        val end = System.currentTimeMillis()
+        val totalTime = end - start
+        sendLog("♥♥ 【自动解锁(方案1)】任务耗时：${totalTime.formatTime()}")
     }
 
     /**
