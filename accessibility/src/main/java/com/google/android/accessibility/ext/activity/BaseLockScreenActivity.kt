@@ -146,17 +146,13 @@ open class BaseLockScreenActivity : XpqBaseActivity<ActivityLockScreenBinding>(
                 if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) { /* optional */ }
                 sendLog("设备系统大于8.1  执行点亮屏幕")
                 //判定 是否点亮
-                if (!KeyguardUnLock.screenIsOn()){
-                    //延时一会 再次判定 是否点亮
-                    delay(500)
-                    if (!KeyguardUnLock.screenIsOn()){
-                        sendLog("屏幕依然黑屏,部分品牌机型上,请检查是否开启了,[后台弹出界面权限]" +
-                                ", [允许在锁屏上显示]")
-                        sendLog("尝试采取旧方法重新点亮(建议开启上述提到的 两个权限)")
-                        KeyguardUnLock.wakeScreenOn()
-                    }
-
+                if (!waitForScreenOnCheck(5,200)){
+                    sendLog("屏幕依然黑屏,部分品牌机型上,请检查是否开启了,[后台弹出界面权限]" +
+                            ", [允许在锁屏上显示]")
+                    sendLog("尝试采取旧方法重新点亮(建议开启上述提到的 两个权限)")
+                    KeyguardUnLock.wakeScreenOn()
                 }
+
 
             }
             requestDeviceUnlock(activity, timeoutMs)
@@ -172,6 +168,20 @@ open class BaseLockScreenActivity : XpqBaseActivity<ActivityLockScreenBinding>(
             }
             true
         }
+    }
+
+    suspend fun waitForScreenOnCheck(
+        times: Int = 8,
+        intervalMs: Long = 200L
+    ): Boolean {
+        repeat(times) { attempt ->
+            if (KeyguardUnLock.screenIsOn()) {
+                sendLog("屏幕已亮屏")
+                return true
+            }
+            if (attempt < times - 1) delay(intervalMs)
+        }
+        return false
     }
 
     protected open suspend fun requestDeviceUnlock(activity: Activity, timeoutMs: Long = 5000L): Boolean {
@@ -390,7 +400,7 @@ open class BaseLockScreenActivity : XpqBaseActivity<ActivityLockScreenBinding>(
                             if (resumed.get()) return@launch
 
                             // 如果 keyguard 已不在，可能已经被解锁
-                            if (KeyguardUnLock.deviceIsOn() && KeyguardUnLock.keyguardIsOn()) {
+                            if (KeyguardUnLock.keyguardIsOn()) {
                                 sendLog("后备检查：设备已解锁（无需补救）")
                                 if (resumed.compareAndSet(false, true)) cont.resume(true)
                                 return@launch
