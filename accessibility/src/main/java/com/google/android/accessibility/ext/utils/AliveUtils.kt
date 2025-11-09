@@ -1082,6 +1082,13 @@ object AliveUtils {
             }
             return
         }
+        if (Build.VERSION.SDK_INT == 31){
+            //Android 12
+            //特别是华为 鸿蒙 ,干脆 31 还是采用旧方法咯
+            pendingIntent.send()
+            return
+
+        }
 
         // 选择合适的 options（根据系统版本）
         val optionsBundle: Bundle? = try {
@@ -1096,6 +1103,7 @@ object AliveUtils {
                 }
                 Build.VERSION.SDK_INT >= 31 -> {
                     // Android 12~13: 使用原先的常量（还未废弃）
+                    // 华为 12 上 没有该方法
                     options.setPendingIntentBackgroundActivityStartMode(
                         ActivityOptions.MODE_BACKGROUND_ACTIVITY_START_ALLOWED
                     )
