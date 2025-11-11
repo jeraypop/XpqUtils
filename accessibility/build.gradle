@@ -56,6 +56,9 @@ dependencies {
     implementation(libs.material)
     implementation(libs.gson)
 
+    implementation(libs.media3.exoplayer)
+    implementation(libs.media3.ui)
+
     implementation(libs.navigationktx)
     implementation(libs.blankj)
     //tencent mmkv   api可以依赖传递

@@ -19,6 +19,7 @@ import com.android.accessibility.ext.BuildConfig
 import com.google.android.accessibility.ext.activity.LockScreenActivity
 import com.google.android.accessibility.ext.activity.XpqBaseActivity
 import com.google.android.accessibility.ext.openAccessibilitySetting
+import com.google.android.accessibility.ext.utils.ActivityUtils
 
 import com.google.android.accessibility.ext.utils.AliveUtils
 import com.google.android.accessibility.ext.utils.LibCtxProvider.Companion.appBuildTime
@@ -90,6 +91,8 @@ class MainActivity : XpqBaseActivity<ActivityMainBinding>(
             println("构建时间戳: $appBuildTime")
             println("构建时间: $formatted")
             LockScreenActivity.openLockScreenActivity()
+
+            ActivityUtils.showVideoDialog(this, "https://gitlab.com/mytiper/wechat/-/raw/master/public/unlock.mp4")
 
         }
 
