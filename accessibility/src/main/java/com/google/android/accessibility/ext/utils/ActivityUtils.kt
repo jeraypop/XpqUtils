@@ -2,7 +2,9 @@ package com.google.android.accessibility.ext.utils
 
 import android.annotation.SuppressLint
 import android.app.Activity
+import android.content.Context
 import android.content.Intent
+import android.content.pm.PackageManager
 import android.net.Uri
 import android.os.Build
 import androidx.activity.ComponentActivity
@@ -14,6 +16,7 @@ import androidx.media3.exoplayer.ExoPlayer
 import androidx.media3.ui.AspectRatioFrameLayout
 import androidx.media3.ui.PlayerView
 import com.android.accessibility.ext.R
+import com.google.android.accessibility.ext.utils.LibCtxProvider.Companion.appContext
 
 /**
  * Company    : 
@@ -69,6 +72,54 @@ object ActivityUtils {
             player.release()
         }
     }
+    /**
+     * 获取特定包名应用的版本名称
+     * */
+    @JvmOverloads
+    @JvmStatic
+    fun getAppVersionName(context: Context = appContext, packageName: String = MMKVConst.XPQ_WX_PKG): String? {
+        return try {
+            val pm = context.packageManager
+            val info = pm.getPackageInfo(packageName, 0)
+            info.versionName  // 例如 "8.9.5"
+        } catch (e: PackageManager.NameNotFoundException) {
+            null  // 应用未安装
+        }
+    }
+    /**
+     * 获取特定包名应用的版本号
+     * */
+    @JvmOverloads
+    @JvmStatic
+    fun getAppVersionCode(context: Context = appContext, packageName: String = MMKVConst.XPQ_WX_PKG): Long {
+        return try {
+            val pm = context.packageManager
+            val info = pm.getPackageInfo(packageName, 0)
+            var versionCode = -1L
+
+            // ① 优先尝试旧字段 versionCode
+            try {
+                @Suppress("DEPRECATION")
+                versionCode = info.versionCode.toLong()
+            } catch (_: Throwable) {
+                // 某些 ROM 可能已删除旧字段
+            }
+
+            // ② 如果没取到，再尝试新版 API
+            if (versionCode <= 0 && Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
+                try {
+                    versionCode = info.longVersionCode
+                } catch (_: Throwable) {
+                }
+            }
+
+            versionCode
+        } catch (_: PackageManager.NameNotFoundException) {
+            -1L
+        }
+    }
+
+
 
 
 

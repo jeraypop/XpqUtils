@@ -8,6 +8,7 @@ package com.google.android.accessibility.ext.utils
  * Introduction :
  */
 object MMKVConst {
+    const val XPQ_WX_PKG = "com.tencent.mm"
     const val BTN_AUTOSTART = 1
     const val BTN_RECENTS = 2
     const val BTN_PERMISSION = 3
