@@ -57,6 +57,7 @@ class LibCtxProvider : ContentProvider() {
 
     /**
      * 在application的oncreate之前，attachBaseContext之后
+     * 因为在attachBaseContext中拿不到全局的applicationContext
      */
     override fun onCreate(): Boolean {
         appContext = context?.applicationContext!!
