@@ -3,6 +3,7 @@ package com.google.android.accessibility.ext.utils
 import android.content.Context
 import android.net.ConnectivityManager
 import android.net.NetworkCapabilities
+import com.google.android.accessibility.ext.utils.LibCtxProvider.Companion.appContext
 import java.net.HttpURLConnection
 import java.net.URL
 import java.text.SimpleDateFormat
@@ -51,7 +52,9 @@ object NetworkHelperFull {
     /**
      * 外部调用入口
      */
-    fun checkNetworkAndGetTime(context: Context): NetworkCheckResult {
+    @JvmOverloads
+    @JvmStatic
+    fun checkNetworkAndGetTime(context: Context = appContext): NetworkCheckResult {
         if (!isNetworkAvailable(context)) {
             return NetworkCheckResult(NetStatus.NETWORK_UNAVAILABLE)
         }
