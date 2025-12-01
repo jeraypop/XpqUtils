@@ -129,8 +129,8 @@ class MainActivity : XpqBaseActivity<ActivityMainBinding>(
         }
         binding.btnAddFriend.setOnClickListener{
             //好友微信号
-//            openWeChatToFollowInterface(getWCField[6].second.restoreAllIllusion())
-            openAccessibilitySetting()
+            openWeChatToFollowInterface(getWCField[6].second.restoreAllIllusion())
+            //openAccessibilitySetting()
            
         }
 
