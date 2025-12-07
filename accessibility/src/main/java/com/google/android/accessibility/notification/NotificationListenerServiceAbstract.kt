@@ -466,10 +466,16 @@ abstract class NotificationListenerServiceAbstract : NotificationListenerService
 
 
         // 尝试判断 解析 MessagingStyle（如果是聊天类型的通知）
-        val messagingStyle = NotificationCompat.MessagingStyle.extractMessagingStyleFromNotification(n)
+        var messagingStyle: NotificationCompat.MessagingStyle? = null
+        try {
+            messagingStyle = NotificationCompat.MessagingStyle.extractMessagingStyleFromNotification(n)
+        } catch (_: Exception) { }
         // 如果是 MessagingStyle 类型的通知，解析该类型的标题和内容
         // 获取对话标题（例如联系人名称或群聊名称）
-        val conversationTitle: String = (messagingStyle?.conversationTitle ?: appContext.getString(R.string.notificationtitlenull)).toString()
+        val conversationTitle = messagingStyle?.conversationTitle?.toString()
+            ?.takeIf { it.isNotBlank() }
+            ?: appContext.getString(R.string.notificationtitlenull)
+
         // 获取消息列表
         val messageList = messagingStyle?.messages?:emptyList()
         // 获取所有按时间排序messagingStyle的消息列表 （降序）
@@ -484,7 +490,7 @@ abstract class NotificationListenerServiceAbstract : NotificationListenerService
             MessageStyleInfo(
                 timestamp = it.timestamp,  // 时间戳，假设它不会为 null，但可能为 0
                 title = conversationTitle,
-                sender = it.person?.name?.toString() ?: "Unknown",  // 发送者，可能为 null，使用默认值 "Unknown"
+                sender = it.person?.name?.toString()?.takeIf { it.isNotBlank() } ?: "Unknown",  // 发送者，可能为 null，使用默认值 "Unknown"
                 text = it.text?.toString()?.takeIf { it.isNotBlank() }
                     ?: appContext.getString(R.string.notificationcontentnull) // 消息内容，可能为 null 或空白，使用默认值
             )
