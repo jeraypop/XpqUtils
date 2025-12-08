@@ -31,6 +31,7 @@ import android.os.Build
 import android.os.Bundle
 import android.os.Handler
 import android.os.Looper
+import android.os.PowerManager
 import android.provider.Settings
 import android.service.notification.NotificationListenerService
 import android.text.TextUtils
@@ -265,14 +266,15 @@ object AliveUtils {
 
     }
 
-
+    private var wakeLock: PowerManager.WakeLock? = null
     private var ignoreView: View? = null
     private var windowManager: WindowManager? = null
     private var lastCreatedByAccessibility: Boolean = false
     private val mainHandler = Handler(Looper.getMainLooper())
 
+    @JvmOverloads
     @JvmStatic
-    fun keepAliveByFloatingWindow(ctx: Context? = appContext, enable: Boolean) {
+    fun keepAliveByFloatingWindow(ctx: Context? = appContext, enable: Boolean,activity: Activity? = null) {
         if (ctx == null) return
         val appCtx = ctx.applicationContext
 
@@ -311,6 +313,16 @@ object AliveUtils {
                     }
                 }
             }
+            // 释放锁
+            try {
+                if (wakeLock?.isHeld == true) {
+                    wakeLock?.release()
+                }
+            } catch (_: Throwable) {}
+            try {
+              activity?.window?.clearFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
+            } catch (_: Throwable) {}
+
             return
         }
 
@@ -358,6 +370,42 @@ object AliveUtils {
                     or WindowManager.LayoutParams.FLAG_NOT_TOUCHABLE)
             if (MMKVUtil.get(MMKVConst.XPQ_SCREEN_ON,false)) {
                 flags = flags or WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON
+
+
+                val pm = wmContext.getSystemService(Context.POWER_SERVICE) as PowerManager
+                // 使用 PARTIAL_WAKE_LOCK + ACQUIRE_CAUSES_WAKEUP 来兼容性更好且不直接使用过时常量
+                try {
+                    wakeLock = pm.newWakeLock(
+                        PowerManager.PARTIAL_WAKE_LOCK or PowerManager.ACQUIRE_CAUSES_WAKEUP,
+                        "com.example.keepalive:wakelock"
+                    )
+                } catch (t: Throwable) {
+                    // 作为降级，尝试使用 FULL_WAKE_LOCK（deprecated）
+                    wakeLock = pm.newWakeLock(
+                        PowerManager.FULL_WAKE_LOCK or PowerManager.ACQUIRE_CAUSES_WAKEUP,
+                        "com.example.keepalive:wakelock"
+                    )
+                }
+                try {
+                    if (wakeLock?.isHeld != true) {
+                        // 持续持有（直到用户手动停止服务）
+                        wakeLock?.acquire()
+                    }
+                } catch (_: Throwable) {}
+                try {
+                    activity?.window?.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
+                } catch (_: Throwable) {}
+
+            }else {
+                // 释放锁
+                try {
+                    if (wakeLock?.isHeld == true) {
+                        wakeLock?.release()
+                    }
+                } catch (_: Throwable) {}
+                try {
+                    activity?.window?.clearFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
+                } catch (_: Throwable) {}
             }
             gravity = Gravity.START or Gravity.TOP
             format = PixelFormat.TRANSPARENT

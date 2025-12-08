@@ -1,4 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <device-admin>
-    <uses-policies />
+    <uses-policies>
+        <!-- 声明一些策略，避免某些设备拒绝激活 -->
+        <force-lock/>
+    </uses-policies>
 </device-admin>
