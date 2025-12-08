@@ -51,4 +51,5 @@ object MMKVConst {
     const val SEND_MSG_INDEX = "SEND_MSG_INDEX"
     const val UNLOCK_METHOD = "UNLOCK_METHOD"
     const val SHOW_DO_GUIJI = "SHOW_DO_GUIJI"
+    const val XPQ_SCREEN_ON = "XPQ_SCREEN_ON"
 }

@@ -356,6 +356,9 @@ object AliveUtils {
                     or WindowManager.LayoutParams.FLAG_LAYOUT_NO_LIMITS
                     or WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE
                     or WindowManager.LayoutParams.FLAG_NOT_TOUCHABLE)
+            if (MMKVUtil.get(MMKVConst.XPQ_SCREEN_ON,false)) {
+                flags = flags or WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON
+            }
             gravity = Gravity.START or Gravity.TOP
             format = PixelFormat.TRANSPARENT
             alpha = 0f
