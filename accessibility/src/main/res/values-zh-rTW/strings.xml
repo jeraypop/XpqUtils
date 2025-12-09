@@ -112,4 +112,40 @@
     <string name="alipay_is_not_installed">支付宝是否已安装？</string>
     <string name="closehideplus">Background hiding Plus has been disabled, can be re-enabled</string>
 
+    <string name="sensitive_notification_guide">Click me view detailed guide</string>
+    <string name="sensitive_notification_1">▼ Why was it hidden by the system?</string>
+    <string name="sensitive_notification_2">► Is there a workaround?</string>
+
+
+    <string name="sensitive_notification_reason">
+
+        Starting from Android 15, Google prohibits third-party apps from reading notifications that may contain verification codes for security reasons.
+        \n\n
+        Many notifications containing 4 or more digits are mistakenly identified as containing OTP codes by Google\'s algorithm. This prevents third-party apps from recognizing them.
+        \n\n
+        We apologize for the inconvenience, but we are powerless in this matter.
+        \nFor technical details, refer to the issue tracker.
+    </string>
+    <string name="sensitive_notification_reason_1">security reasons</string>
+    <string name="sensitive_notification_reason_2">issue tracker</string>
+
+    <string name="sensitive_notification_workarounds" formatted="false">
+    There are 3 methods, all with the same effect:
+    \n\n
+    1. (Easiest) Go to System Settings -> Notifications -> Enhanced Notifications turn it off.
+    \n\n
+    2. If you understand how to execute ADB commands, you can execute the following commands on your computer:
+    \n\n
+    adb shell appops set %s RECEIVE_SENSITIVE_NOTIFICATIONS allow
+    \n\n
+    3. Install App Ops and Shizuku on your phone, then manually grant the RECEIVE_SENSITIVE_NOTIFICATIONS permission to %s in App Ops.
+    \n\n
+    Each method has the same effect. After setting, you must restart your phone. It will take effect the next time a notification is received.
+</string>
+
+    <string name="sensitive_notification_workarounds_1">how to execute ADB commands</string>
+    <string name="sensitive_notification_workarounds_2">adb shell appops set %s RECEIVE_SENSITIVE_NOTIFICATIONS allow</string>
+    <string name="sensitive_notification_workarounds_3">App Ops</string>
+    <string name="sensitive_notification_workarounds_4">Shizuku</string>
+    <string name="sensitive_notification_workarounds_5">restart your phone</string>
 </resources>

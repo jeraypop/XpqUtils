@@ -18,6 +18,7 @@ import androidx.navigation.ui.AppBarConfiguration
 import com.android.accessibility.ext.BuildConfig
 import com.google.android.accessibility.ext.activity.LockScreenActivity
 import com.google.android.accessibility.ext.activity.XpqBaseActivity
+import com.google.android.accessibility.ext.fragment.SensitiveNotificationBottomSheet
 import com.google.android.accessibility.ext.openAccessibilitySetting
 import com.google.android.accessibility.ext.utils.ActivityUtils
 
@@ -129,9 +130,11 @@ class MainActivity : XpqBaseActivity<ActivityMainBinding>(
         }
         binding.btnAddFriend.setOnClickListener{
             //好友微信号
-            openWeChatToFollowInterface(getWCField[6].second.restoreAllIllusion())
+            //openWeChatToFollowInterface(getWCField[6].second.restoreAllIllusion())
             //openAccessibilitySetting()
-           
+            // 使用 FragmentManager 来显示 BottomSheetDialogFragment
+            val sheet = SensitiveNotificationBottomSheet()
+            sheet.show(supportFragmentManager, SensitiveNotificationBottomSheet.TAG)
         }
 
 

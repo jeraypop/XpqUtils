@@ -116,5 +116,40 @@
 
     <string name="closehideplus">后台隐藏Plus已关闭,可重新开启</string>
 
+    <string name="sensitive_notification_guide">点我查看更详细教程</string>
+    <string name="sensitive_notification_1">▼ 为什么被系统隐藏了?</string>
+    <string name="sensitive_notification_2">► 有没有什么办法绕过?</string>
+
+
+    <string name="sensitive_notification_reason">
+        从 Android 15 开始，Google 出于安全角度禁止第三方 App 读取可能包含验证码的通知内容。
+        \n\n
+        很多含有 4 位或更多位数字的通知都被 Google 识别算法错误地识别为可能包含验证码。这导致第三方 App 无法识别。
+        \n\n
+        给您带来不便，深表歉意，但我们无能为力。
+        \n技术细节可参考 issue tracker (英文)。
+    </string>
+    <string name="sensitive_notification_reason_1">安全角度</string>
+    <string name="sensitive_notification_reason_2">issue tracker (英文)</string>
+
+    <string name="sensitive_notification_workarounds" formatted="false">
+    有 3 种方法，效果相同:
+    \n\n
+    1. (最简单) 找到 「系统设置」->「通知」->「增强型通知」并关闭。
+    \n\n
+    2. 如果您了解如何执行 ADB 命令，可以通过电脑执行以下命令即可
+    \n\n
+    adb shell appops set %s RECEIVE_SENSITIVE_NOTIFICATIONS allow
+    \n\n
+    3. 在手机上安装 App Ops 和 Shizuku 两个软件，然后在 App Ops 中，手动为 %s 设置 RECEIVE_SENSITIVE_NOTIFICATIONS 权限。
+    \n\n
+    每种方式效果一致，设置后一定要重启手机，将在下次收到通知时生效。
+</string>
+
+    <string name="sensitive_notification_workarounds_1">如何执行 ADB 命令</string>
+    <string name="sensitive_notification_workarounds_2">adb shell appops set %s RECEIVE_SENSITIVE_NOTIFICATIONS allow</string>
+    <string name="sensitive_notification_workarounds_3">App Ops</string>
+    <string name="sensitive_notification_workarounds_4">Shizuku</string>
+    <string name="sensitive_notification_workarounds_5">重启</string>
 
 </resources>
