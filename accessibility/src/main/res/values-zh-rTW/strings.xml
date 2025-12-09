@@ -148,4 +148,8 @@
     <string name="sensitive_notification_workarounds_3">App Ops</string>
     <string name="sensitive_notification_workarounds_4">Shizuku</string>
     <string name="sensitive_notification_workarounds_5">restart your phone</string>
+
+    <string name="sensitive_notification_yc">已隱藏敏感通知內容</string>
+    <string name="sensitive_notification_system_yc">被系統隱藏</string>
+
 </resources>

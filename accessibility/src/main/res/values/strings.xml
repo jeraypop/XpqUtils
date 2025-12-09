@@ -151,5 +151,7 @@
     <string name="sensitive_notification_workarounds_3">App Ops</string>
     <string name="sensitive_notification_workarounds_4">Shizuku</string>
     <string name="sensitive_notification_workarounds_5">重启</string>
+    <string name="sensitive_notification_yc">已隐藏敏感通知内容</string>
+    <string name="sensitive_notification_system_yc">被系统隐藏</string>
 
 </resources>

@@ -150,7 +150,8 @@
     <string name="sensitive_notification_workarounds_4">Shizuku</string>
     <string name="sensitive_notification_workarounds_5">restart your phone</string>
 
-
+    <string name="sensitive_notification_yc">Sensitive notification content hidden</string>
+    <string name="sensitive_notification_system_yc">Hidden by System</string>
   
 
 </resources>
