@@ -1161,6 +1161,50 @@ object KeyguardUnLock {
         return false
     }
 
+    @JvmOverloads
+    @JvmStatic
+    fun xpqclickNode(
+        service: AccessibilityService,
+        nodeInfo: AccessibilityNodeInfo?,
+        isMoNi: Boolean = true
+    ): Boolean {
+        if (nodeInfo == null) return false
+
+        // 在后台执行点击操作
+        clickScope.launch {
+            try {
+                if (isMoNi) {
+                    // 模拟点击
+                    val (xCenter, yCenter) = getNodeCenter(nodeInfo)
+                    moniClick(xCenter, yCenter, service)
+                    // 在主线程显示点击指示器
+                    showClickIndicator(service, xCenter, yCenter)
+                } else {
+                    // 执行原生点击
+                    nodeInfo.performAction(AccessibilityNodeInfo.ACTION_CLICK)
+
+                    // 只有在SHOW_DO_GUIJI为true时才显示点击指示器
+                    if (MMKVUtil.get(MMKVConst.SHOW_DO_GUIJI, false)) {
+                        val (xCenter, yCenter) = getNodeCenter(nodeInfo)
+                        // 在主线程显示点击指示器
+                        showClickIndicator(service, xCenter, yCenter)
+                    }
+                }
+            } catch (t: Throwable) {
+                // 处理异常，记录日志等
+                Log.e("XPQClickNode", "点击操作失败: ${nodeInfo?.text}", t)
+            }
+        }
+
+        return true
+    }
+
+    // 提取方法，获取点击坐标
+    @JvmStatic
+    fun getNodeCenter(nodeInfo: AccessibilityNodeInfo): Pair<Int, Int> {
+        val rect = Rect().apply { nodeInfo.getBoundsInScreen(this) }
+        return abs(rect.centerX()) to abs(rect.centerY())
+    }
 
 
     /**
