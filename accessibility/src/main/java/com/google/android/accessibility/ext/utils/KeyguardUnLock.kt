@@ -1174,21 +1174,21 @@ object KeyguardUnLock {
         clickScope.launch {
             try {
                 if (isMoNi) {
-                    // 模拟点击
-                    val (xCenter, yCenter) = getNodeCenter(nodeInfo)
-                    moniClick(xCenter, yCenter, service)
-                    // 在主线程显示点击指示器
-                    showClickIndicator(service, xCenter, yCenter)
+                    doNoniClick(nodeInfo,service)
                 } else {
                     // 执行原生点击
-                    nodeInfo.performAction(AccessibilityNodeInfo.ACTION_CLICK)
-
-                    // 只有在SHOW_DO_GUIJI为true时才显示点击指示器
-                    if (MMKVUtil.get(MMKVConst.SHOW_DO_GUIJI, false)) {
-                        val (xCenter, yCenter) = getNodeCenter(nodeInfo)
-                        // 在主线程显示点击指示器
-                        showClickIndicator(service, xCenter, yCenter)
+                    val b = nodeInfo.performAction(AccessibilityNodeInfo.ACTION_CLICK)
+                    if (!b){
+                        doNoniClick(nodeInfo,service)
+                    }else{
+                        // 只有在SHOW_DO_GUIJI为true时才显示点击指示器
+                        if (MMKVUtil.get(MMKVConst.SHOW_DO_GUIJI, false)) {
+                            val (xCenter, yCenter) = getNodeCenter(nodeInfo)
+                            // 在主线程显示点击指示器
+                            showClickIndicator(service, xCenter, yCenter)
+                        }
                     }
+
                 }
             } catch (t: Throwable) {
                 // 处理异常，记录日志等
@@ -1198,7 +1198,14 @@ object KeyguardUnLock {
 
         return true
     }
-
+    @JvmStatic
+    fun doNoniClick(nodeInfo: AccessibilityNodeInfo,service: AccessibilityService) {
+        // 模拟点击
+        val (xCenter, yCenter) = getNodeCenter(nodeInfo)
+        moniClick(xCenter, yCenter, service)
+        // 在主线程显示点击指示器
+        showClickIndicator(service, xCenter, yCenter)
+    }
     // 提取方法，获取点击坐标
     @JvmStatic
     fun getNodeCenter(nodeInfo: AccessibilityNodeInfo): Pair<Int, Int> {
