@@ -1161,6 +1161,18 @@ object KeyguardUnLock {
         return false
     }
 
+
+    @Volatile
+    private var lastClickTime = 0L
+    @JvmOverloads
+    @JvmStatic
+    fun canClick(interval: Long = 500L): Boolean {
+        val now = SystemClock.elapsedRealtime()
+        if (now - lastClickTime < interval) return false
+        lastClickTime = now
+        return true
+    }
+
     @JvmOverloads
     @JvmStatic
     fun xpqclickNode(
@@ -1169,6 +1181,7 @@ object KeyguardUnLock {
         isMoNi: Boolean = true
     ): Boolean {
         if (nodeInfo == null) return false
+
 
         // 在后台执行点击操作
         clickScope.launch {
