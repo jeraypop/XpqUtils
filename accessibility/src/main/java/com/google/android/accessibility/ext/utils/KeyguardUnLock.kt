@@ -1184,7 +1184,6 @@ object KeyguardUnLock {
         if (nodeInfo == null) return false
         if (!canClick(interval)) return false
 
-
         // 在后台执行点击操作
         clickScope.launch {
             try {
