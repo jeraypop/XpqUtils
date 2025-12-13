@@ -1178,9 +1178,11 @@ object KeyguardUnLock {
     fun xpqclickNode(
         service: AccessibilityService,
         nodeInfo: AccessibilityNodeInfo?,
-        isMoNi: Boolean = true
+        isMoNi: Boolean = true ,
+        interval: Long = 0L
     ): Boolean {
         if (nodeInfo == null) return false
+        if (!canClick(interval)) return false
 
 
         // 在后台执行点击操作
