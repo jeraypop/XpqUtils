@@ -215,7 +215,7 @@ open class TaskByJieSuoHelper(
                         KeyguardUnLock.wakeUpAndUnlock()
                         KeyguardUnLock.lockScreen()
                          //判断是否解锁
-                        isOn = waitForUnlockCheck(5,200)
+                        isOn = waitForUnlockCheck()
                         if (!isOn){
                             sendLog("屏幕解锁失败,尝试上划解锁")
                             //上划
@@ -277,7 +277,7 @@ open class TaskByJieSuoHelper(
     }
 
     suspend fun waitForUnlockCheck(
-        times: Int = 8,
+        times: Int = 15,
         intervalMs: Long = 200L
     ): Boolean {
         repeat(times) { attempt ->
