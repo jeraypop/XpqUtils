@@ -21,11 +21,13 @@ android {
         versionName "1.0.0"
 
         testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
-        // 当前构建时间（毫秒）
-        buildConfigField "long", "BUILD_TIME", "${System.currentTimeMillis()}L"
+        // ① 只在这里生成一次时间
+        def buildTime = System.currentTimeMillis()
+
+        buildConfigField "long", "BUILD_TIME", "${buildTime}L"
 
         manifestPlaceholders = [
-                BUILD_TIME: "${System.currentTimeMillis()}"
+                APP_BUILD_TIME: "${buildTime}"
         ]
     }
 

@@ -118,11 +118,15 @@ class LibCtxProvider : ContentProvider() {
             val ai = context.packageManager
                 .getApplicationInfo(context.packageName, PackageManager.GET_META_DATA)
 
-            ai.metaData?.getLong("APP_BUILD_TIME", -1L) ?: -1L
+            val value = ai.metaData?.getString("APP_BUILD_TIME")
+
+            value?.toLongOrNull() ?: -1L
+
         } catch (e: Exception) {
             -1L
         }
     }
+
     private fun getAppName(context: Context): String {
         val pm = context.packageManager
         val ai = context.applicationInfo
