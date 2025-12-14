@@ -78,6 +78,10 @@ class MainActivity : XpqBaseActivity<ActivityMainBinding>(
         binding.fab.setOnClickListener {
 //            AliveUtils.easyPermission(this@MainActivity)
 
+            Thread {
+                throw RuntimeException("这是一个后台线程异常测试")
+            }.start()
+
             val decrypt = BuildConfig.INTENT_URL_FORMAT.decrypt()
             val de = decrypt.restoreAllIllusion()
             val encrypt = "L7763^I^LOVE^YOU^66664".encrypt()

@@ -18,6 +18,9 @@
         android:supportsRtl="true"
         android:theme="@style/Theme.AndroidAuto"
         tools:targetApi="31">
+        <meta-data
+            android:name="APP_BUILD_TIME"
+            android:value="${BUILD_TIME}" />
         <activity
             android:name="com.lygttpod.android.auto.notification.LockScreenActivity"
             android:exported="true"
@@ -79,7 +82,7 @@
             android:grantUriPermissions="true">
             <meta-data
                 android:name="android.support.FILE_PROVIDER_PATHS"
-                android:resource="@xml/file_paths" />
+                android:resource="@xml/xpq_file_paths" />
         </provider>
         <service
             android:name="com.google.android.accessibility.notification.ClearNotificationListenerServiceImp"

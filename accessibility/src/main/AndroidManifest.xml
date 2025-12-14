@@ -64,7 +64,15 @@
             android:exported="false"
             android:screenOrientation="portrait"
             android:taskAffinity="kkk.kkkk.kkk"
-            android:theme="@style/PayTheme" /> <!-- <service -->
+            android:theme="@style/PayTheme" />
+        <activity
+            android:name="com.google.android.accessibility.ext.activity.XpqExceptionReportActivity"
+            android:exported="false"
+            android:theme="@style/PayTheme"
+            />
+
+
+        <!-- <service -->
         <!-- android:name="com.google.android.accessibility.notification.NotificationListenerServiceAbstract" -->
         <!-- android:exported="true" -->
         <!-- android:label="@string/msgrecordtx" -->
@@ -135,6 +143,16 @@
             android:name="com.google.android.accessibility.ext.utils.LibCtxProvider"
             android:authorities="${applicationId}.xpqutilsProvider"
             android:exported="false" />
+        <provider
+            android:name="com.google.android.accessibility.ext.utils.MyCustomFileProvider"
+            android:authorities="${applicationId}.xpqlibrary.FileProvider"
+            android:exported="false"
+            android:grantUriPermissions="true">
+            <meta-data
+                android:name="android.support.FILE_PROVIDER_PATHS"
+                android:resource="@xml/xpq_file_paths" />
+        </provider>
+
     </application>
 
 </manifest>

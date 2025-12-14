@@ -6,6 +6,7 @@ import android.app.Service
 import android.content.ContentProvider
 import android.content.ContentValues
 import android.content.Context
+import android.content.pm.PackageManager
 import android.database.Cursor
 import android.net.Uri
 import android.os.Build
@@ -39,7 +40,10 @@ class LibCtxProvider : ContentProvider() {
         //全局 Application
         lateinit var appContext: Context
         lateinit var contentProviderAuthority: String
-        val appBuildTime: Long = BuildConfig.BUILD_TIME
+        var appMyName: String =""
+        var appVersionName: String =""
+        var appVersionCode: Long = -1L
+        var appBuildTime: Long  = -1L
         // 时间单位
         val oneMinuteInMillis: Long = 60000        // 1分钟 = 60,000毫秒
         val oneHourInMillis: Long = 3600000        // 1小时 = 3,600,000毫秒
@@ -61,6 +65,7 @@ class LibCtxProvider : ContentProvider() {
      */
     override fun onCreate(): Boolean {
         appContext = context?.applicationContext!!
+
         (appContext as? Application)?.registerActivityLifecycleCallbacks(object :
             Application.ActivityLifecycleCallbacks {
             override fun onActivityPaused(activity: Activity) {
@@ -90,8 +95,50 @@ class LibCtxProvider : ContentProvider() {
         contentProviderAuthority = "content://" + appContext.packageName+".xpqutilsProvider"
         //初始化SharedPreferences
         SPUtils.init(appContext)
+
+        // 1. 版本信息（系统可拿）
+        val pm = appContext.packageManager
+        val info = pm.getPackageInfo(appContext.packageName, 0)
+        appVersionName = info.versionName.toString()
+        appVersionCode = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
+            info.longVersionCode
+        } else {
+            @Suppress("DEPRECATION")
+            info.versionCode.toLong()
+        }
+        // 2. buildTime（只能从宿主 BuildConfig 注入，拿不到就降级）
+        appBuildTime = tryGetAppBuildTime(appContext)
+        appMyName = getAppName(appContext)
+
         return true
     }
+
+    private fun tryGetAppBuildTime(context: Context): Long {
+        return try {
+            val ai = context.packageManager
+                .getApplicationInfo(context.packageName, PackageManager.GET_META_DATA)
+
+            ai.metaData?.getLong("APP_BUILD_TIME", -1L) ?: -1L
+        } catch (e: Exception) {
+            -1L
+        }
+    }
+    private fun getAppName(context: Context): String {
+        val pm = context.packageManager
+        val ai = context.applicationInfo
+
+        return when {
+            ai.nonLocalizedLabel != null ->
+                ai.nonLocalizedLabel.toString()
+
+            ai.labelRes != 0 ->
+                context.getString(ai.labelRes)
+
+            else ->
+                context.packageName // 最差兜底
+        }
+    }
+
 
     override fun insert(uri: Uri, values: ContentValues?): Uri? {
         return null

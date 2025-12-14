@@ -21,6 +21,12 @@ android {
         versionName "1.0.0"
 
         testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
+        // 当前构建时间（毫秒）
+        buildConfigField "long", "BUILD_TIME", "${System.currentTimeMillis()}L"
+
+        manifestPlaceholders = [
+                BUILD_TIME: "${System.currentTimeMillis()}"
+        ]
     }
 
     configurations.all {

@@ -8,6 +8,7 @@ import androidx.lifecycle.ProcessLifecycleOwner
 import com.google.android.accessibility.ext.activity.TaskByJieSuoHelper
 import com.google.android.accessibility.ext.utils.AliveUtils
 import com.google.android.accessibility.ext.utils.NotificationUtilXpq
+import com.google.android.accessibility.ext.utils.XpqUncaughtExceptionHandler
 import com.lygttpod.android.auto.notification.MyJieSuoHelper
 import com.lygttpod.android.auto.notification.NotificationListenerServiceImp
 
@@ -113,6 +114,7 @@ class App : Application() {
                 }
             }
         })
-
+        //异常捕获
+        XpqUncaughtExceptionHandler.getInstance(this).run()
     }
 }
