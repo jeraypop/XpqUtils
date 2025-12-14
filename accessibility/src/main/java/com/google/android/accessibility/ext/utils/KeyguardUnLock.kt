@@ -1050,7 +1050,8 @@ object KeyguardUnLock {
     }
 
     @JvmStatic
-    fun showClickIndicator(service: AccessibilityService, x: Int, y: Int) {
+    fun showClickIndicator(service: AccessibilityService?, x: Int, y: Int) {
+        service?: return
         val showguiji = MMKVUtil.get(MMKVConst.SHOW_DO_GUIJI, false)
         if (showguiji){
             // 在主线程显示指示器
@@ -1062,7 +1063,8 @@ object KeyguardUnLock {
     }
 
     @JvmStatic
-    fun showGestureIndicator(service: AccessibilityService, path: Path, duration: Long) {
+    fun showGestureIndicator(service: AccessibilityService?, path: Path, duration: Long) {
+        service?: return
         val showguiji = MMKVUtil.get(MMKVConst.SHOW_DO_GUIJI, false)
         if (showguiji){
             // 在主线程显示指示器
@@ -1077,10 +1079,11 @@ object KeyguardUnLock {
     @JvmOverloads
     @JvmStatic
     fun performClickNodeInfo(
-        service: AccessibilityService,
+        service: AccessibilityService?,
         nodeInfo: AccessibilityNodeInfo? ,
         isMoNi: Boolean = true
     ): Boolean {
+        service?: return false
         if (nodeInfo == null) return false
         if (isMoNi){
             // 模拟真实点击（不依赖 isClickable）
@@ -1176,11 +1179,12 @@ object KeyguardUnLock {
     @JvmOverloads
     @JvmStatic
     fun xpqclickNode(
-        service: AccessibilityService,
+        service: AccessibilityService?,
         nodeInfo: AccessibilityNodeInfo?,
         isMoNi: Boolean = true ,
         interval: Long = 0L
     ): Boolean {
+        service?: return false
         if (nodeInfo == null) return false
         if (!canClick(interval)) return false
 
@@ -1228,49 +1232,7 @@ object KeyguardUnLock {
     }
 
 
-    /**
-     * 查找节点信息
-     *
-     * @param id                 控件id  eg: com.tencent.mm:id/aqg
-     * @param text               控件文本 eg: 打开
-     * @param contentDescription 控件描述 eg: 表情
-     * @return null表示未找到
-     */
-    /*    @JvmStatic
-        fun findNodeInfo(
-            service: AccessibilityService,
-            id: String,
-            text: String,
-            contentDescription: String
-        ): AccessibilityNodeInfo? {
-            if (TextUtils.isEmpty(id) && TextUtils.isEmpty(text)) {
-                return null
-            }
-            SystemClock.sleep(500)
-            val nodeInfo = service.rootInActiveWindow
-            if (nodeInfo != null) {
-                val list = nodeInfo
-                    .findAccessibilityNodeInfosByViewId(id)
-                for (n in list) {
-                    val nodeInfoText =
-                        if (TextUtils.isEmpty(n.text)) "" else n.text
-                            .toString()
-                    val nodeContentDescription =
-                        if (TextUtils.isEmpty(n.contentDescription)) "" else n.contentDescription
-                            .toString()
-                    if (TextUtils.isEmpty(text)) {
-                        if (contentDescription == nodeContentDescription) {
-                            return n
-                        }
-                    } else {
-                        if (text == nodeInfoText) {
-                            return n
-                        }
-                    }
-                }
-            }
-            return null
-        }*/
+
 
     /**
      * 查找节点（优先级：id -> text -> contentDescription）
