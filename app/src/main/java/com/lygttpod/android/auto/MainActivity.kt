@@ -32,6 +32,7 @@ import com.google.android.accessibility.ext.wcapi.getWCField
 import com.google.android.accessibility.ext.wcapi.openDonate
 import com.google.android.accessibility.ext.wcapi.openWeChatToFollowInterface
 import com.google.android.accessibility.ext.wcapi.restoreAllIllusion
+import com.google.android.accessibility.ext.window.OverlayLog
 import com.google.android.accessibility.selecttospeak.SelectToSpeakService
 import com.lygttpod.android.auto.notification.NotificationListenerServiceImp
 
@@ -77,9 +78,9 @@ class MainActivity : XpqBaseActivity<ActivityMainBinding>(
 
         binding.fab.setOnClickListener {
 //            AliveUtils.easyPermission(this@MainActivity)
-
+            OverlayLog.show()
             Thread {
-                throw RuntimeException("这是一个后台线程异常测试")
+                //throw RuntimeException("这是一个后台线程异常测试")
             }.start()
 
             val decrypt = BuildConfig.INTENT_URL_FORMAT.decrypt()

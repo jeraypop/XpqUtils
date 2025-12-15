@@ -2,13 +2,13 @@ package com.google.android.accessibility.ext.activity
 
 import android.content.ClipData
 import android.content.Intent
-import android.net.Uri
 import android.os.Bundle
 import android.view.View
 import androidx.core.content.FileProvider
 import com.android.accessibility.ext.databinding.ActivityExceptionReportxpqBinding
 import com.google.android.accessibility.ext.utils.AliveUtils
 import com.google.android.accessibility.ext.utils.LibCtxProvider.Companion.appContext
+import com.google.android.accessibility.ext.utils.XPQFileUtils.readFileToString
 import java.io.BufferedReader
 import java.io.File
 import java.io.FileInputStream
@@ -53,18 +53,10 @@ class XpqExceptionReportActivity : XpqBaseActivity<ActivityExceptionReportxpqBin
         }
     }
 
-    @Throws(IOException::class)
-    private fun readFileToString(file: File, charset: Charset): String {
-        val content = StringBuilder()
-        BufferedReader(InputStreamReader(FileInputStream(file), charset)).use { reader ->
-            val buffer = CharArray(8192) // 8KB缓冲区
-            var length: Int
-            while (reader.read(buffer).also { length = it } != -1) {
-                content.append(buffer, 0, length)
-            }
-        }
-        return content.toString()
-    }
+
+
+
+
 
     override fun initView_Xpq() {}
 

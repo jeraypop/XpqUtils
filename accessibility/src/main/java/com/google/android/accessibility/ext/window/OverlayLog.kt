@@ -58,7 +58,7 @@ object OverlayLog : AssistsServiceListener {
                 field = LogOverlayXpqBinding.inflate(LayoutInflater.from(context)).apply {
                     scrollView.setOnTouchListener(onScrollTouchListener)
                     btnCopy.setOnClickListener {
-                        CoroutineWrapper.launch { LogWrapper.copyLogToClipboard() }
+                        CoroutineWrapper.launch { LogWrapper.copyLogMethod() }
                     }
                     btnClean.setOnClickListener {
                         CoroutineWrapper.launch { LogWrapper.clearLog() }

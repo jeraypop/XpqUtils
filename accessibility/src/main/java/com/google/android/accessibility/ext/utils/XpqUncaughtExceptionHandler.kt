@@ -18,6 +18,7 @@ import com.google.android.accessibility.ext.utils.LibCtxProvider.Companion.appBu
 import com.google.android.accessibility.ext.utils.LibCtxProvider.Companion.appMyName
 import com.google.android.accessibility.ext.utils.LibCtxProvider.Companion.appVersionCode
 import com.google.android.accessibility.ext.utils.LibCtxProvider.Companion.appVersionName
+import com.google.android.accessibility.ext.utils.XPQFileUtils.writeStringToFile
 import java.io.File
 import java.io.FileOutputStream
 import java.io.IOException
@@ -63,16 +64,7 @@ class XpqUncaughtExceptionHandler private constructor(private val mContext: Cont
         e.printStackTrace()
     }
 
-    @Throws(IOException::class)
-    private fun writeStringToFile(
-        file: File,
-        content: String,
-        charset: Charset
-    ) {
-        file.outputStream().writer(charset).use { writer ->
-            writer.write(content)
-        }
-    }
+
 
     private fun getHostAppIcon(): Int {
         return try {
