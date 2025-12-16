@@ -27,6 +27,8 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
 import java.io.File
 import java.io.IOException
@@ -56,8 +58,71 @@ object LogWrapper {
             }
             return msg.toString()
         }*/
-
+    private val logLock = Mutex()
+    private const val MAX_LINES = 1000
     fun logAppend(msg: CharSequence): String {
+
+
+        CoroutineWrapper.launch {
+            logLock.withLock {
+                val now = TimeUtils.getNowString()
+
+                if (logCache.isNotEmpty()) {
+                    logCache.append('\n')
+                }
+
+                logCache.append(now)
+                    .append('\n')
+                    .append(msg)
+
+                // 关键：只删除“超出的行”
+                trimToMaxLines()
+                logAppendValue.emit(
+                    Pair("\n$now\n$msg", logCache.toString())
+                )
+
+            }
+
+        }
+
+        return msg.toString()
+    }
+    private fun trimToMaxLines() {
+        var lineCount = 0
+
+        // 先统计当前行数
+        for (c in logCache) {
+            if (c == '\n') {
+                lineCount++
+            }
+        }
+
+        // 不超过，不处理
+        if (lineCount <= MAX_LINES) return
+
+        // 需要删除的行数
+        var needRemove = lineCount - MAX_LINES
+        var deleteIndex = 0
+
+        // 从头开始，找到要删除到的位置
+        for (i in logCache.indices) {
+            if (logCache[i] == '\n') {
+                needRemove--
+                if (needRemove == 0) {
+                    deleteIndex = i + 1
+                    break
+                }
+            }
+        }
+
+        if (deleteIndex > 0) {
+            logCache.delete(0, deleteIndex)
+        }
+    }
+
+
+
+/*    fun logAppend(msg: CharSequence): String {
         if (logCache.isNotEmpty()) {
             logCache.append("\n")
         }
@@ -78,7 +143,7 @@ object LogWrapper {
         }
 
         return msg.toString()
-    }
+    }*/
 
 
     fun clearLog() {
@@ -86,7 +151,7 @@ object LogWrapper {
         CoroutineWrapper.launch { logAppendValue.emit(Pair("", "")) }
     }
 
-    fun copyLogMethod(numCount: Int = 996) {
+    fun copyLogMethod(numCount: Int = 9996) {
         val logContent = logCache.toString()
 
         // 检查日志长度是否超过1000字符
