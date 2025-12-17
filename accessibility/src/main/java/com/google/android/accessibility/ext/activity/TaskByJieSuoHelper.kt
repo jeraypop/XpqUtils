@@ -9,6 +9,8 @@ import com.google.android.accessibility.ext.utils.DeviceLockState
 import com.google.android.accessibility.ext.utils.KeyguardUnLock
 import com.google.android.accessibility.ext.utils.KeyguardUnLock.getDeviceStatusPlus
 import com.google.android.accessibility.ext.utils.KeyguardUnLock.sendLog
+import com.google.android.accessibility.ext.utils.MMKVConst
+import com.google.android.accessibility.ext.utils.MMKVUtil
 import com.google.android.accessibility.ext.utils.MoveCallback
 import com.google.android.accessibility.ext.utils.ScreenState
 
@@ -91,18 +93,28 @@ open class TaskByJieSuoHelper(
 
             return
         }
-        //解锁任务结束
-        if (KeyguardUnLock.screenIsOn() && KeyguardUnLock.keyguardIsOn()) {
-            haoshiTip(start)
-            sendLog("♥♥ 【自动解锁(方案1)】任务成功结束,屏幕已被点亮,且解除锁定")
-            //直接启动
-            doMyWork(i)
-        } else{
-            haoshiTip(start)
-            sendLog("♥♥ 【自动解锁(方案1)】任务虽然结束,但屏幕未正常解锁,,尝试采用【自动解锁(方案2)】解锁")
-            //尝试 新方法 点亮屏幕  用 activity
-            jieSuoBy2(i)
+        if (MMKVUtil.get(MMKVConst.KEY_JIESUO_1_BY, true)){
+            if (KeyguardUnLock.screenIsOn()) {
+                haoshiTip(start)
+                sendLog("♥♥ 【自动解锁(方案1)】任务成功结束,屏幕已被点亮,且解除锁定")
+                //直接启动
+                doMyWork(i)
+            }
+        }else{
+            //解锁任务结束
+            if (KeyguardUnLock.screenIsOn() && KeyguardUnLock.keyguardIsOn()) {
+                haoshiTip(start)
+                sendLog("♥♥ 【自动解锁(方案1)】任务成功结束,屏幕已被点亮,且解除锁定")
+                //直接启动
+                doMyWork(i)
+            } else{
+                haoshiTip(start)
+                sendLog("♥♥ 【自动解锁(方案1)】任务虽然结束,但屏幕未正常解锁,,尝试采用【自动解锁(方案2)】解锁")
+                //尝试 新方法 点亮屏幕  用 activity
+                jieSuoBy2(i)
+            }
         }
+
 
     }
 
@@ -210,32 +222,43 @@ open class TaskByJieSuoHelper(
                     DeviceLockState.LockedNotSecure -> {
                         //设备被锁屏了，但是没有安全锁  {如“滑动解锁”或无锁屏}
                         sendLog("设备被锁屏,未设置安全锁,[可能是 滑动解锁或无锁屏]")
-                        sendLog("准备直接解锁")
-                        //旧版 解锁键盘
-                        KeyguardUnLock.wakeUpAndUnlock()
-                        KeyguardUnLock.lockScreen()
-                         //判断是否解锁
-                        isOn = waitForUnlockCheck()
-                        if (!isOn){
-                            sendLog("屏幕解锁失败,尝试上划解锁")
+                        if (MMKVUtil.get(MMKVConst.KEY_JIESUO_1_BY, true)){
+                            sendLog("准备直接解锁")
+                            //调用 disableKeyguard()后,isKeyguardLocked 将不再可靠,一直返回false
+                            //旧版 禁用键盘锁
+                            KeyguardUnLock.wakeKeyguardOn()
+                            isOn = true
+                            //sendLog("键盘状态="+KeyguardUnLock.keyguardIsOn())
+                            //旧版 释放键盘锁
+                            //KeyguardUnLock.wakeKeyguardOff()
+                            //sendLog("延时1秒="+KeyguardUnLock.keyguardIsOn())
+                            //KeyguardUnLock.wakeUpAndUnlock()
+                            //取消 释放 键盘锁
+                            //KeyguardUnLock.lockScreen()
+
+
+                        }else{
+                            sendLog("准备上划解锁")
                             //上划
                             val huaok = KeyguardUnLock.moveAwait(
                                 service = accessibilityService,
                                 moveCallback = object : MoveCallback {
                                     override fun onSuccess() {
-                                        println("🟢 手势完成")
+                                        sendLog("上划完成")
                                     }
 
                                     override fun onError() {
-                                        println("🔴 手势取消或失败")
+                                        sendLog("上划取消或失败")
                                     }
                                 }
                             )
                             if (huaok){
+                                //判断是否解锁
                                 isOn = waitForUnlockCheck()
                             }
 
                         }
+
                     }
                     DeviceLockState.LockedSecure -> {
                         //设备被锁屏了，并且有安全锁 （如 PIN、图案、指纹、人脸）
@@ -277,10 +300,11 @@ open class TaskByJieSuoHelper(
     }
 
     suspend fun waitForUnlockCheck(
-        times: Int = 15,
+        times: Int = 8,
         intervalMs: Long = 200L
     ): Boolean {
         repeat(times) { attempt ->
+            // keyguardIsOn
             if (KeyguardUnLock.keyguardIsOn()) {
                 sendLog("屏幕已成功解锁")
                 return true

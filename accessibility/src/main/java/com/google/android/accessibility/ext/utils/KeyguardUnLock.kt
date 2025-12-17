@@ -117,6 +117,24 @@ object KeyguardUnLock {
             else -> DeviceLockState.Unlocked(isDeviceSecure = deviceSecure) // 保守兜底
         }
     }
+    /**
+     * isKeyguardLocked()   (屏幕被锁屏页覆盖?)
+     * isDeviceSecure()     (设置了密码?)
+     * isDeviceLocked()     (当前被安全锁定?)
+     *
+     * isKeyguardLocked()
+     * 解释：只要手机处于“锁屏界面”（无论是黑屏唤醒后，还是手动锁屏），返回就是 true。
+     * 注意：即使手机没有设置密码（例如只是“滑动解锁”），只要停留在锁屏页，它也返回 true。
+     *
+     * isDeviceSecure()
+     * 解释：用户是否在系统设置里开启了 PIN 码、图案、密码或生物识别（指纹/人脸）。
+     * 注意：它不关心屏幕现在是亮是暗。哪怕你正在玩手机（屏幕解锁状态），只要你设置过密码，这个函数永远返回 true。
+     *
+     * isDeviceLocked() (API 22+)
+     * 解释：这是最严格的判定。它返回 true 表示设备目前处于锁定状态且需要解锁（验证）才能使用。
+     * 逻辑关系：通常情况下，isDeviceLocked() = isKeyguardLocked() && isDeviceSecure()。即：屏幕锁着 且 手机有密码保护。
+     *
+    * */
     @JvmOverloads
     @JvmStatic
     fun getDeviceStatusPlus(context: Context =appContext , byKeyguard: Boolean = true): DeviceStatus {
@@ -175,7 +193,7 @@ object KeyguardUnLock {
             // 厂商兼容问题：若调用出错，兜底认为未锁
             false
         }
-
+        Log.e("我就看看傻", "DeviceLocked= "+km.isDeviceLocked+" Keyguard= "+km.isKeyguardLocked)
         // 实效屏幕状态策略：若设备未锁定，则视为 ON（避免短暂竞态导致的误判）
         val effectiveScreenState = if (!deviceLocked) {
             ScreenState.ON
@@ -275,13 +293,17 @@ object KeyguardUnLock {
 
         return null
     }
+    private var mPowerManager: PowerManager? = null
     @JvmOverloads
     @JvmStatic
     fun screenIsOn(context: Context = appContext): Boolean {
         var isScreenOn = false
         //是否需要亮屏唤醒屏幕
-        val powerManager = context.getSystemService(Context.POWER_SERVICE) as PowerManager
-        if (!powerManager.isInteractive) {
+        if (mPowerManager == null) {
+            mPowerManager = context.getSystemService(Context.POWER_SERVICE) as PowerManager
+        }
+
+        if (!mPowerManager!!.isInteractive) {
             //屏幕黑屏需要唤醒
             isScreenOn = false
         }else{
@@ -292,36 +314,76 @@ object KeyguardUnLock {
     }
     @JvmOverloads
     @JvmStatic
-    fun wakeScreenOn(context: Context = appContext): Boolean {
-        var isScreenOn = false
-        val powerManager = context.getSystemService(Context.POWER_SERVICE) as PowerManager
-        try {
-            val wl = powerManager.newWakeLock(
-                PowerManager.ACQUIRE_CAUSES_WAKEUP or PowerManager.SCREEN_DIM_WAKE_LOCK,
-                context.packageName
-            )
-            wl.acquire(60 * 1000L /*1 minutes*/)
-            wl.release()
-            isScreenOn = true
-        } catch (e: Exception) {
-            isScreenOn = false
-            //再试一次
-            val wl = powerManager.newWakeLock(
-                PowerManager.ACQUIRE_CAUSES_WAKEUP or PowerManager.SCREEN_DIM_WAKE_LOCK,
-                context.packageName
-            )
-            wl.acquire(60 * 1000L /*1 minutes*/)
-            wl.release()
+    fun wakeScreenOn(context: Context = appContext) {
+
+        if (mPowerManager == null) {
+            mPowerManager = context.getSystemService(Context.POWER_SERVICE) as PowerManager
         }
-        return isScreenOn
+        val wl = mPowerManager!!.newWakeLock(
+            PowerManager.ACQUIRE_CAUSES_WAKEUP or PowerManager.SCREEN_BRIGHT_WAKE_LOCK,
+            "${context.packageName}:wake"
+        ).apply {
+            setReferenceCounted(false)
+        }
+
+        wl.acquire(60_000L)
+
+        Handler(Looper.getMainLooper()).postDelayed({
+            if (wl.isHeld) wl.release()
+        }, 60_000L)
+
+    }
+    private var mKeyguardManager: KeyguardManager? = null
+    // 1. 使用静态变量持有锁对象的引用
+    private var mKeyguardLock: KeyguardManager.KeyguardLock? = null
+
+    // 用来防止Handler内存泄露
+    private val mHandler = Handler(Looper.getMainLooper())
+    private val mReenableRunnable = Runnable { wakeKeyguardOff() }
+    @JvmOverloads
+    @JvmStatic
+    fun wakeKeyguardOn(context: Context = appContext) {
+        if (mKeyguardManager == null) {
+            mKeyguardManager = context.applicationContext.getSystemService(Context.KEYGUARD_SERVICE) as KeyguardManager
+        }
+        // 2. 如果之前有锁，先处理掉，防止逻辑混乱
+        if (mKeyguardLock == null) {
+            mKeyguardLock = mKeyguardManager?.newKeyguardLock("app:unlock")
+        }
+
+        // 3. 只有持有引用的这个对象调用的 disable 才是有效的
+        mKeyguardLock?.disableKeyguard()
+        sendLog("无安全锁时尝试解除键盘锁(可能失效)")
+
+        // 4. 移除之前的延时任务，避免多次调用导致冲突
+        //mHandler.removeCallbacks(mReenableRunnable)
+        // 重新设置延时
+        //mHandler.postDelayed(mReenableRunnable, 60_000L)
+
+
+    }
+    @JvmOverloads
+    @JvmStatic
+    fun wakeKeyguardOff(context: Context = appContext) {
+        // 5. 使用同一个对象进行恢复
+        mKeyguardLock?.let {
+            it.reenableKeyguard()
+            sendLog("恢复键盘锁")
+        }
+        // 释放引用（虽然 KeyguardLock 系统层未必释放，但逻辑上我们重置了）
+        // 注意：有些业务场景下为了复用可能不置空，视具体情况而定
+        // mKeyguardLock = null
     }
 
     @JvmOverloads
     @JvmStatic
     fun keyguardIsOn(context: Context = appContext): Boolean {
         var isKeyguardOn = false
-        val mKeyguardManager = context.getSystemService(Context.KEYGUARD_SERVICE) as KeyguardManager
-        if (mKeyguardManager.isKeyguardLocked){
+        if (mKeyguardManager == null) {
+            mKeyguardManager = context.applicationContext.getSystemService(Context.KEYGUARD_SERVICE) as KeyguardManager
+        }
+        // isKeyguardLocked
+        if (mKeyguardManager?.isKeyguardLocked== true){
             //键盘锁定,需要解锁
             isKeyguardOn = false
         }else{
@@ -338,8 +400,10 @@ object KeyguardUnLock {
     @JvmStatic
     fun deviceIsOn(context: Context = appContext): Boolean {
         var isDeviceOn = false
-        val mKeyguardManager = context.getSystemService(Context.KEYGUARD_SERVICE) as KeyguardManager
-        if (mKeyguardManager.isDeviceLocked){
+        if (mKeyguardManager == null) {
+            mKeyguardManager = context.applicationContext.getSystemService(Context.KEYGUARD_SERVICE) as KeyguardManager
+        }
+        if (mKeyguardManager?.isDeviceLocked==true){
             //设备锁定,需要解锁
             isDeviceOn = false
         }else{
@@ -1458,12 +1522,16 @@ object KeyguardUnLock {
             "bright"
         )
         //点亮屏幕
-        unLock!!.acquire(1 * 1 * 66 * 1000L)
-
+        unLock!!.acquire( 60 * 1000L)
+        Handler(Looper.getMainLooper()).postDelayed({
+            if (unLock?.isHeld == true) {
+                unLock?.release()
+            }
+        }, 60 * 1000L)
         //屏锁管理器
         km = context.getSystemService(Context.KEYGUARD_SERVICE) as KeyguardManager
         kl = km!!.newKeyguardLock("unLock")
-        //无安全锁时  解锁
+        //无安全锁时  解除键盘锁
         kl!!.disableKeyguard()
         sendLog("无安全锁时尝试解除锁屏(可能失效)")
 
@@ -1473,17 +1541,21 @@ object KeyguardUnLock {
     @SuppressLint("MissingPermission")
     @JvmStatic
     fun lockScreen() {
-        kl?.let {
-            // 锁屏
-            it.reenableKeyguard()
-            sendLog("无安全锁时尝试恢复锁屏")
-        }
-        unLock?.let {
-            // 释放wakeLock，关灯
-            if (it.isHeld) {
-                it.release()
+        Handler(Looper.getMainLooper()).postDelayed({
+            kl?.let {
+                // 恢复键盘锁
+                it.reenableKeyguard()
+                sendLog("无安全锁时尝试恢复锁屏")
             }
-        }
+            unLock?.let {
+                // 释放wakeLock，关灯
+                if (it.isHeld) {
+                    it.release()
+                }
+            }
+        }, 60 * 1000L)
+
+
     }
 
 

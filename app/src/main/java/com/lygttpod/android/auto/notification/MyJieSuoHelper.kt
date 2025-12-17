@@ -26,6 +26,7 @@ class MyJieSuoHelper : TaskByJieSuoHelper() {
     override fun doMyWork(i: Int) {
         //sendLog("🔥 执行自定义任务逻辑 i = $i")
         dealWithPendingIntent()
+        OverlayLog.show()
     }
 
     // 提供真实密码

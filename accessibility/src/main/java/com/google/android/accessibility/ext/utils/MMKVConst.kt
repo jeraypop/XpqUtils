@@ -19,6 +19,7 @@ object MMKVConst {
     const val KEY_SCREEN_HEIGHT = "screen_height"
     const val KEY_LOCK_SCREEN_PASSWORD = "lock_screen_passwordsend"
     const val KEY_JIESUO_MIMA = "key_jiesuo_mima"
+    const val KEY_JIESUO_1_BY = "KEY_JIESUO_1_BY"
     const val clickDu_Time = 50L
 
     const val KEY_LOCK_NODEID = "KEY_LOCK_NODEID"
