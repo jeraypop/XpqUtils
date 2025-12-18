@@ -93,10 +93,16 @@ open class TaskByJieSuoHelper(
 
             return
         }
-        if (MMKVUtil.get(MMKVConst.KEY_JIESUO_1_BY, true)){
+        //走到这里,那肯定是点亮屏幕+解除键盘锁
+        haoshiTip(start)
+        sendLog("♥♥ 开始执行后续任务")
+        //直接启动
+        doMyWork(i)
+
+/*        if (MMKVUtil.get(MMKVConst.KEY_JIESUO_1_BY, true)){
             if (KeyguardUnLock.screenIsOn()) {
                 haoshiTip(start)
-                sendLog("♥♥ 【自动解锁(方案1)】任务成功结束,屏幕已被点亮,且解除锁定")
+                sendLog("♥♥ 【自动解锁(方案1)快】任务成功结束,屏幕已被点亮,且解除锁定")
                 //直接启动
                 doMyWork(i)
             }
@@ -104,7 +110,7 @@ open class TaskByJieSuoHelper(
             //解锁任务结束
             if (KeyguardUnLock.screenIsOn() && KeyguardUnLock.keyguardIsOn()) {
                 haoshiTip(start)
-                sendLog("♥♥ 【自动解锁(方案1)】任务成功结束,屏幕已被点亮,且解除锁定")
+                sendLog("♥♥ 【自动解锁(方案1)滑】任务成功结束,屏幕已被点亮,且解除锁定")
                 //直接启动
                 doMyWork(i)
             } else{
@@ -113,7 +119,7 @@ open class TaskByJieSuoHelper(
                 //尝试 新方法 点亮屏幕  用 activity
                 jieSuoBy2(i)
             }
-        }
+        }*/
 
 
     }

@@ -3,7 +3,10 @@ package com.google.android.accessibility.selecttospeak
 import android.accessibilityservice.AccessibilityService
 import android.accessibilityservice.AccessibilityServiceInfo
 import android.app.Notification
+import android.content.BroadcastReceiver
+import android.content.Context
 import android.content.Intent
+import android.content.IntentFilter
 import android.graphics.Rect
 import android.os.Build
 import android.text.TextUtils
@@ -14,6 +17,7 @@ import androidx.core.app.NotificationCompat
 import androidx.lifecycle.MutableLiveData
 import com.android.accessibility.ext.R
 import com.google.android.accessibility.ext.AssistsServiceListener
+import com.google.android.accessibility.ext.toast
 import com.google.android.accessibility.ext.utils.AliveUtils
 import com.google.android.accessibility.ext.utils.KeyguardUnLock
 import com.google.android.accessibility.ext.utils.LibCtxProvider.Companion.appContext
@@ -99,7 +103,13 @@ abstract class SelectToSpeakServiceAbstract : AccessibilityService() {
             AliveUtils.keepAliveByNotification_CLS(this,true,null)
         }
         AliveUtils.keepAliveByFloatingWindow(this,AliveUtils.getKeepAliveByFloatingWindow())
+        val filter = IntentFilter().apply {
+            addAction(Intent.ACTION_SCREEN_OFF)    // 息屏
+            addAction(Intent.ACTION_SCREEN_ON)     // 亮屏（可选）
+            addAction(Intent.ACTION_USER_PRESENT)  // 解锁完成
+        }
 
+        registerReceiver(screenReceiver, filter)
     }
     override fun onAccessibilityEvent(event: AccessibilityEvent?) {
         event ?: return
@@ -142,6 +152,7 @@ abstract class SelectToSpeakServiceAbstract : AccessibilityService() {
         cleanupOwnershipMap()
         //释放 clickScope
         KeyguardUnLock.release()
+        unregisterReceiver(screenReceiver)
         super.onDestroy()
 
     }
@@ -293,6 +304,7 @@ abstract class SelectToSpeakServiceAbstract : AccessibilityService() {
                 if (nodeInfoSet.isEmpty()) return
                 // 调用子类处理 —— 默认父类会在此之后回收这些副本
                 try {
+                    Log.e("监听屏幕啊", "pkg="+pkg )
                     rootCopy?.let { asyncHandle_WINDOW_STATE_CHANGED(it, nodeInfoSet, pkg, className) }
                 } catch (t: Throwable) {
 
@@ -480,6 +492,30 @@ abstract class SelectToSpeakServiceAbstract : AccessibilityService() {
         )
     }
 
+    private val screenReceiver = object : BroadcastReceiver() {
+        override fun onReceive(context: Context, intent: Intent) {
+            when (intent.action) {
+
+                Intent.ACTION_SCREEN_OFF -> {
+                    // 1️⃣ 屏幕熄灭
+                    // 一定 = 锁屏即将发生 / 已发生
+                    Log.e("监听屏幕啊", "屏幕已关闭" )
+                }
+
+                Intent.ACTION_SCREEN_ON -> {
+                    // 2️⃣ 屏幕点亮
+                    // ⚠️ 仍然可能在锁屏界面
+                    Log.e("监听屏幕啊", "屏幕点亮" )
+                }
+
+                Intent.ACTION_USER_PRESENT -> {
+                    // 3️⃣ 真正解锁完成（最重要）
+                    //disableKeyguard后,接收不到这个广播
+                    Log.e("监听屏幕啊", "真正解锁完成" )
+                }
+            }
+        }
+    }
 
 
 }

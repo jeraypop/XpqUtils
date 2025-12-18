@@ -187,12 +187,8 @@ object KeyguardUnLock {
 
         val deviceSecure = km.isDeviceSecure  // 设备是否配置了 PIN/Pattern/密码/生物 等
 
-        val deviceLocked = try {
-            if (byKeyguard) km.isKeyguardLocked else km.isDeviceLocked
-        } catch (e: Throwable) {
-            // 厂商兼容问题：若调用出错，兜底认为未锁
-            false
-        }
+        val deviceLocked = getDeviceLocked(km,pm,byKeyguard)
+
         Log.e("我就看看傻", "DeviceLocked= "+km.isDeviceLocked+" Keyguard= "+km.isKeyguardLocked)
         // 实效屏幕状态策略：若设备未锁定，则视为 ON（避免短暂竞态导致的误判）
         val effectiveScreenState = if (!deviceLocked) {
@@ -215,6 +211,30 @@ object KeyguardUnLock {
         }
 
         return DeviceStatus(lockState = lockState, screenState = effectiveScreenState)
+    }
+    @JvmOverloads
+    @JvmStatic
+    fun getDeviceLocked(
+        km: KeyguardManager,
+        pm: PowerManager,
+        byKeyguard: Boolean = true
+    ): Boolean {
+        val locked = try {
+            if (byKeyguard) km.isKeyguardLocked else km.isDeviceLocked
+        } catch (e: Exception) {
+            false
+        }
+        val isConsideredUnlocked =
+            !getUnLockOldOrNew() &&
+                    !getUnLockOldBy1() &&
+                    pm.isInteractive
+
+        // 如果 extraCondition && isInteractive 为 true，则设备视为未锁定
+        return if (isConsideredUnlocked) {
+            false
+        } else {
+            locked
+        }
     }
 
 
@@ -382,8 +402,12 @@ object KeyguardUnLock {
         if (mKeyguardManager == null) {
             mKeyguardManager = context.applicationContext.getSystemService(Context.KEYGUARD_SERVICE) as KeyguardManager
         }
-        // isKeyguardLocked
-        if (mKeyguardManager?.isKeyguardLocked== true){
+        // mKeyguardManager?.isKeyguardLocked== true
+        if (mPowerManager == null) {
+            mPowerManager = context.getSystemService(Context.POWER_SERVICE) as PowerManager
+        }
+
+        if (getDeviceLocked(mKeyguardManager!!,mPowerManager!!,true)){
             //键盘锁定,需要解锁
             isKeyguardOn = false
         }else{
@@ -1102,6 +1126,14 @@ object KeyguardUnLock {
     @JvmStatic
     fun getUnLockOldOrNew(): Boolean {
        return MMKVUtil.get(MMKVConst.UNLOCK_METHOD,false)
+    }
+    @JvmStatic
+    fun setUnLockOldBy1(isNew: Boolean = false) {
+        MMKVUtil.put(MMKVConst.KEY_JIESUO_1_BY,isNew)
+    }
+    @JvmStatic
+    fun getUnLockOldBy1(): Boolean {
+        return MMKVUtil.get(MMKVConst.KEY_JIESUO_1_BY,false)
     }
 
     @JvmStatic
