@@ -231,6 +231,7 @@ object KeyguardUnLock {
 
         // 如果 extraCondition && isInteractive 为 true，则设备视为未锁定
         return if (isConsideredUnlocked) {
+            wakeKeyguardOn()
             false
         } else {
             locked
