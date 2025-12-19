@@ -64,11 +64,12 @@ class NotificationListenerServiceImp : NotificationListenerServiceAbstract() {
         }else{
             //未解锁
             //执行解锁逻辑
-            if (KeyguardUnLock.getUnLockMethod()==1){
+            val unLockMethod = KeyguardUnLock.getUnLockMethod()
+            if (unLockMethod==1){
                 TaskByJieSuoHelper1.startJieSuoTaskInstance(appContext, 1)
-            }else if (KeyguardUnLock.getUnLockMethod()==2){
+            }else if (unLockMethod==2){
                 TaskByJieSuoHelper.startJieSuoTaskInstance(appContext, 1)
-            }else if (KeyguardUnLock.getUnLockMethod()==3){
+            }else if (unLockMethod==3){
                 LockScreenActivity.openLockScreenActivity(index = 1)
             }
 

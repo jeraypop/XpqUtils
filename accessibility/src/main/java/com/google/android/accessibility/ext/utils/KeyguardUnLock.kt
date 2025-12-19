@@ -306,7 +306,7 @@ object KeyguardUnLock {
         }else{
             try {
                 //恢复键盘锁
-                wakeKeyguardOff()
+                //wakeKeyguardOff()
                 if (byKeyguard) mKeyguardManager!!.isKeyguardLocked else mKeyguardManager!!.isDeviceLocked
             } catch (e: Exception) {
                 false
@@ -1240,12 +1240,25 @@ object KeyguardUnLock {
     @JvmOverloads
     @JvmStatic
     fun setUnLockMethod(isNew: Int = 1) {
+        //切换不同的解锁方案的时候刷新一下键盘锁
+        if (isNew == 1){wakeKeyguardOn()}else if (isNew == 2){wakeKeyguardOff()}else if (isNew == 3){wakeKeyguardOff()}
         MMKVUtil.put(MMKVConst.KEY_JIESUO_METHOD_NUMBERPICKER,isNew)
     }
     @JvmOverloads
     @JvmStatic
     fun getUnLockMethod(default: Int = 1): Int {
         return MMKVUtil.get(MMKVConst.KEY_JIESUO_METHOD_NUMBERPICKER,default)
+    }
+
+    @JvmOverloads
+    @JvmStatic
+    fun setAutoReenKeyguard(isAuto: Boolean) {
+        MMKVUtil.put(MMKVConst.KEY_AutoReenKeyguard,isAuto)
+    }
+    @JvmOverloads
+    @JvmStatic
+    fun getAutoReenKeyguard(default: Boolean = true): Boolean {
+        return MMKVUtil.get(MMKVConst.KEY_AutoReenKeyguard,default)
     }
 
     @JvmStatic

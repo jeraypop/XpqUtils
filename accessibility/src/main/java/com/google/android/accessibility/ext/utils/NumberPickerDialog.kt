@@ -1,15 +1,18 @@
 package com.google.android.accessibility.ext.utils
 
 import android.content.Context
+import android.graphics.Color
 import android.graphics.Typeface
 import android.util.TypedValue
 import android.view.Gravity
+import android.view.View
 import android.view.ViewGroup
 import android.widget.LinearLayout
 import android.widget.NumberPicker
 import android.widget.ScrollView
 import android.widget.TextView
 import androidx.appcompat.app.AlertDialog
+import androidx.appcompat.widget.SwitchCompat
 
 object NumberPickerDialog {
     @JvmOverloads
@@ -69,6 +72,22 @@ object NumberPickerDialog {
             gravity = Gravity.CENTER
             setPadding(0, 0, 0, dp(context, 12))
         }
+        /** ---------------- Switch（即时生效） ---------------- */
+
+        val enableSwitch = SwitchCompat(context).apply {
+            text = "息屏后恢复锁屏"
+            textSize = 14f
+            setPadding(0, dp(context, 8), 0, dp(context, 8))
+            //某些设备在 isChecked = xxx 时可能触发监听 初始化状态（防止误触发）
+            setOnCheckedChangeListener(null)
+            // 读取已保存状态
+            isChecked = KeyguardUnLock.getAutoReenKeyguard()
+
+            // ★ 关键：切换即保存
+            setOnCheckedChangeListener { _, isChecked ->
+                KeyguardUnLock.setAutoReenKeyguard(isChecked)
+            }
+        }
 
         /** ---------------- NumberPicker ---------------- */
         val picker = NumberPicker(context)
@@ -101,6 +120,15 @@ object NumberPickerDialog {
 
             explainTextView.text = explain
             valueTextView.text = "当前选择：$titleText"
+            // ★ 核心：只在方案1显示 Switch
+            enableSwitch.visibility =
+                if (value == 1) View.VISIBLE else View.GONE
+            //切走方案1时自动关闭 Switch（并保存）：
+//            if (value != 1 && enableSwitch.isChecked) {
+//                enableSwitch.isChecked = false
+//                KeyguardUnLock.setAutoReenKeyguard(false)
+//            }
+
         }
 
         updateTexts(picker.value)
@@ -119,6 +147,7 @@ object NumberPickerDialog {
         container.addView(explainTextView)
         container.addView(valueTextView)
         container.addView(picker)
+        container.addView(enableSwitch)
 
         /** ---------------- Dialog ---------------- */
         val dialog = AlertDialog.Builder(context)

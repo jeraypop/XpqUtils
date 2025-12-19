@@ -20,6 +20,8 @@ import com.google.android.accessibility.ext.AssistsServiceListener
 import com.google.android.accessibility.ext.toast
 import com.google.android.accessibility.ext.utils.AliveUtils
 import com.google.android.accessibility.ext.utils.KeyguardUnLock
+import com.google.android.accessibility.ext.utils.KeyguardUnLock.wakeKeyguardOff
+import com.google.android.accessibility.ext.utils.KeyguardUnLock.wakeKeyguardOn
 import com.google.android.accessibility.ext.utils.LibCtxProvider.Companion.appContext
 import com.google.android.accessibility.ext.utils.NotificationUtilXpq.getAllSortedMessagingStyleByTime
 import com.google.android.accessibility.ext.window.AssistsWindowManager
@@ -110,6 +112,14 @@ abstract class SelectToSpeakServiceAbstract : AccessibilityService() {
         }
 
         registerReceiver(screenReceiver, filter)
+        val unLockMethod = KeyguardUnLock.getUnLockMethod()
+        if (unLockMethod == 1){
+            wakeKeyguardOn()
+        }else if (unLockMethod == 2){
+            wakeKeyguardOff()
+        }else if (unLockMethod == 3){
+            wakeKeyguardOff()
+        }
     }
     override fun onAccessibilityEvent(event: AccessibilityEvent?) {
         event ?: return
@@ -500,6 +510,10 @@ abstract class SelectToSpeakServiceAbstract : AccessibilityService() {
                     // 1️⃣ 屏幕熄灭
                     // 一定 = 锁屏即将发生 / 已发生
                     Log.e("监听屏幕啊", "屏幕已关闭" )
+                    if (KeyguardUnLock.getUnLockMethod()==1 && KeyguardUnLock.getAutoReenKeyguard()){
+                         wakeKeyguardOff()
+                    }
+
                 }
 
                 Intent.ACTION_SCREEN_ON -> {
