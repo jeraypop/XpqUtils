@@ -5,6 +5,7 @@ import android.service.notification.StatusBarNotification
 import android.util.Log
 import androidx.annotation.RequiresApi
 import com.google.android.accessibility.ext.activity.TaskByJieSuoHelper
+import com.google.android.accessibility.ext.activity.TaskByJieSuoHelper1
 import com.google.android.accessibility.ext.utils.AliveUtils
 import com.google.android.accessibility.ext.utils.KeyguardUnLock
 import com.google.android.accessibility.ext.utils.KeyguardUnLock.getUnLockOldOrNew
@@ -63,12 +64,20 @@ class NotificationListenerServiceImp : NotificationListenerServiceAbstract() {
         }else{
             //未解锁
             //执行解锁逻辑
-            // 方案1还是方案2的 开关
-            if (getUnLockOldOrNew()) {
+            if (KeyguardUnLock.getUnLockMethod()==1){
+                TaskByJieSuoHelper1.startJieSuoTaskInstance(appContext, 1)
+            }else if (KeyguardUnLock.getUnLockMethod()==2){
+                TaskByJieSuoHelper.startJieSuoTaskInstance(appContext, 1)
+            }else if (KeyguardUnLock.getUnLockMethod()==3){
                 LockScreenActivity.openLockScreenActivity(index = 1)
-                return
             }
-            TaskByJieSuoHelper.startJieSuoTaskInstance(appContext, 1)
+
+            // 方案1还是方案2的 开关
+            //if (getUnLockOldOrNew()) {
+                //LockScreenActivity.openLockScreenActivity(index = 1)
+                //return
+            //}
+            //TaskByJieSuoHelper.startJieSuoTaskInstance(appContext, 1)
 
         }
         if (true)return

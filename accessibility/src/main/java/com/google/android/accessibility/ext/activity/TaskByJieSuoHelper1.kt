@@ -36,7 +36,7 @@ import kotlin.also
  * - startJieSuoTask （保留原签名与 @JvmOverloads）
  * 其余逻辑、suspend 标记、delay/retry 行为全部保留原样。
  */
-open class TaskByJieSuoHelper(
+open class TaskByJieSuoHelper1(
     // 保持原来的默认协程作用域
     protected val taskScope: CoroutineScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
 ) {
@@ -50,12 +50,12 @@ open class TaskByJieSuoHelper(
     fun startJieSuoTask(context: Context, i: Int, start: Long = System.currentTimeMillis()) {
         taskScope.launch {
             if (mutex.isLocked) {
-                sendLog("♥♥ 上次【自动解锁(方案2)】还没结束哦(有重试机制)，请稍等再试")
-                context.toast("上次【自动解锁(方案2)】还没结束哦(有重试机制)，请稍等再试")
+                sendLog("♥♥ 上次【自动解锁(方案1)】还没结束哦(有重试机制)，请稍等再试")
+                context.toast("上次【自动解锁(方案1)】还没结束哦(有重试机制)，请稍等再试")
                 return@launch
             }
             mutex.withLock {
-                sendLog("♥♥ 开始执行【自动解锁(方案2)】任务")
+                sendLog("♥♥ 开始执行【自动解锁(方案1)】任务")
                 JieSuoTask(context, i, start)
 
             }
@@ -127,7 +127,7 @@ open class TaskByJieSuoHelper(
     private fun haoshiTip(start: Long) {
         val end = System.currentTimeMillis()
         val totalTime = end - start
-        sendLog("♥♥ 【自动解锁(方案2)】任务耗时：${totalTime.formatTime()}")
+        sendLog("♥♥ 【自动解锁(方案1)】任务耗时：${totalTime.formatTime()}")
     }
 
     /**
@@ -180,27 +180,27 @@ open class TaskByJieSuoHelper(
                 when (status) {
                     ScreenState.ON ->{
                         isOn = true
-                        KeyguardUnLock.sendLog("屏幕亮屏状态")
+                        sendLog("屏幕亮屏状态")
                     }
                     ScreenState.AOD -> {
                         isOn = false
                         KeyguardUnLock.wakeScreenOn()
-                        KeyguardUnLock.sendLog("设备 AOD 模式,需要唤醒")
+                        sendLog("设备 AOD 模式,需要唤醒")
                     }
                     ScreenState.DOZING -> {
                         isOn = false
                         KeyguardUnLock.wakeScreenOn()
-                        KeyguardUnLock.sendLog("设备 Doze 模式中(可能引起定时不准),需要唤醒")
+                        sendLog("设备 Doze 模式中(可能引起定时不准),需要唤醒")
                     }
                     ScreenState.OFF -> {
                         isOn = false
                         KeyguardUnLock.wakeScreenOn()
-                        KeyguardUnLock.sendLog("屏幕关闭状态,需要唤醒")
+                        sendLog("屏幕关闭状态,需要唤醒")
                     }
                     ScreenState.UNKNOWN -> {
                         isOn = false
                         KeyguardUnLock.wakeScreenOn()
-                        KeyguardUnLock.sendLog("未知状态,需要唤醒")
+                        sendLog("未知状态,需要唤醒")
                     }
 
                 }
@@ -227,24 +227,24 @@ open class TaskByJieSuoHelper(
                     }
                     DeviceLockState.LockedNotSecure -> {
                         //设备被锁屏了，但是没有安全锁  {如“滑动解锁”或无锁屏}
+                        //第一次会走这里,调用一次disableKeyguard,如果不释放禁用
+                        //从第二次开始,只会走 设备已解锁了.
                         sendLog("设备被锁屏,未设置安全锁,[可能是 滑动解锁或无锁屏]")
-                        sendLog("准备上划解锁")
-                        //上划
-                        val huaok = KeyguardUnLock.moveAwait(
-                            service = accessibilityService,
-                            moveCallback = object : MoveCallback {
-                                override fun onSuccess() {
-                                    sendLog("上划完成")
-                                }
+                        if (KeyguardUnLock.getUnLockMethod()==1){
+                            sendLog("准备直接解锁")
+                            //调用 disableKeyguard()后,isKeyguardLocked 将不再可靠,一直返回true
+                            //旧版 禁用键盘锁
+                            KeyguardUnLock.wakeKeyguardOn()
+                            isOn = true
+                            //sendLog("键盘状态="+KeyguardUnLock.keyguardIsOn())
+                            //旧版 释放键盘锁
+                            //KeyguardUnLock.wakeKeyguardOff()
+                            //sendLog("延时1秒="+KeyguardUnLock.keyguardIsOn())
+                            //KeyguardUnLock.wakeUpAndUnlock()
+                            //取消 释放 键盘锁
+                            //KeyguardUnLock.lockScreen()
 
-                                override fun onError() {
-                                    sendLog("上划取消或失败")
-                                }
-                            }
-                        )
-                        if (huaok){
-                            //判断是否解锁
-                            isOn = waitForUnlockCheck()
+
                         }
 
                     }
@@ -258,12 +258,12 @@ open class TaskByJieSuoHelper(
                             moveCallback = object : MoveCallback {
                                 override fun onSuccess() {
                                     println("🟢 手势完成")
-                                    sendLog("上划完成")
+                                    sendLog("手势完成")
                                 }
 
                                 override fun onError() {
                                     println("🔴 手势取消或失败")
-                                    sendLog("上划取消或失败")
+                                    sendLog("手势取消或失败")
                                 }
                             }
 
@@ -305,15 +305,15 @@ open class TaskByJieSuoHelper(
 
     companion object {
         @Volatile
-        private var instance: TaskByJieSuoHelper? = null
+        private var instance: TaskByJieSuoHelper1? = null
 
         /**
          * 获取或创建默认单例实例（线程安全）
          */
         @JvmStatic
-        fun getInstance(): TaskByJieSuoHelper {
+        fun getInstance(): TaskByJieSuoHelper1 {
             return instance ?: synchronized(this) {
-                instance ?: TaskByJieSuoHelper().also { instance = it }
+                instance ?: TaskByJieSuoHelper1().also { instance = it }
             }
         }
 
@@ -321,7 +321,7 @@ open class TaskByJieSuoHelper(
          * 注入自定义实例（允许替换为子类实现）
          */
         @JvmStatic
-        fun setInstance(helper: TaskByJieSuoHelper) {
+        fun setInstance(helper: TaskByJieSuoHelper1) {
             instance = helper
         }
 

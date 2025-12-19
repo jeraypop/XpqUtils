@@ -7,10 +7,11 @@ import android.content.Intent
 import android.os.Build
 import android.os.Bundle
 import android.util.Log
+import android.view.Gravity
 import android.view.WindowManager
 import androidx.core.view.ViewCompat
 import androidx.core.view.WindowInsetsCompat
-import androidx.lifecycle.lifecycleScope
+
 import com.android.accessibility.ext.databinding.ActivityLockScreenBinding
 import com.google.android.accessibility.ext.task.formatTime
 import com.google.android.accessibility.ext.utils.AliveUtils
@@ -81,30 +82,43 @@ open class BaseLockScreenActivity : XpqBaseActivity<ActivityLockScreenBinding>(
         }
 
         handleIntent(intent)
+        //最小化activity 1像素
+        val window = window
+        window.setGravity(Gravity.START or Gravity.TOP)
+        val params = window.attributes
+        params.width = 1
+        params.height = 1
+        params.x = 0
+        params.y = 0
+        window.attributes = params
+        window.addFlags(
+            WindowManager.LayoutParams.FLAG_NOT_TOUCHABLE or
+                    WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE
+        )
 
-        lifecycleScope.launch {
+        KeyguardUnLock.appScope.launch {
             val start = System.currentTimeMillis()
             try {
-                sendLog("开始执行【自动解锁(方案2)】任务")
+                sendLog("开始执行【自动解锁(方案3)】任务")
 
                 val unlocked = showWhenLockedAndTurnScreenOn(this@BaseLockScreenActivity)
                 val end = System.currentTimeMillis()
                 val totalTime = end - start
-                sendLog("♥♥ 【自动解锁(方案2)】任务耗时：${totalTime.formatTime()}")
+                sendLog("♥♥ 【自动解锁(方案3)】任务耗时：${totalTime.formatTime()}")
                 if (unlocked){
                     onUnlockedAndProceed()
                 }
                 else {
-                    sendLog("【自动解锁(方案2)】未成功或超时")
+                    sendLog("【自动解锁(方案3)】未成功或超时")
                     val end = System.currentTimeMillis()
                     val totalTime = end - start
-                    sendLog("♥♥ 【自动解锁(方案2)】任务耗时：${totalTime.formatTime()}")
+                    sendLog("♥♥ 【自动解锁(方案3)】任务耗时：${totalTime.formatTime()}")
                 }
             } catch (t: Throwable) {
-                sendLog("【自动解锁(方案2)】执行出错")
+                sendLog("【自动解锁(方案3)】执行出错")
             }finally {
                 delay(5000L)
-                sendLog("【自动解锁(方案2)】界面自动清理")
+                sendLog("【自动解锁(方案3)】界面自动清理")
                 finishAndRemoveTask()
             }
         }
@@ -152,7 +166,13 @@ open class BaseLockScreenActivity : XpqBaseActivity<ActivityLockScreenBinding>(
                     sendLog("尝试采取旧方法重新点亮(建议开启上述提到的 两个权限)")
                     KeyguardUnLock.wakeScreenOn()
                 }
-
+                // ⭐ 核心：下一帧立刻释放 Activity Window
+                window.decorView.post {
+                    if (!activity.isFinishing && !activity.isDestroyed) {
+                        sendLog("锁屏界面已点亮，立即销毁 Activity 以释放 Window")
+                        activity.finishAndRemoveTask()
+                    }
+                }
 
             }
             requestDeviceUnlock(activity, timeoutMs)
@@ -168,6 +188,7 @@ open class BaseLockScreenActivity : XpqBaseActivity<ActivityLockScreenBinding>(
             }
             true
         }
+
     }
 
     suspend fun waitForScreenOnCheck(
@@ -235,7 +256,7 @@ open class BaseLockScreenActivity : XpqBaseActivity<ActivityLockScreenBinding>(
     }
 
     protected open suspend fun tryRequestDismissKeyguard(activity: Activity, doInput: Boolean, timeoutMs: Long = 5000L): Boolean {
-
+        //delay(1000)
         val result = withTimeoutOrNull(timeoutMs) {
             suspendCancellableCoroutine<Boolean> { cont ->
                 val resumed = AtomicBoolean(false)
@@ -249,7 +270,7 @@ open class BaseLockScreenActivity : XpqBaseActivity<ActivityLockScreenBinding>(
                         return
                     }
 
-                    lifecycleScope.launch {
+                    KeyguardUnLock.appScope.launch {
                         try {
                             // 先检查是否已经被其他路径解锁
                             if (resumed.get()) return@launch
@@ -260,7 +281,11 @@ open class BaseLockScreenActivity : XpqBaseActivity<ActivityLockScreenBinding>(
                                 if (resumed.compareAndSet(false, true)) cont.resume(true)
                                 return@launch
                             }
+                            // ⭐ 新增：上划前延迟 2 秒，确保 Activity 已销毁 & 系统稳定
+                            sendLog("手势: 等待 2 秒，确保 Activity 已销毁")
+                            delay(2000)
 
+                            if (resumed.get()) return@launch
                             // 1) 如果支持手势则执行上划以尝试呼出输入框或直接解锁（对于 LockedNotSecure/similar 场景）
                             if (hasGesture()) {
                                 sendLog("手势: 开始执行上划手势（补救）")
@@ -394,7 +419,7 @@ open class BaseLockScreenActivity : XpqBaseActivity<ActivityLockScreenBinding>(
                     cont.invokeOnCancellation { _ -> /* nothing to cleanup */ }
 
                     // 原来的后备入口：延时后尝试（仅在尚未由回调触发 attempt 时执行）
-                    lifecycleScope.launch {
+                    KeyguardUnLock.appScope.launch {
                         try {
                             delay(1000)
                             if (resumed.get()) return@launch
@@ -432,7 +457,7 @@ open class BaseLockScreenActivity : XpqBaseActivity<ActivityLockScreenBinding>(
         if (currentTime - lastClickTime < debounceInterval) return
         lastClickTime = currentTime
 
-        lifecycleScope.launch {
+        KeyguardUnLock.appScope.launch {
             doMyWork(index)
         }
     }

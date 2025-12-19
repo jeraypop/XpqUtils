@@ -6,10 +6,12 @@ import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.ProcessLifecycleOwner
 import com.google.android.accessibility.ext.activity.TaskByJieSuoHelper
+import com.google.android.accessibility.ext.activity.TaskByJieSuoHelper1
 import com.google.android.accessibility.ext.utils.AliveUtils
 import com.google.android.accessibility.ext.utils.NotificationUtilXpq
 import com.google.android.accessibility.ext.utils.XpqUncaughtExceptionHandler
 import com.lygttpod.android.auto.notification.MyJieSuoHelper
+import com.lygttpod.android.auto.notification.MyJieSuoHelper1
 import com.lygttpod.android.auto.notification.NotificationListenerServiceImp
 
 
@@ -24,6 +26,7 @@ class App : Application() {
         super.onCreate()
         instance = this
         TaskByJieSuoHelper.setInstance(MyJieSuoHelper())
+        TaskByJieSuoHelper1.setInstance(MyJieSuoHelper1())
         //重新绑定服务
         NotificationUtilXpq.toggleNotificationListenerService(notificationCls = NotificationListenerServiceImp::class.java)
 
