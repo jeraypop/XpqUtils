@@ -1,8 +1,10 @@
 package com.google.android.accessibility.ext.utils
 
+import android.app.KeyguardManager
 import android.content.Context
 import android.graphics.Color
 import android.graphics.Typeface
+import android.util.Log
 import android.util.TypedValue
 import android.view.Gravity
 import android.view.View
@@ -13,15 +15,42 @@ import android.widget.ScrollView
 import android.widget.TextView
 import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.widget.SwitchCompat
+import com.google.android.accessibility.ext.utils.KeyguardUnLock.mKeyguardManager
+import com.google.android.accessibility.ext.utils.KeyguardUnLock.wakeKeyguardOn
 
 object NumberPickerDialog {
+    @JvmStatic
+    fun showDefault(
+        context: Context
+    ) {
+        show(
+            context = context,
+            title = "解锁方案",
+            min = 0,
+            max = 3,
+            displayedValues = arrayOf("关闭","方案1", "方案2", "方案3"),
+            explainTexts = arrayOf(
+                "关闭: 不会自动点亮屏幕和解锁",
+                "方案1: 会尝试直接取消锁屏,当设备未设置密码锁屏时(仅划动解锁),即点亮屏幕后,可能就会直接进入系统了",
+                "方案2: 会模拟屏幕上划,即点亮屏幕后,上划一下屏幕后进入系统或者呼出输入解锁密码的界面",
+                "方案3: 跟方案2效果上类似,但兼容性更强,大多数新设备都能成功(注:解锁成功后,可能会额外打开本软件一下)"
+            ),
+            descText = "请选择一种最适合本设备的解锁方案",
+            onValueChange = { _, text ->
+                //previewTextView.text = "当前等级：$text"
+            }
+        ) { value, text ->
+            AliveUtils.toast(msg =  "value=$value text=$text")
+        }
+    }
+
     @JvmOverloads
     @JvmStatic
     fun show(
         context: Context,
         title: String,
-        min: Int,
-        max: Int,
+        min: Int = 0,
+        max: Int = 3,
         defaultValue: Int = min,
         displayedValues: Array<String>? = null,
         explainTexts: Array<String>? = null,   // ★ 新增：方案解释
@@ -74,9 +103,32 @@ object NumberPickerDialog {
         }
         /** ---------------- Switch（即时生效） ---------------- */
 
-        val enableSwitch = SwitchCompat(context).apply {
-            text = "息屏后恢复锁屏"
+        val LP_Switch = SwitchCompat(context).apply {
+            text = "亮屏后自动解除锁屏\n(仅适用于无密码锁屏)"
             textSize = 14f
+            showText = true
+            textOn = "开"
+            textOff = "关"
+            setPadding(0, dp(context, 8), 0, dp(context, 8))
+            //某些设备在 isChecked = xxx 时可能触发监听 初始化状态（防止误触发）
+            setOnCheckedChangeListener(null)
+            // 读取已保存状态
+            isChecked = KeyguardUnLock.getAutoDisableKeyguard()
+
+            // ★ 关键：切换即保存
+            setOnCheckedChangeListener { _, isChecked ->
+                //禁用键盘锁
+                wakeKeyguardOn()
+                KeyguardUnLock.setAutoDisableKeyguard(isChecked)
+            }
+        }
+
+        val enableSwitch = SwitchCompat(context).apply {
+            text = "息屏后自动恢复锁屏\n(仅适用于无密码锁屏)"
+            textSize = 14f
+            showText = true
+            textOn = "开"
+            textOff = "关"
             setPadding(0, dp(context, 8), 0, dp(context, 8))
             //某些设备在 isChecked = xxx 时可能触发监听 初始化状态（防止误触发）
             setOnCheckedChangeListener(null)
@@ -85,6 +137,8 @@ object NumberPickerDialog {
 
             // ★ 关键：切换即保存
             setOnCheckedChangeListener { _, isChecked ->
+                //禁用键盘锁 为啥不用 wakeKeyguardOff 因为可能会直接锁屏
+                wakeKeyguardOn()
                 KeyguardUnLock.setAutoReenKeyguard(isChecked)
             }
         }
@@ -129,6 +183,9 @@ object NumberPickerDialog {
 //                KeyguardUnLock.setAutoReenKeyguard(false)
 //            }
 
+            LP_Switch.visibility =
+                if (value == 1) View.VISIBLE else View.GONE
+
         }
 
         updateTexts(picker.value)
@@ -147,23 +204,64 @@ object NumberPickerDialog {
         container.addView(explainTextView)
         container.addView(valueTextView)
         container.addView(picker)
+        container.addView(LP_Switch)
         container.addView(enableSwitch)
 
         /** ---------------- Dialog ---------------- */
         val dialog = AlertDialog.Builder(context)
             .setTitle(title)
             .setView(scrollView)
-            .setPositiveButton("确定") { _, _ ->
-                val value = picker.value
-                val index = value - min
-                val text = displayedValues?.getOrNull(index) ?: value.toString()
-                KeyguardUnLock.setUnLockMethod(value)
-                onConfirm(value, text)
-            }
+            .setPositiveButton("确定",null)
             .setNegativeButton("取消", null)
             .create()
 
         dialog.show()
+
+        dialog.getButton(AlertDialog.BUTTON_POSITIVE).setOnClickListener {
+            val newValue = picker.value
+            val oldValue = KeyguardUnLock.getUnLockMethod(defaultValue)
+
+            val index = newValue - min
+            val text = displayedValues?.getOrNull(index) ?: newValue.toString()
+
+            // ★ 只有 1 -> 0/2 / 3 才提示
+            if (oldValue == 1 && newValue != 1) {
+              /*  if (KeyguardUnLock.keyguardIsOn()){
+                    AliveUtils.toast(msg = "键盘已解锁！")
+                    if (mKeyguardManager == null) {
+                        mKeyguardManager = context.applicationContext.getSystemService(Context.KEYGUARD_SERVICE) as KeyguardManager
+                    }
+                    if (mKeyguardManager?.isKeyguardLocked== true){
+                        AliveUtils.toast(msg = "第二次判断 键盘没解锁！")
+                    }else{
+                        AliveUtils.toast(msg = "第二次判断 键盘已解锁！")
+                    }
+                }else{
+                    AliveUtils.toast(msg = "键盘没解锁！")
+                }*/
+                val tit = if (newValue == 0){"关闭解锁方案"}else{"切换解锁方案"}
+                val msg = if (newValue == 0){"从方案1关闭"}else{"从方案1切换到其它方案"}
+                AlertDialog.Builder(context)
+                    .setTitle(tit)
+                    .setMessage(
+                        msg+ "，\n在部分设备上可能会出现锁屏一次或需要手动唤醒的情况。\n\n" +
+                                "确定要继续吗？"
+                    )
+                    .setPositiveButton("继续") { _, _ ->
+                        KeyguardUnLock.setUnLockMethod(newValue)
+                        onConfirm(newValue, text)
+                        dialog.dismiss()
+                    }
+                    .setNegativeButton("取消", null)
+                    .show()
+            } else {
+                // 其它情况，直接切换
+                KeyguardUnLock.setUnLockMethod(newValue)
+                onConfirm(newValue, text)
+                dialog.dismiss()
+            }
+        }
+
 
         /** ---------------- 最大高度限制 ---------------- */
         dialog.window?.let { window ->

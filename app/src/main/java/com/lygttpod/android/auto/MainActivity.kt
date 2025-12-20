@@ -100,25 +100,7 @@ class MainActivity : XpqBaseActivity<ActivityMainBinding>(
            LockScreenActivity.openLockScreenActivity()
 
             //ActivityUtils.showVideoDialog(this, "https://gitlab.com/mytiper/wechat/-/raw/master/public/unlock.mp4")
-            NumberPickerDialog.show(
-                context = this,
-                title = "解锁方案",
-                min = 1,
-                max = 3,
-                displayedValues = arrayOf("方案1", "方案2", "方案3"),
-                explainTexts = arrayOf(
-                    "方案1:会尝试直接取消锁屏,当设备未设置密码时(划动解锁),即点亮屏幕后,可能就会直接进入系统了",
-                    "方案2:会模拟屏幕上划,即点亮屏幕后,上划一下屏幕进入系统或者呼出输入解锁密码的界面",
-                    "方案3:跟方案2视觉上类似,但兼容性更强,大多数设备都能成功(注:解锁成功后,可能就打开本软件一下)"
-                ),
-                descText = "请选择一种最适合本设备的解锁方案",
-                onValueChange = { _, text ->
-                    //previewTextView.text = "当前等级：$text"
-                }
-            ) { value, text ->
-                AliveUtils.toast(msg =  "value=$value text=$text")
-                Log.d("Picker", "value=$value text=$text")
-            }
+            NumberPickerDialog.showDefault(context = this)
 
         }
 

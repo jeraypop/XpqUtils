@@ -115,6 +115,8 @@ abstract class SelectToSpeakServiceAbstract : AccessibilityService() {
         val unLockMethod = KeyguardUnLock.getUnLockMethod()
         if (unLockMethod == 1){
             wakeKeyguardOn()
+        }else if (unLockMethod == 0){
+            wakeKeyguardOff()
         }else if (unLockMethod == 2){
             wakeKeyguardOff()
         }else if (unLockMethod == 3){
@@ -520,6 +522,10 @@ abstract class SelectToSpeakServiceAbstract : AccessibilityService() {
                     // 2️⃣ 屏幕点亮
                     // ⚠️ 仍然可能在锁屏界面
                     Log.e("监听屏幕啊", "屏幕点亮" )
+                    if (KeyguardUnLock.getUnLockMethod()==1 && KeyguardUnLock.getAutoDisableKeyguard()){
+                        //禁用键盘锁
+                        wakeKeyguardOn()
+                    }
                 }
 
                 Intent.ACTION_USER_PRESENT -> {

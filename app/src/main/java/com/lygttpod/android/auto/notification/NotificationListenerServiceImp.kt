@@ -71,6 +71,8 @@ class NotificationListenerServiceImp : NotificationListenerServiceAbstract() {
                 TaskByJieSuoHelper.startJieSuoTaskInstance(appContext, 1)
             }else if (unLockMethod==3){
                 LockScreenActivity.openLockScreenActivity(index = 1)
+            } else if (unLockMethod == 0){
+                //关闭,   啥也不做
             }
 
             // 方案1还是方案2的 开关

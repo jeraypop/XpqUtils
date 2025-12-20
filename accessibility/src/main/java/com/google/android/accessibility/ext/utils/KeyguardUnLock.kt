@@ -290,7 +290,7 @@ object KeyguardUnLock {
         }
         val locked = if (getUnLockMethod()==1){
             //禁用键盘锁
-            wakeKeyguardOn()
+            //wakeKeyguardOn()
            //解锁方案1
             if (mPowerManager!!.isInteractive){
                 // 屏幕亮屏状态+设备没有设置安全pin
@@ -452,7 +452,7 @@ object KeyguardUnLock {
         }, 60_000L)
 
     }
-    private var mKeyguardManager: KeyguardManager? = null
+    public var mKeyguardManager: KeyguardManager? = null
     // 1. 使用静态变量持有锁对象的引用
     private var mKeyguardLock: KeyguardManager.KeyguardLock? = null
 
@@ -516,6 +516,41 @@ object KeyguardUnLock {
             isKeyguardOn = true
         }
         return isKeyguardOn
+    }
+    /*
+    * 普通个人手机上 两个方法没区别
+    * isKeyguardSecure和 isDeviceSecure
+    * isKeyguardSecure = 锁屏界面本身有没有密码
+isDeviceSecure = 这台设备“有没有任何安全门槛”
+*
+    * */
+    @JvmOverloads
+    @JvmStatic
+    fun deviceIsSecure(context: Context = appContext,byKeyguard: Boolean =false): Boolean {
+        var isSecure = false
+        if (mKeyguardManager == null) {
+            mKeyguardManager = context.applicationContext.getSystemService(Context.KEYGUARD_SERVICE) as KeyguardManager
+        }
+
+        if (byKeyguard){
+            if (mKeyguardManager?.isKeyguardSecure==true){
+                //设备安全,有密码pin
+                isSecure = true
+            }else{
+                //设备没密码,是滑动解锁
+                isSecure = false
+            }
+        }else{
+            if (mKeyguardManager?.isDeviceSecure==true){
+                //设备安全,有密码pin
+                isSecure = true
+            }else{
+                //设备没密码,是滑动解锁
+                isSecure = false
+            }
+        }
+
+        return isSecure
     }
     /**
      * 其它都一样,只有 锁屏上弹出“闹钟界面”  这个时候 再进行判定
@@ -1239,26 +1274,40 @@ object KeyguardUnLock {
     }
     @JvmOverloads
     @JvmStatic
-    fun setUnLockMethod(isNew: Int = 1) {
+    fun setUnLockMethod(isNew: Int = 0) {
         //切换不同的解锁方案的时候刷新一下键盘锁
-        if (isNew == 1){wakeKeyguardOn()}else if (isNew == 2){wakeKeyguardOff()}else if (isNew == 3){wakeKeyguardOff()}
+        if (isNew == 1){wakeKeyguardOn()}
+        else if (isNew == 0){wakeKeyguardOff()}
+        else if (isNew == 2){wakeKeyguardOff()}
+        else if (isNew == 3){wakeKeyguardOff()}
         MMKVUtil.put(MMKVConst.KEY_JIESUO_METHOD_NUMBERPICKER,isNew)
     }
     @JvmOverloads
     @JvmStatic
-    fun getUnLockMethod(default: Int = 1): Int {
+    fun getUnLockMethod(default: Int = 0): Int {
         return MMKVUtil.get(MMKVConst.KEY_JIESUO_METHOD_NUMBERPICKER,default)
     }
 
     @JvmOverloads
     @JvmStatic
-    fun setAutoReenKeyguard(isAuto: Boolean) {
+    fun setAutoReenKeyguard(isAuto: Boolean = true) {
         MMKVUtil.put(MMKVConst.KEY_AutoReenKeyguard,isAuto)
     }
     @JvmOverloads
     @JvmStatic
     fun getAutoReenKeyguard(default: Boolean = true): Boolean {
         return MMKVUtil.get(MMKVConst.KEY_AutoReenKeyguard,default)
+    }
+
+    @JvmOverloads
+    @JvmStatic
+    fun setAutoDisableKeyguard(isAuto: Boolean = false) {
+        MMKVUtil.put(MMKVConst.KEY_AutoDisableKeyguard,isAuto)
+    }
+    @JvmOverloads
+    @JvmStatic
+    fun getAutoDisableKeyguard(default: Boolean = false): Boolean {
+        return MMKVUtil.get(MMKVConst.KEY_AutoDisableKeyguard,default)
     }
 
     @JvmStatic
