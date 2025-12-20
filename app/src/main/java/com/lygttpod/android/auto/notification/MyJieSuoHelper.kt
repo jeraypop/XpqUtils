@@ -2,6 +2,7 @@ package com.lygttpod.android.auto.notification
 
 
 import com.google.android.accessibility.ext.activity.TaskByJieSuoHelper
+import com.google.android.accessibility.ext.utils.KeyguardUnLock
 import com.google.android.accessibility.ext.utils.MMKVConst
 import com.google.android.accessibility.ext.utils.MMKVUtil
 import com.google.android.accessibility.ext.window.OverlayLog
@@ -35,7 +36,7 @@ class MyJieSuoHelper : TaskByJieSuoHelper() {
         //轨迹
         MMKVUtil.put(MMKVConst.SHOW_DO_GUIJI, true)
 
-        return "1234" // 真实密码或配置读取
+        return KeyguardUnLock.getScreenPassWord() // 真实密码或配置读取
     }
 
     override fun hasActivity(): Boolean {

@@ -1310,6 +1310,29 @@ isDeviceSecure = 这台设备“有没有任何安全门槛”
         return MMKVUtil.get(MMKVConst.KEY_AutoDisableKeyguard,default)
     }
 
+    @JvmOverloads
+    @JvmStatic
+    fun setScreenAlwaysOn(alwaysOn: Boolean = false) {
+        MMKVUtil.put(MMKVConst.XPQ_SCREEN_ON,alwaysOn)
+    }
+    @JvmOverloads
+    @JvmStatic
+    fun getScreenAlwaysOn(default: Boolean = false): Boolean {
+        return MMKVUtil.get(MMKVConst.XPQ_SCREEN_ON,default)
+    }
+
+    @JvmOverloads
+    @JvmStatic
+    fun setScreenPassWord(pwd: String = "1234") {
+        MMKVUtil.put(MMKVConst.KEY_LOCK_SCREEN_PASSWORD,pwd)
+        MMKVUtil.put(MMKVConst.KEY_JIESUO_MIMA,pwd)
+    }
+    @JvmOverloads
+    @JvmStatic
+    fun getScreenPassWord(default: String = "1234"): String {
+        return MMKVUtil.get(MMKVConst.KEY_LOCK_SCREEN_PASSWORD,default)
+    }
+
     @JvmStatic
     fun setShowClickIndicator(isShow: Boolean) {
        MMKVUtil.put(MMKVConst.SHOW_DO_GUIJI, isShow)

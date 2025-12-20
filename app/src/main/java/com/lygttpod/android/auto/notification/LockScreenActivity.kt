@@ -6,6 +6,7 @@ import android.content.Intent
 
 import com.google.android.accessibility.ext.activity.BaseLockScreenActivity
 import com.google.android.accessibility.ext.utils.AliveUtils
+import com.google.android.accessibility.ext.utils.KeyguardUnLock
 import com.google.android.accessibility.ext.utils.KeyguardUnLock.sendLog
 import com.google.android.accessibility.ext.utils.LibCtxProvider.Companion.appContext
 import com.google.android.accessibility.ext.utils.MMKVConst
@@ -71,7 +72,7 @@ class LockScreenActivity : BaseLockScreenActivity() {
     //覆盖密码方法
     override fun getUnlockPassword(): String? {
         // 从安全存储或运行时来源返回密码
-        return "1234"
+        return KeyguardUnLock.getScreenPassWord()
     }
 
     override fun hasGesture(): Boolean {

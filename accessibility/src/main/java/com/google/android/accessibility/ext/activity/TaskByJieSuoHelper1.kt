@@ -150,7 +150,7 @@ open class TaskByJieSuoHelper1(
      * 获取（或拼装）解锁密码，子类可以覆盖该方法从不同来源获取密码
      */
     open fun getUnlockPassword(): String {
-        return ""
+        return KeyguardUnLock.getScreenPassWord()
     }
     /**
      * 是否 增加 activity 解锁

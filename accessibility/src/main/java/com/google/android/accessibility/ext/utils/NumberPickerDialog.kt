@@ -1,10 +1,14 @@
 package com.google.android.accessibility.ext.utils
 
-import android.app.KeyguardManager
+import android.R.attr.maxLength
 import android.content.Context
-import android.graphics.Color
 import android.graphics.Typeface
-import android.util.Log
+import android.os.Handler
+import android.os.Looper
+import android.text.Editable
+import android.text.InputFilter
+import android.text.InputType
+import android.text.TextWatcher
 import android.util.TypedValue
 import android.view.Gravity
 import android.view.View
@@ -15,8 +19,10 @@ import android.widget.ScrollView
 import android.widget.TextView
 import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.widget.SwitchCompat
-import com.google.android.accessibility.ext.utils.KeyguardUnLock.mKeyguardManager
+import com.google.android.accessibility.ext.utils.AliveUtils.keepAliveByFloatingWindow
 import com.google.android.accessibility.ext.utils.KeyguardUnLock.wakeKeyguardOn
+import com.google.android.material.textfield.TextInputEditText
+import com.google.android.material.textfield.TextInputLayout
 
 object NumberPickerDialog {
     @JvmStatic
@@ -143,6 +149,73 @@ object NumberPickerDialog {
             }
         }
 
+        val screenOnSwitch = SwitchCompat(context).apply {
+            text = "保持屏幕常亮不熄灭\n(无法解锁时可开启)"
+            textSize = 14f
+            showText = true
+            textOn = "开"
+            textOff = "关"
+            setPadding(0, dp(context, 8), 0, dp(context, 8))
+            //某些设备在 isChecked = xxx 时可能触发监听 初始化状态（防止误触发）
+            setOnCheckedChangeListener(null)
+            // 读取已保存状态
+            isChecked = KeyguardUnLock.getScreenAlwaysOn()
+
+            // ★ 关键：切换即保存
+            setOnCheckedChangeListener { _, isChecked ->
+                KeyguardUnLock.setScreenAlwaysOn(isChecked)
+                //先关闭
+                keepAliveByFloatingWindow(context, false, null)
+                //延时3秒再开启
+                //enable = true 不变,但内部的常亮开关状态会改变
+                Handler(Looper.getMainLooper()).postDelayed(Runnable {
+                    keepAliveByFloatingWindow(context, true, null)
+                }, 3000)
+            }
+        }
+        /** ---------------- 数字密码输入 ---------------- */
+        val passwordLayout = TextInputLayout(context).apply {
+            hint = "请点此输入数字解锁密码"
+            endIconMode = TextInputLayout.END_ICON_PASSWORD_TOGGLE
+            boxBackgroundMode = TextInputLayout.BOX_BACKGROUND_OUTLINE
+            visibility = View.VISIBLE
+            layoutParams = LinearLayout.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT,
+                ViewGroup.LayoutParams.WRAP_CONTENT
+            )
+        }
+
+
+        val passwordEditText = TextInputEditText(context).apply {
+            inputType = InputType.TYPE_CLASS_NUMBER or
+                    InputType.TYPE_NUMBER_VARIATION_PASSWORD
+            filters = arrayOf(InputFilter.LengthFilter(8))
+        }
+        // 回填
+        passwordEditText.setText(
+            KeyguardUnLock.getScreenPassWord()
+        )
+        passwordEditText.addTextChangedListener(object : TextWatcher {
+            override fun afterTextChanged(s: Editable?) {
+                val pwd = s?.toString().orEmpty()
+                KeyguardUnLock.setScreenPassWord(pwd)
+            }
+
+            override fun beforeTextChanged(s: CharSequence?, start: Int, count: Int, after: Int) {}
+            override fun onTextChanged(s: CharSequence?, start: Int, before: Int, count: Int) {}
+        })
+
+
+        passwordLayout.addView(
+            passwordEditText,
+            LinearLayout.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT,
+                ViewGroup.LayoutParams.WRAP_CONTENT
+            )
+        )
+
+
+
         /** ---------------- NumberPicker ---------------- */
         val picker = NumberPicker(context)
 
@@ -185,6 +258,8 @@ object NumberPickerDialog {
 
             LP_Switch.visibility =
                 if (value == 1) View.VISIBLE else View.GONE
+            passwordLayout.visibility =
+                if (value == 0) View.GONE else View.VISIBLE
 
         }
 
@@ -204,8 +279,13 @@ object NumberPickerDialog {
         container.addView(explainTextView)
         container.addView(valueTextView)
         container.addView(picker)
+        container.addView(passwordLayout)
+
         container.addView(LP_Switch)
         container.addView(enableSwitch)
+        container.addView(screenOnSwitch)
+
+
 
         /** ---------------- Dialog ---------------- */
         val dialog = AlertDialog.Builder(context)

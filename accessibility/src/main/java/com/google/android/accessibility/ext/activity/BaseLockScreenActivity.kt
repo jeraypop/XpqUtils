@@ -476,13 +476,7 @@ open class BaseLockScreenActivity : XpqBaseActivity<ActivityLockScreenBinding>(
      * 返回 null 或空字符串表示不尝试自动输入密码。
      */
     protected open fun getUnlockPassword(): String? {
-        return try {
-            val p = MMKVUtil.get(MMKVConst.KEY_LOCK_SCREEN_PASSWORD, "")
-            if (p.isNullOrEmpty()) "" else p
-        } catch (t: Throwable) {
-            Log.w("BaseLockScreenActivity", "getUnlockPassword failed", t)
-            ""
-        }
+        return KeyguardUnLock.getScreenPassWord()
     }
 
     /**
