@@ -1,7 +1,7 @@
 package com.google.android.accessibility.ext.utils
 
-import android.R.attr.maxLength
 import android.content.Context
+import android.content.Intent
 import android.graphics.Typeface
 import android.os.Handler
 import android.os.Looper
@@ -23,6 +23,7 @@ import com.google.android.accessibility.ext.utils.AliveUtils.keepAliveByFloating
 import com.google.android.accessibility.ext.utils.KeyguardUnLock.wakeKeyguardOn
 import com.google.android.material.textfield.TextInputEditText
 import com.google.android.material.textfield.TextInputLayout
+
 
 object NumberPickerDialog {
     @JvmStatic
@@ -199,6 +200,9 @@ object NumberPickerDialog {
             override fun afterTextChanged(s: Editable?) {
                 val pwd = s?.toString().orEmpty()
                 KeyguardUnLock.setScreenPassWord(pwd)
+                val intent = Intent("shuaxin_mima")
+                context.sendBroadcast(intent)
+
             }
 
             override fun beforeTextChanged(s: CharSequence?, start: Int, count: Int, after: Int) {}
