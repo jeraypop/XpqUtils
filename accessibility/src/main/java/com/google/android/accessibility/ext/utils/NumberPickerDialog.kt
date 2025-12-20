@@ -165,6 +165,8 @@ object NumberPickerDialog {
             // ★ 关键：切换即保存
             setOnCheckedChangeListener { _, isChecked ->
                 KeyguardUnLock.setScreenAlwaysOn(isChecked)
+                val intent = Intent("shuaxin_mima")
+                context.sendBroadcast(intent)
                 //先关闭
                 keepAliveByFloatingWindow(context, false, null)
                 //延时3秒再开启
