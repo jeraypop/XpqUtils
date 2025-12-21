@@ -1333,6 +1333,17 @@ isDeviceSecure = 这台设备“有没有任何安全门槛”
         return MMKVUtil.get(MMKVConst.KEY_LOCK_SCREEN_PASSWORD,default)
     }
 
+    @JvmOverloads
+    @JvmStatic
+    fun setTanLog(tanlog: Boolean = false) {
+        MMKVUtil.put(MMKVConst.XPQ_TAN_LOG,tanlog)
+    }
+    @JvmOverloads
+    @JvmStatic
+    fun getTanLog(default: Boolean = false): Boolean {
+        return MMKVUtil.get(MMKVConst.XPQ_TAN_LOG,default)
+    }
+
     @JvmStatic
     fun setShowClickIndicator(isShow: Boolean) {
        MMKVUtil.put(MMKVConst.SHOW_DO_GUIJI, isShow)

@@ -56,4 +56,5 @@ object MMKVConst {
     const val UNLOCK_METHOD = "UNLOCK_METHOD"
     const val SHOW_DO_GUIJI = "SHOW_DO_GUIJI"
     const val XPQ_SCREEN_ON = "XPQ_SCREEN_ON"
+    const val XPQ_TAN_LOG = "XPQ_TAN_LOG"
 }

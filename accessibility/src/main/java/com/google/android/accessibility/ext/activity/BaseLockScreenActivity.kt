@@ -24,6 +24,7 @@ import com.google.android.accessibility.ext.utils.MMKVConst
 import com.google.android.accessibility.ext.utils.MMKVUtil
 import com.google.android.accessibility.ext.utils.MoveCallback
 import com.google.android.accessibility.ext.utils.ScreenState
+import com.google.android.accessibility.ext.window.OverlayLog
 import com.google.android.accessibility.selecttospeak.accessibilityService
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
@@ -113,9 +114,11 @@ open class BaseLockScreenActivity : XpqBaseActivity<ActivityLockScreenBinding>(
                     val end = System.currentTimeMillis()
                     val totalTime = end - start
                     sendLog("♥♥ 【自动解锁(方案3)】任务耗时：${totalTime.formatTime()}")
+                    if (KeyguardUnLock.getTanLog()) OverlayLog.show()
                 }
             } catch (t: Throwable) {
                 sendLog("【自动解锁(方案3)】执行出错")
+                if (KeyguardUnLock.getTanLog()) OverlayLog.show()
             }finally {
                 delay(5000L)
                 sendLog("【自动解锁(方案3)】界面自动清理")

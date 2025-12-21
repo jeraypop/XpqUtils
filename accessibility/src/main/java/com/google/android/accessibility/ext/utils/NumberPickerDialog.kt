@@ -2,6 +2,7 @@ package com.google.android.accessibility.ext.utils
 
 import android.content.Context
 import android.content.Intent
+import android.graphics.Color
 import android.graphics.Typeface
 import android.os.Handler
 import android.os.Looper
@@ -18,9 +19,13 @@ import android.widget.NumberPicker
 import android.widget.ScrollView
 import android.widget.TextView
 import androidx.appcompat.app.AlertDialog
+import androidx.appcompat.widget.AppCompatButton
 import androidx.appcompat.widget.SwitchCompat
+import com.android.accessibility.ext.R
 import com.google.android.accessibility.ext.utils.AliveUtils.keepAliveByFloatingWindow
 import com.google.android.accessibility.ext.utils.KeyguardUnLock.wakeKeyguardOn
+import com.google.android.accessibility.ext.window.OverlayLog
+import com.google.android.accessibility.selecttospeak.accessibilityService
 import com.google.android.material.textfield.TextInputEditText
 import com.google.android.material.textfield.TextInputLayout
 
@@ -37,12 +42,12 @@ object NumberPickerDialog {
             max = 3,
             displayedValues = arrayOf("关闭","方案1", "方案2", "方案3"),
             explainTexts = arrayOf(
-                "关闭: 不会自动点亮屏幕和解锁",
+                "关闭:  默认状态,不采用3种方案种的任何一种",
                 "方案1: 会尝试直接取消锁屏,当设备未设置密码锁屏时(仅划动解锁),即点亮屏幕后,可能就会直接进入系统了",
                 "方案2: 会模拟屏幕上划,即点亮屏幕后,上划一下屏幕后进入系统或者呼出输入解锁密码的界面",
-                "方案3: 跟方案2效果上类似,但兼容性更强,大多数新设备都能成功(注:解锁成功后,可能会额外打开本软件一下)"
+                "方案3: 跟方案2效果上类似,但兼容性更强,成功率更高,更适用于新款设备机型(注:解锁成功后,可能会额外打开本软件一下)"
             ),
-            descText = "请选择一种最适合本设备的解锁方案",
+            descText = "请滑动选择一种最适合本设备的解锁方案",
             onValueChange = { _, text ->
                 //previewTextView.text = "当前等级：$text"
             }
@@ -89,6 +94,7 @@ object NumberPickerDialog {
         val descTextView = TextView(context).apply {
             text = descText.orEmpty()
             textSize = 14f
+            setTextColor(Color.BLACK)
             gravity = Gravity.CENTER
             setPadding(0, 0, 0, dp(context, 4))
         }
@@ -96,6 +102,7 @@ object NumberPickerDialog {
         /** ---------------- 方案解释（动态） ---------------- */
         val explainTextView = TextView(context).apply {
             textSize = 13f
+            setTextColor(Color.BLUE)
             setTypeface(null, Typeface.NORMAL)
             gravity = Gravity.CENTER
             setPadding(0, 0, 0, dp(context, 6))
@@ -104,6 +111,7 @@ object NumberPickerDialog {
         /** ---------------- 当前值（动态 + 强调） ---------------- */
         val valueTextView = TextView(context).apply {
             textSize = 15f
+            setTextColor(Color.RED)
             setTypeface(null, Typeface.BOLD)
             gravity = Gravity.CENTER
             setPadding(0, 0, 0, dp(context, 12))
@@ -176,9 +184,83 @@ object NumberPickerDialog {
                 }, 3000)
             }
         }
+        //========================
+        val containertanlog = LinearLayout(context).apply {
+            orientation = LinearLayout.HORIZONTAL
+            gravity = Gravity.CENTER_VERTICAL
+            setPadding(0, dp(context, 8), 0, dp(context, 8))
+        }
+        val tanfail = TextView(context).apply {
+            text = "解锁失败时弹出日志"
+            textSize = 14f
+            setTextColor(Color.BLACK)
+            layoutParams = LinearLayout.LayoutParams(
+                0,
+                LinearLayout.LayoutParams.WRAP_CONTENT,
+                1f // 占满剩余空间
+            )
+        }
+
+
+        val helpBtn = AppCompatButton(context).apply {
+            text = "查看"
+            textSize = 16f
+            isAllCaps = false
+            setBackgroundResource(R.drawable.button_selector_xpq)
+            includeFontPadding = false
+            setPadding(
+                dp(context, 8),
+                dp(context, 2),
+                dp(context, 8),
+                dp(context, 2)
+            )
+            minHeight = 0
+            minimumHeight = 0
+            minWidth = 0
+            minimumWidth = 0
+            
+            setTextColor(Color.RED)
+            // 去掉 Button 默认内边距，贴近 Switch 观感
+            layoutParams = LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.WRAP_CONTENT,
+                LinearLayout.LayoutParams.WRAP_CONTENT
+            ).apply {
+                marginStart = dp(context, 8)
+                marginEnd = dp(context, 8)
+            }
+
+            setOnClickListener {
+                if (accessibilityService==null){
+                    AliveUtils.toast(msg = "请先开启无障碍服务!")
+                    return@setOnClickListener
+                }
+                OverlayLog.show()
+            }
+        }
+        val tanSwitch = SwitchCompat(context).apply {
+            showText = true
+            textOn = "开"
+            textOff = "关"
+
+            setOnCheckedChangeListener(null)
+            isChecked = KeyguardUnLock.getTanLog()
+
+            setOnCheckedChangeListener { _, isChecked ->
+                KeyguardUnLock.setTanLog(isChecked)
+
+                //context.sendBroadcast(Intent("shuaxin_mima"))
+
+            }
+        }
+        containertanlog.addView(tanfail)
+        containertanlog.addView(helpBtn)
+        containertanlog.addView(tanSwitch)
+
+
+
         /** ---------------- 数字密码输入 ---------------- */
         val passwordLayout = TextInputLayout(context).apply {
-            hint = "请点此输入数字解锁密码"
+            hint = "点此输入锁屏解锁密码"
             endIconMode = TextInputLayout.END_ICON_PASSWORD_TOGGLE
             boxBackgroundMode = TextInputLayout.BOX_BACKGROUND_OUTLINE
             visibility = View.VISIBLE
@@ -224,7 +306,8 @@ object NumberPickerDialog {
 
         /** ---------------- NumberPicker ---------------- */
         val picker = NumberPicker(context)
-
+        // 1. 禁止弹键盘，使其行为更像一个纯滚轮，而不是输入框
+        picker.descendantFocusability = NumberPicker.FOCUS_BLOCK_DESCENDANTS
         picker.displayedValues = null
         picker.minValue = min
         picker.maxValue = max
@@ -254,18 +337,15 @@ object NumberPickerDialog {
             explainTextView.text = explain
             valueTextView.text = "当前选择：$titleText"
             // ★ 核心：只在方案1显示 Switch
-            enableSwitch.visibility =
-                if (value == 1) View.VISIBLE else View.GONE
+            enableSwitch.visibility = if (value == 1) View.VISIBLE else View.GONE
             //切走方案1时自动关闭 Switch（并保存）：
 //            if (value != 1 && enableSwitch.isChecked) {
 //                enableSwitch.isChecked = false
 //                KeyguardUnLock.setAutoReenKeyguard(false)
 //            }
 
-            LP_Switch.visibility =
-                if (value == 1) View.VISIBLE else View.GONE
-            passwordLayout.visibility =
-                if (value == 0) View.GONE else View.VISIBLE
+            LP_Switch.visibility = if (value == 1) View.VISIBLE else View.GONE
+            //passwordLayout.visibility = if (value == 0) View.GONE else View.VISIBLE
 
         }
 
@@ -279,18 +359,20 @@ object NumberPickerDialog {
         }
 
         /** ---------------- 组装 ---------------- */
+        container.addView(passwordLayout)
         if (!descText.isNullOrEmpty()) {
             container.addView(descTextView)
         }
+
         container.addView(explainTextView)
         container.addView(valueTextView)
         container.addView(picker)
-        container.addView(passwordLayout)
+
 
         container.addView(LP_Switch)
         container.addView(enableSwitch)
         container.addView(screenOnSwitch)
-
+        container.addView(containertanlog)
 
 
         /** ---------------- Dialog ---------------- */
@@ -354,7 +436,7 @@ object NumberPickerDialog {
             val dm = context.resources.displayMetrics
             window.setLayout(
                 ViewGroup.LayoutParams.MATCH_PARENT,
-                (dm.heightPixels * 0.65f).toInt()
+                (dm.heightPixels * 0.90f).toInt()
             )
         }
     }

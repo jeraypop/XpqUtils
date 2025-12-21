@@ -20,14 +20,12 @@ class MyJieSuoHelper : TaskByJieSuoHelper() {
     override fun jieSuoBy2(i: Int) {
         //sendLog("🔥 使用自定义解锁方式")
         LockScreenActivity.openLockScreenActivity(index = i)
-        OverlayLog.show()
     }
 
     // 改写任务结束逻辑
     override fun doMyWork(i: Int) {
         //sendLog("🔥 执行自定义任务逻辑 i = $i")
         dealWithPendingIntent()
-        OverlayLog.show()
     }
 
     // 提供真实密码
