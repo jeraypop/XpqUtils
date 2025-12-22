@@ -191,6 +191,9 @@ abstract class SelectToSpeakServiceAbstract : AccessibilityService() {
 
         // 改成 CopyOnWriteArrayList，更安全，适合回调监听器场景
         val listeners = java.util.concurrent.CopyOnWriteArrayList<AssistsServiceListener>()
+
+        @Volatile
+        var cur_PkgName: String? = ""
     }
 
     fun shouldHandle(eventTime: Long): Boolean {
@@ -301,6 +304,7 @@ abstract class SelectToSpeakServiceAbstract : AccessibilityService() {
                 val ev_pkg = event.packageName?.toString() ?: ""
                 val className = event.className?.toString() ?: ""
                 if (!TextUtils.equals(pkg, ev_pkg)) return
+                cur_PkgName = pkg
                 val nodeInfoSet: MutableSet<AccessibilityNodeInfo> = mutableSetOf()
                 // 创建节点副本 复制 active root
                 val rootCopy = copyNodeCompat(originalRoot)
