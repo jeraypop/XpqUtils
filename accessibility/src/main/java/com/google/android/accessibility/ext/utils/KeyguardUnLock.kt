@@ -1709,9 +1709,9 @@ isDeviceSecure = 这台设备“有没有任何安全门槛”
      * 模拟
      * 点击
      */
-
+    @JvmOverloads
     @JvmStatic
-    fun moniClick(X: Int, Y: Int, service: AccessibilityService?): Boolean {
+    fun moniClick(X: Int, Y: Int, service: AccessibilityService?, time: Long = MMKVConst.clickDu_Time): Boolean {
         if (service == null) {
             return false
         }
@@ -1723,7 +1723,7 @@ isDeviceSecure = 这台设备“有没有任何安全门槛”
             val path = Path()
             path.moveTo(X.toFloat(), Y.toFloat())
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {
-                val builder = GestureDescription.Builder().addStroke(StrokeDescription(path, 0, MMKVConst.clickDu_Time))
+                val builder = GestureDescription.Builder().addStroke(StrokeDescription(path, 0, time))
                 return service.dispatchGesture(builder.build(), null, null)
             } else {
                 return false

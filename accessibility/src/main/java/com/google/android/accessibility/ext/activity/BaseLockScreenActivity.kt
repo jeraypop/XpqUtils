@@ -207,6 +207,19 @@ open class BaseLockScreenActivity : XpqBaseActivity<ActivityLockScreenBinding>(
         }
         return false
     }
+    suspend fun waitForKeyguardOnCheck(
+        times: Int = 8,
+        intervalMs: Long = 200L
+    ): Boolean {
+        repeat(times) { attempt ->
+            if (KeyguardUnLock.keyguardIsOn()) {
+                sendLog("键盘已解锁")
+                return true
+            }
+            if (attempt < times - 1) delay(intervalMs)
+        }
+        return false
+    }
 
     protected open suspend fun requestDeviceUnlock(activity: Activity, timeoutMs: Long = 5000L): Boolean {
         val status = getDeviceStatusPlus()
@@ -277,12 +290,13 @@ open class BaseLockScreenActivity : XpqBaseActivity<ActivityLockScreenBinding>(
                         try {
                             // 先检查是否已经被其他路径解锁
                             if (resumed.get()) return@launch
-
                             // 如果设备已解锁，直接 resume true（防御）
-                            if (KeyguardUnLock.deviceIsOn() && KeyguardUnLock.keyguardIsOn()) {
+                            if (waitForKeyguardOnCheck()) {
                                 sendLog("手势: 设备已解锁（尝试前检测），直接结束")
                                 if (resumed.compareAndSet(false, true)) cont.resume(true)
                                 return@launch
+                            }else{
+                                sendLog("手势: 设备未解锁,准备尝试上划")
                             }
                             // ⭐ 新增：上划前延迟 2 秒，确保 Activity 已销毁 & 系统稳定
                             sendLog("手势: 等待 2 秒，确保 Activity 已销毁")
@@ -320,8 +334,8 @@ open class BaseLockScreenActivity : XpqBaseActivity<ActivityLockScreenBinding>(
 
                             // 2) 若 doInput == true, 再尝试自动输入密码；如果 doInput == false 则在此结束（返回 false）
                             if (!doInput) {
-                                sendLog("手势: 跳过自动输入密码，结束尝试（返回失败）")
-                                if (resumed.compareAndSet(false, true)) cont.resume(false)
+                                sendLog("手势: 没有锁屏密码，结束后续（直接返回成功）")
+                                if (resumed.compareAndSet(false, true)) cont.resume(true)
                                 return@launch
                             }
 
@@ -331,7 +345,7 @@ open class BaseLockScreenActivity : XpqBaseActivity<ActivityLockScreenBinding>(
                                 ""
                             }
                             if (pwd.isEmpty()) {
-                                sendLog("手势: 未配置自动解锁密码，无法执行自动输入，结束尝试（返回失败）")
+                                sendLog("手势: 设备有锁屏密码(但软件中未设置)，无法执行自动输入，结束尝试（返回失败）")
                                 if (resumed.compareAndSet(false, true)) cont.resume(false)
                                 return@launch
                             }
@@ -428,7 +442,7 @@ open class BaseLockScreenActivity : XpqBaseActivity<ActivityLockScreenBinding>(
                             if (resumed.get()) return@launch
 
                             // 如果 keyguard 已不在，可能已经被解锁
-                            if (KeyguardUnLock.keyguardIsOn()) {
+                            if (waitForKeyguardOnCheck()) {
                                 sendLog("后备检查：设备已解锁（无需补救）")
                                 if (resumed.compareAndSet(false, true)) cont.resume(true)
                                 return@launch
