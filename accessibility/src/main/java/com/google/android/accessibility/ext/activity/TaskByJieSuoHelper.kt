@@ -214,7 +214,7 @@ open class TaskByJieSuoHelper(
      * 如果黑屏,调用 旧版 点亮方法
      */
     suspend fun waitJianPanUnLock(pwd: String): Boolean {
-        return delayAction(10) {
+        return delayAction(20) {
             retryCheckTaskWithLog("等待解除锁定屏幕",5000L,5000L) {
                 var isOn = false
                 val status = getDeviceLockState()
