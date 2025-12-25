@@ -8,7 +8,6 @@ import com.google.android.accessibility.ext.toast
 import com.google.android.accessibility.ext.utils.DeviceLockState
 import com.google.android.accessibility.ext.utils.KeyguardUnLock
 import com.google.android.accessibility.ext.utils.KeyguardUnLock.getDeviceLockState
-import com.google.android.accessibility.ext.utils.KeyguardUnLock.getDeviceStatusPlus
 import com.google.android.accessibility.ext.utils.KeyguardUnLock.getScreenState
 import com.google.android.accessibility.ext.utils.KeyguardUnLock.sendLog
 import com.google.android.accessibility.ext.utils.MoveCallback
@@ -272,7 +271,7 @@ open class TaskByJieSuoHelper(
                             sendLog("屏幕上划成功")
                             delay(500)
                             //输入密码
-                            val inputOK = KeyguardUnLock.unlockScreenNew(password = pwd)
+                            val inputOK = KeyguardUnLock.inputPassword(password = pwd)
                             if (inputOK){
                                 isOn = waitForUnlockCheck()
                             }

@@ -1,18 +1,25 @@
 package com.lygttpod.android.auto.notification
 import android.app.Notification
 import android.os.Build
+import android.os.Handler
+import android.os.Looper
 import android.service.notification.StatusBarNotification
+import android.text.TextUtils
 import android.util.Log
 import androidx.annotation.RequiresApi
 import com.google.android.accessibility.ext.activity.TaskByJieSuoHelper
 import com.google.android.accessibility.ext.activity.TaskByJieSuoHelper1
 import com.google.android.accessibility.ext.utils.AliveUtils
 import com.google.android.accessibility.ext.utils.KeyguardUnLock
-import com.google.android.accessibility.ext.utils.KeyguardUnLock.getUnLockOldOrNew
+import com.google.android.accessibility.ext.utils.KeyguardUnLock.unlockMove
 import com.google.android.accessibility.ext.utils.LibCtxProvider.Companion.appContext
 import com.google.android.accessibility.notification.LatestPendingIntentStore
 import com.google.android.accessibility.notification.NotificationInfo
 import com.google.android.accessibility.notification.NotificationListenerServiceAbstract
+import com.google.android.accessibility.selecttospeak.accessibilityService
+import kotlinx.coroutines.GlobalScope
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
 
 
 /**
@@ -73,6 +80,39 @@ class NotificationListenerServiceImp : NotificationListenerServiceAbstract() {
                 LockScreenActivity.openLockScreenActivity(index = 1)
             } else if (unLockMethod == 0){
                 //关闭,   啥也不做
+                //是否需要亮屏唤醒屏幕
+                if (!KeyguardUnLock.screenIsOn()) {
+                    //屏幕黑屏需要唤醒
+                    //sendLog("屏幕黑屏状态,需要唤醒")
+                    KeyguardUnLock.wakeScreenOn()
+                } else {
+                    //sendLog("屏幕亮屏状态,不需要唤醒")
+                }
+
+                val pwd = KeyguardUnLock.getScreenPassWord()
+                if (!KeyguardUnLock.deviceIsSecure()||TextUtils.isEmpty(pwd)){
+                    //滑动锁屏
+                    //因为如果是滑动解锁的话,调用disablekeyguad后,结果将不再准确
+                    //所以我们就不再判断键盘是否锁了
+                    //锁屏抢开关 15
+                    //if (isSupportPluginbackvoicezhen()){
+                    KeyguardUnLock.wakeKeyguardOn()
+                    //}
+                    AliveUtils.piSend(pI)
+
+                }else{
+                    //pin锁屏
+                    unlockMove(password = pwd, isJava = true)
+                  
+                    GlobalScope.launch {
+
+                        delay(2000)
+                        AliveUtils.piSend(pI)
+                    }
+
+                }
+
+
             }
 
             // 方案1还是方案2的 开关

@@ -52,7 +52,7 @@ object NumberPickerDialog {
                 //previewTextView.text = "当前等级：$text"
             }
         ) { value, text ->
-            AliveUtils.toast(msg =  "value=$value text=$text")
+            AliveUtils.toast(msg =  "$value = $text")
         }
     }
 

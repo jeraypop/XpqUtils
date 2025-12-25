@@ -684,7 +684,7 @@ isDeviceSecure = 这台设备“有没有任何安全门槛”
 
     @JvmOverloads
     @JvmStatic
-    fun unlockScreenNew(access_Service: AccessibilityService? = accessibilityService, password: String=""): Boolean {
+    fun inputPassword(access_Service: AccessibilityService? = accessibilityService, password: String="", isJava: Boolean = false): Boolean {
         var    isSuc = false
         if (access_Service == null) {
             sendLog("无障碍服务未开启!")
@@ -714,7 +714,8 @@ isDeviceSecure = 这台设备“有没有任何安全门槛”
                     access_Service!!,
                     digitId,
                     s.toString(),
-                    s.toString()
+                    s.toString(),
+                    isJava
                 )
             var trueCount = 0
             var falseCount = 0
@@ -748,6 +749,7 @@ isDeviceSecure = 这台设备“有没有任何安全门槛”
         return isSuc
     }
 
+
     /**
      * (0,0) ─────────────────────────► X（向右增加）
      *   │
@@ -759,7 +761,7 @@ isDeviceSecure = 这台设备“有没有任何安全门槛”
      * */
     @JvmOverloads
     @JvmStatic
-    fun unlockMove(access_Service: AccessibilityService? = accessibilityService, start: Long=500L, duration: Long=500L, password: String=""): Boolean {
+    fun unlockMove(access_Service: AccessibilityService? = accessibilityService, start: Long=500L, duration: Long=500L, password: String="",isJava: Boolean = false): Boolean {
         var    isSuc = false
         if (access_Service == null) {
             sendLog("无障碍服务未开启!")
@@ -796,7 +798,7 @@ isDeviceSecure = 这台设备“有没有任何安全门槛”
                         //睡眠一下 等待 解锁界面加载出来
                         SystemClock.sleep(500)
                         //===
-                        unlockScreenNew(access_Service, password)
+                        inputPassword(access_Service, password, isJava)
                     }
 
                 }
@@ -808,6 +810,8 @@ isDeviceSecure = 这台设备“有没有任何安全门槛”
             })
         return isSuc
     }
+
+
 
 /*    @JvmStatic
     fun getScreenSize(context: Context): Pair<Int, Int> {
@@ -1233,15 +1237,16 @@ isDeviceSecure = 这台设备“有没有任何安全门槛”
     /**
      * 查找并点击节点
      */
-
+    @JvmOverloads
     @JvmStatic
     fun findAndPerformClickNodeInfo(
         service: AccessibilityService,
         id: String,
         text: String,
-        contentDescription: String
+        contentDescription: String,
+        isJava: Boolean = false
     ): Boolean {
-        return performClickNodeInfo(service,findNodeInfo(service, id, text, contentDescription))
+        return performClickNodeInfo(service,findNodeInfo(service, id, text, contentDescription),true,isJava)
     }
 
     /**
@@ -1385,7 +1390,8 @@ isDeviceSecure = 这台设备“有没有任何安全门槛”
     fun performClickNodeInfo(
         service: AccessibilityService?,
         nodeInfo: AccessibilityNodeInfo? ,
-        isMoNi: Boolean = true
+        isMoNi: Boolean = true,
+        isJava: Boolean = false
     ): Boolean {
         service?: return false
         if (nodeInfo == null) return false
@@ -1398,16 +1404,20 @@ isDeviceSecure = 这台设备“有没有任何安全门槛”
                 nodeInfo.getBoundsInScreen(rect)
                 if (rect.centerX() > 0 && rect.centerY() > 0) {
                     sendLog("模拟点击解锁按钮 (${rect.centerX()}, ${rect.centerY()})")
-                    // 在主线程显示指示器
-                    showClickIndicator(service, rect.centerX(), rect.centerY())
-                    // 在后台真正点击（避免阻塞主线程）
-                    clickScope.launch {
-                        try {
-                            moniClick(rect.centerX(), rect.centerY(), service)
-                        } catch (t: Throwable) {
-                            t.printStackTrace()
+                    if (isJava){
+                        moniClick(rect.centerX(), rect.centerY(), service)
+                    }else{
+                        // 在后台真正点击（避免阻塞主线程）
+                        clickScope.launch {
+                            try {
+                                moniClick(rect.centerX(), rect.centerY(), service)
+                            } catch (t: Throwable) {
+                                t.printStackTrace()
+                            }
                         }
                     }
+                    // 在主线程显示指示器
+                    showClickIndicator(service, rect.centerX(), rect.centerY())
                     return true
                 }
             } else {
@@ -1427,16 +1437,25 @@ isDeviceSecure = 这台设备“有没有任何安全门槛”
                     nodeInfo.getBoundsInScreen(rect)
                     return  if (rect.centerX() > 0 && rect.centerY() > 0) {
                         sendLog("点击解锁按钮 (${rect.centerX()}, ${rect.centerY()})")
+                         if (isJava){
+                             try {
+                                 nodeInfo.performAction(AccessibilityNodeInfo.ACTION_CLICK)
+                             } catch (t: Throwable) {
+                                 false
+                             }
+                         }else{
+                             // 在后台真正点击（避免阻塞主线程）
+                             clickScope.launch {
+                                 try {
+                                     nodeInfo.performAction(AccessibilityNodeInfo.ACTION_CLICK)
+                                 } catch (t: Throwable) {
+                                     false
+                                 }
+                             }
+                         }
+
                         // 在主线程显示指示器
                         showClickIndicator(service, rect.centerX(), rect.centerY())
-                        // 在后台真正点击（避免阻塞主线程）
-                        clickScope.launch {
-                            try {
-                                nodeInfo.performAction(AccessibilityNodeInfo.ACTION_CLICK)
-                            } catch (t: Throwable) {
-                                false
-                            }
-                        }
                       true
                     } else {
                         false

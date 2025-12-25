@@ -14,14 +14,12 @@ import androidx.core.view.WindowInsetsCompat
 
 import com.android.accessibility.ext.databinding.ActivityLockScreenBinding
 import com.google.android.accessibility.ext.task.formatTime
-import com.google.android.accessibility.ext.utils.AliveUtils
 import com.google.android.accessibility.ext.utils.DeviceLockState
 import com.google.android.accessibility.ext.utils.KeyguardUnLock
 import com.google.android.accessibility.ext.utils.KeyguardUnLock.getDeviceStatusPlus
 import com.google.android.accessibility.ext.utils.KeyguardUnLock.sendLog
 import com.google.android.accessibility.ext.utils.LibCtxProvider.Companion.appContext
 import com.google.android.accessibility.ext.utils.MMKVConst
-import com.google.android.accessibility.ext.utils.MMKVUtil
 import com.google.android.accessibility.ext.utils.MoveCallback
 import com.google.android.accessibility.ext.utils.ScreenState
 import com.google.android.accessibility.ext.window.OverlayLog
@@ -354,7 +352,7 @@ open class BaseLockScreenActivity : XpqBaseActivity<ActivityLockScreenBinding>(
                             val unlockSuccess = withContext(Dispatchers.IO) {
                                 try {
                                     delay(500)
-                                    KeyguardUnLock.unlockScreenNew(password = pwd)
+                                    KeyguardUnLock.inputPassword(password = pwd)
                                 } catch (t: Throwable) {
                                     Log.w("BaseLockScreenActivity", "attempt: unlockScreenNew failed", t)
                                     false

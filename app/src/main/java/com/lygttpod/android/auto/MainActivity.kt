@@ -97,7 +97,7 @@ class MainActivity : XpqBaseActivity<ActivityMainBinding>(
 
             println("构建时间戳: $appBuildTime")
             println("构建时间: $formatted")
-           LockScreenActivity.openLockScreenActivity()
+           //LockScreenActivity.openLockScreenActivity()
 
             //ActivityUtils.showVideoDialog(this, "https://gitlab.com/mytiper/wechat/-/raw/master/public/unlock.mp4")
             NumberPickerDialog.showDefault(context = this)
