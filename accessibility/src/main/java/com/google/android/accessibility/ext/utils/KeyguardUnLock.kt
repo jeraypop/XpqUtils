@@ -295,7 +295,9 @@ object KeyguardUnLock {
             if (mPowerManager!!.isInteractive){
                 // 屏幕亮屏状态+设备没有设置安全pin
                 // 则执行完 wakeKeyguardOn()后,可直接赋值为 未锁定
-                if (!mKeyguardManager!!.isDeviceSecure){
+                //屏幕点亮 自动禁用键盘锁 为开
+                if (!mKeyguardManager!!.isDeviceSecure && getAutoDisableKeyguard()){
+                    wakeKeyguardOn()
                     false
                 }else{
                     if (byKeyguard) mKeyguardManager!!.isKeyguardLocked else mKeyguardManager!!.isDeviceLocked
@@ -461,7 +463,7 @@ object KeyguardUnLock {
     private val mReenableRunnable = Runnable { wakeKeyguardOff() }
     @JvmOverloads
     @JvmStatic
-    fun wakeKeyguardOn(context: Context = appContext) {
+    fun wakeKeyguardOn(context: Context = appContext,tip: String = "") {
         if (mKeyguardManager == null) {
             mKeyguardManager = context.applicationContext.getSystemService(Context.KEYGUARD_SERVICE) as KeyguardManager
         }
@@ -472,7 +474,7 @@ object KeyguardUnLock {
 
         // 3. 只有持有引用的这个对象调用的 disable 才是有效的
         mKeyguardLock?.disableKeyguard()
-        sendLog("无安全锁时尝试禁用键盘锁(可能失效)")
+        sendLog("$tip 无安全锁时尝试禁用键盘锁(可能失效)")
 
         // 4. 移除之前的延时任务，避免多次调用导致冲突
         //mHandler.removeCallbacks(mReenableRunnable)
@@ -483,11 +485,11 @@ object KeyguardUnLock {
     }
     @JvmOverloads
     @JvmStatic
-    fun wakeKeyguardOff(context: Context = appContext) {
+    fun wakeKeyguardOff(context: Context = appContext,tip: String = "") {
         // 5. 使用同一个对象进行恢复
         mKeyguardLock?.let {
             it.reenableKeyguard()
-            sendLog("恢复键盘锁")
+            sendLog("$tip 恢复键盘锁")
         }
         // 释放引用（虽然 KeyguardLock 系统层未必释放，但逻辑上我们重置了）
         // 注意：有些业务场景下为了复用可能不置空，视具体情况而定

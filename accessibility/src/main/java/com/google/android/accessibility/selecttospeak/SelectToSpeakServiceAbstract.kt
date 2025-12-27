@@ -122,6 +122,7 @@ abstract class SelectToSpeakServiceAbstract : AccessibilityService() {
         }else if (unLockMethod == 3){
             wakeKeyguardOff()
         }
+
     }
     override fun onAccessibilityEvent(event: AccessibilityEvent?) {
         event ?: return
@@ -517,7 +518,7 @@ abstract class SelectToSpeakServiceAbstract : AccessibilityService() {
                     // 一定 = 锁屏即将发生 / 已发生
                     Log.e("监听屏幕啊", "屏幕已关闭" )
                     if (KeyguardUnLock.getUnLockMethod()==1 && KeyguardUnLock.getAutoReenKeyguard()){
-                         wakeKeyguardOff()
+                         wakeKeyguardOff(tip = "广播:屏幕已关闭")
                     }
 
                 }
@@ -528,7 +529,7 @@ abstract class SelectToSpeakServiceAbstract : AccessibilityService() {
                     Log.e("监听屏幕啊", "屏幕点亮" )
                     if (KeyguardUnLock.getUnLockMethod()==1 && KeyguardUnLock.getAutoDisableKeyguard()){
                         //禁用键盘锁
-                        wakeKeyguardOn()
+                        wakeKeyguardOn(tip = "广播:屏幕已点亮")
                     }
                 }
 
