@@ -1,6 +1,9 @@
 package com.google.android.accessibility.ext.utils
 
 import android.app.Notification
+import android.app.NotificationChannel
+import android.app.NotificationManager
+import android.app.PendingIntent
 import android.content.ActivityNotFoundException
 import android.content.ComponentName
 import android.content.Context
@@ -18,7 +21,6 @@ import android.widget.Toast
 import androidx.core.app.NotificationCompat
 import androidx.core.app.NotificationManagerCompat
 import com.android.accessibility.ext.R
-import com.google.android.accessibility.ext.utils.AliveUtils.closeTaskHidePlus
 import com.google.android.accessibility.ext.utils.LibCtxProvider.Companion.appContext
 import com.google.android.accessibility.notification.ClearNotificationListenerServiceImp
 import com.google.android.accessibility.notification.MessageStyleInfo
@@ -450,9 +452,76 @@ object NotificationUtilXpq {
         return listOf(title, content)
     }
 
+    //验证码生成工具
+    @JvmOverloads
+    @JvmStatic
+    fun generateCode(length: Int = 6): String {
+        val chars = "0123456789"
+        return (1..length)
+            .map { chars.random() }
+            .joinToString("")
+    }
 
+   //创建通知渠道（只需一次）
+   const val YANZHENGMA_CHANNEL_ID = "debug_xpq_code_channel"
 
+    @JvmOverloads
+    @JvmStatic
+    fun ensureNotificationChannel(context: Context = appContext) {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            val manager =
+                context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
 
+            val channel = NotificationChannel(
+                YANZHENGMA_CHANNEL_ID,
+                "验证码通知",
+                NotificationManager.IMPORTANCE_HIGH
+            ).apply {
+                description = "用于模拟验证码"
+            }
 
+            manager.createNotificationChannel(channel)
+        }
+    }
+    @JvmOverloads
+    @JvmStatic
+    fun sendNotification(context: Context=appContext,
+                         code: String = generateCode(),
+                         title: String = "通知验证码",
+                         content: String = "你的登录验证码是：$code\n5 分钟内有效",
+                         canCancel: Boolean = true,
+                         pendingIntent: PendingIntent? = null
+                         ) {
+        ensureNotificationChannel(context)
+
+        val notification = NotificationCompat.Builder(context, YANZHENGMA_CHANNEL_ID)
+            .setSmallIcon(getHostAppIcon())
+            .setContentTitle(title)
+            .setContentText(content)
+            .setStyle(
+                NotificationCompat.BigTextStyle()
+                    .bigText(content)
+            )
+            .setAutoCancel(canCancel)
+            .setPriority(NotificationCompat.PRIORITY_HIGH)
+        if (pendingIntent != null) {
+            notification.setContentIntent(pendingIntent)
+        }
+        NotificationManagerCompat.from(context)
+            .notify(code.hashCode(), notification.build())
+    }
+
+    @JvmOverloads
+    @JvmStatic
+    fun getHostAppIcon(context: Context = appContext): Int {
+        return try {
+            val packageManager = context.packageManager
+            val applicationInfo = packageManager.getApplicationInfo(context.packageName, 0)
+            applicationInfo.icon
+        } catch (e: PackageManager.NameNotFoundException) {
+            // 如果找不到，则使用默认图标
+            android.R.drawable.ic_dialog_alert
+        }
+    }
 
 }

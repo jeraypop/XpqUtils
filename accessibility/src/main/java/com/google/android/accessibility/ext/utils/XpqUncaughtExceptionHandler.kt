@@ -11,6 +11,7 @@ import android.graphics.drawable.Drawable
 import android.os.Build
 import android.os.Handler
 import android.os.Looper
+import androidx.core.app.NotificationCompat
 import com.google.android.accessibility.ext.activity.XpqExceptionReportActivity
 import com.android.accessibility.ext.BuildConfig
 import com.android.accessibility.ext.R
@@ -18,6 +19,8 @@ import com.google.android.accessibility.ext.utils.LibCtxProvider.Companion.appBu
 import com.google.android.accessibility.ext.utils.LibCtxProvider.Companion.appMyName
 import com.google.android.accessibility.ext.utils.LibCtxProvider.Companion.appVersionCode
 import com.google.android.accessibility.ext.utils.LibCtxProvider.Companion.appVersionName
+import com.google.android.accessibility.ext.utils.NotificationUtilXpq.getHostAppIcon
+import com.google.android.accessibility.ext.utils.NotificationUtilXpq.sendNotification
 import com.google.android.accessibility.ext.utils.XPQFileUtils.writeStringToFile
 import java.io.File
 import java.io.FileOutputStream
@@ -66,16 +69,7 @@ class XpqUncaughtExceptionHandler private constructor(private val mContext: Cont
 
 
 
-    private fun getHostAppIcon(): Int {
-        return try {
-            val packageManager = mContext.packageManager
-            val applicationInfo = packageManager.getApplicationInfo(mContext.packageName, 0)
-            applicationInfo.icon
-        } catch (e: PackageManager.NameNotFoundException) {
-            // 如果找不到，则使用默认图标
-            android.R.drawable.ic_dialog_alert
-        }
-    }
+
 
 
     fun createExceptionNotification(throwable: Throwable) {
@@ -111,23 +105,44 @@ class XpqUncaughtExceptionHandler private constructor(private val mContext: Cont
 
         }
 
-        val notificationManager = mContext.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
-        val intent = Intent(mContext, XpqExceptionReportActivity::class.java).setFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-
-        //intent.putExtra(Intent.EXTRA_TEXT, message)
-        val builder = Notification.Builder(mContext)
-            .setContentIntent(PendingIntent.getActivity(mContext, 0x01, intent, PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT))
-            .setAutoCancel(true)
-            //这一项不可省略
-            .setSmallIcon(getHostAppIcon())
-            .setContentTitle("软件运行偶现异常")
-            .setContentText(throwable.javaClass.simpleName + ": " + err_msg)
-
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-            builder.setChannelId(mContext.packageName)
-            val channel = NotificationChannel(mContext.packageName, appMyName, NotificationManager.IMPORTANCE_DEFAULT)
-            notificationManager.createNotificationChannel(channel)
+        val intent = Intent(mContext, XpqExceptionReportActivity::class.java).apply {
+            flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP
         }
-        notificationManager.notify(mContext.packageName, 0x01, builder.build())
+        //1️⃣ 点击通知 → 打开某个 Activity
+        val pendingIntent = PendingIntent.getActivity(
+            mContext,
+            0x01,
+            intent,
+            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+        )
+        //2️⃣ 点击通知 → 发送广播
+    /*    val intent = Intent("com.xxx.ACTION_CODE_CLICK").apply {
+            putExtra("code", code)
+        }
+
+        val pendingIntent = PendingIntent.getBroadcast(
+            context,
+            0,
+            intent,
+            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+        )*/
+
+        //3️⃣ 点击通知 → 启动 Service（进阶）
+  /*      val intent = Intent(context, CodeHandleService::class.java).apply {
+            putExtra("code", code)
+        }
+
+        val pendingIntent = PendingIntent.getService(
+            context,
+            0,
+            intent,
+            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+        )*/
+
+
+        sendNotification(title = "软件运行偶现异常",
+            content = throwable.javaClass.simpleName + ": " + err_msg,
+            pendingIntent = pendingIntent)
+
     }
 }

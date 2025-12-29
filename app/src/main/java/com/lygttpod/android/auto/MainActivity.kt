@@ -24,6 +24,7 @@ import com.google.android.accessibility.ext.utils.ActivityUtils
 
 import com.google.android.accessibility.ext.utils.AliveUtils
 import com.google.android.accessibility.ext.utils.LibCtxProvider.Companion.appBuildTime
+import com.google.android.accessibility.ext.utils.LoginDialog
 import com.google.android.accessibility.ext.utils.NumberPickerDialog
 
 import com.google.android.accessibility.ext.wcapi.PayConfig
@@ -100,7 +101,11 @@ class MainActivity : XpqBaseActivity<ActivityMainBinding>(
            //LockScreenActivity.openLockScreenActivity()
 
             //ActivityUtils.showVideoDialog(this, "https://gitlab.com/mytiper/wechat/-/raw/master/public/unlock.mp4")
-            NumberPickerDialog.showDefault(context = this)
+            //NumberPickerDialog.showDefault(context = this)
+            LoginDialog(this) { phone, code ->
+                // 调登录接口
+            }.show()
+
 
         }
 
