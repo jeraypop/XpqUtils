@@ -20,6 +20,7 @@ import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
 import androidx.appcompat.widget.AppCompatButton
 import androidx.appcompat.widget.AppCompatImageView
+import androidx.core.content.ContextCompat
 import com.android.accessibility.ext.R
 import com.google.android.accessibility.ext.fragment.SensitiveNotificationBottomSheet
 import com.google.android.accessibility.ext.utils.AliveUtils.shouxianzhi
@@ -90,12 +91,21 @@ class LoginDialog(
             true
         )
     }
+
+    private fun getPrimaryColorByTheme(ctx: Context): Int {
+        return if (isMaterialTheme(ctx)){
+            MaterialColors.getColor(
+                ctx,
+                android.R.attr.colorPrimary,
+                Color.GRAY
+            )
+        }else{
+            ContextCompat.getColor(ctx, R.color.colorPrimary)
+        }
+    }
+
     private fun createLoginButton(ctx: Context): View {
-        val primaryColor = MaterialColors.getColor(
-            ctx,
-            android.R.attr.colorPrimary,
-            Color.GRAY
-        )
+        val primaryColor = getPrimaryColorByTheme(ctx)
 
         return if (isMaterialTheme(ctx)) {
             // ===== Material 主题 =====
@@ -208,14 +218,12 @@ class LoginDialog(
         }
         codeLayout.addView(etCode)
 
+
         btnSendCode = TextView(ctx).apply {
             text = context.getString(R.string.getsmsxpq)
             setPadding(dp(ctx, 12), dp(ctx, 12), dp(ctx, 12), dp(ctx, 12))
             setTextColor(
-                MaterialColors.getColor(
-                    this,
-                    com.google.android.material.R.attr.colorPrimary
-                )
+                getPrimaryColorByTheme(ctx)
             )
         }
 
@@ -240,18 +248,11 @@ class LoginDialog(
             text = context.getString(R.string.helptzxpq)
             textSize = 16f
             setTextColor(
-                MaterialColors.getColor(
-                    this,
-                    com.google.android.material.R.attr.colorPrimary
-                )
+                getPrimaryColorByTheme(ctx)
             )
         }
 
-        val primaryColor = MaterialColors.getColor(
-            ctx,
-            android.R.attr.colorPrimary,
-            Color.GRAY
-        )
+        val primaryColor = getPrimaryColorByTheme(ctx)
 
         val ivHelpIcon = AppCompatImageView(ctx).apply {
             setImageResource(android.R.drawable.ic_menu_help)
