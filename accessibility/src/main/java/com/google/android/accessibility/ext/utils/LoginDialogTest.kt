@@ -1,6 +1,9 @@
 package com.google.android.accessibility.ext.utils
 
+import android.app.Activity
 import android.content.Context
+import android.content.res.ColorStateList
+import android.graphics.Color
 import android.os.CountDownTimer
 import android.text.InputFilter
 import android.text.InputType
@@ -12,6 +15,12 @@ import android.widget.LinearLayout
 import android.widget.TextView
 import android.widget.Toast
 import androidx.appcompat.app.AlertDialog
+import androidx.appcompat.app.AppCompatActivity
+import androidx.appcompat.widget.AppCompatImageView
+import com.android.accessibility.ext.R
+import com.google.android.accessibility.ext.fragment.SensitiveNotificationBottomSheet
+import com.google.android.accessibility.ext.utils.AliveUtils.shouxianzhi
+import com.google.android.accessibility.ext.utils.AliveUtils.toast
 import com.google.android.accessibility.ext.utils.NotificationUtilXpq.generateCode
 import com.google.android.accessibility.ext.utils.NotificationUtilXpq.sendNotification
 import com.google.android.material.button.MaterialButton
@@ -19,6 +28,7 @@ import com.google.android.material.color.MaterialColors
 import com.google.android.material.dialog.MaterialAlertDialogBuilder
 import com.google.android.material.textfield.TextInputEditText
 import com.google.android.material.textfield.TextInputLayout
+import com.hjq.permissions.permission.PermissionLists
 
 class LoginDialog(
     private val context: Context,
@@ -38,11 +48,14 @@ class LoginDialog(
     private lateinit var etImgCode: TextInputEditText
     private lateinit var ivImgCode: TextView // 用 TextView 模拟图形验证码（工具库更方便）
     private var mockImgCode: String? = null
+    private lateinit var helpContainer: LinearLayout
+    private lateinit var btnHelp: TextView
+
 
     init {
         val contentView = createContentView(context)
         dialog = MaterialAlertDialogBuilder(context)
-            .setTitle("手机号登录")
+            .setTitle(context.getString(R.string.phoneloginxpq))
             .setView(contentView)
             .setCancelable(true)
             .create()
@@ -67,7 +80,7 @@ class LoginDialog(
 
         // 手机号
         val phoneLayout = TextInputLayout(ctx).apply {
-            hint = "手机号"
+            hint = context.getString(R.string.phonexpq)
             boxBackgroundMode = TextInputLayout.BOX_BACKGROUND_OUTLINE
         }
         etPhone = TextInputEditText(ctx).apply {
@@ -85,7 +98,7 @@ class LoginDialog(
         }
 
         val imgCodeLayout = TextInputLayout(ctx).apply {
-            hint = "图形验证码"
+            hint = context.getString(R.string.tuxingxpq)
             boxBackgroundMode = TextInputLayout.BOX_BACKGROUND_OUTLINE
         }
 
@@ -125,7 +138,7 @@ class LoginDialog(
         }
 
         val codeLayout = TextInputLayout(ctx).apply {
-            hint = "验证码"
+            hint = context.getString(R.string.smsxpq)
             boxBackgroundMode = TextInputLayout.BOX_BACKGROUND_OUTLINE
         }
         etCode = TextInputEditText(ctx).apply {
@@ -135,7 +148,7 @@ class LoginDialog(
         codeLayout.addView(etCode)
 
         btnSendCode = TextView(ctx).apply {
-            text = "获取验证码"
+            text = context.getString(R.string.getsmsxpq)
             setPadding(dp(ctx, 12), dp(ctx, 12), dp(ctx, 12), dp(ctx, 12))
             setTextColor(
                 MaterialColors.getColor(
@@ -153,9 +166,60 @@ class LoginDialog(
 
         container.addView(codeRow, lpMatch(ctx))
 
+        // 帮助按钮（文字 + ? icon）
+        helpContainer = LinearLayout(ctx).apply {
+            orientation = LinearLayout.HORIZONTAL
+            gravity = Gravity.CENTER
+            isClickable = true
+            isFocusable = true
+            setPadding(0, dp(ctx, 8), 0, dp(ctx, 8))
+        }
+
+        btnHelp = TextView(ctx).apply {
+            text = context.getString(R.string.helptzxpq)
+            textSize = 16f
+            setTextColor(
+                MaterialColors.getColor(
+                    this,
+                    com.google.android.material.R.attr.colorPrimary
+                )
+            )
+        }
+
+        val primaryColor = MaterialColors.getColor(
+            ctx,
+            android.R.attr.colorPrimary,
+            Color.GRAY
+        )
+
+        val ivHelpIcon = AppCompatImageView(ctx).apply {
+            setImageResource(android.R.drawable.ic_menu_help)
+            imageTintList = ColorStateList.valueOf(primaryColor)
+            val size = dp(ctx, 18)
+            layoutParams = LinearLayout.LayoutParams(size, size).apply {
+                leftMargin = dp(ctx, 4)
+            }
+        }
+
+
+
+        helpContainer.addView(btnHelp)
+        helpContainer.addView(ivHelpIcon)
+
+        container.addView(
+            helpContainer,
+            LinearLayout.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT,
+                ViewGroup.LayoutParams.WRAP_CONTENT
+            ).apply {
+                topMargin = dp(ctx, 8)
+            }
+        )
+
+
         // 登录按钮
         btnLogin = MaterialButton(ctx).apply {
-            text = "登录 / 注册"
+            text = context.getString(R.string.logindexpq)
             layoutParams = LinearLayout.LayoutParams(
                 ViewGroup.LayoutParams.MATCH_PARENT,
                 ViewGroup.LayoutParams.WRAP_CONTENT
@@ -167,7 +231,7 @@ class LoginDialog(
 
         // 协议
         cbAgree = CheckBox(ctx).apply {
-            text = "我已阅读并同意《用户协议》《隐私政策》"
+            text = context.getString(R.string.agreexieyixpq)
         }
         container.addView(cbAgree)
         refreshImgCode()
@@ -183,12 +247,64 @@ class LoginDialog(
     }
 
     private fun initListener() {
+        helpContainer.setOnClickListener {
+            // 使用 FragmentManager 来显示 BottomSheetDialogFragment
+            (context as? AppCompatActivity)?.let {
+                val sheet = SensitiveNotificationBottomSheet()
+                sheet.show(context.supportFragmentManager, SensitiveNotificationBottomSheet.TAG)
+            }
+
+        }
+
 
         btnSendCode.setOnClickListener {
             val phone = etPhone.text?.toString().orEmpty()
             if (!isPhoneValid(phone)) {
-                toast("请输入正确的手机号")
+                toast(msg = context.getString(R.string.okphonexpq))
                 return@setOnClickListener
+            }
+            //发送通知权限
+            if (!NotificationUtilXpq.isNotificationEnabled()){
+                AlertDialog.Builder(context)
+                    .setMessage(context.getString(R.string.sendcodexpq))
+                    .setPositiveButton(context.getString(R.string.ok)) { _, _ ->
+                        if (context is Activity){
+                            val easyPermission = AliveUtils.easyRequestPermission(context, PermissionLists.getPostNotificationsPermission(),"发送通知")
+                            if (easyPermission) {
+
+                            }
+                        }
+                    }
+                    .setNegativeButton(context.getString(R.string.cancel)) { _, _ ->
+
+                    }
+                    .setNeutralButton(context.getString(R.string.sxzxpq)){_, _ ->
+                        shouxianzhi()
+                    }
+                    .show()
+
+
+            }else{
+
+
+            }
+            //读取通知权限
+            if (NotificationUtilXpq.isNotificationListenersEnabled()) {
+                AliveUtils.toast(msg = context.getString(R.string.qxykqxpq))
+            } else {
+
+                AlertDialog.Builder(context)
+                    .setMessage(context.getString(R.string.duqucodexpq))
+                    .setPositiveButton(context.getString(R.string.ok)) { _, _ ->
+                        NotificationUtilXpq.gotoNotificationAccessSetting()
+                    }
+                    .setNegativeButton(context.getString(R.string.cancel)) { _, _ ->
+
+                    }
+                    .setNeutralButton(context.getString(R.string.sxzxpq)){_, _ ->
+                        shouxianzhi()
+                    }
+                    .show()
             }
 
             // TODO 发送验证码接口
@@ -204,22 +320,22 @@ class LoginDialog(
             val code = etCode.text?.toString().orEmpty()
             val imgCode = etImgCode.text?.toString().orEmpty()
             if (!cbAgree.isChecked) {
-                toast("请先同意用户协议")
+                toast(msg = context.getString(R.string.xiantyxpq))
                 return@setOnClickListener
             }
             if (!isPhoneValid(phone)) {
-                toast("手机号错误")
+                toast(msg = context.getString(R.string.phoneerrorxpq))
                 return@setOnClickListener
             }
 
             if (imgCode != mockImgCode) {
-                toast("图形验证码错误")
+                toast(msg = context.getString(R.string.tuxingerrorxpq))
                 refreshImgCode()
                 return@setOnClickListener
             }
 
             if (code != mockSmsCode) {
-                toast("短信验证码错误")
+                toast(msg = context.getString(R.string.smserrorxpq))
                 return@setOnClickListener
             }
 
@@ -240,7 +356,7 @@ class LoginDialog(
             }
 
             override fun onFinish() {
-                btnSendCode.text = "获取验证码"
+                btnSendCode.text = context.getString(R.string.getsmsxpq)
                 btnSendCode.isEnabled = true
             }
         }.start()
@@ -263,7 +379,5 @@ class LoginDialog(
     private fun dp(ctx: Context, value: Int): Int =
         (value * ctx.resources.displayMetrics.density).toInt()
 
-    private fun toast(msg: String) {
-        Toast.makeText(context, msg, Toast.LENGTH_SHORT).show()
-    }
+
 }

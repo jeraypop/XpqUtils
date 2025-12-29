@@ -154,4 +154,21 @@
     <string name="sensitive_notification_yc">已隐藏敏感通知内容</string>
     <string name="sensitive_notification_system_yc">被系统隐藏</string>
 
+    <string name="phoneloginxpq">用户注册与登录</string>
+    <string name="phonexpq">请输入手机号</string>
+    <string name="tuxingxpq">图形验证码</string>
+    <string name="smsxpq">短信验证码</string>
+    <string name="getsmsxpq">获取验证码</string>
+    <string name="logindexpq">登录 / 注册</string>
+    <string name="agreexieyixpq">我已阅读并同意《用户协议》《隐私政策》</string>
+    <string name="okphonexpq">请输入正确的手机号</string>
+    <string name="sendcodexpq">模拟手机收到验证码功能,需要授权发送通知权限</string>
+    <string name="duqucodexpq">验证码自动复制功能,需要授权读取通知权限</string>
+    <string name="xiantyxpq">请先同意用户协议</string>
+    <string name="phoneerrorxpq">手机号错误</string>
+    <string name="tuxingerrorxpq">图形验证码错误</string>
+    <string name="smserrorxpq">短信验证码错误</string>
+    <string name="helptzxpq">帮助</string>
+
+
 </resources>

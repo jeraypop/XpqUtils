@@ -492,6 +492,7 @@ object NotificationUtilXpq {
                          canCancel: Boolean = true,
                          pendingIntent: PendingIntent? = null
                          ) {
+
         ensureNotificationChannel(context)
 
         val notification = NotificationCompat.Builder(context, YANZHENGMA_CHANNEL_ID)

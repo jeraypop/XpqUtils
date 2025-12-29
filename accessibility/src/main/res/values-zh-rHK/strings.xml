@@ -153,4 +153,20 @@
     <string name="sensitive_notification_yc">已隱藏敏感通知內容</string>
     <string name="sensitive_notification_system_yc">被系統隱藏</string>
 
+    <string name="phoneloginxpq">registration and login</string>
+    <string name="phonexpq">enter phone number</string>
+    <string name="tuxingxpq">Graphic verification code</string>
+    <string name="smsxpq">SMS verification code</string>
+    <string name="getsmsxpq">Get verification code</string>
+    <string name="logindexpq">Log in/Register</string>
+    <string name="agreexieyixpq">agreed "User Agreement" and "Privacy Policy"</string>
+    <string name="okphonexpq">Please enter the correct mobile phone number</string>
+    <string name="sendcodexpq">To simulate the function of a mobile phone receiving a verification code, one needs to authorize the permission to send notifications</string>
+    <string name="duqucodexpq">The automatic copy function of verification codes requires authorization to read notification permissions</string>
+    <string name="xiantyxpq">Please agree to the User Agreement first</string>
+    <string name="phoneerrorxpq">Incorrect mobile phone number</string>
+    <string name="tuxingerrorxpq">The graphic verification code is incorrect</string>
+    <string name="smserrorxpq">The SMS verification code is incorrect</string>
+    <string name="helptzxpq">Help</string>
+
 </resources>
