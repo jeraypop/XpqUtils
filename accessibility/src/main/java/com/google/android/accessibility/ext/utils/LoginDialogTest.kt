@@ -7,15 +7,18 @@ import android.graphics.Color
 import android.os.CountDownTimer
 import android.text.InputFilter
 import android.text.InputType
+import android.util.TypedValue
 import android.view.Gravity
 import android.view.View
 import android.view.ViewGroup
+import android.widget.Button
 import android.widget.CheckBox
 import android.widget.LinearLayout
 import android.widget.TextView
 import android.widget.Toast
 import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
+import androidx.appcompat.widget.AppCompatButton
 import androidx.appcompat.widget.AppCompatImageView
 import com.android.accessibility.ext.R
 import com.google.android.accessibility.ext.fragment.SensitiveNotificationBottomSheet
@@ -40,7 +43,7 @@ class LoginDialog(
     private lateinit var etPhone: TextInputEditText
     private lateinit var etCode: TextInputEditText
     private lateinit var btnSendCode: TextView
-    private lateinit var btnLogin: MaterialButton
+    private lateinit var btnLogin: Button
     private lateinit var cbAgree: CheckBox
 
     private var countDownTimer: CountDownTimer? = null
@@ -69,6 +72,54 @@ class LoginDialog(
         countDownTimer?.cancel()
         dialog.dismiss()
     }
+    private fun isMaterialTheme(ctx: Context): Boolean {
+        val typedValue = TypedValue()
+        return ctx.theme.resolveAttribute(
+            com.google.android.material.R.attr.materialButtonStyle,
+            typedValue,
+            true
+        )
+    }
+    private fun createLoginButton(ctx: Context): View {
+        val primaryColor = MaterialColors.getColor(
+            ctx,
+            android.R.attr.colorPrimary,
+            Color.GRAY
+        )
+
+        return if (isMaterialTheme(ctx)) {
+            // ===== Material 主题 =====
+            MaterialButton(ctx).apply {
+                text = context.getString(R.string.logindexpq)
+                setTextColor(Color.WHITE)
+                setBackgroundColor(primaryColor)
+
+                layoutParams = LinearLayout.LayoutParams(
+                    ViewGroup.LayoutParams.MATCH_PARENT,
+                    ViewGroup.LayoutParams.WRAP_CONTENT
+                ).apply {
+                    topMargin = dp(ctx, 8)
+                }
+            }
+        } else {
+            // ===== 非 Material 主题，自动降级 =====
+            AppCompatButton(ctx).apply {
+                text = context.getString(R.string.logindexpq)
+                isAllCaps = false
+                setTextColor(Color.WHITE)
+                setBackgroundColor(primaryColor)
+                setPadding(dp(ctx, 12), dp(ctx, 12), dp(ctx, 12), dp(ctx, 12))
+
+                layoutParams = LinearLayout.LayoutParams(
+                    ViewGroup.LayoutParams.MATCH_PARENT,
+                    ViewGroup.LayoutParams.WRAP_CONTENT
+                ).apply {
+                    topMargin = dp(ctx, 8)
+                }
+            }
+        }
+    }
+
 
     // ================= UI 构建 =================
 
@@ -216,18 +267,10 @@ class LoginDialog(
             }
         )
 
-
         // 登录按钮
-        btnLogin = MaterialButton(ctx).apply {
-            text = context.getString(R.string.logindexpq)
-            layoutParams = LinearLayout.LayoutParams(
-                ViewGroup.LayoutParams.MATCH_PARENT,
-                ViewGroup.LayoutParams.WRAP_CONTENT
-            ).apply {
-                topMargin = dp(ctx, 16)
-            }
-        }
-        container.addView(btnLogin)
+        val loginButtonView = createLoginButton(ctx)
+        btnLogin = loginButtonView as Button
+        container.addView(loginButtonView)
 
         // 协议
         cbAgree = CheckBox(ctx).apply {
