@@ -257,11 +257,21 @@ class LoginDialog(
         }
 
 
+
+
         btnSendCode.setOnClickListener {
             val phone = etPhone.text?.toString().orEmpty()
             if (!isPhoneValid(phone)) {
                 toast(msg = context.getString(R.string.okphonexpq))
                 return@setOnClickListener
+            }
+            fun sendCode() {
+                //发送验证码接口
+                val code = generateCode(6)
+                sendNotification(code = code)
+                // 可选：存起来用于校验
+                mockSmsCode = code
+                startCountDown()
             }
             //发送通知权限
             if (!NotificationUtilXpq.isNotificationEnabled()){
@@ -271,7 +281,7 @@ class LoginDialog(
                         if (context is Activity){
                             val easyPermission = AliveUtils.easyRequestPermission(context, PermissionLists.getPostNotificationsPermission(),"发送通知")
                             if (easyPermission) {
-
+                                sendCode()
                             }
                         }
                     }
@@ -285,12 +295,11 @@ class LoginDialog(
 
 
             }else{
-
-
+                sendCode()
             }
             //读取通知权限
-            if (NotificationUtilXpq.isNotificationListenersEnabled()) {
-                AliveUtils.toast(msg = context.getString(R.string.qxykqxpq))
+       /*     if (NotificationUtilXpq.isNotificationListenersEnabled()) {
+
             } else {
 
                 AlertDialog.Builder(context)
@@ -305,14 +314,9 @@ class LoginDialog(
                         shouxianzhi()
                     }
                     .show()
-            }
+            }*/
 
-            // TODO 发送验证码接口
-            val code = generateCode(6)
-            sendNotification(code =  code)
-            // 可选：存起来用于校验
-            mockSmsCode = code
-            startCountDown()
+
         }
 
         btnLogin.setOnClickListener {
