@@ -57,7 +57,7 @@ class LoginDialog(
 
     init {
         val contentView = createContentView(context)
-        dialog = MaterialAlertDialogBuilder(context)
+        dialog =  createDialogBuilder(context)
             .setTitle(context.getString(R.string.phoneloginxpq))
             .setView(contentView)
             .setCancelable(true)
@@ -72,6 +72,16 @@ class LoginDialog(
         countDownTimer?.cancel()
         dialog.dismiss()
     }
+    private fun createDialogBuilder(ctx: Context): AlertDialog.Builder {
+        return if (isMaterialTheme(ctx)) {
+            // Material 主题：安全
+            MaterialAlertDialogBuilder(ctx)
+        } else {
+            // 非 Material：自动降级
+            AlertDialog.Builder(ctx)
+        }
+    }
+
     private fun isMaterialTheme(ctx: Context): Boolean {
         val typedValue = TypedValue()
         return ctx.theme.resolveAttribute(
