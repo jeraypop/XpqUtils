@@ -35,6 +35,7 @@ import com.google.android.accessibility.ext.utils.LibCtxProvider.Companion.appCo
 import com.google.android.accessibility.notification.ClearNotificationListenerServiceImp
 import com.google.android.accessibility.notification.MessageStyleInfo
 import com.google.android.accessibility.selecttospeak.accessibilityService
+import java.util.regex.Pattern
 
 object NotificationUtilXpq {
 
@@ -660,6 +661,88 @@ object NotificationUtilXpq {
         }
         return null
     }
+
+    @JvmStatic
+    fun extractVerificationCode(content: String): Pair<Boolean, String?> {
+        // 验证码关键词检测
+        val verificationKeywords = listOf(
+            "验证码", "授权码", "随机码", "动态密码", "校验码", "内有效", "完成验证"
+        )
+
+        if (!verificationKeywords.any { content.contains(it) }) {
+            return Pair(false, null)
+        }
+
+        val cleanContent = content.replace(" ", "")
+        val patterns = arrayOf(
+            "(?<=码(|是|为|：|:|是：|是:|为：|为:))(\\d{4,6})",
+            "((?<=\\D)(\\d{4,6})(?=\\D))"
+        )
+
+        for (pattern in patterns) {
+            val matcher = Pattern.compile(pattern).matcher(cleanContent)
+            if (matcher.find()) {
+                val verificationCode = matcher.group(0)
+                return Pair(true, verificationCode)
+            }
+        }
+
+        return Pair(false, null)
+    }
+
+    data class PackageCodeResult(
+        val found: Boolean = false,
+        val code: String? = null,
+        val codeType: String = "快递取件码",
+        val content: String = "",
+        val pendingIntent: PendingIntent? = null
+    )
+    @JvmOverloads
+    @JvmStatic
+    fun extractPackageCode(content: String, pendingIntent: PendingIntent? = null): PackageCodeResult {
+        // 检测是否包含取件码关键词
+        if (!content.contains("取件码") && !content.contains("取件碼")) {
+            return PackageCodeResult(found = false)
+        }
+
+        // 尝试匹配取件码
+        val code = findPackageCode(content)
+
+        return if (code != null) {
+            // 找到取件码，执行处理逻辑
+            val codeType = when {
+                content.contains("菜鸟智能柜") || content.contains("菜鳥智能櫃") -> "菜鸟取件码"
+                content.contains("丰巢") || content.contains("豐巢") -> "丰巢取件码"
+                else -> "快递取件码"
+            }
+            PackageCodeResult(found = true, code = code,content = content, codeType = codeType,pendingIntent = pendingIntent)
+        } else {
+            PackageCodeResult(found = false)
+        }
+    }
+    @JvmOverloads
+    @JvmStatic
+    fun findPackageCode(content: String): String? {
+        var regex = "[0-9]{8}".toRegex()
+        var all = regex.findAll(content)
+        var allList = all.toList()
+
+        if (allList.isEmpty()) {
+            regex = "[0-9]{6}".toRegex()
+            all = regex.findAll(content)
+            allList = all.toList()
+        }
+
+        return if (allList.isNotEmpty()) {
+            allList.first().value
+        } else {
+            null
+        }
+    }
+
+
+
+
 
 
 
