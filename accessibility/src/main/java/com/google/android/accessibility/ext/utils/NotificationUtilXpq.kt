@@ -1,10 +1,14 @@
 package com.google.android.accessibility.ext.utils
 
+import android.Manifest
+import android.accessibilityservice.AccessibilityService
 import android.app.Notification
 import android.app.NotificationChannel
 import android.app.NotificationManager
 import android.app.PendingIntent
 import android.content.ActivityNotFoundException
+import android.content.ClipData
+import android.content.ClipboardManager
 import android.content.ComponentName
 import android.content.Context
 import android.content.Intent
@@ -17,13 +21,20 @@ import android.provider.Settings
 import android.service.notification.NotificationListenerService
 import android.service.notification.StatusBarNotification
 import android.text.TextUtils
+import android.util.Log
+import android.view.accessibility.AccessibilityNodeInfo
 import android.widget.Toast
+import androidx.annotation.RequiresApi
+import androidx.core.app.ActivityCompat
 import androidx.core.app.NotificationCompat
 import androidx.core.app.NotificationManagerCompat
 import com.android.accessibility.ext.R
+import com.google.android.accessibility.ext.acc.inputText
+import com.google.android.accessibility.ext.acc.inputTextPaste
 import com.google.android.accessibility.ext.utils.LibCtxProvider.Companion.appContext
 import com.google.android.accessibility.notification.ClearNotificationListenerServiceImp
 import com.google.android.accessibility.notification.MessageStyleInfo
+import com.google.android.accessibility.selecttospeak.accessibilityService
 
 object NotificationUtilXpq {
 
@@ -508,6 +519,20 @@ object NotificationUtilXpq {
         if (pendingIntent != null) {
             notification.setContentIntent(pendingIntent)
         }
+        if (ActivityCompat.checkSelfPermission(
+                context,
+                Manifest.permission.POST_NOTIFICATIONS
+            ) != PackageManager.PERMISSION_GRANTED
+        ) {
+            // TODO: Consider calling
+            //    ActivityCompat#requestPermissions
+            // here to request the missing permissions, and then overriding
+            //   public void onRequestPermissionsResult(int requestCode, String[] permissions,
+            //                                          int[] grantResults)
+            // to handle the case where the user grants the permission. See the documentation
+            // for ActivityCompat#requestPermissions for more details.
+            return
+        }
         NotificationManagerCompat.from(context)
             .notify(code.hashCode(), notification.build())
     }
@@ -524,5 +549,118 @@ object NotificationUtilXpq {
             android.R.drawable.ic_dialog_alert
         }
     }
+
+    @JvmOverloads
+    @JvmStatic
+    fun editPaste(str: String,accService: AccessibilityService? = accessibilityService,byClipboard: Boolean = false) {
+        accService ?: return
+        val accessibilityNodeInfo = getNodeInfo(accService.rootInActiveWindow, str)
+        accessibilityNodeInfo ?: return
+        //节点文本不为空
+        accessibilityNodeInfo.performAction(AccessibilityNodeInfo.ACTION_CLICK)
+        val parent = accessibilityNodeInfo.parent
+        if (parent != null) {
+            parent.performAction(AccessibilityNodeInfo.ACTION_CLICK)
+        }
+
+        accessibilityNodeInfo.inputTextPaste(byClipboard,str)
+        recycleCompat(accessibilityNodeInfo)
+    }
+    private fun recycleCompat(node: AccessibilityNodeInfo?) {
+        if (node == null) return
+        if (Build.VERSION.SDK_INT < 34) {
+            try { node.recycle() } catch (_: Throwable) { /* ignore */ }
+        } else {
+            // API34+ recycle 已废弃且为空实现，不必调用
+        }
+    }
+    @JvmOverloads
+    @JvmStatic
+    fun copyToClipboard(text: String, context: Context? = appContext) {
+        context ?: return
+        val clipboardManager = context.getSystemService(Context.CLIPBOARD_SERVICE) as? ClipboardManager
+        clipboardManager?.setPrimaryClip(ClipData.newPlainText("复制", text))
+    }
+
+    @JvmOverloads
+    @JvmStatic
+    fun getNodeInfo(accessibilityNodeInfo: AccessibilityNodeInfo?, str: String): AccessibilityNodeInfo? {
+        if (accessibilityNodeInfo == null) {
+            return null
+        }
+        if ("com.chinamworld.bocmbci" == accessibilityNodeInfo.packageName) {
+            return null
+        }
+
+        val className = accessibilityNodeInfo.className?.toString() ?: ""
+        val text = accessibilityNodeInfo.text?.toString() ?: ""
+        val hintText = accessibilityNodeInfo.hintText?.toString() ?: ""
+
+        val inputType = accessibilityNodeInfo.inputType
+
+        Log.e("自动粘贴", "ClassName=$className")
+        Log.e("自动粘贴", "Text= $text hintText= $hintText inputType= $inputType")
+
+        if (className.contains("EditText") || className.contains("AutoCompleteTextView")) {
+            if (text.length == 0 ||
+                text.contains("验证码") ||
+                text.contains("授权码") ||
+                text.contains("随机码") ||
+                text.contains("校验码") ||
+                (text.contains("动态")&&text.contains("码")) ||
+                text.contains("短信") ||
+                accessibilityNodeInfo.maxTextLength == 4 ||
+                accessibilityNodeInfo.maxTextLength == 6 ||
+                hintText.contains("验证码") ||
+                hintText.contains("授权码") ||
+                hintText.contains("随机码") ||
+                hintText.contains("校验码") ||
+                (hintText.contains("动态")&&hintText.contains("码")) ||
+                hintText.contains("短信")
+            ) {
+                val verificationKeywords = listOf("图形验证码", "图片验证码", "图画验证码")
+                if (verificationKeywords.none { hintText.contains(it) }) {
+                    return accessibilityNodeInfo
+                }
+
+            }
+
+            if (text == str && accessibilityNodeInfo.isClickable) {
+                return accessibilityNodeInfo
+            }
+
+            val parent = accessibilityNodeInfo.parent
+            if (parent != null) {
+                if (text == str && parent.isClickable) {
+                    return parent
+                }
+            }
+        }
+
+        if (className.contains("TextView")) {
+            if (text == str && accessibilityNodeInfo.isClickable) {
+                accessibilityNodeInfo.performAction(AccessibilityNodeInfo.ACTION_CLICK)
+                Log.e("自动粘贴", "Text=str$text")
+            }
+
+            val parent = accessibilityNodeInfo.parent
+            if (parent != null) {
+                if (text == str && parent.isClickable) {
+                    parent.performAction(AccessibilityNodeInfo.ACTION_CLICK)
+                    Log.e("自动粘贴", "Text2=str$text")
+                }
+            }
+        }
+
+        for (i in 0 until accessibilityNodeInfo.childCount) {
+            val nodeInfo = getNodeInfo(accessibilityNodeInfo.getChild(i), str)
+            if (nodeInfo != null) {
+                return nodeInfo
+            }
+        }
+        return null
+    }
+
+
 
 }

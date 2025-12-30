@@ -7,6 +7,7 @@ import android.graphics.Rect
 import android.os.Bundle
 import android.view.accessibility.AccessibilityNodeInfo
 import com.google.android.accessibility.ext.utils.KeyguardUnLock
+import com.google.android.accessibility.ext.utils.NotificationUtilXpq.copyToClipboard
 import com.google.android.accessibility.selecttospeak.accessibilityService
 import kotlinx.coroutines.delay
 
@@ -71,6 +72,42 @@ fun AccessibilityNodeInfo.inputText(input: String): Boolean {
         putCharSequence(AccessibilityNodeInfo.ACTION_ARGUMENT_SET_TEXT_CHARSEQUENCE, input)
     }
     return performAction(AccessibilityNodeInfo.ACTION_SET_TEXT, arguments)
+}
+
+fun AccessibilityNodeInfo.inputTextPaste(byClipboard: Boolean = false,input: String): Boolean {
+    //===
+    if (KeyguardUnLock.getShowClickIndicator()){
+        val nodeBounds = Rect().apply(this::getBoundsInScreen)
+        // 确保边界值非负
+        val x = Math.max(0, nodeBounds.centerX()).toFloat()
+        val y = Math.max(0, nodeBounds.centerY()).toFloat()
+        //点击轨迹提示
+        accessibilityService?.let { KeyguardUnLock.showClickIndicator(it, x.toInt(), y.toInt()) }
+
+    }
+    val bundle = Bundle()
+    //1如果是已经粘贴过,或者edittext有内容,则先清空
+    bundle.apply {
+        putCharSequence(AccessibilityNodeInfo.ACTION_ARGUMENT_SET_TEXT_CHARSEQUENCE, "")
+    }
+    performAction(AccessibilityNodeInfo.ACTION_SET_TEXT, bundle)
+    //复制到系统剪贴板 byClipboard=false时,不需要,但为了统一能复制到系统剪贴板
+    copyToClipboard(text = input)
+    val b = if (byClipboard){
+        //将输入焦点设置到指定的辅助功能节点上
+        performAction(AccessibilityNodeInfo.FOCUS_INPUT)
+        //将系统剪贴板中的内容粘贴到该节点
+        performAction(AccessibilityNodeInfo.ACTION_PASTE) //粘贴
+    }else{
+        //复制到bundle
+        bundle.apply {
+            putCharSequence(AccessibilityNodeInfo.ACTION_ARGUMENT_SET_TEXT_CHARSEQUENCE, input)
+        }
+        //将bundle的内容粘贴到该节点
+        performAction(AccessibilityNodeInfo.ACTION_SET_TEXT, bundle)
+    }
+    //===
+    return b
 }
 
 fun AccessibilityNodeInfo.inputTextNew(input: String): Boolean {

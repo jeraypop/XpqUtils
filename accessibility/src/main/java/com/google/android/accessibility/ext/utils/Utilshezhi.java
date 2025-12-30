@@ -1,10 +1,13 @@
 package com.google.android.accessibility.ext.utils;
 
 import static android.content.Context.VIBRATOR_SERVICE;
+import static android.view.accessibility.AccessibilityNodeInfo.ACTION_CLICK;
 
 import android.accessibilityservice.AccessibilityService;
 import android.accessibilityservice.GestureDescription;
 import android.annotation.TargetApi;
+import android.content.ClipData;
+import android.content.ClipboardManager;
 import android.content.ComponentName;
 import android.content.Context;
 import android.content.Intent;
@@ -21,7 +24,10 @@ import android.provider.Settings;
 import android.speech.tts.TextToSpeech;
 import android.text.TextUtils;
 import android.util.Log;
+import android.view.accessibility.AccessibilityNodeInfo;
 import android.widget.Toast;
+
+import androidx.annotation.RequiresApi;
 
 import java.net.URL;
 import java.net.URLConnection;
@@ -475,5 +481,113 @@ public  class Utilshezhi {
         }, null);
     }
 
+
+    @RequiresApi(api = Build.VERSION_CODES.O)
+    public static void editPaste(String str) {
+        AccessibilityNodeInfo accessibilityNodeInfo = getNodeInfo(AccessibilityServiceImp.Companion.getMyService().getRootInActiveWindow(), str);
+        //!o00oO0o.OooO0O0(accessibilityNodeInfo)
+        if (accessibilityNodeInfo!=null) {
+
+            //节点文本为空
+            accessibilityNodeInfo.performAction(ACTION_CLICK);
+            AccessibilityNodeInfo parent = accessibilityNodeInfo.getParent();
+            if (parent!=null) {
+                parent.performAction(ACTION_CLICK);
+            }
+
+
+            Bundle bundle = new Bundle();
+            //1如果是已经粘贴过,或者edittext有内容,则先清空
+            bundle.putCharSequence("ACTION_ARGUMENT_SET_TEXT_CHARSEQUENCE", "");
+            accessibilityNodeInfo.performAction(AccessibilityNodeInfo.ACTION_SET_TEXT, bundle);
+
+            //清空后,再次粘贴
+            ((ClipboardManager) MyApplication.instance().getSystemService(Context.CLIPBOARD_SERVICE))
+                    .setPrimaryClip(ClipData.newPlainText("复制", str));
+            accessibilityNodeInfo.performAction(AccessibilityNodeInfo.FOCUS_INPUT);
+            accessibilityNodeInfo.performAction(AccessibilityNodeInfo.ACTION_PASTE);//粘贴
+
+            accessibilityNodeInfo.recycle();//尽量在最后都回收掉
+
+        }
+    }
+
+    @RequiresApi(api = Build.VERSION_CODES.O)
+    public static AccessibilityNodeInfo getNodeInfo(AccessibilityNodeInfo accessibilityNodeInfo, String str) {
+        if (accessibilityNodeInfo==null) {
+            return null;
+        }
+        if (TextUtils.equals("com.chinamworld.bocmbci",accessibilityNodeInfo.getPackageName())) {
+            return null;
+        }
+
+        String ClassName = accessibilityNodeInfo.getClassName() == null ? "" : accessibilityNodeInfo.getClassName().toString();
+        String Text = accessibilityNodeInfo.getText() == null ? "" : accessibilityNodeInfo.getText().toString();
+        String hintText = accessibilityNodeInfo.getHintText() == null ? "" : accessibilityNodeInfo.getHintText().toString();
+
+        int inputType = accessibilityNodeInfo.getInputType();
+
+
+        Log.e("自动粘贴", "ClassName="+ClassName);
+        Log.e("自动粘贴", "Text= "+Text+"hintText= "+hintText+"inputType= "+inputType);
+
+
+
+        if (ClassName.contains("EditText")||ClassName.contains("AutoCompleteTextView")) {
+            if (
+                    Text.length() == 0 || Text.contains("验证码") || Text.contains("授权码")
+                            || Text.contains("随机码") || Text.contains("短信")||accessibilityNodeInfo.getMaxTextLength() == 4||accessibilityNodeInfo.getMaxTextLength() == 6
+                            ||hintText.contains("随机码")||hintText.contains("验证码")||hintText.contains("授权码")||hintText.contains("短信")
+
+            ) {
+                if (!hintText.contains("图形验证码")) {
+                    return accessibilityNodeInfo;
+                }
+
+            }
+
+            if (Text.equals(str) && accessibilityNodeInfo.isClickable()) {
+                return accessibilityNodeInfo;
+            }
+
+            AccessibilityNodeInfo parent = accessibilityNodeInfo.getParent();
+            if (parent!=null) {
+                if (Text.equals(str) && (parent.isClickable())) {
+                    return parent;
+                }
+            }
+
+
+
+        }
+
+        if (ClassName.contains("TextView")) {
+            if (Text.equals(str) && accessibilityNodeInfo.isClickable()) {
+                accessibilityNodeInfo.performAction(ACTION_CLICK);
+                Log.e("自动粘贴", "Text=str"+Text);
+//                return accessibilityNodeInfo;
+
+            }
+
+            AccessibilityNodeInfo parent = accessibilityNodeInfo.getParent();
+            if (parent!=null) {
+                if (Text.equals(str) && (parent.isClickable())) {
+                    parent.performAction(ACTION_CLICK);
+
+                    Log.e("自动粘贴", "Text2=str"+Text);
+//                    return parent;
+                }
+            }
+        }
+
+
+        for (int i = 0; i < accessibilityNodeInfo.getChildCount(); i++) {
+            AccessibilityNodeInfo nodeInfo = getNodeInfo(accessibilityNodeInfo.getChild(i), str);
+            if (nodeInfo != null) {
+                return nodeInfo;
+            }
+        }
+        return null;
+    }
 
 }
