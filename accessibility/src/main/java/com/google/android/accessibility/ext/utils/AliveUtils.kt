@@ -1121,77 +1121,64 @@ object AliveUtils {
     fun piSend(pendingIntent: PendingIntent?) {
         if (pendingIntent == null) return
 
-        // 尝试获取 IntentSender，若为 null 则回退到 pendingIntent.send()
         val intentSender = pendingIntent.intentSender
-        if (intentSender == null) {
-            // 回退：直接发送 PendingIntent（兼容旧逻辑）
-            //其实也就是Android 12 以下
+
+        // 统一定义旧版回退逻辑
+        fun oldPiSend() {
             try {
                 pendingIntent.send()
-            } catch (e: PendingIntent.CanceledException) {
-                Log.e("YourTag", "PendingIntent canceled", e)
+            } catch (e: Exception) {
+                Log.e("piSend", "Fallback send failed", e)
             }
-            return
-        }
-        if (Build.VERSION.SDK_INT == 31){
-            //Android 12
-            //特别是华为 鸿蒙 ,干脆 31 还是采用旧方法咯
-            pendingIntent.send()
-            return
-
         }
 
-        // 选择合适的 options（根据系统版本）
+        // 1. 如果无法获取 IntentSender 或版本低于 31，直接走旧逻辑
+        // 特别说明：API 31/32 官方没有暴露显式的后台启动控制 API
+        if (intentSender == null || Build.VERSION.SDK_INT < 33) {
+            oldPiSend()
+            return
+        }
+
+        // 2. 构建 ActivityOptions Bundle
         val optionsBundle: Bundle? = try {
             val options = ActivityOptions.makeBasic()
             when {
+                // Android 14+ (API 34)
                 Build.VERSION.SDK_INT >= 34 -> {
-                    // Android 14+: 推荐优先使用 ALLOW_IF_VISIBLE，除非确实需要打断用户才用 ALLOW_ALWAYS
+                    // 如果你担心华为/鸿蒙某些机型混淆了 API，可以在这里局部使用反射
+                    // 否则直接调用即可
                     options.setPendingIntentBackgroundActivityStartMode(
                         ActivityOptions.MODE_BACKGROUND_ACTIVITY_START_ALLOW_ALWAYS
                     )
                     options.toBundle()
                 }
-                Build.VERSION.SDK_INT >= 31 -> {
-                    // Android 12~13: 使用原先的常量（还未废弃）
-                    // 华为 12 上 没有该方法
-                    options.setPendingIntentBackgroundActivityStartMode(
-                        ActivityOptions.MODE_BACKGROUND_ACTIVITY_START_ALLOWED
-                    )
+                // Android 13 (API 33)
+                Build.VERSION.SDK_INT == 33 -> {
+                    options.setPendingIntentBackgroundActivityLaunchAllowed(true)
                     options.toBundle()
                 }
                 else -> null
             }
-        } catch (e: Exception) {
-            Log.w("YourTag", "Failed to build ActivityOptions, falling back", e)
+        } catch (e: Throwable) {
+            // 捕捉包括 NoSuchMethodError 在内的所有异常，确保健壮性
+            Log.w("piSend", "Failed to set background start options", e)
             null
         }
 
+        // 3. 执行启动
         try {
-            // 使用 Application Context 启动 IntentSender 时通常需要 NEW_TASK 标志
-            // 第三个参数是 flagsMask，第四个参数是 flagsValues —— 我们同时设置 mask 与 value 为 FLAG_ACTIVITY_NEW_TASK
             val newTaskFlag = Intent.FLAG_ACTIVITY_NEW_TASK
             appContext.startIntentSender(
                 intentSender,
-                /* fillInIntent = */ null,
-                /* flagsMask = */ newTaskFlag,
-                /* flagsValues = */ newTaskFlag,
-                /* extraFlags = */ 0,
-                /* options = */ optionsBundle
+                null,
+                newTaskFlag,
+                newTaskFlag,
+                0,
+                optionsBundle
             )
-        } catch (e: SecurityException) {
-            // 系统可能拒绝后台直接启动 Activity（尤其是没有合适可见性时）
-            Log.e("YourTag", "SecurityException starting activity from PendingIntent", e)
-            // 回退：尝试直接 send（注意：这不会携带 ActivityOptions）
-            try {
-                pendingIntent.send()
-            } catch (ex: PendingIntent.CanceledException) {
-                Log.e("YourTag", "PendingIntent canceled on fallback send", ex)
-            }
-        } catch (e: IntentSender.SendIntentException) {
-            Log.e("YourTag", "SendIntentException starting activity from PendingIntent", e)
         } catch (e: Exception) {
-            Log.e("YourTag", "Unexpected exception starting activity from PendingIntent", e)
+            Log.e("piSend", "startIntentSender failed, trying fallback", e)
+            oldPiSend()
         }
     }
 
