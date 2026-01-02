@@ -3,6 +3,7 @@ package com.lygttpod.android.auto.service
 import android.accessibilityservice.AccessibilityService
 import android.app.Notification
 import android.content.Intent
+import android.content.IntentFilter
 import android.util.Log
 import android.view.accessibility.AccessibilityEvent
 import android.view.accessibility.AccessibilityNodeInfo
@@ -35,7 +36,6 @@ open class FirstAccessibility : SelectToSpeakServiceAbstract() {
 
     override fun onServiceConnected() {
         super.onServiceConnected()
-
     }
 
     override fun asyncHandleAccessibilityEvent(event: AccessibilityEvent) {

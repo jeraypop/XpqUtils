@@ -26,6 +26,12 @@ import com.google.android.accessibility.ext.utils.AliveUtils
 import com.google.android.accessibility.ext.utils.LibCtxProvider.Companion.appBuildTime
 import com.google.android.accessibility.ext.utils.LoginDialog
 import com.google.android.accessibility.ext.utils.NumberPickerDialog
+import com.google.android.accessibility.ext.utils.broadcastutil.BroadcastOwnerType
+import com.google.android.accessibility.ext.utils.broadcastutil.ScreenStateCallback
+import com.google.android.accessibility.ext.utils.broadcastutil.ScreenStateReceiver
+import com.google.android.accessibility.ext.utils.broadcastutil.UnifiedBroadcastManager
+import com.google.android.accessibility.ext.utils.broadcastutil.UnifiedBroadcastManager.CHANNEL_SCREEN
+import com.google.android.accessibility.ext.utils.broadcastutil.UnifiedBroadcastManager.screenFilter
 
 import com.google.android.accessibility.ext.wcapi.PayConfig
 import com.google.android.accessibility.ext.wcapi.decrypt
@@ -148,6 +154,36 @@ class MainActivity : XpqBaseActivity<ActivityMainBinding>(
             val sheet = SensitiveNotificationBottomSheet()
             sheet.show(supportFragmentManager, SensitiveNotificationBottomSheet.TAG)
         }
+
+        // 创建匿名内部类实现 ScreenStateCallback 接口
+        val screenStateCallback = object : ScreenStateCallback {
+            override fun onScreenOff() {
+                // 1️⃣ 屏幕熄灭
+                // 一定 = 锁屏即将发生 / 已发生
+                Log.e("监听屏幕啊", "ACTIVITY屏幕已关闭" )
+            }
+
+            override fun onScreenOn() {
+                // 2️⃣ 屏幕点亮
+                // ⚠️ 仍然可能在锁屏界面
+                Log.e("监听屏幕啊", "ACTIVITY屏幕点亮" )
+            }
+
+            override fun onUserPresent() {
+                // 3️⃣ 真正解锁完成（最重要）
+                //disableKeyguard后,接收不到这个广播
+                Log.e("监听屏幕啊", "ACTIVITY真正解锁完成" )
+            }
+        }
+        UnifiedBroadcastManager.register(
+            CHANNEL_SCREEN,
+            this,
+            BroadcastOwnerType.ACTIVITY,
+            this,
+            ScreenStateReceiver(screenStateCallback),
+            screenFilter,
+            lifecycleOwner = this
+        )
 
 
     }

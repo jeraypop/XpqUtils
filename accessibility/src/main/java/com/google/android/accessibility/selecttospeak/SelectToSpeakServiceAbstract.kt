@@ -3,8 +3,6 @@ package com.google.android.accessibility.selecttospeak
 import android.accessibilityservice.AccessibilityService
 import android.accessibilityservice.AccessibilityServiceInfo
 import android.app.Notification
-import android.content.BroadcastReceiver
-import android.content.Context
 import android.content.Intent
 import android.content.IntentFilter
 import android.graphics.Rect
@@ -17,27 +15,35 @@ import androidx.core.app.NotificationCompat
 import androidx.lifecycle.MutableLiveData
 import com.android.accessibility.ext.R
 import com.google.android.accessibility.ext.AssistsServiceListener
-import com.google.android.accessibility.ext.toast
 import com.google.android.accessibility.ext.utils.AliveUtils
 import com.google.android.accessibility.ext.utils.KeyguardUnLock
 import com.google.android.accessibility.ext.utils.KeyguardUnLock.wakeKeyguardOff
 import com.google.android.accessibility.ext.utils.KeyguardUnLock.wakeKeyguardOn
 import com.google.android.accessibility.ext.utils.LibCtxProvider.Companion.appContext
 import com.google.android.accessibility.ext.utils.NotificationUtilXpq.getAllSortedMessagingStyleByTime
+import com.google.android.accessibility.ext.utils.broadcastutil.ScreenStateCallback
+import com.google.android.accessibility.ext.utils.broadcastutil.ScreenStateReceiver
+import com.google.android.accessibility.ext.utils.broadcastutil.BroadcastOwnerType
+import com.google.android.accessibility.ext.utils.broadcastutil.UnifiedBroadcastManager
+import com.google.android.accessibility.ext.utils.broadcastutil.UnifiedBroadcastManager.CHANNEL_SCREEN
+import com.google.android.accessibility.ext.utils.broadcastutil.UnifiedBroadcastManager.screenFilter
 import com.google.android.accessibility.ext.window.AssistsWindowManager
 import com.google.android.accessibility.notification.AccessibilityNInfo
 import com.google.android.accessibility.notification.AppExecutors
 import com.google.android.accessibility.notification.MessageStyleInfo
 import com.google.android.accessibility.notification.NotificationListenerServiceAbstract.Companion.getAppName
 import com.google.android.accessibility.notification.NotificationListenerServiceAbstract.Companion.isTitleAndContentEmpty
-import java.util.Collections
 import java.util.concurrent.ConcurrentHashMap
-import java.util.concurrent.Executors
 
+/**
+* 无障碍服务基类
+* 自动管理所有动态广播
+* */
 
 val accessibilityServiceLiveData = MutableLiveData<AccessibilityService?>(null)
 val accessibilityService: AccessibilityService? get() = accessibilityServiceLiveData.value
 abstract class SelectToSpeakServiceAbstract : AccessibilityService() {
+
     private val TAG = this::class.java.simpleName
     //用于TYPE_WINDOW_CONTENT_CHANGED的简单防抖（按包名）
     //ConcurrentHashMap 创建一个 线程安全的 HashMap  在多线程环境下同时读写，不需要自己加锁
@@ -64,6 +70,7 @@ abstract class SelectToSpeakServiceAbstract : AccessibilityService() {
     open fun asyncHandle_WINDOW_CONTENT_CHANGED(root: AccessibilityNodeInfo,nodeInfoSet: Set<AccessibilityNodeInfo>,pkgName: String){}
 
     open fun asyncHandle_VIEW_SCROLLED(event: AccessibilityEvent){}
+
 
     override fun onServiceConnected() {
         super.onServiceConnected()
@@ -105,13 +112,47 @@ abstract class SelectToSpeakServiceAbstract : AccessibilityService() {
             AliveUtils.keepAliveByNotification_CLS(this,true,null)
         }
         AliveUtils.keepAliveByFloatingWindow(this,AliveUtils.getKeepAliveByFloatingWindow())
+
+
         val filter = IntentFilter().apply {
             addAction(Intent.ACTION_SCREEN_OFF)    // 息屏
             addAction(Intent.ACTION_SCREEN_ON)     // 亮屏（可选）
             addAction(Intent.ACTION_USER_PRESENT)  // 解锁完成
         }
 
-        registerReceiver(screenReceiver, filter)
+        //registerReceiver(screenReceiver, filter)
+
+        // 创建匿名内部类实现 ScreenStateCallback 接口
+        val screenStateCallback = object : ScreenStateCallback {
+            override fun onScreenOff() {
+                // 1️⃣ 屏幕熄灭
+                // 一定 = 锁屏即将发生 / 已发生
+                Log.e("监听屏幕啊", "Accessibility屏幕已关闭" )
+            }
+
+            override fun onScreenOn() {
+                // 2️⃣ 屏幕点亮
+                // ⚠️ 仍然可能在锁屏界面
+                Log.e("监听屏幕啊", "Accessibility屏幕点亮" )
+            }
+
+            override fun onUserPresent() {
+                // 3️⃣ 真正解锁完成（最重要）
+                //disableKeyguard后,接收不到这个广播
+                Log.e("监听屏幕啊", "Accessibility真正解锁完成" )
+            }
+        }
+        UnifiedBroadcastManager.register(
+            channel = CHANNEL_SCREEN,
+            owner = this,
+            ownerType = BroadcastOwnerType.ACCESSIBILITY_SERVICE,
+            context = this,
+            receiver = ScreenStateReceiver(screenStateCallback),
+            filter = screenFilter
+        )
+
+
+
         val unLockMethod = KeyguardUnLock.getUnLockMethod()
         if (unLockMethod == 1){
             wakeKeyguardOn()
@@ -165,9 +206,16 @@ abstract class SelectToSpeakServiceAbstract : AccessibilityService() {
         cleanupOwnershipMap()
         //释放 clickScope
         KeyguardUnLock.release()
-        unregisterReceiver(screenReceiver)
-        super.onDestroy()
+        try {
+            //unregisterReceiver(screenReceiver)
+        }catch (e: Exception){}
 
+        super.onDestroy()
+        UnifiedBroadcastManager.unregister(
+            channel = CHANNEL_SCREEN,
+            owner = this,
+            context = this
+        )
     }
 
     companion object {
@@ -509,39 +557,31 @@ abstract class SelectToSpeakServiceAbstract : AccessibilityService() {
         )
     }
 
-    private val screenReceiver = object : BroadcastReceiver() {
-        override fun onReceive(context: Context, intent: Intent) {
-            when (intent.action) {
 
-                Intent.ACTION_SCREEN_OFF -> {
-                    // 1️⃣ 屏幕熄灭
-                    // 一定 = 锁屏即将发生 / 已发生
-                    Log.e("监听屏幕啊", "屏幕已关闭" )
-                    if (KeyguardUnLock.getUnLockMethod()==1 && KeyguardUnLock.getAutoReenKeyguard()){
-                         wakeKeyguardOff(tip = "广播:屏幕已关闭")
-                    }
-
-                }
-
-                Intent.ACTION_SCREEN_ON -> {
-                    // 2️⃣ 屏幕点亮
-                    // ⚠️ 仍然可能在锁屏界面
-                    Log.e("监听屏幕啊", "屏幕点亮" )
-                    if (KeyguardUnLock.getUnLockMethod()==1 && KeyguardUnLock.getAutoDisableKeyguard()){
-                        //禁用键盘锁
-                        wakeKeyguardOn(tip = "广播:屏幕已点亮")
-                    }
-                }
-
-                Intent.ACTION_USER_PRESENT -> {
-                    // 3️⃣ 真正解锁完成（最重要）
-                    //disableKeyguard后,接收不到这个广播
-                    Log.e("监听屏幕啊", "真正解锁完成" )
-                }
-            }
+/*    override fun onScreenOff() {
+        // 1️⃣ 屏幕熄灭
+        // 一定 = 锁屏即将发生 / 已发生
+        Log.e("监听屏幕啊", "屏幕已关闭" )
+        if (KeyguardUnLock.getUnLockMethod()==1 && KeyguardUnLock.getAutoReenKeyguard()){
+            wakeKeyguardOff(tip = "广播:屏幕已关闭")
         }
     }
 
+    override fun onScreenOn() {
+        // 2️⃣ 屏幕点亮
+        // ⚠️ 仍然可能在锁屏界面
+        Log.e("监听屏幕啊", "屏幕点亮" )
+        if (KeyguardUnLock.getUnLockMethod()==1 && KeyguardUnLock.getAutoDisableKeyguard()){
+            //禁用键盘锁
+            wakeKeyguardOn(tip = "广播:屏幕已点亮")
+        }
+    }
+
+    override fun onUserPresent() {
+        // 3️⃣ 真正解锁完成（最重要）
+        //disableKeyguard后,接收不到这个广播
+        Log.e("监听屏幕啊", "真正解锁完成" )
+    }*/
 
 }
 

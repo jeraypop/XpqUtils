@@ -4,6 +4,8 @@ import android.Manifest
 import android.app.Notification
 import android.app.PendingIntent
 import android.content.Context
+import android.content.Intent
+import android.content.IntentFilter
 import android.content.pm.ApplicationInfo
 import android.content.pm.PackageManager
 import android.os.Build
@@ -18,6 +20,9 @@ import androidx.core.app.NotificationCompat
 import androidx.lifecycle.MutableLiveData
 import com.android.accessibility.ext.R
 import com.google.android.accessibility.ext.utils.AliveUtils
+import com.google.android.accessibility.ext.utils.KeyguardUnLock
+import com.google.android.accessibility.ext.utils.KeyguardUnLock.wakeKeyguardOff
+import com.google.android.accessibility.ext.utils.KeyguardUnLock.wakeKeyguardOn
 import com.google.android.accessibility.ext.utils.LibCtxProvider.Companion.appContext
 import com.google.android.accessibility.ext.utils.MMKVConst
 import com.google.android.accessibility.ext.utils.MMKVUtil
@@ -26,6 +31,12 @@ import com.google.android.accessibility.ext.utils.NotificationUtilXpq.getAllSort
 import com.google.android.accessibility.ext.utils.NotificationUtilXpq.getAllSortedMessagingStyleByTime
 
 import com.google.android.accessibility.ext.utils.NotificationUtilXpq.getNotificationData
+import com.google.android.accessibility.ext.utils.broadcastutil.BroadcastOwnerType
+import com.google.android.accessibility.ext.utils.broadcastutil.ScreenStateCallback
+import com.google.android.accessibility.ext.utils.broadcastutil.ScreenStateReceiver
+import com.google.android.accessibility.ext.utils.broadcastutil.UnifiedBroadcastManager
+import com.google.android.accessibility.ext.utils.broadcastutil.UnifiedBroadcastManager.CHANNEL_SCREEN
+import com.google.android.accessibility.ext.utils.broadcastutil.UnifiedBroadcastManager.screenFilter
 import java.util.concurrent.CopyOnWriteArrayList
 import java.util.concurrent.Executors
 import java.util.concurrent.ExecutorService
@@ -69,8 +80,10 @@ object AppExecutors {
         Executors.newSingleThreadExecutor(daemonThreadFactory("notif-exec-3"))
 }
 
-abstract class NotificationListenerServiceAbstract : NotificationListenerService() {
+abstract class NotificationListenerServiceAbstract : NotificationListenerService(),
+    ScreenStateCallback {
     private val TAG = this::class.java.simpleName
+
 
     // 由 AppExecutors 提供（全局单例），不要在 Service.onDestroy() 调用 shutdown。
     // 使用时直接调用 AppExecutors.executors.execute { ... } 或 AppExecutors.executors2.execute { ... }
@@ -327,6 +340,23 @@ abstract class NotificationListenerServiceAbstract : NotificationListenerService
         }
 
 
+        val filter = IntentFilter().apply {
+            addAction(Intent.ACTION_SCREEN_OFF)    // 息屏
+            addAction(Intent.ACTION_SCREEN_ON)     // 亮屏（可选）
+            addAction(Intent.ACTION_USER_PRESENT)  // 解锁完成
+        }
+
+        //registerReceiver(screenReceiver, filter)
+        UnifiedBroadcastManager.register(
+            CHANNEL_SCREEN,
+            this,
+            BroadcastOwnerType.NOTIFICATION_SERVICE,
+            this,
+            ScreenStateReceiver(this),
+            screenFilter
+        )
+
+
     }
 
     /**
@@ -364,6 +394,11 @@ abstract class NotificationListenerServiceAbstract : NotificationListenerService
     override fun onDestroy() {
         runCatching { listeners.forEach { it.onDestroy() } }
         super.onDestroy()
+        UnifiedBroadcastManager.unregister(
+            channel = CHANNEL_SCREEN,
+            owner = this,
+            context = this
+        )
         // **注意**：现在我们将 executors 保持为应用级单例，不在这里 shutdown。
         // 这样可以避免 Service.onDestroy() 与系统随后可能触发的回调（race）导致的 RejectedExecutionException。
         // 仍然建议在提交任务时拷贝所需数据，避免后台执行访问已释放的短生命周期对象。
@@ -673,6 +708,23 @@ abstract class NotificationListenerServiceAbstract : NotificationListenerService
     }
 
 
+    override fun onScreenOff() {
+        // 1️⃣ 屏幕熄灭
+        // 一定 = 锁屏即将发生 / 已发生
+        Log.e("监听屏幕啊", "notification屏幕已关闭" )
+    }
+
+    override fun onScreenOn() {
+        // 2️⃣ 屏幕点亮
+        // ⚠️ 仍然可能在锁屏界面
+        Log.e("监听屏幕啊", "notification屏幕点亮" )
+    }
+
+    override fun onUserPresent() {
+        // 3️⃣ 真正解锁完成（最重要）
+        //disableKeyguard后,接收不到这个广播
+        Log.e("监听屏幕啊", "notification真正解锁完成" )
+    }
 
 
 }
