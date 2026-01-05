@@ -7,6 +7,7 @@ import android.service.notification.StatusBarNotification
 import android.text.TextUtils
 import android.util.Log
 import androidx.annotation.RequiresApi
+import com.google.android.accessibility.ext.activity.BaseLockScreenActivity
 import com.google.android.accessibility.ext.activity.TaskByJieSuoHelper
 import com.google.android.accessibility.ext.activity.TaskByJieSuoHelper1
 import com.google.android.accessibility.ext.utils.AliveUtils
@@ -77,7 +78,7 @@ class NotificationListenerServiceImp : NotificationListenerServiceAbstract() {
             }else if (unLockMethod==2){
                 TaskByJieSuoHelper.startJieSuoTaskInstance(appContext, 1)
             }else if (unLockMethod==3){
-                LockScreenActivity.openLockScreenActivity(index = 1)
+                BaseLockScreenActivity.openBaseLockScreenActivity(cls=LockScreenActivity::class.java, i=1)
             } else if (unLockMethod == 0){
                 //关闭,   啥也不做
                 //是否需要亮屏唤醒屏幕

@@ -1,6 +1,7 @@
 package com.lygttpod.android.auto.notification
 
 
+import com.google.android.accessibility.ext.activity.BaseLockScreenActivity
 import com.google.android.accessibility.ext.activity.TaskByJieSuoHelper
 import com.google.android.accessibility.ext.utils.KeyguardUnLock
 import com.google.android.accessibility.ext.utils.MMKVConst
@@ -19,7 +20,8 @@ class MyJieSuoHelper : TaskByJieSuoHelper() {
     // 改写解锁逻辑（例如使用不同的 Activity）
     override fun jieSuoBy2(i: Int) {
         //sendLog("🔥 使用自定义解锁方式")
-        LockScreenActivity.openLockScreenActivity(index = i)
+        BaseLockScreenActivity.openBaseLockScreenActivity(cls=LockScreenActivity::class.java, i=i)
+
     }
 
     // 改写任务结束逻辑

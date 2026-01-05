@@ -50,7 +50,7 @@ open class TaskByJieSuoHelper(
         taskScope.launch {
             if (mutex.isLocked) {
                 sendLog("♥♥ 上次【自动解锁(方案2)】还没结束哦(有重试机制)，请稍等再试")
-                context.toast("上次【自动解锁(方案2)】还没结束哦(有重试机制)，请稍等再试")
+                //context.toast("上次【自动解锁(方案2)】还没结束哦(有重试机制)，请稍等再试")
                 return@launch
             }
             mutex.withLock {
