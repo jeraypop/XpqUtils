@@ -107,10 +107,10 @@ class MainActivity : XpqBaseActivity<ActivityMainBinding>(
            //LockScreenActivity.openLockScreenActivity()
 
             //ActivityUtils.showVideoDialog(this, "https://gitlab.com/mytiper/wechat/-/raw/master/public/unlock.mp4")
-            //NumberPickerDialog.showDefault(context = this)
-            LoginDialog(this) { phone, code ->
+            NumberPickerDialog.showDefault(context = this)
+            //LoginDialog(this) { phone, code ->
                 // 调登录接口
-            }.show()
+            //}.show()
 
 
         }
