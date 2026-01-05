@@ -12,6 +12,7 @@ import com.google.android.accessibility.ext.utils.KeyguardUnLock.getScreenState
 import com.google.android.accessibility.ext.utils.KeyguardUnLock.sendLog
 import com.google.android.accessibility.ext.utils.MoveCallback
 import com.google.android.accessibility.ext.utils.ScreenState
+import com.google.android.accessibility.ext.window.OverlayLog
 
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -54,6 +55,10 @@ open class TaskByJieSuoHelper1(
                 return@launch
             }
             mutex.withLock {
+                if (OverlayLog.showed){
+                    OverlayLog.hide()
+                }
+
                 sendLog("♥♥ 开始执行【自动解锁(方案1)】任务")
                 JieSuoTask(context, i, start)
 

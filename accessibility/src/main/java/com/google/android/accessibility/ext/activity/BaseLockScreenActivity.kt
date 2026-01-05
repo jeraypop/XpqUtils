@@ -93,6 +93,9 @@ open class BaseLockScreenActivity : XpqBaseActivity<ActivityLockScreenBinding>(
     private val isOKJieSuo = AtomicBoolean(false)
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        if (OverlayLog.showed){
+            OverlayLog.hide()
+        }
         setContentView(com.android.accessibility.ext.R.layout.activity_lock_screen)
         ViewCompat.setOnApplyWindowInsetsListener(findViewById(com.android.accessibility.ext.R.id.main)) { v, insets ->
             val systemBars = insets.getInsets(WindowInsetsCompat.Type.systemBars())
