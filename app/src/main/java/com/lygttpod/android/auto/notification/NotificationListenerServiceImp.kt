@@ -62,7 +62,7 @@ class NotificationListenerServiceImp : NotificationListenerServiceAbstract() {
         val key = n_Info.key
         Log.e("通知监控1", "title="+ title+" content="+content )
         //================
-        if (!content.contains("红包"))return
+        if (!content.contains("我爱"))return
         if (pI != null) {
             LatestPendingIntentStore.saveLatest(buildNotificationUniqueKey(sbn), pI)
         }

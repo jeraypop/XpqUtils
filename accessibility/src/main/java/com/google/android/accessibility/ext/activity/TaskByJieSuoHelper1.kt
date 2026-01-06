@@ -234,22 +234,20 @@ open class TaskByJieSuoHelper1(
                         //第一次会走这里,调用一次disableKeyguard,如果不释放禁用
                         //从第二次开始,只会走 设备已解锁了.
                         sendLog("设备被锁屏,未设置安全锁,[可能是 滑动解锁或无锁屏]")
-                        if (KeyguardUnLock.getUnLockMethod()==1){
-                            sendLog("准备直接解锁")
-                            //调用 disableKeyguard()后,isKeyguardLocked 将不再可靠,一直返回true
-                            //旧版 禁用键盘锁
-                            KeyguardUnLock.wakeKeyguardOn()
-                            isOn = true
-                            //sendLog("键盘状态="+KeyguardUnLock.keyguardIsOn())
-                            //旧版 释放键盘锁
-                            //KeyguardUnLock.wakeKeyguardOff()
-                            //sendLog("延时1秒="+KeyguardUnLock.keyguardIsOn())
-                            //KeyguardUnLock.wakeUpAndUnlock()
-                            //取消 释放 键盘锁
-                            //KeyguardUnLock.lockScreen()
-
-
-                        }
+                        sendLog("准备直接解锁")
+                        //调用 disableKeyguard()后,isKeyguardLocked 将不再可靠,一直返回true
+                        //旧版 禁用键盘锁
+                        KeyguardUnLock.wakeKeyguardOn()
+                        //是否额外判断键盘锁
+                        val eWai = KeyguardUnLock.getUnLockResult(true)
+                        isOn = eWai
+                        //sendLog("键盘状态="+KeyguardUnLock.keyguardIsOn())
+                        //旧版 释放键盘锁
+                        //KeyguardUnLock.wakeKeyguardOff()
+                        //sendLog("延时1秒="+KeyguardUnLock.keyguardIsOn())
+                        //KeyguardUnLock.wakeUpAndUnlock()
+                        //取消 释放 键盘锁
+                        //KeyguardUnLock.lockScreen()
 
                     }
                     DeviceLockState.LockedSecure -> {
@@ -277,9 +275,11 @@ open class TaskByJieSuoHelper1(
                             delay(500)
                             //输入密码
                             val inputOK = KeyguardUnLock.inputPassword(password = pwd)
-                            if (inputOK){
-                                isOn = waitForUnlockCheck()
-                            }
+                            //是否额外判断键盘锁
+                            val eWai = KeyguardUnLock.getUnLockResult(inputOK)
+                            isOn = eWai
+
+
 
                         }
 
@@ -289,21 +289,6 @@ open class TaskByJieSuoHelper1(
                 isOn
             }
         }
-    }
-
-    suspend fun waitForUnlockCheck(
-        times: Int = 8,
-        intervalMs: Long = 200L
-    ): Boolean {
-        repeat(times) { attempt ->
-            // keyguardIsOn
-            if (KeyguardUnLock.keyguardIsOn()) {
-                sendLog("屏幕已成功解锁")
-                return true
-            }
-            if (attempt < times - 1) delay(intervalMs)
-        }
-        return false
     }
 
 

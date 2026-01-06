@@ -39,6 +39,7 @@ import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
 import kotlinx.coroutines.withTimeoutOrNull
 import java.util.Locale
+import java.util.concurrent.atomic.AtomicBoolean
 import kotlin.coroutines.resume
 import kotlin.math.abs
 import kotlin.math.max
@@ -80,6 +81,8 @@ data class DeviceStatus(
 
 
 object KeyguardUnLock {
+    val keyguardIsGone = AtomicBoolean(false)
+    val suoPingIsOne = AtomicBoolean(false)
     @JvmOverloads
     @JvmStatic
     fun getScreenState(context: Context = appContext): ScreenState {
@@ -289,26 +292,23 @@ object KeyguardUnLock {
             mPowerManager = context.applicationContext.getSystemService(Context.POWER_SERVICE) as PowerManager
         }
         val locked = if (getUnLockMethod()==1){
-            //禁用键盘锁
-            //wakeKeyguardOn()
            //解锁方案1
             if (mPowerManager!!.isInteractive){
                 // 屏幕亮屏状态+设备没有设置安全pin
                 // 则执行完 wakeKeyguardOn()后,可直接赋值为 未锁定
                 //屏幕点亮 自动禁用键盘锁 为开
-                if (!mKeyguardManager!!.isDeviceSecure && getAutoDisableKeyguard()){
-                    wakeKeyguardOn()
-                    false
-                }else{
-                    if (byKeyguard) mKeyguardManager!!.isKeyguardLocked else mKeyguardManager!!.isDeviceLocked
-                }
+                //if ((!mKeyguardManager!!.isDeviceSecure) && getAutoDisableKeyguard()){
+                //    wakeKeyguardOn()
+                //    false
+                //}else{
+                //    if (byKeyguard) mKeyguardManager!!.isKeyguardLocked else mKeyguardManager!!.isDeviceLocked
+                //}
+                keyguardIsGone.get()
             }else{
                 true
             }
         }else{
             try {
-                //恢复键盘锁
-                //wakeKeyguardOff()
                 if (byKeyguard) mKeyguardManager!!.isKeyguardLocked else mKeyguardManager!!.isDeviceLocked
             } catch (e: Exception) {
                 false
@@ -338,6 +338,32 @@ object KeyguardUnLock {
         appScope.cancel("AliveUtils cancelled")
     }
 
+    suspend fun getUnLockResult(
+        isUnLock: Boolean = false
+    ): Boolean {
+        val eWai = if (getZQSuccess()){
+            //不额外
+            isUnLock || waitForKeyguardOnCheck()
+        }else{
+            //额外
+            isUnLock && waitForKeyguardOnCheck()
+        }
+        return eWai
+    }
+
+    suspend fun waitForKeyguardOnCheck(
+        times: Int = 8,
+        intervalMs: Long = 200L
+    ): Boolean {
+        repeat(times) { attempt ->
+            if (KeyguardUnLock.keyguardIsOn()) {
+                sendLog("键盘已解锁")
+                return true
+            }
+            if (attempt < times - 1) delay(intervalMs)
+        }
+        return false
+    }
 
     @JvmStatic
     fun getLockID(): String {
@@ -473,8 +499,12 @@ object KeyguardUnLock {
         }
 
         // 3. 只有持有引用的这个对象调用的 disable 才是有效的
-        mKeyguardLock?.disableKeyguard()
-        sendLog("$tip 无安全锁时尝试禁用键盘锁(可能失效)")
+        if (!deviceIsSecure()){
+            mKeyguardLock?.disableKeyguard()
+            keyguardIsGone.set(true)
+            sendLog("$tip 无安全锁时尝试禁用键盘锁(可能失效)")
+        }
+
 
         // 4. 移除之前的延时任务，避免多次调用导致冲突
         //mHandler.removeCallbacks(mReenableRunnable)
@@ -488,8 +518,12 @@ object KeyguardUnLock {
     fun wakeKeyguardOff(context: Context = appContext,tip: String = "") {
         // 5. 使用同一个对象进行恢复
         mKeyguardLock?.let {
-            it.reenableKeyguard()
-            sendLog("$tip 恢复键盘锁")
+            if (!deviceIsSecure()){
+                it.reenableKeyguard()
+                keyguardIsGone.set(false)
+                sendLog("$tip 恢复键盘锁")
+            }
+
         }
         // 释放引用（虽然 KeyguardLock 系统层未必释放，但逻辑上我们重置了）
         // 注意：有些业务场景下为了复用可能不置空，视具体情况而定
@@ -1326,6 +1360,17 @@ isDeviceSecure = 这台设备“有没有任何安全门槛”
     @JvmStatic
     fun getScreenAlwaysOn(default: Boolean = false): Boolean {
         return MMKVUtil.get(MMKVConst.XPQ_SCREEN_ON,default)
+    }
+
+    @JvmOverloads
+    @JvmStatic
+    fun setZQSuccess(zqs: Boolean = false) {
+        MMKVUtil.put(MMKVConst.XPQ_ZQ_SUCCESS,zqs)
+    }
+    @JvmOverloads
+    @JvmStatic
+    fun getZQSuccess(default: Boolean = true): Boolean {
+        return MMKVUtil.get(MMKVConst.XPQ_ZQ_SUCCESS,default)
     }
 
     @JvmOverloads

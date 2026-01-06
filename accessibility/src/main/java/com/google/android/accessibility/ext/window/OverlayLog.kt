@@ -76,13 +76,15 @@ object OverlayLog : AssistsServiceListener {
 
     var onClose: ((parent: View) -> Unit)? = null
 
+
     var showed = false
         private set
         get() {
-            assistWindowWrapper?.let {
-                return AssistsWindowManager.isVisible(it.getView())
-            } ?: return false
+            return assistWindowWrapper?.let {
+                AssistsWindowManager.isVisible(it.getView())
+            } ?: false
         }
+
 
     var assistWindowWrapper: AssistsWindowWrapper? = null
         private set

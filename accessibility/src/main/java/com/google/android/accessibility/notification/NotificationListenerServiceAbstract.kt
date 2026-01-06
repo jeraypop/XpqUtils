@@ -20,9 +20,7 @@ import androidx.core.app.NotificationCompat
 import androidx.lifecycle.MutableLiveData
 import com.android.accessibility.ext.R
 import com.google.android.accessibility.ext.utils.AliveUtils
-import com.google.android.accessibility.ext.utils.KeyguardUnLock
-import com.google.android.accessibility.ext.utils.KeyguardUnLock.wakeKeyguardOff
-import com.google.android.accessibility.ext.utils.KeyguardUnLock.wakeKeyguardOn
+
 import com.google.android.accessibility.ext.utils.LibCtxProvider.Companion.appContext
 import com.google.android.accessibility.ext.utils.MMKVConst
 import com.google.android.accessibility.ext.utils.MMKVUtil

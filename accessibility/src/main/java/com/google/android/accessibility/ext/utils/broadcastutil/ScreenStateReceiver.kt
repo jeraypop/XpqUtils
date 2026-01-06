@@ -5,8 +5,7 @@ import android.content.Context
 import android.content.Intent
 import android.util.Log
 import com.google.android.accessibility.ext.utils.KeyguardUnLock
-import com.google.android.accessibility.ext.utils.KeyguardUnLock.wakeKeyguardOff
-import com.google.android.accessibility.ext.utils.KeyguardUnLock.wakeKeyguardOn
+
 import java.lang.ref.WeakReference
 
 /**
@@ -31,14 +30,19 @@ class ScreenStateReceiver(
 
     override fun onReceive(context: Context, intent: Intent) {
         val cb = callbackRef.get() ?: return
-
+        fun setSuoPingIsOne() {
+            if (KeyguardUnLock.keyguardIsGone.get()){
+                KeyguardUnLock.suoPingIsOne.set(true)
+            }
+        }
         when (intent.action) {
             Intent.ACTION_SCREEN_OFF -> {
                 Log.e("监听屏幕啊", "总屏幕已关闭")
                 cb.onScreenOff()
                 if (KeyguardUnLock.getUnLockMethod()==1 && KeyguardUnLock.getAutoReenKeyguard()){
-                    wakeKeyguardOff(tip = "广播:屏幕已关闭")
+                    KeyguardUnLock.wakeKeyguardOff(tip = "广播:屏幕已关闭")
                 }
+                setSuoPingIsOne()
             }
 
             Intent.ACTION_SCREEN_ON -> {
@@ -46,8 +50,9 @@ class ScreenStateReceiver(
                 cb.onScreenOn()
                 if (KeyguardUnLock.getUnLockMethod()==1 && KeyguardUnLock.getAutoDisableKeyguard()){
                     //禁用键盘锁
-                    wakeKeyguardOn(tip = "广播:屏幕已点亮")
+                    KeyguardUnLock.wakeKeyguardOn(tip = "广播:屏幕已点亮")
                 }
+                setSuoPingIsOne()
             }
 
             Intent.ACTION_USER_PRESENT -> {

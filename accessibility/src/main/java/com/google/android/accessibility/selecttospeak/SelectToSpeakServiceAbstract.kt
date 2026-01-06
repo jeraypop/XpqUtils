@@ -17,8 +17,7 @@ import com.android.accessibility.ext.R
 import com.google.android.accessibility.ext.AssistsServiceListener
 import com.google.android.accessibility.ext.utils.AliveUtils
 import com.google.android.accessibility.ext.utils.KeyguardUnLock
-import com.google.android.accessibility.ext.utils.KeyguardUnLock.wakeKeyguardOff
-import com.google.android.accessibility.ext.utils.KeyguardUnLock.wakeKeyguardOn
+
 import com.google.android.accessibility.ext.utils.LibCtxProvider.Companion.appContext
 import com.google.android.accessibility.ext.utils.NotificationUtilXpq.getAllSortedMessagingStyleByTime
 import com.google.android.accessibility.ext.utils.broadcastutil.ScreenStateCallback
@@ -150,19 +149,7 @@ abstract class SelectToSpeakServiceAbstract : AccessibilityService() {
             receiver = ScreenStateReceiver(screenStateCallback),
             filter = screenFilter
         )
-
-
-
-        val unLockMethod = KeyguardUnLock.getUnLockMethod()
-        if (unLockMethod == 1){
-            wakeKeyguardOn()
-        }else if (unLockMethod == 0){
-            wakeKeyguardOff()
-        }else if (unLockMethod == 2){
-            wakeKeyguardOff()
-        }else if (unLockMethod == 3){
-            wakeKeyguardOff()
-        }
+        
 
     }
     override fun onAccessibilityEvent(event: AccessibilityEvent?) {

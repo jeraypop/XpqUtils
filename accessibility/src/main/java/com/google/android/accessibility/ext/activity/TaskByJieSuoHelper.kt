@@ -102,28 +102,6 @@ open class TaskByJieSuoHelper(
         //直接启动
         doMyWork(i)
 
-/*        if (KeyguardUnLock.getUnLockOldBy1()){
-            if (KeyguardUnLock.screenIsOn()) {
-                haoshiTip(start)
-                sendLog("♥♥ 【自动解锁(方案1)快】任务成功结束,屏幕已被点亮,且解除锁定")
-                //直接启动
-                doMyWork(i)
-            }
-        }else{
-            //解锁任务结束
-            if (KeyguardUnLock.screenIsOn() && KeyguardUnLock.keyguardIsOn()) {
-                haoshiTip(start)
-                sendLog("♥♥ 【自动解锁(方案1)滑】任务成功结束,屏幕已被点亮,且解除锁定")
-                //直接启动
-                doMyWork(i)
-            } else{
-                haoshiTip(start)
-                sendLog("♥♥ 【自动解锁(方案1)】任务虽然结束,但屏幕未正常解锁,,尝试采用【自动解锁(方案2)】解锁")
-                //尝试 新方法 点亮屏幕  用 activity
-                jieSuoBy2(i)
-            }
-        }*/
-
 
     }
 
@@ -245,10 +223,11 @@ open class TaskByJieSuoHelper(
                                 }
                             }
                         )
-                        if (huaok){
-                            //判断是否解锁
-                            isOn = waitForUnlockCheck()
-                        }
+
+
+                        //是否额外判断键盘锁
+                        val eWai = KeyguardUnLock.getUnLockResult(huaok)
+                        isOn = eWai
 
                     }
                     DeviceLockState.LockedSecure -> {
@@ -276,10 +255,9 @@ open class TaskByJieSuoHelper(
                             delay(500)
                             //输入密码
                             val inputOK = KeyguardUnLock.inputPassword(password = pwd)
-                            if (inputOK){
-                                isOn = waitForUnlockCheck()
-                            }
-
+                            //是否额外判断键盘锁
+                            val eWai = KeyguardUnLock.getUnLockResult(inputOK)
+                            isOn = eWai
                         }
 
 
@@ -290,20 +268,6 @@ open class TaskByJieSuoHelper(
         }
     }
 
-    suspend fun waitForUnlockCheck(
-        times: Int = 8,
-        intervalMs: Long = 200L
-    ): Boolean {
-        repeat(times) { attempt ->
-            // keyguardIsOn
-            if (KeyguardUnLock.keyguardIsOn()) {
-                sendLog("屏幕已成功解锁")
-                return true
-            }
-            if (attempt < times - 1) delay(intervalMs)
-        }
-        return false
-    }
 
 
     companion object {

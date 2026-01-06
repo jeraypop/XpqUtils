@@ -57,4 +57,5 @@ object MMKVConst {
     const val SHOW_DO_GUIJI = "SHOW_DO_GUIJI"
     const val XPQ_SCREEN_ON = "XPQ_SCREEN_ON"
     const val XPQ_TAN_LOG = "XPQ_TAN_LOG"
+    const val XPQ_ZQ_SUCCESS = "XPQ_ZQ_SUCCESS"
 }

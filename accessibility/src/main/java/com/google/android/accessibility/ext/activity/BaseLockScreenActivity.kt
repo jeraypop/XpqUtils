@@ -34,6 +34,7 @@ import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.selects.select
 import kotlinx.coroutines.withContext
 import kotlinx.coroutines.suspendCancellableCoroutine
@@ -150,7 +151,8 @@ open class BaseLockScreenActivity : XpqBaseActivity<ActivityLockScreenBinding>(
                 //delay(5000L)
                 //sendLog("【自动解锁(方案3)】界面自动清理")
                 //finishAndRemoveTask()
-                if (isOKJieSuo.get() || waitForKeyguardOnCheck()){
+                val eWai = KeyguardUnLock.getUnLockResult(isOKJieSuo.get())
+                if (eWai){
                     isOKJieSuo.set(false)
                     sendLog("【自动解锁(方案3)】解锁成功 (兜底执行)")
                     onUnlockedAndProceed()
@@ -236,19 +238,7 @@ open class BaseLockScreenActivity : XpqBaseActivity<ActivityLockScreenBinding>(
         }
         return false
     }
-    suspend fun waitForKeyguardOnCheck(
-        times: Int = 8,
-        intervalMs: Long = 200L
-    ): Boolean {
-        repeat(times) { attempt ->
-            if (KeyguardUnLock.keyguardIsOn()) {
-                sendLog("键盘已解锁")
-                return true
-            }
-            if (attempt < times - 1) delay(intervalMs)
-        }
-        return false
-    }
+
     fun finishSelf(activity: Activity) {
         // ⭐ 核心：下一帧立刻释放 Activity Window
         window.decorView.post {
@@ -259,7 +249,7 @@ open class BaseLockScreenActivity : XpqBaseActivity<ActivityLockScreenBinding>(
         }
     }
 
-    protected open suspend fun requestDeviceUnlock(activity: Activity, timeoutMs: Long = 5000L): Boolean {
+    protected open suspend fun requestDeviceUnlock(activity: Activity, timeoutMs: Long = 10000L): Boolean {
 
         val status = getDeviceStatusPlus()
         when (status.screenState) {
@@ -317,22 +307,22 @@ open class BaseLockScreenActivity : XpqBaseActivity<ActivityLockScreenBinding>(
     ): Boolean {
 
         // 第一阶段：系统 / 手势（始终执行，用来唤醒 & 尝试）
-        val primarySuccess = racePrimaryStrategies(
-            activity = activity,
-            timeoutMs = timeoutMs
-        )
-
-       val b =  if (!doInput) {
-           // ❌ 设备无安全锁,不允许密码 → 只看主策略
-           sendLog("[Final] doInput=false → primary=$primarySuccess")
+       val primarySuccess = unlockPrimary(activity,doInput)
+       val unLockOK =  if (!doInput) {
+           // ❌ 设备无安全锁 → 只看主策略
+           sendLog(if(primarySuccess){"解锁成功"}else{"解锁失败"})
            primarySuccess
        } else {
-           // ✅ 必须走密码作为最终结果
-           sendLog("[Final] doInput=true → 准备输入密码")
+           // ✅ 设备有安全锁，必须走密码作为最终结果
+           sendLog("准备输入锁屏密码")
            fallbackPasswordUnlock()
        }
-        isOKJieSuo.set(b)
-        return b
+
+        //是否额外判断键盘锁
+        val eWai = KeyguardUnLock.getUnLockResult(unLockOK)
+
+        isOKJieSuo.set(eWai)
+        return eWai
     }
 
 
@@ -361,7 +351,7 @@ open class BaseLockScreenActivity : XpqBaseActivity<ActivityLockScreenBinding>(
                             // 先检查是否已经被其他路径解锁
                             if (resumed.get()) return@launch
                             // 如果设备已解锁，直接 resume true（防御）
-                            if (waitForKeyguardOnCheck()) {
+                            if (KeyguardUnLock.waitForKeyguardOnCheck()) {
                                 sendLog("手势: 设备已解锁（尝试前检测），直接结束")
                                 if (resumed.compareAndSet(false, true)) cont.resume(true)
                                 return@launch
@@ -520,7 +510,7 @@ open class BaseLockScreenActivity : XpqBaseActivity<ActivityLockScreenBinding>(
                             if (resumed.get()) return@launch
 
                             // 如果 keyguard 已不在，可能已经被解锁
-                            if (waitForKeyguardOnCheck()) {
+                            if (KeyguardUnLock.waitForKeyguardOnCheck()) {
                                 sendLog("后备检查：设备已解锁（无需补救）")
                                 if (resumed.compareAndSet(false, true)) cont.resume(true)
                                 return@launch
@@ -548,22 +538,16 @@ open class BaseLockScreenActivity : XpqBaseActivity<ActivityLockScreenBinding>(
 
     val gestureJob = SupervisorJob()
     val gestureScope = CoroutineScope(Dispatchers.Default + gestureJob)
-    private val raceScope = CoroutineScope(
-        SupervisorJob() + Dispatchers.Default
-    )
 
 
     //🥇 系统解锁（0ms，最高优先级）
     private fun systemUnlockStrategy(
-        activity: Activity,
-        gestureJob: Job
+        activity: Activity
     ): UnlockStrategy =
         object : UnlockStrategy {
 
         override val name = "系统直调"
         override val delayMs = 0L
-
-
 
         override suspend fun unlock(): UnlockResult =
             suspendCancellableCoroutine { cont ->
@@ -571,28 +555,43 @@ open class BaseLockScreenActivity : XpqBaseActivity<ActivityLockScreenBinding>(
                 val km = activity.getSystemService(KeyguardManager::class.java)
                 if (km == null || Build.VERSION.SDK_INT < Build.VERSION_CODES.O) {
                     once.finish(UnlockResult.Success)
-                    gestureJob.cancel() // ⭐
                     return@suspendCancellableCoroutine
+                }
+
+                fun dismissSucceeded(){
+                    sendLog("[$name] 成功")
+                    once.finish(UnlockResult.Success)
+                    finishSelf(activity)
                 }
 
                 val cb = object : KeyguardManager.KeyguardDismissCallback() {
                     override fun onDismissSucceeded() {
-                        sendLog("[$name] 成功→ 取消 [手势上划]]")
-                        gestureJob.cancel() // ⭐⭐ 核心
-                        once.finish(UnlockResult.Success)
-                        finishSelf(activity)
+                        dismissSucceeded()
                     }
 
                     override fun onDismissCancelled() {
-                        sendLog("[$name] 取消")
-                        once.finish(UnlockResult.Failed)
-                        finishSelf(activity)
+
+                        if (KeyguardUnLock.keyguardIsOn()){
+                            dismissSucceeded()
+                        }else{
+                            sendLog("[$name] 取消")
+                            once.finish(UnlockResult.Failed)
+                            finishSelf(activity)
+                        }
+
+
                     }
 
                     override fun onDismissError() {
-                        sendLog("[$name] 错误")
-                        once.finish(UnlockResult.Failed)
-                        finishSelf(activity)
+                        if (KeyguardUnLock.keyguardIsOn()){
+                            dismissSucceeded()
+                        }else{
+                            sendLog("[$name] 错误")
+                            once.finish(UnlockResult.Failed)
+                            finishSelf(activity)
+                        }
+
+
                     }
                 }
 
@@ -624,6 +623,7 @@ open class BaseLockScreenActivity : XpqBaseActivity<ActivityLockScreenBinding>(
 
 
             }
+
     }
     //🥈 手势解锁（1500ms 后再启动）
     private fun gestureUnlockStrategy(delays: Long = 1500L) = object : UnlockStrategy {
@@ -650,52 +650,52 @@ open class BaseLockScreenActivity : XpqBaseActivity<ActivityLockScreenBinding>(
                         override fun onError() {}
                     }
                 )
-                sendLog("[$name] 结果=$ok")
-                if (ok) UnlockResult.Success else UnlockResult.Failed
+                if (ok) {
+                    sendLog("[$name] 成功")
+                    UnlockResult.Success
+                } else {
+                    sendLog("[$name] 失败")
+                    UnlockResult.Failed
+                }
+
+            } catch (t: CancellationException) {
+                sendLog("[$name] 被取消")
+                UnlockResult.Failed
             }catch (t: Throwable){
-                sendLog("[手势上划] 被系统解锁成功中断")
+                sendLog("[$name] 出现错误")
                 UnlockResult.Failed
             }
         }
     }
 
-    // 1️⃣ 第一阶段：并行竞速
-    private suspend fun racePrimaryStrategies(
-        activity: Activity,
-        timeoutMs: Long = 5000L
-    ): Boolean = withContext(raceScope.coroutineContext) {
+    private suspend fun unlockPrimary(activity: Activity,doInput: Boolean,): Boolean {
+        var bool = false
+        if (!doInput){
+             //无pin密码
+            // ① 先尝试系统解锁
+            val strategy = systemUnlockStrategy(activity)
+            val systemResult = strategy.unlock()
 
-        val strategies = listOf(
-            systemUnlockStrategy(activity,gestureJob),
-            gestureUnlockStrategy()
-        )
-
-        val result = withTimeoutOrNull(timeoutMs) {
-
-            val jobs = strategies.map { strategy ->
-                async {
-                    sendLog("[Race] 启动: ${strategy.name}")
-                    strategy.unlock()
-                }
+            if (systemResult is UnlockResult.Success) {
+                sendLog("[${strategy.name}] 成功 → 不执行手势上划")
+                bool = true
+            }else{
+                // ② 只有 Cancel / Error 才执行手势
+                sendLog("[${strategy.name}] 失败 → 执行手势上划")
+                val gestureResult = gestureUnlockStrategy().unlock()
+                bool = gestureResult is UnlockResult.Success
             }
 
-            select<UnlockResult> {
-                jobs.forEach { job ->
-                    job.onAwait { r ->
-                        if (r is UnlockResult.Success) {
-                            sendLog("[Race] 成功 → 取消其它策略")
-                            jobs.forEach { it.cancel() }
-                            UnlockResult.Success
-                        } else {
-                            UnlockResult.Failed
-                        }
-                    }
-                }
-            }
-
+        }else{
+            //有密码锁
+            finishSelf(activity)
+            sendLog("执行手势上划")
+            val gestureResult = gestureUnlockStrategy().unlock()
+            bool = gestureResult is UnlockResult.Success
         }
-        result == UnlockResult.Success
+        return bool
     }
+
    //2️⃣ 第二阶段：密码兜底（只在必要时执行）
    private suspend fun fallbackPasswordUnlock(): Boolean {
        val pwd = getUnlockPassword().orEmpty()
@@ -709,8 +709,7 @@ open class BaseLockScreenActivity : XpqBaseActivity<ActivityLockScreenBinding>(
        val success = withContext(Dispatchers.IO) {
            KeyguardUnLock.inputPassword(password = pwd)
        }
-
-       sendLog("[密码输入] 结果=$success")
+       sendLog(if(success){"故: 密码输入成功"}else{"故: 密码输入失败"})
        return success
    }
 
@@ -719,14 +718,14 @@ open class BaseLockScreenActivity : XpqBaseActivity<ActivityLockScreenBinding>(
      * 默认行为是防抖后延迟 3s，调用 doMyWork
      * 如果 子类 覆盖此方法 不会再防抖
      */
-    protected open fun onUnlockedAndProceed() {
+    protected open suspend fun onUnlockedAndProceed() {
         val currentTime = System.currentTimeMillis()
         if (currentTime - lastClickTime < debounceInterval) return
         lastClickTime = currentTime
 
-        KeyguardUnLock.appScope.launch {
+        //KeyguardUnLock.appScope.launch {
             doMyWork(index)
-        }
+        //}
     }
 
     /**
