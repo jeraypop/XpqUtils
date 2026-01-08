@@ -577,9 +577,9 @@ open class BaseLockScreenActivity : XpqBaseActivity<ActivityLockScreenBinding>(
 
                         withContext(Dispatchers.Main.immediate) {
                             if (unlocked) {
-                                finish(UnlockResult.Success, "$tag，成功解锁")
+                                finish(UnlockResult.Success, "$tag，实际也已解锁")
                             } else {
-                                finish(UnlockResult.Failed, "$tag，但实际未解锁")
+                                finish(UnlockResult.Failed, "$tag，实际也未解锁")
                             }
                         }
                     }
@@ -587,26 +587,23 @@ open class BaseLockScreenActivity : XpqBaseActivity<ActivityLockScreenBinding>(
 
 
                 val cb = object : KeyguardManager.KeyguardDismissCallback() {
-                    override fun onDismissSucceeded() = handleCallback("回调:成功")
-                    override fun onDismissCancelled() = handleCallback("回调:取消")
-                    override fun onDismissError() = handleCallback("回调:错误")
+                    override fun onDismissSucceeded() = handleCallback("系统回调:成功")
+                    override fun onDismissCancelled() = handleCallback("系统回调:取消")
+                    override fun onDismissError() = handleCallback("系统回调:错误")
                 }
                 cont.invokeOnCancellation {
-                    sendLog("[$name] unlock 协程被取消")
+                    sendLog("[$name] 协程被取消")
                     finishSelf(activity)
                 }
 
-                try {
-                    if (Looper.myLooper() == Looper.getMainLooper()) {
+                KeyguardUnLock.runOnUiThread(
+                    action = {
                         km.requestDismissKeyguard(activity, cb)
-                    } else {
-                        Handler(Looper.getMainLooper()).post {
-                            km.requestDismissKeyguard(activity, cb)
-                        }
-                    }
-                } catch (t: Throwable) {
-                    finish(UnlockResult.Failed, "requestDismissKeyguard 异常")
-                }
+                        sendLog("正在直接通过系统解锁")
+                    },
+                    onError = { t -> finish(UnlockResult.Failed, "requestDismissKeyguard 异常") }
+                )
+
 
             }
 

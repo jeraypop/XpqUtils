@@ -454,6 +454,24 @@ object KeyguardUnLock {
         }
     }
 
+    /**
+     * 在主线程中执行指定的函数
+     * @param action 要在主线程执行的函数
+     * @param onError 异常处理函数
+     */
+    fun runOnUiThread(action: () -> Unit, onError: (Throwable) -> Unit = {}) {
+        try {
+            if (Looper.myLooper() == Looper.getMainLooper()) {
+                action()
+            } else {
+                Handler(Looper.getMainLooper()).post {
+                    action()
+                }
+            }
+        } catch (t: Throwable) {
+            onError(t)
+        }
+    }
 
 /*    suspend fun waitForKeyguardOnCheck(
         times: Int = 15,
