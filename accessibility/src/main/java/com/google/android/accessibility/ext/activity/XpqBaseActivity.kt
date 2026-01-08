@@ -215,3 +215,15 @@ abstract class XpqBaseActivity<VB : ViewBinding>(
 
 
 }
+
+
+sealed class UnlockResult {
+    object Success : UnlockResult()
+    object Failed : UnlockResult()
+}
+
+interface UnlockStrategy {
+    val name: String
+    val delayMs: Long      // 启动延迟
+    suspend fun unlock(): UnlockResult
+}

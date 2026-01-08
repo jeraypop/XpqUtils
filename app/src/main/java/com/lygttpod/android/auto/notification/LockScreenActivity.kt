@@ -36,10 +36,10 @@ class LockScreenActivity : BaseLockScreenActivity() {
          */
         @JvmStatic
         fun dealWithPendingIntent(){
-            //已解锁
+            //已解锁 自动把pi从仓库清除
             val pair = LatestPendingIntentStore.getAndClearLatest()
             if (pair == null) {
-                sendLog("未找到最新 PendingIntent，跳过")
+                sendLog("未找到最新通知，取消跳转")
                 return
             }
             val (key, pending) = pair
@@ -50,12 +50,12 @@ class LockScreenActivity : BaseLockScreenActivity() {
                     //TiperFunction.piSend(pending)
                 //}
                 AliveUtils.piSend(pending)
-                sendLog("已触发 PendingIntent (key=$key)，并已从仓库清除")
+                sendLog("通知已跳转(如果实测没跳,则是安卓系统偶尔的抽疯)")
             } catch (e: PendingIntent.CanceledException) {
-                sendLog("PendingIntent 已被取消: ${e.message} (key=$key)")
+                sendLog("通知已取消跳转 已被取消: ${e.message} (key=$key)")
                 // 已用 getAndClearLatest() 原子清除，无需额外处理
             } catch (e: Exception) {
-                sendLog("触发 PendingIntent 出错: ${e.message} (key=$key)")
+                sendLog("通知跳转出错: ${e.message} (key=$key)")
                 // 出错情况下也已经从仓库清除了；如需重试，可考虑根据业务再保存或记录
             }
 

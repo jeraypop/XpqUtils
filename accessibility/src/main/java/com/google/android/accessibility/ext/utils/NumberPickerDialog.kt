@@ -1,5 +1,6 @@
 package com.google.android.accessibility.ext.utils
 
+import android.app.KeyguardManager
 import android.content.Context
 import android.content.Intent
 import android.graphics.Color
@@ -23,6 +24,7 @@ import androidx.appcompat.widget.AppCompatButton
 import androidx.appcompat.widget.SwitchCompat
 import com.android.accessibility.ext.R
 import com.google.android.accessibility.ext.utils.AliveUtils.keepAliveByFloatingWindow
+import com.google.android.accessibility.ext.utils.KeyguardUnLock.mKeyguardManager
 
 import com.google.android.accessibility.ext.window.OverlayLog
 import com.google.android.accessibility.selecttospeak.accessibilityService
@@ -246,6 +248,14 @@ object NumberPickerDialog {
             }
 
             setOnClickListener {
+                if (mKeyguardManager == null) {
+                    mKeyguardManager = context.getSystemService(Context.KEYGUARD_SERVICE) as KeyguardManager
+                }
+                if (mKeyguardManager?.isKeyguardLocked== true){
+                    AliveUtils.toast(msg = "第二次判断 键盘锁定！")
+                }else{
+                    AliveUtils.toast(msg = "第二次判断 键盘已解锁！")
+                }
                 //
                 AlertDialog.Builder(context)
                     .setTitle("增加解锁成功率")
@@ -484,19 +494,7 @@ object NumberPickerDialog {
 
             // ★ 只有 1 -> 0/2 / 3 才提示
             if (oldValue == 1 && newValue != 1) {
-              /*  if (KeyguardUnLock.keyguardIsOn()){
-                    AliveUtils.toast(msg = "键盘已解锁！")
-                    if (mKeyguardManager == null) {
-                        mKeyguardManager = context.applicationContext.getSystemService(Context.KEYGUARD_SERVICE) as KeyguardManager
-                    }
-                    if (mKeyguardManager?.isKeyguardLocked== true){
-                        AliveUtils.toast(msg = "第二次判断 键盘没解锁！")
-                    }else{
-                        AliveUtils.toast(msg = "第二次判断 键盘已解锁！")
-                    }
-                }else{
-                    AliveUtils.toast(msg = "键盘没解锁！")
-                }*/
+
                 if (KeyguardUnLock.suoPingIsOne.get()){
                     val tit = if (newValue == 0){"关闭解锁方案"}else{"切换解锁方案"}
                     val msg = if (newValue == 0){"从方案1关闭"}else{"从方案1切换到其它方案"}

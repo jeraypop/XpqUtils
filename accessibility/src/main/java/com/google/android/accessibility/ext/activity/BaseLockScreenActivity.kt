@@ -16,7 +16,7 @@ import com.android.accessibility.ext.databinding.ActivityLockScreenBinding
 import com.google.android.accessibility.ext.task.formatTime
 import com.google.android.accessibility.ext.utils.DeviceLockState
 import com.google.android.accessibility.ext.utils.KeyguardUnLock
-import com.google.android.accessibility.ext.utils.KeyguardUnLock.getDeviceStatusPlus
+
 import com.google.android.accessibility.ext.utils.KeyguardUnLock.sendLog
 import com.google.android.accessibility.ext.utils.LibCtxProvider.Companion.appContext
 import com.google.android.accessibility.ext.utils.MMKVConst
@@ -69,7 +69,9 @@ open class BaseLockScreenActivity : XpqBaseActivity<ActivityLockScreenBinding>(
          */
         @JvmOverloads
         @JvmStatic
-        fun openBaseLockScreenActivity(context: Context = appContext, cls: Class<out Activity>, i: Int) {
+        fun openBaseLockScreenActivity(context: Context = appContext,
+                                       cls: Class<out Activity> = BaseLockScreenActivity::class.java,
+                                       i: Int) {
             val currentTime = System.currentTimeMillis()
             if (currentTime - lastLaunchTime < LAUNCH_INTERVAL) {
                 KeyguardUnLock.sendLog("防抖：Activity启动被忽略，间隔太短")
@@ -196,8 +198,9 @@ open class BaseLockScreenActivity : XpqBaseActivity<ActivityLockScreenBinding>(
                 window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
                 if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) { /* optional */ }
                 sendLog("设备系统大于8.1  执行点亮屏幕")
-                //判定 是否点亮
-                if (!waitForScreenOnCheck(5,200)){
+                //判定 是否点亮 waitForScreenOnCheck()
+                //KeyguardUnLock.waitScreenLiang()
+                if (!KeyguardUnLock.waitScreenLiang()){
                     sendLog("屏幕依然黑屏,部分品牌机型上,请检查是否开启了,[后台弹出界面权限]" +
                             ", [允许在锁屏上显示]")
                     sendLog("尝试采取旧方法重新点亮(建议开启上述提到的 两个权限)")
@@ -226,8 +229,8 @@ open class BaseLockScreenActivity : XpqBaseActivity<ActivityLockScreenBinding>(
     }
 
     suspend fun waitForScreenOnCheck(
-        times: Int = 8,
-        intervalMs: Long = 200L
+        times: Int = 15,
+        intervalMs: Long = 100L
     ): Boolean {
         repeat(times) { attempt ->
             if (KeyguardUnLock.screenIsOn()) {
@@ -251,7 +254,7 @@ open class BaseLockScreenActivity : XpqBaseActivity<ActivityLockScreenBinding>(
 
     protected open suspend fun requestDeviceUnlock(activity: Activity, timeoutMs: Long = 10000L): Boolean {
 
-        val status = getDeviceStatusPlus()
+        val status = KeyguardUnLock.getDeviceStatusPlus()
         when (status.screenState) {
             ScreenState.ON -> {
                 sendLog("屏幕亮屏状态")
@@ -328,7 +331,7 @@ open class BaseLockScreenActivity : XpqBaseActivity<ActivityLockScreenBinding>(
 
 
 
-    protected open suspend fun tryRequestDismissKeyguard(activity: Activity, doInput: Boolean, timeoutMs: Long = 5000L)
+ /*   protected open suspend fun tryRequestDismissKeyguard(activity: Activity, doInput: Boolean, timeoutMs: Long = 5000L)
     : Boolean = coroutineScope{
         val result = withTimeoutOrNull(timeoutMs) {
             suspendCancellableCoroutine<Boolean> { cont ->
@@ -370,8 +373,8 @@ open class BaseLockScreenActivity : XpqBaseActivity<ActivityLockScreenBinding>(
                                     KeyguardUnLock.moveAwait(
                                         service = accessibilityService,
                                         moveCallback = object : MoveCallback {
-                                            override fun onSuccess() { /* log in callback if needed */ }
-                                            override fun onError() { /* log in callback if needed */ }
+                                            override fun onSuccess() {  }
+                                            override fun onError() { }
                                         }
                                     )
                                 } catch (t: Throwable) {
@@ -498,7 +501,7 @@ open class BaseLockScreenActivity : XpqBaseActivity<ActivityLockScreenBinding>(
                     }
 
                     // 在协程被取消时不做额外清理（attempt 内部受 attemptStarted 控制）
-                    cont.invokeOnCancellation { _ -> /* nothing to cleanup */ }
+                    cont.invokeOnCancellation { _ ->  }
 
                     //🔵 路径 C：系统没回调（最恶心但真实）
                     // 原来的后备入口：延时后尝试（仅在尚未由回调触发 attempt 时执行）
@@ -534,7 +537,7 @@ open class BaseLockScreenActivity : XpqBaseActivity<ActivityLockScreenBinding>(
 
          result ?: false
     }
-
+*/
 
     val gestureJob = SupervisorJob()
     val gestureScope = CoroutineScope(Dispatchers.Default + gestureJob)
@@ -757,15 +760,6 @@ open class BaseLockScreenActivity : XpqBaseActivity<ActivityLockScreenBinding>(
 }
 
 
-sealed class UnlockResult {
-    object Success : UnlockResult()
-    object Failed : UnlockResult()
-}
 
-private interface UnlockStrategy {
-    val name: String
-    val delayMs: Long      // 启动延迟
-    suspend fun unlock(): UnlockResult
-}
 
 

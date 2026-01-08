@@ -30,15 +30,19 @@
 
     <application android:usesCleartextTraffic="true">
         <activity
-            android:name="com.google.android.accessibility.ext.activity.LockScreenActivity"
+            android:name="com.google.android.accessibility.ext.activity.BaseLockScreenActivity"
             android:exported="true"
             android:launchMode="singleTask"
+            android:excludeFromRecents="true"
+            android:finishOnTaskLaunch="true"
             android:showForAllUsers="true"
             android:showWhenLocked="true"
             android:theme="@style/Theme.AlarmDialog.xpq"
             android:turnScreenOn="true">
 
         </activity>
+
+
         <activity
             android:name="com.google.android.accessibility.ext.activity.UnlockRedirectActivity"
             android:exported="true"

@@ -43,6 +43,7 @@ class ScreenStateReceiver(
                     KeyguardUnLock.wakeKeyguardOff(tip = "广播:屏幕已关闭")
                 }
                 setSuoPingIsOne()
+                KeyguardUnLock.keyguardIsGone100.set(false)
             }
 
             Intent.ACTION_SCREEN_ON -> {
@@ -59,6 +60,8 @@ class ScreenStateReceiver(
                 Log.e("监听屏幕啊", "总真正解锁完成")
                 cb.onUserPresent()
                 //disableKeyguard后,接收不到这个广播
+                KeyguardUnLock.keyguardIsGone100.set(true)
+                KeyguardUnLock.sendLog("系统广播:屏幕100%解锁成功")
             }
         }
     }

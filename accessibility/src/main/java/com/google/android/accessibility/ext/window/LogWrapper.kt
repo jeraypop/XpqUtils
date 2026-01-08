@@ -17,6 +17,8 @@ import com.android.accessibility.ext.databinding.ViewDialogXpqcopyBinding
 import com.android.accessibility.ext.databinding.ViewEditFileNameXpqBinding
 import com.blankj.utilcode.util.TimeUtils
 import com.google.android.accessibility.ext.CoroutineWrapper
+import com.google.android.accessibility.ext.task.formatTime
+import com.google.android.accessibility.ext.task.getNowString
 import com.google.android.accessibility.ext.utils.AliveUtils
 import com.google.android.accessibility.ext.utils.DigestUtils.md5Hex
 import com.google.android.accessibility.ext.utils.LibCtxProvider.Companion.appContext
@@ -65,8 +67,7 @@ object LogWrapper {
 
         CoroutineWrapper.launch {
             logLock.withLock {
-                val now = TimeUtils.getNowString()
-
+                val now = System.currentTimeMillis().getNowString()
                 if (logCache.isNotEmpty()) {
                     logCache.append('\n')
                 }

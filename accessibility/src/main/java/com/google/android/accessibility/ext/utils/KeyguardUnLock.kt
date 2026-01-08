@@ -21,6 +21,9 @@ import android.util.Log
 import android.view.Display
 import android.view.accessibility.AccessibilityNodeInfo
 import androidx.annotation.IntRange
+import com.google.android.accessibility.ext.task.PERIOD
+import com.google.android.accessibility.ext.task.TIMEOUT
+import com.google.android.accessibility.ext.task.retryCheckTaskWithLog
 import com.google.android.accessibility.ext.utils.LibCtxProvider.Companion.appContext
 import com.google.android.accessibility.ext.window.ClickIndicatorManager
 import com.google.android.accessibility.ext.window.LogWrapper
@@ -81,7 +84,12 @@ data class DeviceStatus(
 
 
 object KeyguardUnLock {
+    //只在设备 不安全锁时调用   disableKeyguard 为 true
+    //                      reenableKeyguard 为 false
     val keyguardIsGone = AtomicBoolean(false)
+    //只在系统屏幕广播调用 真正完全解锁和关闭
+    val keyguardIsGone100 = AtomicBoolean(false)
+    //只在系统屏幕广播调用 点亮和关闭
     val suoPingIsOne = AtomicBoolean(false)
     @JvmOverloads
     @JvmStatic
@@ -134,7 +142,7 @@ object KeyguardUnLock {
      */
     @JvmOverloads
     @JvmStatic
-    fun getDeviceLockState(context: Context = appContext,byKeyguard: Boolean = true): DeviceLockState {
+    fun getDeviceLockState(context: Context = appContext,byKeyguard: Boolean = true,jian: Boolean = true): DeviceLockState {
         val appCtx = context.applicationContext
         if (mKeyguardManager == null) {
             mKeyguardManager = appCtx.getSystemService(KeyguardManager::class.java)
@@ -143,7 +151,7 @@ object KeyguardUnLock {
 
 
         val deviceSecure = mKeyguardManager!!.isDeviceSecure  // 设备是否配置了 PIN/Pattern/密码/生物 等
-        val deviceLocked = getDeviceLocked()
+        val deviceLocked = getDeviceLocked(jian = jian)
            /* try {
             // isDeviceLocked  当前设备是否处于“锁定”状态（需要验证才能访问用户数据）
             //isKeyguardLocked  UI 锁屏
@@ -169,12 +177,13 @@ object KeyguardUnLock {
     @JvmStatic
     fun getDeviceStatusPlus(
         context: Context = appContext,
-        byKeyguard: Boolean = true
+        byKeyguard: Boolean = true,
+        jian: Boolean = true
     ): DeviceStatus {
         //“先屏幕、后锁屏”的执行顺序
         return DeviceStatus(
             screenState = getScreenState(context),
-            lockState = getDeviceLockState(context, byKeyguard)
+            lockState = getDeviceLockState(context, byKeyguard, jian)
         )
     }
     /**
@@ -195,93 +204,13 @@ object KeyguardUnLock {
      * 逻辑关系：通常情况下，isDeviceLocked() = isKeyguardLocked() && isDeviceSecure()。即：屏幕锁着 且 手机有密码保护。
      *
     * */
-/*    @JvmOverloads
-    @JvmStatic
-    fun getDeviceStatusPlus(context: Context =appContext , byKeyguard: Boolean = true): DeviceStatus {
-        val appCtx = context.applicationContext
 
-        val pm = appCtx.getSystemService(PowerManager::class.java)
-        val isInteractive = pm?.isInteractive ?: false
-
-        // 初步 raw display state 检测（需要 API 23+ 来支持 DOZE display states）
-        var rawScreenState = ScreenState.UNKNOWN
-        if (isInteractive) {
-            rawScreenState = ScreenState.ON
-        }
-        else {
-            // 非交互状态，尝试通过 DisplayManager / PowerManager 辨别 AOD / DOZING / OFF
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
-                // 优先使用 Display.state 判断 AOD / DOZE 状态（更直接）
-                val dm = appCtx.getSystemService(DisplayManager::class.java)
-                val display = dm?.getDisplay(Display.DEFAULT_DISPLAY)
-                val dispState = display?.state ?: Display.STATE_UNKNOWN
-
-                rawScreenState = when (dispState) {
-                    Display.STATE_DOZE -> ScreenState.AOD
-                    Display.STATE_DOZE_SUSPEND -> ScreenState.DOZING
-                    else -> {
-                        // dispState 未指示 doze：再看 PowerManager 的 device idle（Doze 模式）
-                        val isDeviceIdle = try {
-                            pm?.isDeviceIdleMode ?: false
-                        } catch (t: Throwable) {
-                            false
-                        }
-
-                        if (isDeviceIdle) ScreenState.DOZING else ScreenState.OFF
-                    }
-                }
-            } else {
-                // 低版本没有 DOZE display state，退回到简单判断
-                rawScreenState = if (isInteractive) ScreenState.ON else ScreenState.OFF
-            }
-        }
-
-        val km = appCtx.getSystemService(KeyguardManager::class.java)
-        if (km == null) {
-            // 无法获取 KeyguardManager：保守认为未配置安全锁，返回当前检测到的屏幕状态
-            return DeviceStatus(
-                lockState = DeviceLockState.Unlocked(isDeviceSecure = false),
-                screenState = rawScreenState
-            )
-        }
-
-        val deviceSecure = km.isDeviceSecure  // 设备是否配置了 PIN/Pattern/密码/生物 等
-
-        //val deviceLocked = getDeviceLocked(km,pm,byKeyguard)
-        val deviceLocked = try {
-            if (byKeyguard) km.isKeyguardLocked else km.isDeviceLocked
-        } catch (e: Exception) {
-            false
-        }
-
-        Log.e("我就看看傻", "DeviceLocked= "+km.isDeviceLocked+" Keyguard= "+km.isKeyguardLocked)
-        // 实效屏幕状态策略：若设备未锁定，则视为 ON（避免短暂竞态导致的误判）
-        val effectiveScreenState = if (!deviceLocked) {
-            ScreenState.ON
-        } else {
-            rawScreenState
-        }
-
-        val lockState = when {
-            // 设备没有被锁（可直接使用），无论是否配置安全锁
-            !deviceLocked -> DeviceLockState.Unlocked(isDeviceSecure = deviceSecure)
-
-            // 设备被锁并且没有配置安全锁（例如只有滑动解锁） -> 可以自动解除（系统可以直接 dismiss）
-            deviceLocked && !deviceSecure -> DeviceLockState.LockedNotSecure
-
-            // 设备被锁且配置了安全锁 -> 需要用户验证
-            deviceLocked && deviceSecure -> DeviceLockState.LockedSecure
-
-            else -> DeviceLockState.Unlocked(isDeviceSecure = deviceSecure) // 保守兜底
-        }
-
-        return DeviceStatus(lockState = lockState, screenState = effectiveScreenState)
-    }*/
     @JvmOverloads
     @JvmStatic
     fun getDeviceLocked(
         context: Context = appContext,
-        byKeyguard: Boolean = true
+        byKeyguard: Boolean = true,
+        jian: Boolean = true
     ): Boolean {
         if (mKeyguardManager == null) {
             //mKeyguardManager = context.applicationContext.getSystemService(KeyguardManager::class.java)
@@ -291,30 +220,30 @@ object KeyguardUnLock {
         if (mPowerManager == null) {
             mPowerManager = context.applicationContext.getSystemService(Context.POWER_SERVICE) as PowerManager
         }
-        val locked = if (getUnLockMethod()==1){
-           //解锁方案1
-            if (mPowerManager!!.isInteractive){
-                // 屏幕亮屏状态+设备没有设置安全pin
-                // 则执行完 wakeKeyguardOn()后,可直接赋值为 未锁定
-                //屏幕点亮 自动禁用键盘锁 为开
-                //if ((!mKeyguardManager!!.isDeviceSecure) && getAutoDisableKeyguard()){
-                //    wakeKeyguardOn()
-                //    false
-                //}else{
-                //    if (byKeyguard) mKeyguardManager!!.isKeyguardLocked else mKeyguardManager!!.isDeviceLocked
-                //}
-                keyguardIsGone.get()
-            }else{
-                true
-            }
-        }else{
+        var locked = false
+        locked = if (jian) {
             try {
                 if (byKeyguard) mKeyguardManager!!.isKeyguardLocked else mKeyguardManager!!.isDeviceLocked
             } catch (e: Exception) {
                 false
             }
+        } else {
+            if (getUnLockMethod() == 1) {
+                //解锁方案1
+                if (mPowerManager!!.isInteractive) {
+                    keyguardIsGone.get()
+                } else {
+                    //黑屏,直接判断 键盘锁住
+                    true
+                }
+            } else {
+                try {
+                    if (byKeyguard) mKeyguardManager!!.isKeyguardLocked else mKeyguardManager!!.isDeviceLocked
+                } catch (e: Exception) {
+                    false
+                }
+            }
         }
-
 
         return locked
     }
@@ -341,19 +270,192 @@ object KeyguardUnLock {
     suspend fun getUnLockResult(
         isUnLock: Boolean = false
     ): Boolean {
-        val eWai = if (getZQSuccess()){
+        val eWai =if (keyguardIsGone100.get()){
+            //广播监听到 完全解锁
+           true
+        }else if (getZQSuccess()){
             //不额外
-            isUnLock || waitForKeyguardOnCheck()
+            sendLog("解锁成功判定更宽松(不额外判定键盘锁状态)")
+            isUnLock || waitKeyguardOn()
+
         }else{
             //额外
-            isUnLock && waitForKeyguardOnCheck()
+            sendLog("解锁成功判定更严格(附加判定键盘锁状态)")
+            isUnLock && waitKeyguardOn()
+
         }
         return eWai
     }
 
-    suspend fun waitForKeyguardOnCheck(
-        times: Int = 8,
-        intervalMs: Long = 200L
+    // 保留工具方法
+    suspend fun <T>delayAction(delayMillis: Long = 500L, block: suspend () -> T): T {
+        delay(delayMillis)
+        return block()
+    }
+
+    /**
+     * 判断是否亮屏
+     * 如果黑屏,调用 旧版 点亮方法
+     */
+    suspend fun waitScreenLiang(): Boolean {
+        return delayAction(10) {
+            retryCheckTaskWithLog("判断是否点亮屏幕",1000L,100L,true) {
+                val status = KeyguardUnLock.getScreenState()
+                // 访问屏幕状态
+                when (status) {
+                    ScreenState.ON ->{
+                        sendLog("屏幕亮屏状态")
+                        true
+                    }
+                    ScreenState.AOD -> {
+                        KeyguardUnLock.wakeScreenOn()
+                        sendLog("设备 AOD 模式,需要唤醒")
+                        false
+                    }
+                    ScreenState.DOZING -> {
+                        KeyguardUnLock.wakeScreenOn()
+                        sendLog("设备 Doze 模式中(可能引起定时不准),需要唤醒")
+                        false
+                    }
+                    ScreenState.OFF -> {
+                        KeyguardUnLock.wakeScreenOn()
+                        sendLog("屏幕关闭状态,需要唤醒")
+                        false
+                    }
+                    ScreenState.UNKNOWN -> {
+                        KeyguardUnLock.wakeScreenOn()
+                        sendLog("未知状态,需要唤醒")
+                        false
+                    }
+                }
+            }
+        }
+    }
+    /**
+     * 判断是否解除键盘锁
+     *
+     */
+    suspend fun waitKeyguardOn(jian: Boolean = true,
+                               timeOutMillis: Long = 1500L,
+                               periodMillis: Long = 100L
+    ): Boolean {
+        return delayAction(10) {
+            retryCheckTaskWithLog("判断是否解除键盘锁",timeOutMillis,periodMillis,true) {
+                if (jian) {
+                    KeyguardUnLock.keyguardIsOn(jian = jian)
+                } else {
+                    val status = KeyguardUnLock.getDeviceLockState(jian = jian)
+                    // 访问键盘锁状态
+                    when (val lockState = status) {
+                        is DeviceLockState.Unlocked -> {
+                            val msg = if (lockState.isDeviceSecure) "设备已被解锁（有安全锁）" else "设备已被解锁（无安全锁）"
+                            sendLog(msg)
+                            true
+                        }
+                        DeviceLockState.LockedNotSecure -> {
+                            //设备被锁屏了，但是没有安全锁  {如“滑动解锁”或无锁屏}
+                            sendLog("设备被锁屏,未设置安全锁,[可能是 滑动解锁或无锁屏]")
+                            false
+                        }
+                        DeviceLockState.LockedSecure -> {
+                            //设备被锁屏了，并且有安全锁 （如 PIN、图案、指纹、人脸）
+                            sendLog("设备被锁屏,设置了安全锁 [PIN、图案、密码、指纹、Face ID 等]")
+                            false
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    suspend fun waitJianPanUnLock(pwd: String = getScreenPassWord(),
+                                  unLockMethod: Int = getUnLockMethod(),
+                                  timeOutMillis: Long = TIMEOUT,
+                                  periodMillis: Long = PERIOD
+    ): Boolean {
+        return delayAction(10) {
+            retryCheckTaskWithLog("等待解除锁定屏幕",timeOutMillis,periodMillis) {
+                var isOn = false
+                val status = KeyguardUnLock.getDeviceLockState()
+                // 访问锁状态
+                when (val lockState = status) {
+                    is DeviceLockState.Unlocked -> {
+                        val msg = if (lockState.isDeviceSecure) "设备已被解锁（有安全锁）,即将执行后续操作" else "设备已被解锁（无安全锁）,即将执行后续操作"
+                        sendLog(msg)
+                        isOn = true
+                    }
+                    DeviceLockState.LockedNotSecure -> {
+                        //设备被锁屏了，但是没有安全锁  {如“滑动解锁”或无锁屏}
+                        sendLog("设备被锁屏,未设置安全锁,[可能是 滑动解锁或无锁屏]")
+                        sendLog("准备上划解锁")
+                        if (unLockMethod == 1){
+                            //旧版 禁用键盘锁
+                            KeyguardUnLock.wakeKeyguardOn()
+                            //是否额外判断键盘锁
+                            val eWai = KeyguardUnLock.getUnLockResult(true)
+                            isOn = eWai
+                        }else if (unLockMethod == 2){
+                            //上划
+                            val huaok = KeyguardUnLock.moveAwait(
+                                service = accessibilityService,
+                                moveCallback = object : MoveCallback {
+                                    override fun onSuccess() {
+                                        sendLog("上划完成")
+                                    }
+
+                                    override fun onError() {
+                                        sendLog("上划取消或失败")
+                                    }
+                                }
+                            )
+                            //是否额外判断键盘锁
+                            val eWai = KeyguardUnLock.getUnLockResult(huaok)
+                            isOn = eWai
+                        }
+
+
+                    }
+                    DeviceLockState.LockedSecure -> {
+                        //设备被锁屏了，并且有安全锁 （如 PIN、图案、指纹、人脸）
+                        sendLog("设备被锁屏,设置了安全锁 [PIN、图案、密码、指纹、Face ID 等]")
+                        sendLog("准备上划,呼出锁屏输入解锁密码界面")
+                        //上划
+                        val huaOK = KeyguardUnLock.moveAwait(
+                            service = accessibilityService,
+                            moveCallback = object : MoveCallback {
+                                override fun onSuccess() {
+                                    println("🟢 手势完成")
+                                    sendLog("上划完成")
+                                }
+
+                                override fun onError() {
+                                    println("🔴 手势取消或失败")
+                                    sendLog("上划取消或失败")
+                                }
+                            }
+                        )
+                        if (huaOK){
+                            sendLog("屏幕上划成功")
+                            delay(500)
+                            //输入密码
+                            val inputOK = KeyguardUnLock.inputPassword(password = pwd)
+                            //是否额外判断键盘锁
+                            val eWai = KeyguardUnLock.getUnLockResult(inputOK)
+                            isOn = eWai
+                        }
+
+
+                    }
+                }
+                isOn
+            }
+        }
+    }
+
+
+/*    suspend fun waitForKeyguardOnCheck(
+        times: Int = 15,
+        intervalMs: Long = 100L
     ): Boolean {
         repeat(times) { attempt ->
             if (KeyguardUnLock.keyguardIsOn()) {
@@ -363,7 +465,7 @@ object KeyguardUnLock {
             if (attempt < times - 1) delay(intervalMs)
         }
         return false
-    }
+    }*/
 
     @JvmStatic
     fun getLockID(): String {
@@ -532,19 +634,12 @@ object KeyguardUnLock {
 
     @JvmOverloads
     @JvmStatic
-    fun keyguardIsOn(context: Context = appContext): Boolean {
+    fun keyguardIsOn(context: Context = appContext,jian: Boolean = true): Boolean {
         var isKeyguardOn = false
         if (mKeyguardManager == null) {
             mKeyguardManager = context.applicationContext.getSystemService(Context.KEYGUARD_SERVICE) as KeyguardManager
         }
-
-        //if (mPowerManager == null) {
-            //mPowerManager = context.getSystemService(Context.POWER_SERVICE) as PowerManager
-        //}
-
-        // mKeyguardManager?.isKeyguardLocked== true
-        // getDeviceLocked(mKeyguardManager!!,mPowerManager!!,true)
-        if (getDeviceLocked()){
+        if (getDeviceLocked(jian = jian)){
             //键盘锁定,需要解锁
             isKeyguardOn = false
         }else{
