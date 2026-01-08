@@ -52,7 +52,7 @@ class LockScreenActivity : BaseLockScreenActivity() {
                 AliveUtils.piSend(pending)
                 sendLog("通知已跳转(如果实测没跳,则是安卓系统偶尔的抽疯)")
             } catch (e: PendingIntent.CanceledException) {
-                sendLog("通知已取消跳转 已被取消: ${e.message} (key=$key)")
+                sendLog("通知已取消跳转: ${e.message} (key=$key)")
                 // 已用 getAndClearLatest() 原子清除，无需额外处理
             } catch (e: Exception) {
                 sendLog("通知跳转出错: ${e.message} (key=$key)")

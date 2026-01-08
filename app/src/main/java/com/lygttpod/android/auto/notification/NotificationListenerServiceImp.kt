@@ -12,6 +12,7 @@ import com.google.android.accessibility.ext.activity.TaskByJieSuoHelper
 import com.google.android.accessibility.ext.activity.TaskByJieSuoHelper1
 import com.google.android.accessibility.ext.utils.AliveUtils
 import com.google.android.accessibility.ext.utils.KeyguardUnLock
+import com.google.android.accessibility.ext.utils.KeyguardUnLock.sendLog
 import com.google.android.accessibility.ext.utils.KeyguardUnLock.unlockMove
 import com.google.android.accessibility.ext.utils.LibCtxProvider.Companion.appContext
 import com.google.android.accessibility.notification.LatestPendingIntentStore
@@ -88,18 +89,20 @@ class NotificationListenerServiceImp : NotificationListenerServiceAbstract() {
                 }else if (unLockMethod==3){
                     BaseLockScreenActivity.openBaseLockScreenActivity(cls=LockScreenActivity::class.java, i=1)
                 } else if (unLockMethod == 0){
+                    sendLog("开始执行默认解锁方案")
                     //关闭,   啥也不做
                     //是否需要亮屏唤醒屏幕
                     if (!KeyguardUnLock.screenIsOn()) {
                         //屏幕黑屏需要唤醒
-                        //sendLog("屏幕黑屏状态,需要唤醒")
+                        sendLog("屏幕黑屏状态,需要唤醒")
                         KeyguardUnLock.wakeScreenOn()
                     } else {
-                        //sendLog("屏幕亮屏状态,不需要唤醒")
+                        sendLog("屏幕亮屏状态,不需要唤醒")
                     }
 
                     val pwd = KeyguardUnLock.getScreenPassWord()
                     if (!KeyguardUnLock.deviceIsSecure()||TextUtils.isEmpty(pwd)){
+                        sendLog("设备未设置安全锁,或者解锁密码未设置")
                         //滑动锁屏
                         //因为如果是滑动解锁的话,调用disablekeyguad后,结果将不再准确
                         //所以我们就不再判断键盘是否锁了
@@ -111,6 +114,7 @@ class NotificationListenerServiceImp : NotificationListenerServiceAbstract() {
 
                     }else{
                         //pin锁屏
+                        sendLog("设备设置了安全密码锁,开始滑动并输入密码")
                         unlockMove(password = pwd, isJava = true)
                         AliveUtils.piSend(pI)
                     }

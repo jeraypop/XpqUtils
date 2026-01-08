@@ -297,9 +297,11 @@ object KeyguardUnLock {
      * 判断是否亮屏
      * 如果黑屏,调用 旧版 点亮方法
      */
-    suspend fun waitScreenLiang(): Boolean {
+    suspend fun waitScreenLiang(timeOutMillis: Long = 1500L,
+        periodMillis: Long = 50L
+    ): Boolean {
         return delayAction(10) {
-            retryCheckTaskWithLog("判断是否点亮屏幕",1000L,100L,true) {
+            retryCheckTaskWithLog("判断是否点亮屏幕",timeOutMillis,periodMillis,true) {
                 val status = KeyguardUnLock.getScreenState()
                 // 访问屏幕状态
                 when (status) {
@@ -337,7 +339,7 @@ object KeyguardUnLock {
      */
     suspend fun waitKeyguardOn(jian: Boolean = true,
                                timeOutMillis: Long = 1500L,
-                               periodMillis: Long = 100L
+                               periodMillis: Long = 50L
     ): Boolean {
         return delayAction(10) {
             retryCheckTaskWithLog("判断是否解除键盘锁",timeOutMillis,periodMillis,true) {

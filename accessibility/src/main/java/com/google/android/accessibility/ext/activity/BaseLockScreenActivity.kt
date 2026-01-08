@@ -6,6 +6,8 @@ import android.content.Context
 import android.content.Intent
 import android.os.Build
 import android.os.Bundle
+import android.os.Handler
+import android.os.Looper
 import android.util.Log
 import android.view.Gravity
 import android.view.WindowManager
@@ -560,70 +562,51 @@ open class BaseLockScreenActivity : XpqBaseActivity<ActivityLockScreenBinding>(
                     once.finish(UnlockResult.Success)
                     return@suspendCancellableCoroutine
                 }
+                fun finish(result: UnlockResult, log: String) {
+                    sendLog("[$name] $log")
+                    once.finish(result)
+                    finishSelf(activity)
+                }
+                val callbackOnce = AtomicBoolean(false)
+                fun handleCallback(tag: String) {
+                    //防止多次执行
+                    if (!callbackOnce.compareAndSet(false, true)) return
+                    CoroutineScope(cont.context + Dispatchers.Default).launch {
 
-                fun dismissSucceeded(){
-                    sendLog("[$name] 成功")
-                    once.finish(UnlockResult.Success)
+                        val unlocked = KeyguardUnLock.waitKeyguardOn()
+
+                        withContext(Dispatchers.Main.immediate) {
+                            if (unlocked) {
+                                finish(UnlockResult.Success, "$tag，成功解锁")
+                            } else {
+                                finish(UnlockResult.Failed, "$tag，但实际未解锁")
+                            }
+                        }
+                    }
+                }
+
+
+                val cb = object : KeyguardManager.KeyguardDismissCallback() {
+                    override fun onDismissSucceeded() = handleCallback("回调:成功")
+                    override fun onDismissCancelled() = handleCallback("回调:取消")
+                    override fun onDismissError() = handleCallback("回调:错误")
+                }
+                cont.invokeOnCancellation {
+                    sendLog("[$name] unlock 协程被取消")
                     finishSelf(activity)
                 }
 
-                val cb = object : KeyguardManager.KeyguardDismissCallback() {
-                    override fun onDismissSucceeded() {
-                        dismissSucceeded()
-                    }
-
-                    override fun onDismissCancelled() {
-
-                        if (KeyguardUnLock.keyguardIsOn()){
-                            dismissSucceeded()
-                        }else{
-                            sendLog("[$name] 取消")
-                            once.finish(UnlockResult.Failed)
-                            finishSelf(activity)
-                        }
-
-
-                    }
-
-                    override fun onDismissError() {
-                        if (KeyguardUnLock.keyguardIsOn()){
-                            dismissSucceeded()
-                        }else{
-                            sendLog("[$name] 错误")
-                            once.finish(UnlockResult.Failed)
-                            finishSelf(activity)
-                        }
-
-
-                    }
-                }
-
-                fun rDKeyguard() {
-                    try {
+                try {
+                    if (Looper.myLooper() == Looper.getMainLooper()) {
                         km.requestDismissKeyguard(activity, cb)
-                    } catch (t: Throwable) {
-                        once.finish(UnlockResult.Failed)
-                    }
-                }
-
-                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
-                    try {
-                        activity.mainExecutor.execute {
-                            rDKeyguard()
-                        }
-                    } catch (t: Throwable) {
-                        activity.runOnUiThread {
-                            rDKeyguard()
+                    } else {
+                        Handler(Looper.getMainLooper()).post {
+                            km.requestDismissKeyguard(activity, cb)
                         }
                     }
-                } else {
-                    activity.runOnUiThread {
-                        rDKeyguard()
-                    }
+                } catch (t: Throwable) {
+                    finish(UnlockResult.Failed, "requestDismissKeyguard 异常")
                 }
-
-
-
 
             }
 
