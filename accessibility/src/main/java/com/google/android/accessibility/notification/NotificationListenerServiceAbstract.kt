@@ -392,6 +392,7 @@ abstract class NotificationListenerServiceAbstract : NotificationListenerService
     override fun onDestroy() {
         runCatching { listeners.forEach { it.onDestroy() } }
         super.onDestroy()
+        Log.e("监听屏幕啊", "通知栏服务：onDestroy" )
         UnifiedBroadcastManager.unregister(
             channel = CHANNEL_SCREEN,
             owner = this,

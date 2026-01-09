@@ -17,6 +17,7 @@ import com.android.accessibility.ext.R
 import com.google.android.accessibility.ext.AssistsServiceListener
 import com.google.android.accessibility.ext.utils.AliveUtils
 import com.google.android.accessibility.ext.utils.KeyguardUnLock
+import com.google.android.accessibility.ext.utils.KeyguardUnLock.sendLog
 
 import com.google.android.accessibility.ext.utils.LibCtxProvider.Companion.appContext
 import com.google.android.accessibility.ext.utils.NotificationUtilXpq.getAllSortedMessagingStyleByTime
@@ -182,6 +183,7 @@ abstract class SelectToSpeakServiceAbstract : AccessibilityService() {
 
 
     override fun onDestroy() {
+        Log.e("监听屏幕啊", "无障碍服务：onDestroy" )
         instance = null
         accessibilityServiceLiveData.value = null
         if (AliveUtils.getKeepAliveByNotification()){
@@ -356,7 +358,7 @@ abstract class SelectToSpeakServiceAbstract : AccessibilityService() {
                 if (nodeInfoSet.isEmpty()) return
                 // 调用子类处理 —— 默认父类会在此之后回收这些副本
                 try {
-                    Log.e("监听屏幕啊", "pkg="+pkg )
+                    Log.e("当前应用包名", "pkg="+pkg )
                     rootCopy?.let { asyncHandle_WINDOW_STATE_CHANGED(it, nodeInfoSet, pkg, className) }
                 } catch (t: Throwable) {
 

@@ -25,6 +25,7 @@ import androidx.appcompat.widget.SwitchCompat
 import com.android.accessibility.ext.R
 import com.google.android.accessibility.ext.utils.AliveUtils.keepAliveByFloatingWindow
 import com.google.android.accessibility.ext.utils.KeyguardUnLock.mKeyguardManager
+import com.google.android.accessibility.ext.utils.broadcastutil.UnifiedBroadcastManager.XPQ_SCREEN_TEST
 
 import com.google.android.accessibility.ext.window.OverlayLog
 import com.google.android.accessibility.selecttospeak.accessibilityService
@@ -57,9 +58,9 @@ object NumberPickerDialog {
             title = "解锁方案",
             min = 0,
             max = 3,
-            displayedValues = arrayOf("关闭","方案1", "方案2", "方案3"),
+            displayedValues = arrayOf("方案0","方案1", "方案2", "方案3"),
             explainTexts = arrayOf(
-                "关闭:  默认解锁方案,如果不行的话,建议更换为其它3种解锁方案",
+                "方案0:  默认解锁方案,如果不行的话,建议更换其它3种解锁方案试试",
                 "方案1: "+s1,
                 "方案2: "+s2,
                 "方案3: "+s3
@@ -157,6 +158,26 @@ object NumberPickerDialog {
 
         val enableSwitch = SwitchCompat(context).apply {
             text = "息屏后自动恢复锁屏\n(仅适用于无密码锁屏)"
+            textSize = 14f
+            showText = true
+            textOn = "开"
+            textOff = "关"
+            setPadding(0, dp(context, 8), 0, dp(context, 8))
+            //某些设备在 isChecked = xxx 时可能触发监听 初始化状态（防止误触发）
+            setOnCheckedChangeListener(null)
+            // 读取已保存状态
+            isChecked = KeyguardUnLock.getAutoReenKeyguard()
+
+            // ★ 关键：切换即保存
+            setOnCheckedChangeListener { _, isChecked ->
+                //释放键盘锁 wakeKeyguardOff 可能会直接锁屏
+                //KeyguardUnLock.wakeKeyguardOff()
+                KeyguardUnLock.setAutoReenKeyguard(isChecked)
+            }
+        }
+
+        val reenKeySwitch = SwitchCompat(context).apply {
+            text = "任务结束后恢复锁屏\n(每次亮屏时是锁屏)"
             textSize = 14f
             showText = true
             textOn = "开"
@@ -334,6 +355,13 @@ object NumberPickerDialog {
                     return@setOnClickListener
                 }
                 OverlayLog.show()
+                AppBroadcast.send(
+                    context,
+                    XPQ_SCREEN_TEST
+                ) {
+                    putExtra("time", System.currentTimeMillis())
+                }
+
             }
         }
         val tanSwitch = SwitchCompat(context).apply {
@@ -436,16 +464,20 @@ object NumberPickerDialog {
             explainTextView.text = explain
             valueTextView.text = "当前选择：$titleText"
             // ★ 核心：只在方案1显示 Switch
-            enableSwitch.visibility = if (value == 1) View.VISIBLE else View.GONE
+
             //切走方案1时自动关闭 Switch（并保存）：
 //            if (value != 1 && enableSwitch.isChecked) {
 //                enableSwitch.isChecked = false
 //                KeyguardUnLock.setAutoReenKeyguard(false)
 //            }
 
-            LP_Switch.visibility = if (value == 1) View.VISIBLE else View.GONE
-            //passwordLayout.visibility = if (value == 0) View.GONE else View.VISIBLE
 
+
+            //enableSwitch.visibility = if (value == 1) View.VISIBLE else View.GONE
+            //LP_Switch.visibility = if (value == 1) View.VISIBLE else View.GONE
+
+            //passwordLayout.visibility = if (value == 0) View.GONE else View.VISIBLE
+            //reenKeySwitch.visibility = if (value == 1) View.VISIBLE else View.GONE
         }
 
         updateTexts(picker.value)
@@ -468,8 +500,10 @@ object NumberPickerDialog {
         container.addView(picker)
 
 
-        container.addView(LP_Switch)
-        container.addView(enableSwitch)
+        //container.addView(LP_Switch)
+        //container.addView(enableSwitch)
+
+        //container.addView(reenKeySwitch)
         container.addView(screenOnSwitch)
         container.addView(containertanzqs)
         container.addView(containertanlog)
@@ -495,7 +529,7 @@ object NumberPickerDialog {
             // ★ 只有 1 -> 0/2 / 3 才提示
             if (oldValue == 1 && newValue != 1) {
 
-                if (KeyguardUnLock.suoPingIsOne.get()){
+                if (KeyguardUnLock.keyguardIsGone.get()){
                     val tit = if (newValue == 0){"关闭解锁方案"}else{"切换解锁方案"}
                     val msg = if (newValue == 0){"从方案1关闭"}else{"从方案1切换到其它方案"}
                     AlertDialog.Builder(context)

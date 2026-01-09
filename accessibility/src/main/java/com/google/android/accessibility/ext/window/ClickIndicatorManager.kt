@@ -29,9 +29,9 @@ object ClickIndicatorManager {
     private const val TAG = "ClickIndicatorMgr"
 
     // 每个红点显示时长（毫秒）
-    private const val DURATION_MS: Long = 500
+    private const val DURATION_MS: Long = 50
     // 红点直径
-    private const val DIAMETER_DP = 10
+    const val DIAMETER_DP = 10
 
     /**
      * 每次点击都会创建一个独立的红点
@@ -164,7 +164,7 @@ object ClickIndicatorManager {
             setStroke( (2 * ResourcesHolder.density).toInt(), 0x66FF0000.toInt())
         }
 
-    private fun pxFromDp(context: Context, dp: Int): Int {
+    fun pxFromDp(context: Context, dp: Int): Int {
         val density = context.resources.displayMetrics.density
         return (dp * density + 0.5f).toInt()
     }

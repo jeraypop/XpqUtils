@@ -5,6 +5,7 @@ import android.content.Context
 import android.content.Intent
 import android.util.Log
 import com.google.android.accessibility.ext.utils.KeyguardUnLock
+import com.google.android.accessibility.ext.utils.broadcastutil.UnifiedBroadcastManager.XPQ_SCREEN_TEST
 
 import java.lang.ref.WeakReference
 
@@ -31,9 +32,9 @@ class ScreenStateReceiver(
     override fun onReceive(context: Context, intent: Intent) {
         val cb = callbackRef.get() ?: return
         fun setSuoPingIsOne() {
-            if (KeyguardUnLock.keyguardIsGone.get()){
-                KeyguardUnLock.suoPingIsOne.set(true)
-            }
+            //if (KeyguardUnLock.keyguardIsGone.get()){
+            //    KeyguardUnLock.suoPingIsOne.set(true)
+            //}
         }
         when (intent.action) {
             Intent.ACTION_SCREEN_OFF -> {
@@ -42,8 +43,8 @@ class ScreenStateReceiver(
                 if (KeyguardUnLock.getUnLockMethod()==1 && KeyguardUnLock.getAutoReenKeyguard()){
                     KeyguardUnLock.wakeKeyguardOff(tip = "广播:屏幕已关闭")
                 }
-                setSuoPingIsOne()
-                KeyguardUnLock.keyguardIsGone100.set(false)
+                //setSuoPingIsOne()
+                //KeyguardUnLock.keyguardIsGone100.set(false)
             }
 
             Intent.ACTION_SCREEN_ON -> {
@@ -53,15 +54,19 @@ class ScreenStateReceiver(
                     //禁用键盘锁
                     KeyguardUnLock.wakeKeyguardOn(tip = "广播:屏幕已点亮")
                 }
-                setSuoPingIsOne()
+                //setSuoPingIsOne()
             }
 
             Intent.ACTION_USER_PRESENT -> {
                 Log.e("监听屏幕啊", "总真正解锁完成")
                 cb.onUserPresent()
                 //disableKeyguard后,接收不到这个广播
-                KeyguardUnLock.keyguardIsGone100.set(true)
+                //KeyguardUnLock.keyguardIsGone100.set(true)
                 KeyguardUnLock.sendLog("系统广播:屏幕100%解锁成功")
+            }
+            XPQ_SCREEN_TEST -> {
+                //intent.getLongExtra("time", 0L)
+                Log.e("监听屏幕啊", "该屏幕广播接收器还存活着呢")
             }
         }
     }

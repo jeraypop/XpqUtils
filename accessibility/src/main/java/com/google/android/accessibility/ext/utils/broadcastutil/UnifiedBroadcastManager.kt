@@ -5,8 +5,10 @@ import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
 import android.content.IntentFilter
+import android.util.Log
 import androidx.lifecycle.DefaultLifecycleObserver
 import androidx.lifecycle.LifecycleOwner
+import com.google.android.accessibility.ext.utils.KeyguardUnLock.sendLog
 import java.util.Collections
 
 /**
@@ -24,11 +26,13 @@ object UnifiedBroadcastManager {
         Collections.synchronizedMap(HashMap<String, ManagedBroadcast>())
 
     const val CHANNEL_SCREEN = "SCREEN_STATE" //屏幕广播 Channel
+    const val XPQ_SCREEN_TEST = "xpq.screen.test"
     @JvmField
     val screenFilter = IntentFilter().apply {
         addAction(Intent.ACTION_SCREEN_OFF)    // 息屏
         addAction(Intent.ACTION_SCREEN_ON)     // 亮屏（可选）
         addAction(Intent.ACTION_USER_PRESENT)  // 解锁完成
+        addAction(XPQ_SCREEN_TEST)  // 调试用
     }
 
 
@@ -91,10 +95,14 @@ object UnifiedBroadcastManager {
             lifecycleOwner?.lifecycle?.addObserver(
                 object : DefaultLifecycleObserver {
                     override fun onDestroy(owner: LifecycleOwner) {
-                        unregister(channel, owner, context)
+                        //Log.e("监听屏幕啊", "生命周期自动解绑：onDestroy" )
+                        //unregister(channel, owner, context)
                     }
                 }
             )
+
+            Log.e("监听屏幕啊", "注册屏幕广播：${managed.ownerType}" )
+            //sendLog("注销屏幕广播：${managed.ownerType}")
             return true
         }
     }
@@ -112,7 +120,8 @@ object UnifiedBroadcastManager {
 
         synchronized(managed) {
             if (managed.owner !== owner) return
-
+            Log.e("监听屏幕啊", "注销屏幕广播：${managed.ownerType}" )
+            sendLog("注销屏幕广播：${managed.ownerType}")
             managed.context?.let {
                 managed.receiver?.let { r ->
                     BroadCastReciverHelper.safeUnregisterReceiver(it, r)

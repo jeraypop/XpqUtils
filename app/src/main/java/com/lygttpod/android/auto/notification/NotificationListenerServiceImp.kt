@@ -1,15 +1,13 @@
 package com.lygttpod.android.auto.notification
 import android.app.Notification
 import android.os.Build
-import android.os.Handler
-import android.os.Looper
 import android.service.notification.StatusBarNotification
 import android.text.TextUtils
 import android.util.Log
 import androidx.annotation.RequiresApi
 import com.google.android.accessibility.ext.activity.BaseLockScreenActivity
 import com.google.android.accessibility.ext.activity.TaskByJieSuoHelper
-import com.google.android.accessibility.ext.activity.TaskByJieSuoHelper1
+import com.google.android.accessibility.ext.activity.TaskByJieSuoHelperDefault
 import com.google.android.accessibility.ext.utils.AliveUtils
 import com.google.android.accessibility.ext.utils.KeyguardUnLock
 import com.google.android.accessibility.ext.utils.KeyguardUnLock.sendLog
@@ -18,12 +16,9 @@ import com.google.android.accessibility.ext.utils.LibCtxProvider.Companion.appCo
 import com.google.android.accessibility.notification.LatestPendingIntentStore
 import com.google.android.accessibility.notification.NotificationInfo
 import com.google.android.accessibility.notification.NotificationListenerServiceAbstract
-import com.google.android.accessibility.selecttospeak.accessibilityService
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.GlobalScope
 import kotlinx.coroutines.SupervisorJob
-import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 
 
@@ -89,6 +84,8 @@ class NotificationListenerServiceImp : NotificationListenerServiceAbstract() {
                 }else if (unLockMethod==3){
                     BaseLockScreenActivity.openBaseLockScreenActivity(cls=LockScreenActivity::class.java, i=1)
                 } else if (unLockMethod == 0){
+                    TaskByJieSuoHelperDefault.startJieSuoTaskInstance(appContext, 1)
+                    if (true)return@launch
                     sendLog("开始执行默认解锁方案")
                     //关闭,   啥也不做
                     //是否需要亮屏唤醒屏幕

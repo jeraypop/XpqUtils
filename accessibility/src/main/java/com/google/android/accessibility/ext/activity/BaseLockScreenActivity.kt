@@ -689,7 +689,7 @@ open class BaseLockScreenActivity : XpqBaseActivity<ActivityLockScreenBinding>(
 
        delay(500) // 等锁屏输入框稳定
 
-       val success = withContext(Dispatchers.IO) {
+       val success = withContext(Dispatchers.Default) {
            KeyguardUnLock.inputPassword(password = pwd)
        }
        sendLog(if(success){"故: 密码输入成功"}else{"故: 密码输入失败"})

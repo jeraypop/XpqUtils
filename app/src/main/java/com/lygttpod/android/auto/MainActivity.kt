@@ -175,15 +175,15 @@ class MainActivity : XpqBaseActivity<ActivityMainBinding>(
                 Log.e("监听屏幕啊", "ACTIVITY真正解锁完成" )
             }
         }
-        UnifiedBroadcastManager.register(
-            CHANNEL_SCREEN,
-            this,
-            BroadcastOwnerType.ACTIVITY,
-            this,
-            ScreenStateReceiver(screenStateCallback),
-            screenFilter,
-            lifecycleOwner = this
-        )
+//        UnifiedBroadcastManager.register(
+//            CHANNEL_SCREEN,
+//            this,
+//            BroadcastOwnerType.ACTIVITY,
+//            this,
+//            ScreenStateReceiver(screenStateCallback),
+//            screenFilter,
+//            lifecycleOwner = this
+//        )
 
 
     }

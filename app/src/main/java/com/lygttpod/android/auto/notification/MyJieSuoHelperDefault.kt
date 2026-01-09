@@ -2,12 +2,10 @@ package com.lygttpod.android.auto.notification
 
 
 import com.google.android.accessibility.ext.activity.BaseLockScreenActivity
-import com.google.android.accessibility.ext.activity.TaskByJieSuoHelper
-import com.google.android.accessibility.ext.activity.TaskByJieSuoHelper1
+import com.google.android.accessibility.ext.activity.TaskByJieSuoHelperDefault
 import com.google.android.accessibility.ext.utils.KeyguardUnLock
 import com.google.android.accessibility.ext.utils.MMKVConst
 import com.google.android.accessibility.ext.utils.MMKVUtil
-import com.google.android.accessibility.ext.window.OverlayLog
 import com.lygttpod.android.auto.notification.LockScreenActivity.Companion.dealWithPendingIntent
 
 
@@ -16,7 +14,7 @@ import com.lygttpod.android.auto.notification.LockScreenActivity.Companion.dealW
  * 实际执行时会调用你子类 MyJieSuoHelper1 里改写过的逻辑
  *         TaskByJieSuoHelper1.setInstance(MyJieSuoHelper1())
  * */
-class MyJieSuoHelper1 : TaskByJieSuoHelper1() {
+class MyJieSuoHelperDefault : TaskByJieSuoHelperDefault() {
 
     // 改写解锁逻辑（例如使用不同的 Activity）
     override fun jieSuoBy2(i: Int) {

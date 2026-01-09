@@ -26,6 +26,8 @@ import com.google.android.accessibility.ext.task.TIMEOUT
 import com.google.android.accessibility.ext.task.retryCheckTaskWithLog
 import com.google.android.accessibility.ext.utils.LibCtxProvider.Companion.appContext
 import com.google.android.accessibility.ext.window.ClickIndicatorManager
+import com.google.android.accessibility.ext.window.ClickIndicatorManager.DIAMETER_DP
+import com.google.android.accessibility.ext.window.ClickIndicatorManager.pxFromDp
 import com.google.android.accessibility.ext.window.LogWrapper
 import com.google.android.accessibility.ext.window.SwipeTrajectoryIndicatorManager
 import com.google.android.accessibility.selecttospeak.accessibilityService
@@ -88,9 +90,9 @@ object KeyguardUnLock {
     //                      reenableKeyguard 为 false
     val keyguardIsGone = AtomicBoolean(false)
     //只在系统屏幕广播调用 真正完全解锁和关闭
-    val keyguardIsGone100 = AtomicBoolean(false)
+    //val keyguardIsGone100 = AtomicBoolean(false)
     //只在系统屏幕广播调用 点亮和关闭
-    val suoPingIsOne = AtomicBoolean(false)
+    //val suoPingIsOne = AtomicBoolean(false)
     @JvmOverloads
     @JvmStatic
     fun getScreenState(context: Context = appContext): ScreenState {
@@ -221,7 +223,8 @@ object KeyguardUnLock {
             mPowerManager = context.applicationContext.getSystemService(Context.POWER_SERVICE) as PowerManager
         }
         var locked = false
-        locked = if (jian) {
+        //jian
+        locked = if (true) {
             try {
                 if (byKeyguard) mKeyguardManager!!.isKeyguardLocked else mKeyguardManager!!.isDeviceLocked
             } catch (e: Exception) {
@@ -268,12 +271,10 @@ object KeyguardUnLock {
     }
 
     suspend fun getUnLockResult(
-        isUnLock: Boolean = false
+        isUnLock: Boolean = false,
+        zQSuccess: Boolean = getZQSuccess()
     ): Boolean {
-        val eWai =if (keyguardIsGone100.get()){
-            //广播监听到 完全解锁
-           true
-        }else if (getZQSuccess()){
+        val eWai = if (zQSuccess){
             //不额外
             sendLog("解锁成功判定更宽松(不额外判定键盘锁状态)")
             isUnLock || waitKeyguardOn()
@@ -1138,122 +1139,7 @@ isDeviceSecure = 这台设备“有没有任何安全门槛”
     private val moveMutex = Mutex()
     @JvmOverloads
     @JvmStatic
-   /* suspend fun moveAwait(
-        service: AccessibilityService? =accessibilityService,
-        pathInfo: SwipePathInfo? = null,
-        @IntRange(from = 0) startTime: Long =500,
-        @IntRange(from = 0) duration: Long =500, // <=0 表示自动计算
-        moveCallback: MoveCallback? = null,
-        timeoutMs: Long = 2000L,
-        autoDurationEnabled: Boolean = true,
-        // createNaturalSwipePathInfo 可配置参数（如需自定义）
-        useCurve: Boolean = true,
-        curveIntensity: Float = 0.12f,
-        horizontalOffsetRatio: Float = 0.0f,
-        jitterRatio: Float = 0.02f
-    ): Boolean = withContext(Dispatchers.Main) {
-        if (startTime < 0 || duration < 0) {
-            moveCallback?.onError()
-            return@withContext false
-        }
-
-        if (service == null) {
-            KeyguardUnLock.sendLog("无障碍服务未开启!")
-            return@withContext false
-        }
-        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.N) {
-            KeyguardUnLock.sendLog("系统版本小于7.0")
-            return@withContext false
-        }
-        // 如果没有传入 pathInfo，则生成一个默认的
-        val finalPathInfo = pathInfo ?: createNaturalSwipePathInfo(
-            context = service.applicationContext,
-            useCurve = useCurve,
-            curveIntensity = curveIntensity,
-            horizontalOffsetRatio = horizontalOffsetRatio,
-            jitterRatio = jitterRatio
-        )
-
-        // 真实像素距离（Y 方向）
-        val distancePx = abs(finalPathInfo.startY - finalPathInfo.endY)
-
-        // 选择时长：传入 duration >0 优先；否则若允许自动计算则计算
-        val finalDuration = if (duration > 0L) {
-            duration.coerceAtLeast(50L)
-        } else if (autoDurationEnabled) {
-            // 智能计算（min/max 可按需调整）
-            computeAutoDuration(
-                context = service.applicationContext,
-                distancePx = distancePx,
-                curveIntensity = curveIntensity,
-                minMs = 80L,
-                maxMs = 900L
-            )
-        } else {
-            // fallback（若不自动计算且未传入时长）使用一个合理默认
-            500L
-        }
-
-
-        showGestureIndicator(service, finalPathInfo.path, finalDuration)
-        delay(60)
-        KeyguardUnLock.sendLog("上划屏幕呼出输入解锁密码界面")
-        val gesture = GestureDescription.Builder()
-            .addStroke(GestureDescription.StrokeDescription(finalPathInfo.path, startTime, finalDuration))
-            .build()
-
-        // 无回调：保持原行为 -> 立即返回
-        if (moveCallback == null) {
-            return@withContext try {
-                service.dispatchGesture(gesture, null, null)
-                true
-            } catch (_: Throwable) {
-                false
-            }
-        }
-
-        // 有回调：等待结果（可选超时）
-        val block: suspend () -> Boolean = suspend {
-            suspendCancellableCoroutine { cont ->
-                val callback = object : AccessibilityService.GestureResultCallback() {
-                    override fun onCompleted(gestureDescription: GestureDescription) {
-                        try {
-                            moveCallback.onSuccess()
-                        } catch (_: Throwable) {}
-                        if (cont.isActive) cont.resume(true)
-                    }
-
-                    override fun onCancelled(gestureDescription: GestureDescription) {
-                        try {
-                            moveCallback.onError()
-                        } catch (_: Throwable) {}
-                        if (cont.isActive) cont.resume(false)
-                    }
-                }
-
-                try {
-                    service.dispatchGesture(gesture, callback, null)
-                } catch (_: Throwable) {
-                    try {
-                        moveCallback.onError()
-                    } catch (_: Throwable) {}
-                    if (cont.isActive) cont.resume(false)
-                }
-
-                cont.invokeOnCancellation {
-                    // 不额外调用回调，保持原语义
-                }
-            }
-        }
-
-        if (timeoutMs > 0) {
-            withTimeoutOrNull(timeoutMs) { block() } ?: false
-        } else {
-            block()
-        }
-    }*/
-
-    suspend fun moveAwait(
+ /*   suspend fun moveAwait(
         service: AccessibilityService? = accessibilityService,
         pathInfo: SwipePathInfo? = null,
         @IntRange(from = 0) startTime: Long = 500,
@@ -1370,7 +1256,132 @@ isDeviceSecure = 这台设备“有没有任何安全门槛”
 
             result
         }
+    }*/
+    suspend fun moveAwait(
+        service: AccessibilityService? = accessibilityService,
+        pathInfo: SwipePathInfo? = null,
+        @IntRange(from = 0) startTime: Long = 500,
+        @IntRange(from = 0) duration: Long = 500,
+        moveCallback: MoveCallback? = null,
+        timeoutMs: Long = 2000L,
+        autoDurationEnabled: Boolean = true,
+        useCurve: Boolean = true,
+        curveIntensity: Float = 0.12f,
+        horizontalOffsetRatio: Float = 0.0f,
+        jitterRatio: Float = 0.02f,
+        retryCount: Int = 1
+    ): Boolean = coroutineScope {
+
+        // 严格串行，避免并发手势
+        moveMutex.withLock {
+
+            // ====== 基础校验（只做一次）======
+            if (startTime < 0 || duration < 0) {
+                moveCallback?.onError()
+                return@withLock false
+            }
+
+            val accService = service
+                ?: run {
+                    KeyguardUnLock.sendLog("无障碍服务未开启")
+                    return@withLock false
+                }
+
+            if (Build.VERSION.SDK_INT < Build.VERSION_CODES.N) {
+                KeyguardUnLock.sendLog("系统版本小于 7.0")
+                return@withLock false
+            }
+
+            // ====== 构建路径（只构建一次）======
+            val finalPathInfo = pathInfo ?: createNaturalSwipePathInfo(
+                context = accService.applicationContext,
+                useCurve = useCurve,
+                curveIntensity = curveIntensity,
+                horizontalOffsetRatio = horizontalOffsetRatio,
+                jitterRatio = jitterRatio
+            )
+
+            val distancePx = kotlin.math.abs(finalPathInfo.startY - finalPathInfo.endY)
+            val finalDuration = when {
+                duration > 0L -> duration.coerceAtLeast(50L)
+                autoDurationEnabled -> computeAutoDuration(
+                    context = accService.applicationContext,
+                    distancePx = distancePx,
+                    curveIntensity = curveIntensity,
+                    minMs = 80L,
+                    maxMs = 900L
+                )
+                else -> 500L
+            }
+
+            // ====== 重试循环（总次数 = retryCount + 1）======
+            repeat(retryCount + 1) { attempt ->
+
+                if (attempt > 0) {
+                    KeyguardUnLock.sendLog("手势失败，开始第 $attempt 次重试")
+                    delay(200L)
+                }
+
+                // 给系统一点时间稳定（⚠️ 不在 Main）
+                delay(60L)
+
+                val gestureResult = withTimeoutOrNull(timeoutMs) {
+
+                    withContext(Dispatchers.Main) {
+
+                        suspendCancellableCoroutine<Boolean> { cont ->
+
+                            val gesture = GestureDescription.Builder()
+                                .addStroke(
+                                    GestureDescription.StrokeDescription(
+                                        finalPathInfo.path,
+                                        startTime,
+                                        finalDuration
+                                    )
+                                )
+                                .build()
+
+                            val callback =
+                                if (moveCallback == null) null
+                                else object : AccessibilityService.GestureResultCallback() {
+
+                                    override fun onCompleted(gestureDescription: GestureDescription) {
+                                        try { moveCallback.onSuccess() } catch (_: Throwable) {}
+                                        if (cont.isActive) cont.resume(true)
+                                    }
+
+                                    override fun onCancelled(gestureDescription: GestureDescription) {
+                                        try { moveCallback.onError() } catch (_: Throwable) {}
+                                        if (cont.isActive) cont.resume(false)
+                                    }
+                                }
+
+                            try {
+                                showGestureIndicator(accService, finalPathInfo.path, finalDuration)
+                                accService.dispatchGesture(gesture, callback, null)
+
+                                // 没有 callback 的情况，直接认为已发出
+                                if (callback == null && cont.isActive) {
+                                    cont.resume(true)
+                                }
+
+                            } catch (t: Throwable) {
+                                try { moveCallback?.onError() } catch (_: Throwable) {}
+                                if (cont.isActive) cont.resume(false)
+                            }
+                        }
+                    }
+                } ?: false // timeout：只代表“没等到回调”
+
+                if (gestureResult) {
+                    return@withLock true
+                }
+            }
+
+            false
+        }
     }
+
 
     /**
      * 自动判断当前线程，必要时切回主线程执行。
@@ -1466,6 +1477,7 @@ isDeviceSecure = 这台设备“有没有任何安全门槛”
         return MMKVUtil.get(MMKVConst.KEY_AutoDisableKeyguard,default)
     }
 
+
     @JvmOverloads
     @JvmStatic
     fun setScreenAlwaysOn(alwaysOn: Boolean = false) {
@@ -1525,9 +1537,22 @@ isDeviceSecure = 这台设备“有没有任何安全门槛”
         service?: return
         val showguiji = MMKVUtil.get(MMKVConst.SHOW_DO_GUIJI, false)
         if (showguiji){
+            val (screenWidth, screenHeight) = getScreenSize(service.applicationContext)
+            //val baseOffset = 20
+            val baseOffset = pxFromDp(service, DIAMETER_DP)/2
+            // 计算偏移后的位置，确保不超出屏幕边界
+            val adjustedX = when {
+                x + baseOffset > screenWidth -> x - baseOffset
+                else -> x + baseOffset
+            }
+
+            val adjustedY = when {
+                y - baseOffset < 0 -> y + baseOffset
+                else -> y - baseOffset
+            }
             // 在主线程显示指示器
             Handler(Looper.getMainLooper()).post {
-                ClickIndicatorManager.show(service, x, y)
+                ClickIndicatorManager.show(service, adjustedX, adjustedY)
             }
         }
 
@@ -1547,106 +1572,167 @@ isDeviceSecure = 这台设备“有没有任何安全门槛”
 
     }
 
+    private fun tryActionClickWithParent(
+        node: AccessibilityNodeInfo,
+        maxDepth: Int = 3
+    ): Boolean {
+
+        var current: AccessibilityNodeInfo? = node
+        var depth = 0
+
+        while (current != null && depth <= maxDepth) {
+            try {
+                if (current.isClickable) {
+                    if (current.performAction(
+                            AccessibilityNodeInfo.ACTION_CLICK
+                        )
+                    ) {
+                        return true
+                    }
+                }
+            } catch (_: Throwable) {
+            }
+
+            val parent = current.parent
+            if (current !== node) {
+                recycleSafe(current)
+            }
+            current = parent
+            depth++
+        }
+
+        return false
+    }
+
     @JvmOverloads
     @JvmStatic
     fun performClickNodeInfo(
         service: AccessibilityService?,
-        nodeInfo: AccessibilityNodeInfo? ,
+        nodeInfo: AccessibilityNodeInfo?,
         isMoNi: Boolean = true,
         isJava: Boolean = false
+
     ): Boolean {
-        service?: return false
-        if (nodeInfo == null) return false
-        if (isMoNi){
-            // 模拟真实点击（不依赖 isClickable）
-            //只要点击坐标有效，就一定会触发系统的点击事件
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {
-                // 模拟真实点击（不依赖 isClickable）
-                val rect = Rect()
-                nodeInfo.getBoundsInScreen(rect)
-                if (rect.centerX() > 0 && rect.centerY() > 0) {
-                    sendLog("模拟点击解锁按钮 (${rect.centerX()}, ${rect.centerY()})")
-                    if (isJava){
-                        moniClick(rect.centerX(), rect.centerY(), service)
-                    }else{
-                        // 在后台真正点击（避免阻塞主线程）
-                        clickScope.launch {
-                            try {
-                                moniClick(rect.centerX(), rect.centerY(), service)
-                            } catch (t: Throwable) {
-                                t.printStackTrace()
-                            }
-                        }
-                    }
-                    // 在主线程显示指示器
-                    showClickIndicator(service, rect.centerX(), rect.centerY())
-                    return true
+
+        if (service == null || nodeInfo == null) return false
+
+        // 先拿坐标（Gesture 必须）
+        val rect = Rect()
+        try {
+            nodeInfo.getBoundsInScreen(rect)
+        } catch (_: Throwable) {
+            recycleSafe(nodeInfo)
+            return false
+        }
+
+        val hasValidRect = rect.isValid()
+        val centerX = rect.centerX()
+        val centerY = rect.centerY()
+
+        /**
+         * 1️⃣ 强制只走 Gesture
+         */
+        if (isMoNi) {
+            recycleSafe(nodeInfo)
+
+            if (!hasValidRect) return false
+            if (service.rootInActiveWindow == null) return false
+
+            sendLog("强制 Gesture 点击 (${centerX}, ${centerY})")
+
+            val clicked = StableGestureClicker.click(
+                service,
+                centerX,
+                centerY
+            )
+
+            if (clicked) {
+                showClickIndicator(
+                    service,
+                    centerX,
+                    centerY
+                )
+            }
+
+            return clicked
+        }
+
+        /**
+         * 2️⃣ ACTION_CLICK（含 parent）
+         */
+        var actionClickSuccess = false
+        if (false){
+            //不含 parent
+            actionClickSuccess = if (nodeInfo.isClickable) {
+                try {
+                    nodeInfo.performAction(AccessibilityNodeInfo.ACTION_CLICK)
+                } catch (_: Throwable) {
+                    false
                 }
             } else {
-                // 旧系统使用 ACTION_CLICK，需要检查 isClickable
-                if (nodeInfo.isClickable) {
-                    nodeInfo.performAction(AccessibilityNodeInfo.ACTION_CLICK)
-                    return true
-                }
+                false
             }
         }else{
-            // 非模拟点击
-            try {
-                // 1️⃣ 当前节点可点击
-
-                if (nodeInfo.isClickable) {
-                    val rect = Rect()
-                    nodeInfo.getBoundsInScreen(rect)
-                    return  if (rect.centerX() > 0 && rect.centerY() > 0) {
-                        sendLog("点击解锁按钮 (${rect.centerX()}, ${rect.centerY()})")
-                         if (isJava){
-                             try {
-                                 nodeInfo.performAction(AccessibilityNodeInfo.ACTION_CLICK)
-                             } catch (t: Throwable) {
-                                 false
-                             }
-                         }else{
-                             // 在后台真正点击（避免阻塞主线程）
-                             clickScope.launch {
-                                 try {
-                                     nodeInfo.performAction(AccessibilityNodeInfo.ACTION_CLICK)
-                                 } catch (t: Throwable) {
-                                     false
-                                 }
-                             }
-                         }
-
-                        // 在主线程显示指示器
-                        showClickIndicator(service, rect.centerX(), rect.centerY())
-                      true
-                    } else {
-                        false
-                    }
-                }
-
-                // 2️⃣ 当前节点不可点击，则尝试父节点
-                val parent = nodeInfo.parent
-                if (parent != null) {
-                    val clicked = performClickNodeInfo(service, parent)
-
-                    // ⚠️ 避免 Android 14+ 因 "recycled object" 崩溃
-                    if (Build.VERSION.SDK_INT < 34) {
-                        try {
-                            parent.recycle()
-                        } catch (_: Throwable) {
-                        }
-                    }
-
-                    return clicked
-                }
-
-            } catch (t: Throwable) {
-                // 避免部分设备 AccessibilityNodeInfo 异常崩溃
-
+            // 含 parent
+            actionClickSuccess = try {
+                tryActionClickWithParent(nodeInfo)
+            } catch (_: Throwable) {
+                false
             }
         }
 
-        return false
+        recycleSafe(nodeInfo)
+
+        if (actionClickSuccess) {
+            sendLog("ACTION_CLICK（含 parent）成功")
+            showClickIndicator(
+                service,
+                centerX,
+                centerY
+            )
+            return true
+        }
+
+        /**
+         * 3️⃣ Gesture 兜底
+         */
+        if (!hasValidRect) return false
+        if (service.rootInActiveWindow == null) return false
+
+        sendLog("Gesture 兜底点击 (${centerX}, ${centerY})")
+
+        val clicked = StableGestureClicker.click(
+            service,
+            centerX,
+            centerY
+        )
+
+        if (clicked) {
+            showClickIndicator(
+                service,
+                centerX,
+                centerY
+            )
+        }
+
+        return clicked
+    }
+
+
+
+    private fun Rect.isValid(): Boolean =
+        width() > 10 &&
+                height() > 10 &&
+                centerX() > 0 &&
+                centerY() > 0
+
+    private fun recycleSafe(node: AccessibilityNodeInfo) {
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
+            try {
+                node.recycle()
+            } catch (_: Throwable) {
+            }
+        }
     }
 
 
@@ -1666,41 +1752,114 @@ isDeviceSecure = 这台设备“有没有任何安全门槛”
     fun xpqclickNode(
         service: AccessibilityService?,
         nodeInfo: AccessibilityNodeInfo?,
-        isMoNi: Boolean = true ,
+        isMoNi: Boolean = true,
         interval: Long = 0L
     ): Boolean {
-        service?: return false
-        if (nodeInfo == null) return false
+        if (service == null || nodeInfo == null) return false
         if (!canClick(interval)) return false
+        // 先拿坐标（Gesture 必须）
+        val rect = Rect()
+        try {
+            nodeInfo.getBoundsInScreen(rect)
+        } catch (_: Throwable) {
+            recycleSafe(nodeInfo)
+            return false
+        }
 
-        // 在后台执行点击操作
-        clickScope.launch {
-            try {
-                if (isMoNi) {
-                    doNoniClick(nodeInfo,service)
-                } else {
-                    // 执行原生点击
-                    val b = nodeInfo.performAction(AccessibilityNodeInfo.ACTION_CLICK)
-                    if (!b){
-                        doNoniClick(nodeInfo,service)
-                    }else{
-                        // 只有在SHOW_DO_GUIJI为true时才显示点击指示器
-                        if (MMKVUtil.get(MMKVConst.SHOW_DO_GUIJI, false)) {
-                            val (xCenter, yCenter) = getNodeCenter(nodeInfo)
-                            // 在主线程显示点击指示器
-                            showClickIndicator(service, xCenter, yCenter)
-                        }
-                    }
+        val hasValidRect = rect.isValid()
+        val centerX = rect.centerX()
+        val centerY = rect.centerY()
 
+        /**
+         * 1️⃣ 强制只走 Gesture
+         */
+        if (isMoNi) {
+            recycleSafe(nodeInfo)
+
+            if (!hasValidRect) return false
+            if (service.rootInActiveWindow == null) return false
+
+            sendLog("强制 Gesture 点击 (${centerX}, ${centerY})")
+
+            val clicked = StableGestureClicker.click(
+                service,
+                centerX,
+                centerY
+            )
+
+            if (clicked) {
+                showClickIndicator(
+                    service,
+                    centerX,
+                    centerY
+                )
+            }
+
+            return clicked
+        }
+
+        /**
+         * 2️⃣ ACTION_CLICK（含 parent）
+         */
+        var actionClickSuccess = false
+        if (true){
+            //不含 parent
+            actionClickSuccess = if (nodeInfo.isClickable) {
+                try {
+                    nodeInfo.performAction(AccessibilityNodeInfo.ACTION_CLICK)
+                } catch (_: Throwable) {
+                    false
                 }
-            } catch (t: Throwable) {
-                // 处理异常，记录日志等
-                Log.e("XPQClickNode", "点击操作失败: ${nodeInfo?.text}", t)
+            } else {
+                false
+            }
+        }else{
+            // 含 parent
+            actionClickSuccess = try {
+                tryActionClickWithParent(nodeInfo)
+            } catch (_: Throwable) {
+                false
             }
         }
 
-        return true
+        recycleSafe(nodeInfo)
+
+        if (actionClickSuccess) {
+            sendLog("ACTION_CLICK（含 parent）成功")
+            showClickIndicator(
+                service,
+                centerX,
+                centerY
+            )
+            return true
+        }
+
+        /**
+         * 3️⃣ Gesture 兜底
+         */
+        if (!hasValidRect) return false
+        if (service.rootInActiveWindow == null) return false
+
+        sendLog("Gesture 兜底点击 (${centerX}, ${centerY})")
+
+        val clicked = StableGestureClicker.click(
+            service,
+            centerX,
+            centerY
+        )
+
+        if (clicked) {
+            showClickIndicator(
+                service,
+                centerX,
+                centerY
+            )
+        }
+
+        return clicked
     }
+
+
     @JvmStatic
     fun doNoniClick(nodeInfo: AccessibilityNodeInfo,service: AccessibilityService) {
         // 模拟点击
