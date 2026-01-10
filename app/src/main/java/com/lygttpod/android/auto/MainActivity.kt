@@ -112,7 +112,11 @@ class MainActivity : XpqBaseActivity<ActivityMainBinding>(
                 // 调登录接口
             //}.show()
 
-
+            ActivityUtils.showKaWangDialog(activity = this,
+                xiaopu = "https://pay.ldxp.cn/shop/R24YFBFV/jtfovn",
+                weifk = "" ,
+                isDan = true
+            )
         }
 
         binding.btnZan.setOnClickListener{
