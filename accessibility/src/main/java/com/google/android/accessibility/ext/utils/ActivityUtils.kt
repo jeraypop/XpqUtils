@@ -17,6 +17,7 @@ import androidx.media3.ui.AspectRatioFrameLayout
 import androidx.media3.ui.PlayerView
 import com.android.accessibility.ext.R
 import com.google.android.accessibility.ext.utils.LibCtxProvider.Companion.appContext
+import com.google.android.accessibility.ext.utils.NotificationUtilXpq.copyToClipboard
 
 /**
  * Company    : 
@@ -120,7 +121,46 @@ object ActivityUtils {
     }
 
 
+    @JvmStatic
+    fun showKaWangDialog(activity: Context,xiaopu: String,weifk: String) {
+        fun tiaoZhuan(url: String) {
+            copyToClipboard(url)
+            AliveUtils.toast(msg = "网址已复制,可手动在浏览器打开")
+            try {
+                val intent = Intent().apply {
+                    action = Intent.ACTION_VIEW
+                    data = Uri.parse(url)
+                    addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                }
+                activity.startActivity(intent)
+            } catch (e: Exception) {
+                AliveUtils.toast(msg = "无法打开链接")
+            }
+        }
 
+        AlertDialog.Builder(activity)
+            .setTitle("会员(卡密)购买入口")
+            .setMessage(
+                "以下2个入口(某一个不行就试试另一个)均可购买卡密(查询订单)\n" +
+                        "如果点击入口后,无法自动跳转打开浏览器,有2种方法解决:\n" +
+                        "❶.如果无法自动跳转到浏览器,请先找到【应用信息->权限管理->链式启动管理->允许本软件启动其它应用】\n" +
+                        "❷.可手动打开浏览器,然后粘贴网址(点击下面入口会自动复制)并打开")
+
+            // 链动小铺发卡
+            .setPositiveButton("入口1小铺发卡(首选)"){ _, _ ->
+                tiaoZhuan(xiaopu)
+            }
+            // 微发卡
+            .setNegativeButton("入口2微发卡网(备用)") { _, _ ->
+                tiaoZhuan(weifk)
+            }
+            //待定
+            //.setNeutralButton("入口3 卡网(备用)") { _, _ ->
+            //    tiaoZhuan(weifk)
+            //}
+
+            .show()
+    }
 
 
 }
