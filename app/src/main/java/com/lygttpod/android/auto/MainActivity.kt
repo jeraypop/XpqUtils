@@ -5,6 +5,7 @@ package com.lygttpod.android.auto
 //import com.lygttpod.android.activity.result.api.observer.PermissionApi
 
 
+import android.app.Activity
 import android.os.Bundle
 import android.util.Log
 import android.view.WindowManager
@@ -19,6 +20,7 @@ import com.android.accessibility.ext.BuildConfig
 
 import com.google.android.accessibility.ext.activity.XpqBaseActivity
 import com.google.android.accessibility.ext.fragment.SensitiveNotificationBottomSheet
+
 import com.google.android.accessibility.ext.openAccessibilitySetting
 import com.google.android.accessibility.ext.utils.ActivityUtils
 
@@ -112,11 +114,19 @@ class MainActivity : XpqBaseActivity<ActivityMainBinding>(
                 // 调登录接口
             //}.show()
 
+
+
+
+            //val webFragment = WebDialogFragment.newInstance("https://pay.ldxp.cn/shop/R24YFBFV/jtfovn")
+           //webFragment.show(supportFragmentManager, "web_dialog")
+            //webFragment.toggleDesktopMode()
+
             ActivityUtils.showKaWangDialog(activity = this,
                 xiaopu = "https://pay.ldxp.cn/shop/R24YFBFV/jtfovn",
-                weifk = "" ,
-                isDan = true
-            )
+                weifk = "",
+                isDan = false)
+
+
         }
 
         binding.btnZan.setOnClickListener{

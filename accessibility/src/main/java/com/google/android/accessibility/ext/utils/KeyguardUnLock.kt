@@ -1477,6 +1477,17 @@ isDeviceSecure = 这台设备“有没有任何安全门槛”
         return MMKVUtil.get(MMKVConst.KEY_AutoDisableKeyguard,default)
     }
 
+    @JvmOverloads
+    @JvmStatic
+    fun setSystemWeb(isSystem: Boolean = false) {
+        MMKVUtil.put(MMKVConst.KEY_SYSTEMWEB,isSystem)
+    }
+    @JvmOverloads
+    @JvmStatic
+    fun getSystemWeb(default: Boolean = false): Boolean {
+        return MMKVUtil.get(MMKVConst.KEY_SYSTEMWEB,default)
+    }
+
 
     @JvmOverloads
     @JvmStatic

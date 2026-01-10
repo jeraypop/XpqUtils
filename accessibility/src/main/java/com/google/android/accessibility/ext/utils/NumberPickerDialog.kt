@@ -273,9 +273,9 @@ object NumberPickerDialog {
                     mKeyguardManager = context.getSystemService(Context.KEYGUARD_SERVICE) as KeyguardManager
                 }
                 if (mKeyguardManager?.isKeyguardLocked== true){
-                    AliveUtils.toast(msg = "第二次判断 键盘锁定！")
+                    //AliveUtils.toast(msg = "第二次判断 键盘锁定！")
                 }else{
-                    AliveUtils.toast(msg = "第二次判断 键盘已解锁！")
+                    //AliveUtils.toast(msg = "第二次判断 键盘已解锁！")
                 }
                 //
                 AlertDialog.Builder(context)
@@ -571,7 +571,7 @@ object NumberPickerDialog {
         }
     }
 
-    private fun dp(context: Context, value: Int): Int =
+     fun dp(context: Context, value: Int): Int =
         TypedValue.applyDimension(
             TypedValue.COMPLEX_UNIT_DIP,
             value.toFloat(),

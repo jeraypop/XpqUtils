@@ -23,6 +23,7 @@ object MMKVConst {
     const val KEY_JIESUO_METHOD_NUMBERPICKER = "KEY_JIESUO_METHOD_NUMBERPICKER"
     const val KEY_AutoReenKeyguard = "KEY_AutoReenKeyguard"
     const val KEY_AutoDisableKeyguard = "KEY_AutoDisableKeyguard"
+    const val KEY_SYSTEMWEB = "KEY_SYSTEMWEB"
     const val clickDu_Time = 50L
 
     const val KEY_LOCK_NODEID = "KEY_LOCK_NODEID"
