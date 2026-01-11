@@ -9,6 +9,8 @@ import android.content.IntentFilter
 import android.content.pm.ApplicationInfo
 import android.content.pm.PackageManager
 import android.os.Build
+import android.os.Handler
+import android.os.Looper
 import android.service.notification.NotificationListenerService
 import android.service.notification.StatusBarNotification
 import android.telecom.TelecomManager
@@ -324,18 +326,49 @@ abstract class NotificationListenerServiceAbstract : NotificationListenerService
         notificationServiceLiveData.value = this
         runCatching { listeners.forEach { it.onListenerConnected(this) } }
         super.onListenerConnected()
-        AppExecutors.executors.execute {
-            var sbns:List<StatusBarNotification> = emptyList()
-            sbns = getAllSortedByTime(activeNotifications)
-            for (sbn in sbns) {
-                sbn ?: continue
-                val notification = sbn.notification
-                notification ?: continue
-                val n_info = buildNotificationInfo(sbn,notification, null)
-                asyncHandleNotificationPostedFor(sbn,notification,n_info.title,n_info.content,n_info)
-                clearNotification(sbn,n_info.title,n_info.content,n_info.pkgName)
+        // ✅ 第一步：主线程 + 安全取通知
+        Handler(Looper.getMainLooper()).postDelayed({
+
+            val sbns: List<StatusBarNotification> = try {
+                activeNotifications?.let {
+                    getAllSortedByTime(it)
+                } ?: emptyList()
+            } catch (e: SecurityException) {
+                emptyList()
             }
-        }
+
+            if (sbns.isEmpty()) return@postDelayed
+
+            // ✅ 第二步：再丢进你原来的线程池处理
+            AppExecutors.executors.execute {
+                for (sbn in sbns) {
+                    val notification = sbn.notification ?: continue
+
+                    val nInfo = buildNotificationInfo(
+                        sbn,
+                        notification,
+                        null
+                    )
+
+                    asyncHandleNotificationPostedFor(
+                        sbn,
+                        notification,
+                        nInfo.title,
+                        nInfo.content,
+                        nInfo
+                    )
+
+                    clearNotification(
+                        sbn,
+                        nInfo.title,
+                        nInfo.content,
+                        nInfo.pkgName
+                    )
+                }
+            }
+
+        }, 1000) // ⭐ 联想设备建议 300~500ms
+
 
 
         val filter = IntentFilter().apply {
