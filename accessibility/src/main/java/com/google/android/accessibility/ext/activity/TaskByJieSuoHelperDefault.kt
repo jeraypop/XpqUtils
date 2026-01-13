@@ -84,6 +84,7 @@ open class TaskByJieSuoHelperDefault(
                 KeyguardUnLock.wakeKeyguardOn()
             }
             //第一次判断 键盘锁
+            //理论上 waitKeyguardOn 值就是true
             if (KeyguardUnLock.waitKeyguardOn()){
                 sendLog("♥♥ 屏幕已被解锁")
                 isJieSuo = true

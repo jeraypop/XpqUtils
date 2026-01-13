@@ -601,9 +601,13 @@ object KeyguardUnLock {
 
         // 3. 只有持有引用的这个对象调用的 disable 才是有效的
         if (!deviceIsSecure()){
-            mKeyguardLock?.disableKeyguard()
-            keyguardIsGone.set(true)
-            sendLog("$tip 无安全锁时尝试禁用键盘锁(可能失效)")
+            val unLockMethod = KeyguardUnLock.getUnLockMethod()
+            if (unLockMethod == 0 || unLockMethod == 1){
+                mKeyguardLock?.disableKeyguard()
+                keyguardIsGone.set(true)
+                sendLog("$tip 无安全锁时尝试禁用键盘锁(可能失效)")
+            }
+
         }
 
 
@@ -620,9 +624,13 @@ object KeyguardUnLock {
         // 5. 使用同一个对象进行恢复
         mKeyguardLock?.let {
             if (!deviceIsSecure()){
-                it.reenableKeyguard()
-                keyguardIsGone.set(false)
-                sendLog("$tip 恢复键盘锁")
+                val unLockMethod = KeyguardUnLock.getUnLockMethod()
+                if (unLockMethod == 0 || unLockMethod == 1){
+                    it.reenableKeyguard()
+                    keyguardIsGone.set(false)
+                    sendLog("$tip 恢复键盘锁")
+                }
+
             }
 
         }
