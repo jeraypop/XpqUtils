@@ -231,10 +231,10 @@ object KeyguardUnLock {
                 false
             }
         } else {
-            if (getUnLockMethod() == 0|| getUnLockMethod() == 1) {
+            if (getUnLockMethod() == 0 || getUnLockMethod() == 1) {
                 //解锁方案0和1
                 if (mPowerManager!!.isInteractive) {
-                    keyguardIsGone.get()
+                    !keyguardIsGone.get()//注意 keyguardIsGone的值是指键盘是否已解锁,要取反
                 } else {
                     //黑屏,直接判断 键盘锁住
                     true
