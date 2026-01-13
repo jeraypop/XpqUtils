@@ -40,7 +40,7 @@ class ScreenStateReceiver(
             Intent.ACTION_SCREEN_OFF -> {
                 Log.e("监听屏幕啊", "总屏幕已关闭")
                 cb.onScreenOff()
-                if (KeyguardUnLock.getUnLockMethod()==1 && KeyguardUnLock.getAutoReenKeyguard()){
+                if ((KeyguardUnLock.getUnLockMethod()==0 || KeyguardUnLock.getUnLockMethod()==1) && KeyguardUnLock.getAutoReenKeyguard()){
                     KeyguardUnLock.wakeKeyguardOff(tip = "广播:屏幕已关闭")
                 }
                 //setSuoPingIsOne()
@@ -50,7 +50,7 @@ class ScreenStateReceiver(
             Intent.ACTION_SCREEN_ON -> {
                 Log.e("监听屏幕啊", "总屏幕点亮")
                 cb.onScreenOn()
-                if (KeyguardUnLock.getUnLockMethod()==1 && KeyguardUnLock.getAutoDisableKeyguard()){
+                if ((KeyguardUnLock.getUnLockMethod()==0 || KeyguardUnLock.getUnLockMethod()==1) && KeyguardUnLock.getAutoDisableKeyguard()){
                     //禁用键盘锁
                     KeyguardUnLock.wakeKeyguardOn(tip = "广播:屏幕已点亮")
                 }

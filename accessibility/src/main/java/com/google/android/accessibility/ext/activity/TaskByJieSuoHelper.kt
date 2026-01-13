@@ -103,7 +103,7 @@ open class TaskByJieSuoHelper(
         if (!KeyguardUnLock.deviceIsSecure()){
              //无安全锁
             if (unLockMethod == 1){
-                //在这里之前 wakekeyguardon一定被执行过一次(方案切换到1时,内容提供者oncreate中)
+                //在这里之前 wakekeyguardon一定被执行过一次(方案切换到0或者1时,内容提供者oncreate中)
                 // 所以才判断键盘是否已解除 ,但为了稳妥,额外判断一次
                 if (!KeyguardUnLock.keyguardIsGone.get()){
                     //如果之前并没有执行过 wakeKeyguardOn,就执行一次

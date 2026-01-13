@@ -111,10 +111,8 @@ class LibCtxProvider : ContentProvider() {
         appMyName = getAppName(appContext)
 
         val unLockMethod = KeyguardUnLock.getUnLockMethod()
-        if (unLockMethod == 1){
+        if (unLockMethod == 0 || unLockMethod == 1){
             KeyguardUnLock.wakeKeyguardOn()
-        }else if (unLockMethod == 0){
-            KeyguardUnLock.wakeKeyguardOff()
         }else if (unLockMethod == 2){
             KeyguardUnLock.wakeKeyguardOff()
         }else if (unLockMethod == 3){

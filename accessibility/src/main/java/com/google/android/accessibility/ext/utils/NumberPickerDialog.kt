@@ -526,8 +526,9 @@ object NumberPickerDialog {
             val index = newValue - min
             val text = displayedValues?.getOrNull(index) ?: newValue.toString()
 
-            // ★ 只有 1 -> 0/2 / 3 才提示
-            if (oldValue == 1 && newValue != 1) {
+            // 只有「原状态是 0 或 1」，并且「新状态不是 0 也不是 1」时才进入
+            //0 ↔ 1 之间互相切换，一律不进
+            if ((oldValue == 0 || oldValue == 1) && newValue != 0 && newValue != 1) {
 
                 if (KeyguardUnLock.keyguardIsGone.get()){
                     val tit = if (newValue == 0){"关闭解锁方案"}else{"切换解锁方案"}

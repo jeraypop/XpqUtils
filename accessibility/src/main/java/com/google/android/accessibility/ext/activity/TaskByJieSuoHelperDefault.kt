@@ -77,7 +77,12 @@ open class TaskByJieSuoHelperDefault(
             //滑动锁屏
             //因为如果是滑动解锁的话,调用disablekeyguad后,结果将不再准确
             //所以我们就不再判断键盘是否锁了
-            KeyguardUnLock.wakeKeyguardOn()
+            //在这里之前 wakekeyguardon一定被执行过一次(方案切换到0或者1时,内容提供者oncreate中)
+            // 所以才判断键盘是否已解除 ,但为了稳妥,额外判断一次
+            if (!KeyguardUnLock.keyguardIsGone.get()){
+                //如果之前并没有执行过 wakeKeyguardOn,就执行一次
+                KeyguardUnLock.wakeKeyguardOn()
+            }
             //第一次判断 键盘锁
             if (KeyguardUnLock.waitKeyguardOn()){
                 sendLog("♥♥ 屏幕已被解锁")

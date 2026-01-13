@@ -144,7 +144,7 @@ object KeyguardUnLock {
      */
     @JvmOverloads
     @JvmStatic
-    fun getDeviceLockState(context: Context = appContext,byKeyguard: Boolean = true,jian: Boolean = true): DeviceLockState {
+    fun getDeviceLockState(context: Context = appContext,byKeyguard: Boolean = true,jian: Boolean = false): DeviceLockState {
         val appCtx = context.applicationContext
         if (mKeyguardManager == null) {
             mKeyguardManager = appCtx.getSystemService(KeyguardManager::class.java)
@@ -212,7 +212,7 @@ object KeyguardUnLock {
     fun getDeviceLocked(
         context: Context = appContext,
         byKeyguard: Boolean = true,
-        jian: Boolean = true
+        jian: Boolean = false
     ): Boolean {
         if (mKeyguardManager == null) {
             //mKeyguardManager = context.applicationContext.getSystemService(KeyguardManager::class.java)
@@ -224,15 +224,15 @@ object KeyguardUnLock {
         }
         var locked = false
         //jian
-        locked = if (true) {
+        locked = if (jian) {
             try {
                 if (byKeyguard) mKeyguardManager!!.isKeyguardLocked else mKeyguardManager!!.isDeviceLocked
             } catch (e: Exception) {
                 false
             }
         } else {
-            if (getUnLockMethod() == 1) {
-                //解锁方案1
+            if (getUnLockMethod() == 0|| getUnLockMethod() == 1) {
+                //解锁方案0和1
                 if (mPowerManager!!.isInteractive) {
                     keyguardIsGone.get()
                 } else {
@@ -338,35 +338,13 @@ object KeyguardUnLock {
      * 判断是否解除键盘锁
      *
      */
-    suspend fun waitKeyguardOn(jian: Boolean = true,
+    suspend fun waitKeyguardOn(jian: Boolean = false,
                                timeOutMillis: Long = 1500L,
                                periodMillis: Long = 50L
     ): Boolean {
         return delayAction(10) {
             retryCheckTaskWithLog("判断是否解除键盘锁",timeOutMillis,periodMillis,true) {
-                if (jian) {
-                    KeyguardUnLock.keyguardIsOn(jian = jian)
-                } else {
-                    val status = KeyguardUnLock.getDeviceLockState(jian = jian)
-                    // 访问键盘锁状态
-                    when (val lockState = status) {
-                        is DeviceLockState.Unlocked -> {
-                            val msg = if (lockState.isDeviceSecure) "设备已被解锁（有安全锁）" else "设备已被解锁（无安全锁）"
-                            sendLog(msg)
-                            true
-                        }
-                        DeviceLockState.LockedNotSecure -> {
-                            //设备被锁屏了，但是没有安全锁  {如“滑动解锁”或无锁屏}
-                            sendLog("设备被锁屏,未设置安全锁,[可能是 滑动解锁或无锁屏]")
-                            false
-                        }
-                        DeviceLockState.LockedSecure -> {
-                            //设备被锁屏了，并且有安全锁 （如 PIN、图案、指纹、人脸）
-                            sendLog("设备被锁屏,设置了安全锁 [PIN、图案、密码、指纹、Face ID 等]")
-                            false
-                        }
-                    }
-                }
+                KeyguardUnLock.keyguardIsOn(jian = jian)
             }
         }
     }
@@ -391,7 +369,7 @@ object KeyguardUnLock {
                         //设备被锁屏了，但是没有安全锁  {如“滑动解锁”或无锁屏}
                         sendLog("设备被锁屏,未设置安全锁,[可能是 滑动解锁或无锁屏]")
                         sendLog("准备上划解锁")
-                        if (unLockMethod == 1){
+                        if (unLockMethod == 0 || unLockMethod == 1){
                             //旧版 禁用键盘锁
                             KeyguardUnLock.wakeKeyguardOn()
                             //是否额外判断键盘锁
@@ -655,7 +633,7 @@ object KeyguardUnLock {
 
     @JvmOverloads
     @JvmStatic
-    fun keyguardIsOn(context: Context = appContext,jian: Boolean = true): Boolean {
+    fun keyguardIsOn(context: Context = appContext,jian: Boolean = false): Boolean {
         var isKeyguardOn = false
         if (mKeyguardManager == null) {
             mKeyguardManager = context.applicationContext.getSystemService(Context.KEYGUARD_SERVICE) as KeyguardManager
@@ -1443,8 +1421,7 @@ isDeviceSecure = 这台设备“有没有任何安全门槛”
     @JvmStatic
     fun setUnLockMethod(isNew: Int = 0) {
         //切换不同的解锁方案的时候刷新一下键盘锁
-        if (isNew == 1){wakeKeyguardOn()}
-        else if (isNew == 0){wakeKeyguardOff()}
+        if (isNew == 0 || isNew == 1){wakeKeyguardOn()}
         else if (isNew == 2){wakeKeyguardOff()}
         else if (isNew == 3){wakeKeyguardOff()}
         MMKVUtil.put(MMKVConst.KEY_JIESUO_METHOD_NUMBERPICKER,isNew)
