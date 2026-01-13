@@ -1585,7 +1585,7 @@ isDeviceSecure = 这台设备“有没有任何安全门槛”
 
     private fun tryActionClickWithParent(
         node: AccessibilityNodeInfo,
-        maxDepth: Int = 3
+        maxDepth: Int = 5
     ): Boolean {
 
         var current: AccessibilityNodeInfo? = node
@@ -1764,6 +1764,8 @@ isDeviceSecure = 这台设备“有没有任何安全门槛”
         service: AccessibilityService?,
         nodeInfo: AccessibilityNodeInfo?,
         isMoNi: Boolean = true,
+        noParent: Boolean = true,
+        maxDepth: Int = 5,
         interval: Long = 0L
     ): Boolean {
         if (service == null || nodeInfo == null) return false
@@ -1813,7 +1815,7 @@ isDeviceSecure = 这台设备“有没有任何安全门槛”
          * 2️⃣ ACTION_CLICK（含 parent）
          */
         var actionClickSuccess = false
-        if (true){
+        if (noParent){
             //不含 parent
             actionClickSuccess = if (nodeInfo.isClickable) {
                 try {
@@ -1827,7 +1829,7 @@ isDeviceSecure = 这台设备“有没有任何安全门槛”
         }else{
             // 含 parent
             actionClickSuccess = try {
-                tryActionClickWithParent(nodeInfo)
+                tryActionClickWithParent(nodeInfo,maxDepth)
             } catch (_: Throwable) {
                 false
             }
