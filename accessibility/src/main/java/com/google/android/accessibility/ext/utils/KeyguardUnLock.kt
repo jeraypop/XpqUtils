@@ -1544,7 +1544,7 @@ isDeviceSecure = 这台设备“有没有任何安全门槛”
     }
 
     @JvmStatic
-    fun showClickIndicator(service: AccessibilityService?, x: Int, y: Int) {
+    fun showClickIndicator(service: AccessibilityService? = accessibilityService, x: Int, y: Int) {
         service?: return
         val showguiji = MMKVUtil.get(MMKVConst.SHOW_DO_GUIJI, false)
         if (showguiji){
@@ -1570,7 +1570,7 @@ isDeviceSecure = 这台设备“有没有任何安全门槛”
     }
 
     @JvmStatic
-    fun showGestureIndicator(service: AccessibilityService?, path: Path, duration: Long) {
+    fun showGestureIndicator(service: AccessibilityService? = accessibilityService, path: Path, duration: Long) {
         service?: return
         val showguiji = MMKVUtil.get(MMKVConst.SHOW_DO_GUIJI, false)
         if (showguiji){
@@ -1618,7 +1618,7 @@ isDeviceSecure = 这台设备“有没有任何安全门槛”
     @JvmOverloads
     @JvmStatic
     fun performClickNodeInfo(
-        service: AccessibilityService?,
+        service: AccessibilityService? = accessibilityService,
         nodeInfo: AccessibilityNodeInfo?,
         isMoNi: Boolean = true,
         isJava: Boolean = false
@@ -1761,7 +1761,7 @@ isDeviceSecure = 这台设备“有没有任何安全门槛”
     @JvmOverloads
     @JvmStatic
     fun xpqclickNode(
-        service: AccessibilityService?,
+        service: AccessibilityService? = accessibilityService,
         nodeInfo: AccessibilityNodeInfo?,
         isMoNi: Boolean = true,
         noParent: Boolean = true,
