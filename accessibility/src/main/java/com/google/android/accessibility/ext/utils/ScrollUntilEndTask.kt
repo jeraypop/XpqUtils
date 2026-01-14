@@ -8,29 +8,46 @@ import android.view.accessibility.AccessibilityNodeInfo
 /**
  * Company    :
  * Author     : Lucas     联系WX:780203920
- * Date       : 2026/1/14  15:01
- * Description:This is ScrollUntilEndTask
+ * Date       : 2026/1/14
+ * Description: ScrollUntilEndTask
+ *
+ * 连续滑动列表直到真正到底（抗抖动 / 可取消 / 防泄漏）
+ */
+
+/**
+ * 列表尾部指纹
+ * 用于判断“内容是否真的发生变化”
  */
 data class ListFingerprint(
     val lastId: String?,
     val lastText: CharSequence?,
     val lastBottom: Int
 )
+
 class ScrollUntilEndTask {
 
     private val handler = Handler(Looper.getMainLooper())
     private var finished = false
 
-    fun cancel() {
+    /**
+     * 主动取消任务（如 window 切换 / 新任务启动）
+     */
+    fun cancel(reason: String = "cancel") {
+        //Log.d("ScrollUntilEndTask", "cancel: $reason")
         finishInternal()
     }
-    /*
- *  maxScrollTimes 最大滑动次数上限
- * delayMs: Long = 300 一次滑动后，等待 UI 刷新的时间
- * stableThreshold: Int = 2 “连续多少次内容不再变化” 才认为滑动到底
- * onEachScroll  每次成功滑动后的回调
- * onFinish  整个滑动流程结束时的最终回调
- * */
+
+
+    /**
+     * 启动滑动任务
+     *
+     * @param list 列表节点
+     * @param maxScrollTimes 最大滑动次数上限
+     * @param delayMs 每次滑动后等待 UI 稳定的时间
+     * @param stableThreshold 连续多少次“尾部不变”才算真正到底
+     * @param onEachScroll 每次滑动后的回调
+     * @param onFinish 最终完成回调（true=到底 / false=被中断或到达上限）
+     */
     fun start(
         list: AccessibilityNodeInfo,
         maxScrollTimes: Int = 20,
@@ -41,8 +58,7 @@ class ScrollUntilEndTask {
     ) {
         // 🚫 非列表直接结束
         if (!isListLike(list)) {
-            onFinish(true)
-            finishInternal()
+            finish(true, onFinish)
             return
         }
 
@@ -50,18 +66,12 @@ class ScrollUntilEndTask {
         var stableCount = 0
         var lastFingerprint: ListFingerprint? = null
 
-        fun finish(reachedEnd: Boolean) {
-            if (finished) return
-            finished = true
-            onFinish(reachedEnd)
-            finishInternal()
-        }
-
         fun step() {
             if (finished) return
 
+            // ⛔ 超出最大滑动次数
             if (scrollCount >= maxScrollTimes) {
-                finish(false)
+                finish(false, onFinish)
                 return
             }
 
@@ -80,8 +90,9 @@ class ScrollUntilEndTask {
                 scrollCount++
                 onEachScroll?.invoke(scrollCount)
 
+                // ✅ 连续 N 次内容不再变化 → 真正到底
                 if (stableCount >= stableThreshold) {
-                    finish(true)
+                    finish(true, onFinish)
                 } else {
                     handler.post { step() }
                 }
@@ -91,17 +102,36 @@ class ScrollUntilEndTask {
         step()
     }
 
+    /**
+     * 真正完成任务（统一出口）
+     */
+    private fun finish(
+        reachedEnd: Boolean,
+        onFinish: (Boolean) -> Unit
+    ) {
+        if (finished) return
+        finished = true
+        onFinish(reachedEnd)
+        finishInternal()
+    }
+
+    /**
+     * 内部清理（防泄漏）
+     */
     private fun finishInternal() {
         finished = true
         handler.removeCallbacksAndMessages(null)
     }
 
+    /**
+     * 判断是否为“列表型节点”
+     */
     fun isListLike(node: AccessibilityNodeInfo?): Boolean {
         if (node == null) return false
 
         val className = node.className?.toString() ?: ""
 
-        // 1️⃣ 明确的系统列表控件（最稳）
+        // 1️⃣ 明确的系统列表控件
         if (className == "android.widget.ListView" ||
             className == "android.widget.GridView" ||
             className == "androidx.recyclerview.widget.RecyclerView"
@@ -109,19 +139,22 @@ class ScrollUntilEndTask {
             return true
         }
 
-        // 2️⃣ 无障碍语义集合（非常关键）
+        // 2️⃣ 无障碍集合语义（非常关键）
         if (node.collectionInfo != null) {
             return true
         }
 
-        // 3️⃣ 兜底：可滚动 + 有多个子节点
+        // 3️⃣ 兜底：可滚动 + 多子节点
         if (node.isScrollable && node.childCount >= 2) {
             return true
         }
 
         return false
     }
-    //    2️⃣ 构建指纹
+
+    /**
+     * 构建“列表尾部指纹”
+     */
     fun buildListFingerprint(list: AccessibilityNodeInfo): ListFingerprint? {
         val count = list.childCount
         if (count <= 0) return null
@@ -138,7 +171,9 @@ class ScrollUntilEndTask {
         )
     }
 
-    //3️⃣ 单步滑动 + 是否变化
+    /**
+     * 单次滑动 + 判断内容是否变化
+     */
     private fun scrollOnceAndCheckChanged(
         list: AccessibilityNodeInfo,
         delayMs: Long,
@@ -155,12 +190,11 @@ class ScrollUntilEndTask {
             return
         }
 
-        Handler(Looper.getMainLooper()).postDelayed({
+        // ✅ 使用同一个 handler，支持 cancel
+        handler.postDelayed({
+            if (finished) return@postDelayed
             val after = buildListFingerprint(list)
             callback(before != after)
         }, delayMs)
     }
-
-
-
 }
