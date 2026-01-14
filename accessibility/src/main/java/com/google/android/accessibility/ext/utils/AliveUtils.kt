@@ -361,6 +361,44 @@ object AliveUtils {
             }
         }
 
+         fun postAddViewWhenAccessibilityReady(
+            service: AccessibilityService,
+            wm: WindowManager,
+            view: View,
+            lp: WindowManager.LayoutParams,
+            onSuccess: () -> Unit
+        ) {
+            val handler = Handler(Looper.getMainLooper())
+            var retryCount = 0
+            val maxRetry = 20
+            val retryDelay = 50L
+
+            fun tryAdd() {
+                //if (!service.isServiceConnected) return
+                if (view.parent != null) return
+
+                // 🔑 核心：token 是否就绪
+                if (service.rootInActiveWindow == null) {
+                    if (retryCount++ < maxRetry) {
+                        handler.postDelayed({ tryAdd() }, retryDelay)
+                    } else {
+                        Log.e("KeepAlive", "Accessibility window not ready, give up addView")
+                    }
+                    return
+                }
+
+                try {
+                    wm.addView(view, lp)
+                    onSuccess()
+                } catch (t: Throwable) {
+                    Log.e("KeepAlive", "addView failed after ready", t)
+                }
+            }
+
+            handler.post { tryAdd() }
+        }
+
+
         val lp = WindowManager.LayoutParams().apply {
             width = 1
             height = 1
@@ -436,18 +474,38 @@ object AliveUtils {
         }
 
         ignoreView = View(appCtx).apply { setBackgroundColor(Color.TRANSPARENT) }
+      //==
+        val wm = windowManager ?: return
 
-        mainHandler.post {
-            try {
-                val wm = windowManager ?: return@post
-                if (ignoreView?.parent != null) return@post
-                wm.addView(ignoreView, lp)
-                lastCreatedByAccessibility = actuallyAccessibility
-                Log.d("KeepAlive", "overlay added, fromAccessibility=$actuallyAccessibility")
-            } catch (t: Throwable) {
-                Log.e("KeepAlive", "addView failed", t)
+        if (actuallyAccessibility && ctx is AccessibilityService) {
+            // ⭐ 无障碍：自动等待 token
+            postAddViewWhenAccessibilityReady(
+                service = ctx,
+                wm = wm,
+                view = ignoreView!!,
+                lp = lp
+            ) {
+                lastCreatedByAccessibility = true
+                Log.d("KeepAlive", "overlay added safely (accessibility)")
+            }
+        } else {
+            // ⭐ 普通 Context：保持你原来的行为
+            mainHandler.post {
+                try {
+                    if (ignoreView?.parent != null) return@post
+                    wm.addView(ignoreView, lp)
+                    lastCreatedByAccessibility = false
+                    Log.d("KeepAlive", "overlay added (normal context)")
+                } catch (t: Throwable) {
+                    Log.e("KeepAlive", "addView failed", t)
+                }
             }
         }
+
+        //==
+
+
+
     }
 
 
