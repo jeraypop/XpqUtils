@@ -7,6 +7,7 @@ import android.accessibilityservice.GestureDescription.StrokeDescription
 import android.annotation.SuppressLint
 import android.app.KeyguardManager
 import android.content.Context
+import android.content.pm.PackageManager
 import android.graphics.Path
 import android.graphics.Rect
 import android.hardware.display.DisplayManager
@@ -603,9 +604,12 @@ object KeyguardUnLock {
         if (!deviceIsSecure()){
             val unLockMethod = KeyguardUnLock.getUnLockMethod()
             if (unLockMethod == 0 || unLockMethod == 1){
-                mKeyguardLock?.disableKeyguard()
-                keyguardIsGone.set(true)
-                sendLog("$tip 无安全锁时尝试禁用键盘锁(可能失效)")
+                if (hasSomePermission()){
+                    mKeyguardLock?.disableKeyguard()
+                    keyguardIsGone.set(true)
+                    sendLog("$tip 无安全锁时尝试禁用键盘锁(可能失效)")
+                }
+
             }
 
         }
@@ -626,9 +630,12 @@ object KeyguardUnLock {
             if (!deviceIsSecure()){
                 val unLockMethod = KeyguardUnLock.getUnLockMethod()
                 if (unLockMethod == 0 || unLockMethod == 1){
-                    it.reenableKeyguard()
-                    keyguardIsGone.set(false)
-                    sendLog("$tip 恢复键盘锁")
+                    if (hasSomePermission()){
+                        it.reenableKeyguard()
+                        keyguardIsGone.set(false)
+                        sendLog("$tip 恢复键盘锁")
+                    }
+
                 }
 
             }
@@ -637,6 +644,39 @@ object KeyguardUnLock {
         // 释放引用（虽然 KeyguardLock 系统层未必释放，但逻辑上我们重置了）
         // 注意：有些业务场景下为了复用可能不置空，视具体情况而定
         // mKeyguardLock = null
+    }
+    @JvmOverloads
+    @JvmStatic
+    fun hasSomePermission(ctx: Context = appContext, permission: String = "android.permission.DISABLE_KEYGUARD"): Boolean {
+        val declared = isDeclared(ctx, permission)
+        val granted = ctx.checkCallingOrSelfPermission(permission) ==
+                PackageManager.PERMISSION_GRANTED
+
+        if (!declared) {
+            sendLog("$permission 权限未在清单文件中配置")
+        }
+        if (!granted) {
+            sendLog("$permission 权限未申请")
+        }
+
+
+        return declared && granted
+    }
+    /*
+    * 清单文件中是否声明
+    * */
+    @JvmOverloads
+    @JvmStatic
+    private fun isDeclared(ctx: Context = appContext, permission: String = "android.permission.DISABLE_KEYGUARD"): Boolean {
+        return try {
+            val info = ctx.packageManager.getPackageInfo(
+                ctx.packageName,
+                PackageManager.GET_PERMISSIONS
+            )
+            info.requestedPermissions?.contains(permission) == true
+        } catch (t: Throwable) {
+            false
+        }
     }
 
     @JvmOverloads
