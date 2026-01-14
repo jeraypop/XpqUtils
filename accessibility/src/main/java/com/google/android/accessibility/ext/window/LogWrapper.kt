@@ -61,7 +61,7 @@ object LogWrapper {
             return msg.toString()
         }*/
     private val logLock = Mutex()
-    private const val MAX_LINES = 1000
+    private const val MAX_LINES = 1500
     fun logAppend(msg: CharSequence): String {
 
 
@@ -155,7 +155,7 @@ object LogWrapper {
     fun copyLogMethod(numCount: Int = 9996) {
         val logContent = logCache.toString()
 
-        // 检查日志长度是否超过1000字符
+        // 检查日志长度是否超过10000字符
         if (logContent.length > numCount) {
             // 需要显示对话框让用户选择操作方式
             Handler(Looper.getMainLooper()).post {
