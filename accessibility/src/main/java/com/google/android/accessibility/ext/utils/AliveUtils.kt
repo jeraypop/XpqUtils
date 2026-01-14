@@ -473,7 +473,18 @@ object AliveUtils {
             }
         }
 
-        ignoreView = View(appCtx).apply { setBackgroundColor(Color.TRANSPARENT) }
+        val viewContext = if (actuallyAccessibility) {
+            ctx   // 🔑 AccessibilityService 本身
+        } else {
+            appCtx
+        }
+
+        ignoreView = View(viewContext).apply {
+            setBackgroundColor(Color.TRANSPARENT)
+        }
+
+
+        //ignoreView = View(appCtx).apply { setBackgroundColor(Color.TRANSPARENT) }
       //==
         val wm = windowManager ?: return
 
