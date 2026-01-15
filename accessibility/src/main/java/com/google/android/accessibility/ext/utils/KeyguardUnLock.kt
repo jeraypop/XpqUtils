@@ -1514,6 +1514,7 @@ isDeviceSecure = 这台设备“有没有任何安全门槛”
     }
 
 
+
     @JvmOverloads
     @JvmStatic
     fun setScreenAlwaysOn(alwaysOn: Boolean = false) {

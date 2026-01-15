@@ -19,6 +19,8 @@ object ScrollUntilEndEntry {
     private var pendingRunnable: Runnable? = null
     private var currentTask: ScrollUntilEndTask? = null
 
+    @Volatile
+    private var enabled: Boolean = getFlushMsg()
     /**
      * 对外唯一入口（带防抖）
      */
@@ -33,11 +35,20 @@ object ScrollUntilEndEntry {
         onEachScroll: ((index: Int) -> Unit)? = null,
         onFinish: ((reachedEnd: Boolean) -> Unit)? = null
     ) {
+        //  总开关（极快，不 IO）
+        if (!enabled) return
+
         // 1️⃣ 取消尚未触发的防抖任务
         pendingRunnable?.let {
             handler.removeCallbacks(it)
         }
 
+        /*
+        * 如果你在 1 秒内疯狂调用 start()
+            每一次都会把上一次延迟的 runnable 取消
+            所以 永远只剩最后一次
+           这一步就是防抖的本质
+        * */
         val runnable = Runnable {
             // 2️⃣ cancel 上一次真正执行的滚动任务
             currentTask?.cancel("new debounced start")
@@ -143,6 +154,31 @@ object ScrollUntilEndEntry {
         return score
     }
 
+    @JvmStatic
+    fun setEnabled(enable: Boolean) {
+        // 1️⃣ 持久化
+        setFlushMsg(enable)
+
+        // 2️⃣ 内存态更新
+        enabled = enable
+
+        // 3️⃣ 关闭时立即清理
+        if (!enable) {
+            cancel("flushMsg disabled")
+        }
+    }
+
+
+    @JvmOverloads
+    @JvmStatic
+    fun setFlushMsg(flushmsg: Boolean = false) {
+        MMKVUtil.put(MMKVConst.KEY_FLUSHMSG,flushmsg)
+    }
+    @JvmOverloads
+    @JvmStatic
+    fun getFlushMsg(default: Boolean = false): Boolean {
+        return MMKVUtil.get(MMKVConst.KEY_FLUSHMSG,default)
+    }
 
 
 }
