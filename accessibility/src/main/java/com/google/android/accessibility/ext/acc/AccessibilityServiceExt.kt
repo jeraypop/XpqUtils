@@ -4,68 +4,230 @@ import android.accessibilityservice.AccessibilityService
 import android.util.Log
 import android.view.accessibility.AccessibilityNodeInfo
 import com.google.android.accessibility.ext.default
+import com.google.android.accessibility.selecttospeak.SelectToSpeakServiceAbstract.Companion.copyNodeCompat
+import com.google.android.accessibility.selecttospeak.SelectToSpeakServiceAbstract.Companion.recycleCompat
 import kotlinx.coroutines.delay
 
-/*fun AccessibilityService.findById(id: String): AccessibilityNodeInfo? {
-    for (i in 1..20) {
-        rootInActiveWindow?.findNodesById(id)?.firstOrNull()?.let { return it }
-    }
-    return null
-}*/
+//fun AccessibilityService.findById(id: String): AccessibilityNodeInfo? {
+//    return rootInActiveWindow?.findNodesById(id)?.firstOrNull()
+//}
 fun AccessibilityService.findById(id: String): AccessibilityNodeInfo? {
-    return rootInActiveWindow?.findNodesById(id)?.firstOrNull()
+    val raw = rootInActiveWindow
+        ?.findNodesById(id)
+        ?.firstOrNull()
+        ?: return null
+
+    val safe = copyNodeCompat(raw)
+    recycleCompat(raw)
+    return safe
 }
 
 
+
+
+//fun AccessibilityService?.findNodesById(id: String): List<AccessibilityNodeInfo> {
+//    return this?.rootInActiveWindow?.findNodesById(id) ?: listOf()
+//}
 fun AccessibilityService?.findNodesById(id: String): List<AccessibilityNodeInfo> {
-    return this?.rootInActiveWindow?.findNodesById(id) ?: listOf()
+    this ?: return emptyList()
+    val rawList = rootInActiveWindow?.findNodesById(id) ?: return emptyList()
+
+    if (rawList.isEmpty()) return emptyList()
+
+    val result = ArrayList<AccessibilityNodeInfo>(rawList.size)
+    for (raw in rawList) {
+        copyNodeCompat(raw)?.let { result.add(it) }
+        recycleCompat(raw)
+    }
+    return result
 }
+
+
+
+//fun AccessibilityService.findByText(text: String): AccessibilityNodeInfo? {
+//    return rootInActiveWindow?.findNodeByText(text)
+//}
 
 fun AccessibilityService.findByText(text: String): AccessibilityNodeInfo? {
-    return rootInActiveWindow?.findNodeByText(text)
+    val raw = rootInActiveWindow
+        ?.findNodeByText(text)
+        ?: return null
+
+    val safe = copyNodeCompat(raw)
+    recycleCompat(raw)
+    return safe
 }
+
+
+
+//fun AccessibilityService.findByContainsText(
+//    isPrint: Boolean = true,
+//    textList: List<String>
+//): AccessibilityNodeInfo? {
+//    return rootInActiveWindow?.findNodeWrapperByContainsText(isPrint, textList)?.nodeInfo
+//}
 
 fun AccessibilityService.findByContainsText(
     isPrint: Boolean = true,
     textList: List<String>
 ): AccessibilityNodeInfo? {
-    return rootInActiveWindow?.findNodeWrapperByContainsText(isPrint, textList)?.nodeInfo
+    val raw = rootInActiveWindow
+        ?.findNodeWrapperByContainsText(isPrint, textList)
+        ?.nodeInfo
+        ?: return null
+
+    val safe = copyNodeCompat(raw)
+    recycleCompat(raw)
+    return safe
 }
+
+
+
+//fun AccessibilityService.findByIdAndText(id: String, text: String): AccessibilityNodeInfo? {
+//    return rootInActiveWindow?.findNodesById(id)?.firstOrNull { it.text == text }
+//}
 
 fun AccessibilityService.findByIdAndText(id: String, text: String): AccessibilityNodeInfo? {
-    return rootInActiveWindow?.findNodesById(id)?.firstOrNull { it.text == text }
+    val raw = rootInActiveWindow
+        ?.findNodesById(id)
+        ?.firstOrNull { it.text == text }
+        ?: return null
+
+    val safe = copyNodeCompat(raw)
+    recycleCompat(raw)
+    return safe
 }
 
-fun AccessibilityService?.clickById(id: String, gestureClick: Boolean = true): Boolean {
+
+
+//fun AccessibilityService?.clickById(id: String, gestureClick: Boolean = true): Boolean {
+//    this ?: return false
+//    val find = rootInActiveWindow?.findNodesById(id)?.firstOrNull() ?: return false
+//    return if (gestureClick) {
+//        gestureClick(find).takeIf { it } ?: find.click()
+//    } else {
+//        find.click().takeIf { it } ?: gestureClick(find)
+//    }
+//}
+
+fun AccessibilityService?.clickById(
+    id: String,
+    gestureClick: Boolean = true
+): Boolean {
     this ?: return false
-    val find = rootInActiveWindow?.findNodesById(id)?.firstOrNull() ?: return false
-    return if (gestureClick) {
-        gestureClick(find).takeIf { it } ?: find.click()
-    } else {
-        find.click().takeIf { it } ?: gestureClick(find)
+
+    val raw = rootInActiveWindow
+        ?.findNodesById(id)
+        ?.firstOrNull()
+        ?: return false
+
+    val node = copyNodeCompat(raw)
+    recycleCompat(raw)
+
+    node ?: return false
+
+    return try {
+        if (gestureClick) {
+            gestureClick(node).takeIf { it } ?: node.click()
+        } else {
+            node.click().takeIf { it } ?: gestureClick(node)
+        }
+    } finally {
+        recycleCompat(node)
     }
 }
 
 
-fun AccessibilityService?.clickByText(text: String, gestureClick: Boolean = true): Boolean {
+
+//fun AccessibilityService?.clickByText(text: String, gestureClick: Boolean = true): Boolean {
+//    this ?: return false
+//    val find = rootInActiveWindow?.findNodesByText(text)?.firstOrNull() ?: return false
+//    return if (gestureClick) {
+//        gestureClick(find).takeIf { it } ?: find.click()
+//    } else {
+//        find.click().takeIf { it } ?: gestureClick(find)
+//    }
+//}
+
+fun AccessibilityService?.clickByText(
+    text: String,
+    gestureClick: Boolean = true
+): Boolean {
     this ?: return false
-    val find = rootInActiveWindow?.findNodesByText(text)?.firstOrNull() ?: return false
-    return if (gestureClick) {
-        gestureClick(find).takeIf { it } ?: find.click()
-    } else {
-        find.click().takeIf { it } ?: gestureClick(find)
+
+    val raw = rootInActiveWindow
+        ?.findNodesByText(text)
+        ?.firstOrNull()
+        ?: return false
+
+    val node = copyNodeCompat(raw)
+    recycleCompat(raw)
+    node ?: return false
+
+    return try {
+        if (gestureClick) {
+            gestureClick(node).takeIf { it } ?: node.click()
+        } else {
+            node.click().takeIf { it } ?: gestureClick(node)
+        }
+    } finally {
+        recycleCompat(node)
     }
 }
 
-fun AccessibilityService?.clickByCustomRule(gestureClick: Boolean = true, customRule: (AccessibilityNodeInfo) -> Boolean): Boolean {
+
+//fun AccessibilityService?.clickByCustomRule(gestureClick: Boolean = true, customRule: (AccessibilityNodeInfo) -> Boolean): Boolean {
+//    this ?: return false
+//    val find = rootInActiveWindow?.findNodeWithCustomRule(isPrint = false) { customRule(it) } ?: return false
+//    return if (gestureClick) {
+//        gestureClick(find).takeIf { it } ?: find.click()
+//    } else {
+//        find.click().takeIf { it } ?: gestureClick(find)
+//    }
+//}
+
+fun AccessibilityService?.clickByCustomRule(
+    gestureClick: Boolean = true,
+    customRule: (AccessibilityNodeInfo) -> Boolean
+): Boolean {
     this ?: return false
-    val find = rootInActiveWindow?.findNodeWithCustomRule(isPrint = false) { customRule(it) } ?: return false
-    return if (gestureClick) {
-        gestureClick(find).takeIf { it } ?: find.click()
-    } else {
-        find.click().takeIf { it } ?: gestureClick(find)
+
+    val raw = rootInActiveWindow
+        ?.findNodeWithCustomRule(isPrint = false) { customRule(it) }
+        ?: return false
+
+    val node = copyNodeCompat(raw)
+    recycleCompat(raw)
+    node ?: return false
+
+    return try {
+        if (gestureClick) {
+            gestureClick(node).takeIf { it } ?: node.click()
+        } else {
+            node.click().takeIf { it } ?: gestureClick(node)
+        }
+    } finally {
+        recycleCompat(node)
     }
 }
+
+
+
+//fun AccessibilityService?.clickByIdAndText(
+//    id: String,
+//    text: String,
+//    gestureClick: Boolean = true
+//): Boolean {
+//    this ?: return false
+//    rootInActiveWindow?.findNodesById(id)?.firstOrNull { it.text.default() == text }?.let { find ->
+//        return if (gestureClick) {
+//            gestureClick(find).takeIf { it } ?: find.click()
+//        } else {
+//            find.click().takeIf { it } ?: gestureClick(find)
+//        }
+//    }
+//    return false
+//}
 
 fun AccessibilityService?.clickByIdAndText(
     id: String,
@@ -73,15 +235,44 @@ fun AccessibilityService?.clickByIdAndText(
     gestureClick: Boolean = true
 ): Boolean {
     this ?: return false
-    rootInActiveWindow?.findNodesById(id)?.firstOrNull { it.text.default() == text }?.let { find ->
-        return if (gestureClick) {
-            gestureClick(find).takeIf { it } ?: find.click()
+
+    val raw = rootInActiveWindow
+        ?.findNodesById(id)
+        ?.firstOrNull { it.text.default() == text }
+        ?: return false
+
+    val node = copyNodeCompat(raw)
+    recycleCompat(raw)
+    node ?: return false
+
+    return try {
+        if (gestureClick) {
+            gestureClick(node).takeIf { it } ?: node.click()
         } else {
-            find.click().takeIf { it } ?: gestureClick(find)
+            node.click().takeIf { it } ?: gestureClick(node)
         }
+    } finally {
+        recycleCompat(node)
     }
-    return false
 }
+
+
+//fun AccessibilityService?.clickByIdAndDesc(
+//    id: String,
+//    regex: String,
+//    gestureClick: Boolean = true
+//): Boolean {
+//    this ?: return false
+//    rootInActiveWindow?.findNodesById(id)?.firstOrNull { it.contentDescription.default().matches(regex.toRegex())
+//    }?.let { find ->
+//        return if (gestureClick) {
+//            gestureClick(find).takeIf { it } ?: find.click()
+//        } else {
+//            find.click().takeIf { it } ?: gestureClick(find)
+//        }
+//    }
+//    return false
+//}
 
 fun AccessibilityService?.clickByIdAndDesc(
     id: String,
@@ -89,44 +280,117 @@ fun AccessibilityService?.clickByIdAndDesc(
     gestureClick: Boolean = true
 ): Boolean {
     this ?: return false
-    rootInActiveWindow?.findNodesById(id)?.firstOrNull { it.contentDescription.default().matches(regex.toRegex())
-    }?.let { find ->
-        return if (gestureClick) {
-            gestureClick(find).takeIf { it } ?: find.click()
+
+    val pattern = regex.toRegex()
+
+    val raw = rootInActiveWindow
+        ?.findNodesById(id)
+        ?.firstOrNull { it.contentDescription.default().matches(pattern) }
+        ?: return false
+
+    val node = copyNodeCompat(raw)
+    recycleCompat(raw)
+    node ?: return false
+
+    return try {
+        if (gestureClick) {
+            gestureClick(node).takeIf { it } ?: node.click()
         } else {
-            find.click().takeIf { it } ?: gestureClick(find)
+            node.click().takeIf { it } ?: gestureClick(node)
         }
+    } finally {
+        recycleCompat(node)
     }
-    return false
 }
+
+
+
+//suspend fun AccessibilityService?.clickMultipleByIdAndText(
+//    id: String,
+//    text: String,
+//    startIndex: Int = 0, // 新增偏移逻辑，默认0保持原有逻辑
+//    count: Int = 1, // 新增数量参数，默认1保持原有逻辑
+//    gestureClick: Boolean = true
+//): Boolean {
+//    this ?: return false
+//    // 获取前N个匹配元素
+//    val targets = rootInActiveWindow?.findNodesById(id)
+//        ?.filter { it.text.default() == text }
+//        ?.drop(startIndex)  //
+//        ?.take(count)
+//        ?: return false
+//    var b = false
+//    targets.forEach { find ->
+//        b = if (gestureClick) {
+//            gestureClick(find) || find.click()
+//        } else {
+//            find.click() || gestureClick(find)
+//        }
+//        delay(500) // 增加间隔
+//    }
+//    return b
+//
+//}
 
 suspend fun AccessibilityService?.clickMultipleByIdAndText(
     id: String,
     text: String,
-    startIndex: Int = 0, // 新增偏移逻辑，默认0保持原有逻辑
-    count: Int = 1, // 新增数量参数，默认1保持原有逻辑
+    startIndex: Int = 0,
+    count: Int = 1,
     gestureClick: Boolean = true
 ): Boolean {
     this ?: return false
-    // 获取前N个匹配元素
-    val targets = rootInActiveWindow?.findNodesById(id)
+
+    val rawList = rootInActiveWindow
+        ?.findNodesById(id)
         ?.filter { it.text.default() == text }
-        ?.drop(startIndex)  //
+        ?.drop(startIndex)
         ?.take(count)
         ?: return false
-    var b = false
-    targets.forEach { find ->
-        b = if (gestureClick) {
-            gestureClick(find) || find.click()
-        } else {
-            find.click() || gestureClick(find)
-        }
-        delay(500) // 增加间隔
-    }
-    return b
 
+    if (rawList.isEmpty()) return false
+
+    var result = false
+
+    for (raw in rawList) {
+        val node = copyNodeCompat(raw)
+        recycleCompat(raw)
+        node ?: continue
+
+        try {
+            result = if (gestureClick) {
+                gestureClick(node) || node.click()
+            } else {
+                node.click() || gestureClick(node)
+            }
+        } finally {
+            recycleCompat(node)
+        }
+
+        delay(500)
+    }
+
+    return result
 }
 
+
+
+//fun AccessibilityService?.clickByIdAndTextFilter(
+//    id: String,
+//    text: String,
+//    gestureClick: Boolean = true
+//): Boolean {
+//    this ?: return false
+//    rootInActiveWindow?.findNodesById(id)?.firstOrNull {
+//        it.text.default(filter = true) == text }?.let { find ->
+//        return if (gestureClick) {
+//            gestureClick(find).takeIf { it } ?: find.click()
+//        } else {
+//            find.click().takeIf { it } ?: gestureClick(find)
+//        }
+//    }
+//    return false
+//}
 
 fun AccessibilityService?.clickByIdAndTextFilter(
     id: String,
@@ -134,30 +398,81 @@ fun AccessibilityService?.clickByIdAndTextFilter(
     gestureClick: Boolean = true
 ): Boolean {
     this ?: return false
-    rootInActiveWindow?.findNodesById(id)?.firstOrNull {
-        it.text.default(filter = true) == text }?.let { find ->
-        return if (gestureClick) {
-            gestureClick(find).takeIf { it } ?: find.click()
+
+    val raw = rootInActiveWindow
+        ?.findNodesById(id)
+        ?.firstOrNull { it.text.default(filter = true) == text }
+        ?: return false
+
+    val node = copyNodeCompat(raw)
+    recycleCompat(raw)
+    node ?: return false
+
+    return try {
+        if (gestureClick) {
+            gestureClick(node).takeIf { it } ?: node.click()
         } else {
-            find.click().takeIf { it } ?: gestureClick(find)
+            node.click().takeIf { it } ?: gestureClick(node)
         }
+    } finally {
+        recycleCompat(node)
     }
-    return false
 }
+
+
+//suspend fun AccessibilityService?.scrollToClickByText(
+//    scrollViewId: String,
+//    text: String
+//): Boolean {
+//    this ?: return false
+//    val find = rootInActiveWindow?.findNodeByText(text)
+//    return if (find == null) {
+//        rootInActiveWindow?.findNodesById(scrollViewId)?.firstOrNull()?.scrollForward()
+//        delay(200)
+//        scrollToClickByText(scrollViewId, text)
+//    } else {
+//        find.click()
+//    }
+//}
 
 suspend fun AccessibilityService?.scrollToClickByText(
     scrollViewId: String,
     text: String
 ): Boolean {
     this ?: return false
-    val find = rootInActiveWindow?.findNodeByText(text)
-    return if (find == null) {
-        rootInActiveWindow?.findNodesById(scrollViewId)?.firstOrNull()?.scrollForward()
-        delay(200)
-        scrollToClickByText(scrollViewId, text)
-    } else {
-        find.click()
+
+    val raw = rootInActiveWindow?.findNodeByText(text)
+
+    if (raw != null) {
+        val node = copyNodeCompat(raw)
+        recycleCompat(raw)
+        node ?: return false
+
+        return try {
+            node.click()
+        } finally {
+            recycleCompat(node)
+        }
     }
+
+    val scrollRaw = rootInActiveWindow
+        ?.findNodesById(scrollViewId)
+        ?.firstOrNull()
+
+    val scrolled = scrollRaw?.scrollForward() ?: false
+    recycleCompat(scrollRaw)
+
+    if (!scrolled) return false
+
+    delay(200)
+    return scrollToClickByText(scrollViewId, text)
+}
+
+/**
+ * 模拟back按键
+ */
+fun AccessibilityService.pressBackButton(): Boolean {
+    return performGlobalAction(AccessibilityService.GLOBAL_ACTION_BACK)
 }
 
 suspend fun AccessibilityService?.scrollToFindNextNodeByCurrentText(
@@ -182,8 +497,13 @@ suspend fun AccessibilityService?.scrollToFindNextNodeByCurrentText(
             Log.d("FindNextNodeByCurrentText", "屏幕已经滚动到底了，依然没找到，判定为查询结束")
         }
     }
-    return find
+    val result = copyNodeCompat(find)
+    recycleCompat(find)
+    return result
 }
+
+
+
 
 
 
@@ -234,7 +554,10 @@ suspend fun AccessibilityService?.scrollToFindNextNodeByCurrentText_Tag(
 
     }
 
-    return find
+    val result = copyNodeCompat(find)
+    recycleCompat(find)
+    return result
+
 }
 
 private fun AccessibilityService?.getNextNodeByCurrentText_Tag(
@@ -297,6 +620,9 @@ private fun AccessibilityService?.getNextNodeByCurrentText(
     }
 }
 
+
+
+
 suspend fun AccessibilityService?.scrollToFindByText(
     scrollViewId: String,
     text: String
@@ -308,21 +634,22 @@ suspend fun AccessibilityService?.scrollToFindByText(
         delay(200)
         scrollToFindByText(scrollViewId, text)
     } else {
-        find
+        val result = copyNodeCompat(find)
+        recycleCompat(find)
+        result
+
     }
 }
+
+
+
 
 fun AccessibilityService?.printNodeInfo(simplePrint: Boolean = true): String {
     this ?: return ""
     return rootInActiveWindow?.printNodeInfo(simplePrint = simplePrint).toString()
 }
 
-/**
- * 模拟back按键
- */
-fun AccessibilityService.pressBackButton(): Boolean {
-    return performGlobalAction(AccessibilityService.GLOBAL_ACTION_BACK)
-}
+
 
 suspend fun AccessibilityService?.findAllChildByScroll(
     parentViewId: String,
@@ -345,17 +672,6 @@ suspend fun AccessibilityService?.findAllChildByScroll(
 
         delay(timeL)//时间太短的话有时候会获取不到节点信息
         //==================
-/*        var findNextNodes = mutableListOf<AccessibilityNodeInfo>()
-        isStop =  retryCheckTaskWithLog("查找 通讯录节点") {
-            //
-            val findNextNodes = findAllChildByFilter(parentViewId, childViewId) { filter ->
-                list.findLast { it.text?.default() == filter?.text?.default() } != null
-            }
-            findNextNodes.isEmpty()
-        }
-        if (isStop) break
-        list.addAll(findNextNodes)*/
-
         //==================
 
         var findNextNodes = findNextNodeInfos(parentViewId, childViewId, list)
@@ -377,7 +693,10 @@ suspend fun AccessibilityService?.findAllChildByScroll(
         list.addAll(findNextNodes)
         //```````````````````
     }
-    return list
+    val result = list.mapNotNull { copyNodeCompat(it) }
+    list.forEach { recycleCompat(it) }
+    return result
+
 }
 
 private fun AccessibilityService.findNextNodeInfos(

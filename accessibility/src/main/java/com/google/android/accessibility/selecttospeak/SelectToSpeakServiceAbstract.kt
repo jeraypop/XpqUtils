@@ -238,6 +238,31 @@ abstract class SelectToSpeakServiceAbstract : AccessibilityService() {
 
         @Volatile
         var cur_PkgName: String? = ""
+
+        fun copyNodeCompat(node: AccessibilityNodeInfo?): AccessibilityNodeInfo? {
+            if (node == null) return null
+            return try {
+                if (Build.VERSION.SDK_INT >= 34) {
+                    AccessibilityNodeInfo(node)
+                } else {
+                    AccessibilityNodeInfo.obtain(node)
+                }
+            } catch (t: Throwable) {
+                //Log.w(TAG, "copyNodeCompat failed", t)
+                null
+            }
+        }
+
+        fun recycleCompat(node: AccessibilityNodeInfo?) {
+            if (node == null) return
+            if (Build.VERSION.SDK_INT < 34) {
+                try { node.recycle() } catch (_: Throwable) { /* ignore */ }
+            } else {
+                // API34+ recycle 已废弃且为空实现，不必调用
+                try { node.recycle() } catch (_: Throwable) { /* ignore */ }
+            }
+        }
+
     }
 
     fun shouldHandle(eventTime: Long): Boolean {
@@ -414,29 +439,7 @@ abstract class SelectToSpeakServiceAbstract : AccessibilityService() {
         }
     }
 
-    private fun copyNodeCompat(node: AccessibilityNodeInfo?): AccessibilityNodeInfo? {
-        if (node == null) return null
-        return try {
-            if (Build.VERSION.SDK_INT >= 34) {
-                AccessibilityNodeInfo(node)
-            } else {
-                AccessibilityNodeInfo.obtain(node)
-            }
-        } catch (t: Throwable) {
-            Log.w(TAG, "copyNodeCompat failed", t)
-            null
-        }
-    }
 
-    private fun recycleCompat(node: AccessibilityNodeInfo?) {
-        if (node == null) return
-        if (Build.VERSION.SDK_INT < 34) {
-            try { node.recycle() } catch (_: Throwable) { /* ignore */ }
-        } else {
-            // API34+ recycle 已废弃且为空实现，不必调用
-            try { node.recycle() } catch (_: Throwable) { /* ignore */ }
-        }
-    }
     private fun shouldHandleWindowContentChanged(pkg: String?): Boolean {
         val key = pkg ?: "unknown_pkg"
         val now = System.currentTimeMillis()
