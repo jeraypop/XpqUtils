@@ -58,6 +58,11 @@ abstract class SelectToSpeakServiceAbstract : AccessibilityService() {
     // 已转移所有权的副本映射（identityHash -> node 副本）
     private val ownershipMap = ConcurrentHashMap<Int, AccessibilityNodeInfo>()
 
+    // 🔴【改动点 3】Node 接管超时兜底
+    private val NODE_MAX_HOLD_TIME = 3_000L
+    private val nodeHoldTimeMap = ConcurrentHashMap<Int, Long>()
+
+
     abstract fun targetPackageName(): String
 
     abstract fun asyncHandleAccessibilityEvent(event: AccessibilityEvent)
@@ -158,6 +163,8 @@ abstract class SelectToSpeakServiceAbstract : AccessibilityService() {
         instance = this
         // 把事件丢给单线程 executor 处理（保证有序）
         AppExecutors.executors3.execute {
+            // 🔴【改动点 7】周期性兜底清理
+            cleanupExpiredNodes()
             asyncHandleAccessibilityEvent(event)
             dealEvent(event)
         }
@@ -468,6 +475,8 @@ abstract class SelectToSpeakServiceAbstract : AccessibilityService() {
             } else {
                 // 子类接管：记录，等待子类 later 调用 releaseNode(copy)
                 ownershipMap[System.identityHashCode(copy)] = copy
+                // 🔴【改动点 4】记录接管时间
+                nodeHoldTimeMap[System.identityHashCode(copy)] = System.currentTimeMillis()
             }
         }
     }
@@ -480,11 +489,26 @@ abstract class SelectToSpeakServiceAbstract : AccessibilityService() {
         val key = System.identityHashCode(node)
         val removed = ownershipMap.remove(key)
         if (removed != null) {
+            // 🔴【改动点 5】清理时间记录
+            nodeHoldTimeMap.remove(key)
             recycleCompat(removed)
         } else {
             Log.w(TAG, "releaseNode: node not found in ownershipMap")
         }
     }
+
+    // 🔴【改动点 6】超时 Node 自动回收
+    private fun cleanupExpiredNodes() {
+        val now = System.currentTimeMillis()
+        nodeHoldTimeMap.forEach { (key, time) ->
+            if (now - time > NODE_MAX_HOLD_TIME) {
+                ownershipMap.remove(key)?.let { recycleCompat(it) }
+                nodeHoldTimeMap.remove(key)
+                Log.w(TAG, "Force recycle expired AccessibilityNodeInfo")
+            }
+        }
+    }
+
 
     private fun cleanupOwnershipMap() {
         for ((_, node) in ownershipMap) {
