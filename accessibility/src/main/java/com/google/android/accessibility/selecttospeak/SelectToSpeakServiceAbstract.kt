@@ -435,6 +435,7 @@ abstract class SelectToSpeakServiceAbstract : AccessibilityService() {
             try { node.recycle() } catch (_: Throwable) { /* ignore */ }
         } else {
             // API34+ recycle 已废弃且为空实现，不必调用
+            try { node.recycle() } catch (_: Throwable) { /* ignore */ }
         }
     }
     private fun shouldHandleWindowContentChanged(pkg: String?): Boolean {
