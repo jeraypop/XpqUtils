@@ -164,9 +164,9 @@ abstract class SelectToSpeakServiceAbstract : AccessibilityService() {
         // 把事件丢给单线程 executor 处理（保证有序）
         AppExecutors.executors3.execute {
             // 🔴【改动点 7】周期性兜底清理
-            cleanupExpiredNodes()
+            //cleanupExpiredNodes()
             asyncHandleAccessibilityEvent(event)
-            dealEvent(event)
+            //dealEvent(event)
         }
         runCatching { listeners.forEach { it.onAccessibilityEvent(event) } }
     }
