@@ -23,6 +23,7 @@ import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 
 import com.google.android.accessibility.selecttospeak.accessibilityService
+import kotlinx.coroutines.Job
 
 import kotlin.also
 
@@ -42,6 +43,7 @@ open class TaskByJieSuoHelper(
 ) {
 
     protected val mutex = Mutex()
+    protected var taskJob: Job? = null
     var unLockMethod : Int = 0
 
     /**
@@ -63,16 +65,27 @@ open class TaskByJieSuoHelper(
                 return@launch
             }
             mutex.withLock {
-                if (OverlayLog.showed){
-                    OverlayLog.hide()
-                }
-                if (unLockMethod == 1){
-                    sendLog("♥♥ 开始执行【自动解锁(方案1)】任务")
-                }else if (unLockMethod == 2){
-                    sendLog("♥♥ 开始执行【自动解锁(方案2)】任务")
+                // ====== ⭐ 新增：记录当前任务 Job ======
+                taskJob = coroutineContext[Job]
+                // ======================================
+                try {
+                    if (OverlayLog.showed){
+                        OverlayLog.hide()
+                    }
+                    if (unLockMethod == 1){
+                        sendLog("♥♥ 开始执行【自动解锁(方案1)】任务")
+                    }else if (unLockMethod == 2){
+                        sendLog("♥♥ 开始执行【自动解锁(方案2)】任务")
+                    }
+
+                    JieSuoTask(context, i, start)
+                }finally {
+                    // ====== ⭐ 核心：任务结束后取消协程 ======
+                    taskJob?.cancel()
+                    taskJob = null
+                    // ========================================
                 }
 
-                JieSuoTask(context, i, start)
 
             }
         }

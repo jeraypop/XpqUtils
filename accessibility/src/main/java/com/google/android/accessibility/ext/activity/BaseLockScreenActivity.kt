@@ -123,7 +123,8 @@ open class BaseLockScreenActivity : XpqBaseActivity<ActivityLockScreenBinding>(
                     WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE
         )
 
-        KeyguardUnLock.appScope.launch {
+        //KeyguardUnLock.appScope.launch
+        KeyguardUnLock.startUnlockTask {
             val start = System.currentTimeMillis()
             try {
                 isOKJieSuo.set(false)
@@ -155,6 +156,7 @@ open class BaseLockScreenActivity : XpqBaseActivity<ActivityLockScreenBinding>(
                 //delay(5000L)
                 //sendLog("【自动解锁(方案3)】界面自动清理")
                 //finishAndRemoveTask()
+                gestureJob.cancel()   // ⭐ 解锁结束即回收
                 val eWai = KeyguardUnLock.getUnLockResult(isOKJieSuo.get())
                 if (eWai){
                     isOKJieSuo.set(false)

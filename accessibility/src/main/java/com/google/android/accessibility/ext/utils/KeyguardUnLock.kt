@@ -34,8 +34,10 @@ import com.google.android.accessibility.ext.window.SwipeTrajectoryIndicatorManag
 import com.google.android.accessibility.selecttospeak.accessibilityService
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
+import kotlinx.coroutines.cancelChildren
 import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
@@ -259,8 +261,25 @@ object KeyguardUnLock {
      */
     val appScope: CoroutineScope by lazy {
         CoroutineScope(
-            SupervisorJob() + Dispatchers.IO
+            SupervisorJob() + Dispatchers.Default
         )
+    }
+    @Volatile
+    private var unlockJob: Job? = null
+
+
+    fun startUnlockTask(block: suspend CoroutineScope.() -> Unit) {
+        // 🔴 关键：先取消上一次
+        unlockJob?.cancel()
+
+        unlockJob = appScope.launch {
+            try {
+                block()
+            } finally {
+                // 🔴 确保这个任务的子协程全灭
+                coroutineContext.cancelChildren()
+            }
+        }
     }
 
     /**

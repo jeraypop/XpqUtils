@@ -1,7 +1,5 @@
 package com.google.android.accessibility.ext.window
 
-
-
 import android.animation.ValueAnimator
 import android.content.Context
 import android.graphics.*
@@ -11,41 +9,40 @@ import android.os.Looper
 import android.util.Log
 import android.view.*
 import android.view.animation.DecelerateInterpolator
-import androidx.annotation.MainThread
+import java.util.WeakHashMap
 
 /**
- * SwipeTrajectoryIndicatorManager
+ * SwipeTrajectoryIndicatorManager（稳定版）
  *
- * - 把轨迹 overlay 添加到 WindowManager（优先使用 TYPE_ACCESSIBILITY_OVERLAY）
- * - 轨迹颜色为红色系，前端圆点有呼吸动画
- *滑动轨迹
- * 使用：SwipeTrajectoryIndicatorManager.show(context, path, duration = 600L)
- * 隐藏：SwipeTrajectoryIndicatorManager.hide()
+ * 稳定性增强点：
+ * 1. show 限流，防止高频 add/remove Window
+ * 2. Animator 生命周期强制收口
+ * 3. removeRunnableMap 使用 WeakHashMap，防止 View 泄漏
+ * 4. 统一 safeRemove，保证所有路径都能正确释放
  */
 object SwipeTrajectoryIndicatorManager {
-    private val mainHandler = Handler(Looper.getMainLooper())
+
     private const val TAG = "SwipeTrajectoryIndicator"
 
-    private const val DEFAULT_DURATION_MS: Long = 1000L
+    private const val DEFAULT_DURATION_MS = 1000L
     private const val DEFAULT_STROKE_DP = 6
     private const val DEFAULT_TRAIL_FRACTION = 0.25f
 
-    @Volatile
-    private var wm: WindowManager? = null
+    // ★稳定性修改：show 限流
+    private const val MIN_SHOW_INTERVAL_MS = 80L
+    @Volatile private var lastShowTime = 0L
 
-    @Volatile
-    private var overlayView: TrajectoryOverlayView? = null
+    private val mainHandler = Handler(Looper.getMainLooper())
 
-    private val removeRunnableMap = mutableMapOf<TrajectoryOverlayView, Runnable>()
+    @Volatile private var wm: WindowManager? = null
+    @Volatile private var overlayView: TrajectoryOverlayView? = null
+
+    // ★稳定性修改：WeakHashMap 防止 View 被强引用
+    private val removeRunnableMap =
+        WeakHashMap<TrajectoryOverlayView, Runnable>()
 
     /**
-     * 显示轨迹动画（path 为屏幕坐标系，单位 px）
-     *
-     * @param context 建议传 applicationContext
-     * @param path 屏幕坐标系 Path（px）
-     * @param duration 动画时长（ms）
-     * @param strokeDp 轨迹线宽（dp）
-     * @param trailFraction 轨迹尾迹占比（0..1）
+     * 显示滑动轨迹
      */
     fun show(
         context: Context,
@@ -54,130 +51,116 @@ object SwipeTrajectoryIndicatorManager {
         strokeDp: Int = DEFAULT_STROKE_DP,
         trailFraction: Float = DEFAULT_TRAIL_FRACTION
     ) {
-        try {
-            mainHandler.post {
-                try {
-                    if (wm == null) wm = context.getSystemService(Context.WINDOW_SERVICE) as? WindowManager
-                    val windowManager = wm
-                    if (windowManager == null) {
-                        Log.w(TAG, "WindowManager null, cannot show trajectory")
-                        return@post
-                    }
+        val now = System.currentTimeMillis()
+        if (now - lastShowTime < MIN_SHOW_INTERVAL_MS) return
+        lastShowTime = now
 
-                    // 清理已有 overlay（避免重叠）
-                    overlayView?.let { old ->
-                        try {
-                            removeRunnableMap.remove(old)?.let { mainHandler.removeCallbacks(it) }
-                            windowManager.removeViewImmediate(old)
-                        } catch (t: Throwable) {
-                            try { windowManager.removeView(old) } catch (_: Throwable) {}
-                        }
-                        overlayView = null
-                    }
+        mainHandler.post {
+            try {
+                if (wm == null) {
+                    wm = context.applicationContext
+                        .getSystemService(Context.WINDOW_SERVICE) as? WindowManager
+                }
+                val windowManager = wm ?: return@post
 
-                    val strokePx = pxFromDp(context, strokeDp)
-                    val view = TrajectoryOverlayView(context).apply {
-                        setPath(path)
-                        this.trailFraction = trailFraction.coerceIn(0f, 1f)
-                        this.strokeWidthPx = strokePx.toFloat()
+                // ★稳定性修改：清理旧 overlay
+                overlayView?.let { old ->
+                    removeRunnableMap.remove(old)?.let {
+                        mainHandler.removeCallbacks(it)
                     }
+                    safeRemove(windowManager, old)
+                    overlayView = null
+                }
 
-                    val lp = WindowManager.LayoutParams().apply {
-                        width = WindowManager.LayoutParams.MATCH_PARENT
-                        height = WindowManager.LayoutParams.MATCH_PARENT
-                        format = PixelFormat.TRANSLUCENT
-                        flags = WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE or
+                val strokePx = pxFromDp(context, strokeDp)
+
+                val view = TrajectoryOverlayView(context).apply {
+                    setPath(path)
+                    this.trailFraction = trailFraction.coerceIn(0f, 1f)
+                    this.strokeWidthPx = strokePx.toFloat()
+                }
+
+                val lp = WindowManager.LayoutParams().apply {
+                    width = WindowManager.LayoutParams.MATCH_PARENT
+                    height = WindowManager.LayoutParams.MATCH_PARENT
+                    format = PixelFormat.TRANSLUCENT
+                    flags =
+                        WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE or
                                 WindowManager.LayoutParams.FLAG_NOT_TOUCHABLE or
                                 WindowManager.LayoutParams.FLAG_LAYOUT_IN_SCREEN or
                                 WindowManager.LayoutParams.FLAG_LAYOUT_NO_LIMITS
-                        gravity = Gravity.TOP or Gravity.START
-                        type = chooseWindowType()
-                    }
-
-                    try {
-                        windowManager.addView(view, lp)
-                        overlayView = view
-                        Log.d(TAG, "added trajectory overlay, duration=$duration, stroke=${strokePx}px")
-                    } catch (addEx: Throwable) {
-                        Log.w(TAG, "addView failed: ${addEx.message}")
-                        try {
-                            windowManager.addView(view, lp)
-                            overlayView = view
-                        } catch (t: Throwable) {
-                            Log.w(TAG, "second addView also failed: ${t.message}")
-                            return@post
-                        }
-                    }
-
-                    // 启动动画并计划移除
-                    view.startAnimation(duration)
-
-                    val removeRunnable = Runnable {
-                        try { view.stopAnimation() } catch (_: Throwable) {}
-                        try { windowManager.removeViewImmediate(view) } catch (t: Throwable) {
-                            try { windowManager.removeView(view) } catch (_: Throwable) {}
-                        } finally {
-                            removeRunnableMap.remove(view)
-                            if (overlayView === view) overlayView = null
-                        }
-                    }
-                    removeRunnableMap[view] = removeRunnable
-                    mainHandler.postDelayed(removeRunnable, duration + 300L)
-
-                } catch (t: Throwable) {
-                    Log.w(TAG, "show internal error: ${t.message}")
+                    gravity = Gravity.TOP or Gravity.START
+                    type = chooseWindowType()
                 }
+
+                windowManager.addView(view, lp)
+                overlayView = view
+
+                view.startAnimation(duration)
+
+                // ★稳定性修改：统一移除 Runnable
+                val removeRunnable = Runnable {
+                    safeRemove(windowManager, view)
+                    removeRunnableMap.remove(view)
+                    if (overlayView === view) overlayView = null
+                }
+
+                removeRunnableMap[view] = removeRunnable
+                mainHandler.postDelayed(removeRunnable, duration + 300L)
+
+            } catch (t: Throwable) {
+                Log.w(TAG, "show error: ${t.message}")
             }
-        } catch (t: Throwable) {
-            Log.w(TAG, "post failed: ${t.message}")
         }
     }
 
     /**
-     * 立即隐藏 overlay（若存在）
+     * 立即隐藏
      */
     fun hide() {
-        try {
-            mainHandler.post {
-                try {
-                    val windowManager = wm
-                    val v = overlayView
-                    if (windowManager != null && v != null) {
-                        removeRunnableMap.remove(v)?.let { mainHandler.removeCallbacks(it) }
-                        try { v.stopAnimation() } catch (_: Throwable) {}
-                        try { windowManager.removeViewImmediate(v) } catch (t: Throwable) {
-                            try { windowManager.removeView(v) } catch (_: Throwable) {}
-                        } finally {
-                            if (overlayView === v) overlayView = null
-                        }
-                    }
-                } catch (t: Throwable) {
-                    Log.w(TAG, "hide internal error: ${t.message}")
+        mainHandler.post {
+            try {
+                val windowManager = wm ?: return@post
+                val view = overlayView ?: return@post
+
+                removeRunnableMap.remove(view)?.let {
+                    mainHandler.removeCallbacks(it)
                 }
+                safeRemove(windowManager, view)
+                overlayView = null
+
+            } catch (t: Throwable) {
+                Log.w(TAG, "hide error: ${t.message}")
             }
-        } catch (t: Throwable) {
-            Log.w(TAG, "hide post failed: ${t.message}")
         }
     }
 
-    private fun chooseWindowType(): Int {
-        return try {
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-                if (Build.VERSION.SDK_INT >= 28) {
-                    // 优先 TYPE_ACCESSIBILITY_OVERLAY（在 AccessibilityService 下可用）
-                    WindowManager.LayoutParams.TYPE_ACCESSIBILITY_OVERLAY
-                } else {
-                    WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY
-                }
-            } else {
-                @Suppress("DEPRECATION")
-                WindowManager.LayoutParams.TYPE_PHONE
-            }
+    // ★稳定性修改：统一安全移除
+    private fun safeRemove(
+        windowManager: WindowManager,
+        view: TrajectoryOverlayView
+    ) {
+        try {
+            view.stopAnimation()
+        } catch (_: Throwable) {}
+
+        try {
+            windowManager.removeViewImmediate(view)
         } catch (_: Throwable) {
+            try { windowManager.removeView(view) } catch (_: Throwable) {}
+        }
+    }
+
+    private fun chooseWindowType(): Int =
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            if (Build.VERSION.SDK_INT >= 28)
+                WindowManager.LayoutParams.TYPE_ACCESSIBILITY_OVERLAY
+            else
+                WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY
+        } else {
             @Suppress("DEPRECATION")
             WindowManager.LayoutParams.TYPE_PHONE
         }
-    }
 
     private fun pxFromDp(context: Context, dp: Int): Int {
         val density = context.resources.displayMetrics.density
@@ -185,32 +168,31 @@ object SwipeTrajectoryIndicatorManager {
     }
 
     // =========================
-    // 内部 TrajectoryOverlayView（轨迹与圆点绘制 + 圆点呼吸动画）
+    // TrajectoryOverlayView
     // =========================
     private class TrajectoryOverlayView(context: Context) : View(context) {
-        // 轨迹画笔（红色半透明，带轻微发光以便锁屏上更明显）
+
         private val trackPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
             style = Paint.Style.STROKE
             strokeCap = Paint.Cap.ROUND
             strokeJoin = Paint.Join.ROUND
-            color = 0x88FF3333.toInt() // 半透明红
+            color = 0x88FF3333.toInt()
         }
-        // 圆点画笔（纯红，带光晕）
+
         private val dotPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
             style = Paint.Style.FILL
-            color = 0xFFFF4444.toInt() // 纯红点
+            color = 0xFFFF4444.toInt()
         }
 
         private val fullPath = Path()
         private val drawPath = Path()
-        private var pm: PathMeasure? = null
-        private var pathLen = 0f
+        private var pathMeasure: PathMeasure? = null
+        private var pathLength = 0f
 
         private var progress = 0f
         private var animator: ValueAnimator? = null
 
-        // 圆点呼吸动画
-        private var dotPulsePhase = 0f
+        // ★稳定性修改：呼吸动画受控启动/停止
         private val dotPulseAnimator = ValueAnimator.ofFloat(0f, 1f).apply {
             duration = 800L
             repeatCount = ValueAnimator.INFINITE
@@ -222,45 +204,41 @@ object SwipeTrajectoryIndicatorManager {
             }
         }
 
+        private var dotPulsePhase = 0f
+
         var trailFraction = DEFAULT_TRAIL_FRACTION
-        var strokeWidthPx = pxFromDp(context, DEFAULT_STROKE_DP).toFloat()
-        private var dotRadius = (strokeWidthPx * 1.1f).coerceAtLeast(6f)
+        var strokeWidthPx = 6f
+        private var dotRadius = 8f
+
+        private var dotX = 0f
+        private var dotY = 0f
 
         init {
             isClickable = false
             isFocusable = false
-            trackPaint.strokeWidth = strokeWidthPx
-            // 给轨迹和点增加阴影以增强可见度（在某些锁屏上会被忽略）
-            try {
-                trackPaint.setShadowLayer(6f, 0f, 0f, 0x55FF3333.toInt())
-                dotPaint.setShadowLayer(12f, 0f, 0f, 0x66FF4444.toInt())
-                // 需要在 view 层启用软件层以显示 shadow（在某些设备上）
-                setLayerType(LAYER_TYPE_SOFTWARE, null)
-            } catch (_: Throwable) {
-            }
+            setLayerType(LAYER_TYPE_SOFTWARE, null)
+            trackPaint.setShadowLayer(6f, 0f, 0f, 0x55FF3333.toInt())
+            dotPaint.setShadowLayer(12f, 0f, 0f, 0x66FF4444.toInt())
         }
 
         fun setPath(path: Path) {
             animator?.cancel()
-            fullPath.reset()
             fullPath.set(path)
-            pm = PathMeasure(fullPath, false)
-            pathLen = pm?.length ?: 0f
-            progress = 0f
+            pathMeasure = PathMeasure(fullPath, false)
+            pathLength = pathMeasure?.length ?: 0f
             drawPath.reset()
-            invalidate()
+            progress = 0f
         }
 
-        fun startAnimation(durationMs: Long = DEFAULT_DURATION_MS) {
-            animator?.cancel()
-            dotPulseAnimator.start()
-            if (pathLen <= 0f) {
-                visibility = GONE
-                return
-            }
-            visibility = VISIBLE
+        fun startAnimation(durationMs: Long) {
+            stopAnimation()
+
+            if (pathLength <= 0f) return
+
             trackPaint.strokeWidth = strokeWidthPx
             dotRadius = (strokeWidthPx * 1.1f).coerceAtLeast(6f)
+
+            dotPulseAnimator.start()
 
             animator = ValueAnimator.ofFloat(0f, 1f).apply {
                 duration = durationMs.coerceAtLeast(50L)
@@ -277,47 +255,38 @@ object SwipeTrajectoryIndicatorManager {
         fun stopAnimation() {
             animator?.cancel()
             animator = null
-            dotPulseAnimator.cancel()
-            progress = 0f
+            if (dotPulseAnimator.isRunning) {
+                dotPulseAnimator.cancel()
+            }
             drawPath.reset()
-            visibility = GONE
             invalidate()
         }
 
-        private var dotX = 0f
-        private var dotY = 0f
-
         private fun buildDrawPath() {
             drawPath.reset()
-            val m = pm ?: return
-            val curPos = FloatArray(2)
-            val curLen = (pathLen * progress).coerceAtMost(pathLen)
-            val trailLen = (pathLen * trailFraction).coerceAtMost(pathLen)
+            val pm = pathMeasure ?: return
+            val curLen = pathLength * progress
+            val trailLen = pathLength * trailFraction
             val start = (curLen - trailLen).coerceAtLeast(0f)
-            val segLen = (curLen - start).coerceAtLeast(0f)
+            pm.getSegment(start, curLen, drawPath, true)
 
-            m.getSegment(start, start + segLen, drawPath, true)
-            m.getPosTan(curLen.coerceAtMost(pathLen), curPos, null)
-            dotX = curPos[0]
-            dotY = curPos[1]
+            val pos = FloatArray(2)
+            pm.getPosTan(curLen.coerceAtMost(pathLength), pos, null)
+            dotX = pos[0]
+            dotY = pos[1]
         }
 
         override fun onDraw(canvas: Canvas) {
-            super.onDraw(canvas)
             if (!drawPath.isEmpty) {
                 canvas.drawPath(drawPath, trackPaint)
-                // 圆点呼吸：让半径在 0.85x ~ 1.15x 间波动
-                val dynamicRadius = dotRadius * (0.85f + 0.3f * dotPulsePhase)
-                canvas.drawCircle(dotX, dotY, dynamicRadius, dotPaint)
+                val r = dotRadius * (0.85f + 0.3f * dotPulsePhase)
+                canvas.drawCircle(dotX, dotY, r, dotPaint)
             }
         }
 
         override fun onDetachedFromWindow() {
-            animator?.cancel()
-            dotPulseAnimator.cancel()
-            animator = null
+            stopAnimation()
             super.onDetachedFromWindow()
         }
     }
 }
-
