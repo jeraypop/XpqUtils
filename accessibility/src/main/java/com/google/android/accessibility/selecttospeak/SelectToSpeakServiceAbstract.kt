@@ -28,6 +28,8 @@ import com.google.android.accessibility.ext.utils.broadcastutil.UnifiedBroadcast
 import com.google.android.accessibility.ext.utils.broadcastutil.UnifiedBroadcastManager.CHANNEL_SCREEN
 import com.google.android.accessibility.ext.utils.broadcastutil.UnifiedBroadcastManager.screenFilter
 import com.google.android.accessibility.ext.window.AssistsWindowManager
+import com.google.android.accessibility.ext.window.ClickIndicatorManager
+import com.google.android.accessibility.ext.window.SwipeTrajectoryIndicatorManager
 import com.google.android.accessibility.notification.AccessibilityNInfo
 import com.google.android.accessibility.notification.AppExecutors
 import com.google.android.accessibility.notification.MessageStyleInfo
@@ -162,11 +164,11 @@ abstract class SelectToSpeakServiceAbstract : AccessibilityService() {
         event ?: return
         instance = this
         // 把事件丢给单线程 executor 处理（保证有序）
-        //AppExecutors.executors3.execute {
-        //    cleanupExpiredNodes()
-        //    asyncHandleAccessibilityEvent(event)
-        //    dealEvent(event)
-        //}
+        AppExecutors.executors3.execute {
+            cleanupExpiredNodes()
+            asyncHandleAccessibilityEvent(event)
+            dealEvent(event)
+        }
         runCatching { listeners.forEach { it.onAccessibilityEvent(event) } }
     }
     /**
@@ -211,6 +213,8 @@ abstract class SelectToSpeakServiceAbstract : AccessibilityService() {
             owner = this,
             context = this
         )
+        ClickIndicatorManager.cleanup()
+        SwipeTrajectoryIndicatorManager.cleanup()
     }
 
     companion object {

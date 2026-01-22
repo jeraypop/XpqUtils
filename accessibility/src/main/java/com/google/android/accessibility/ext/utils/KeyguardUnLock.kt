@@ -26,9 +26,9 @@ import com.google.android.accessibility.ext.task.PERIOD
 import com.google.android.accessibility.ext.task.TIMEOUT
 import com.google.android.accessibility.ext.task.retryCheckTaskWithLog
 import com.google.android.accessibility.ext.utils.LibCtxProvider.Companion.appContext
+import com.google.android.accessibility.ext.window.AssistsWindowManager
 import com.google.android.accessibility.ext.window.ClickIndicatorManager
-import com.google.android.accessibility.ext.window.ClickIndicatorManager.DIAMETER_DP
-import com.google.android.accessibility.ext.window.ClickIndicatorManager.pxFromDp
+
 import com.google.android.accessibility.ext.window.LogWrapper
 import com.google.android.accessibility.ext.window.SwipeTrajectoryIndicatorManager
 import com.google.android.accessibility.selecttospeak.accessibilityService
@@ -89,6 +89,8 @@ data class DeviceStatus(
 
 
 object KeyguardUnLock {
+
+
     //只在设备 不安全锁时调用   disableKeyguard 为 true
     //                      reenableKeyguard 为 false
     val keyguardIsGone = AtomicBoolean(false)
@@ -1595,7 +1597,7 @@ isDeviceSecure = 这台设备“有没有任何安全门槛”
         if (showguiji){
             val (screenWidth, screenHeight) = getScreenSize(service.applicationContext)
             //val baseOffset = 20
-            val baseOffset = pxFromDp(service, DIAMETER_DP)/2
+            val baseOffset = AssistsWindowManager.pxFromDp(service, AssistsWindowManager.DIAMETER_DP)/2
             // 计算偏移后的位置，确保不超出屏幕边界
             val adjustedX = when {
                 x + baseOffset > screenWidth -> x - baseOffset
@@ -1608,7 +1610,8 @@ isDeviceSecure = 这台设备“有没有任何安全门槛”
             }
             // 在主线程显示指示器
             Handler(Looper.getMainLooper()).post {
-                ClickIndicatorManager.show(service, adjustedX, adjustedY)
+                ClickIndicatorManager.show(service, x, y)
+                //ClickIndicatorManager.show(service, adjustedX, adjustedY)
             }
         }
 

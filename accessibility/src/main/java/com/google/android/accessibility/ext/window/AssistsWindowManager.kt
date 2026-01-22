@@ -3,6 +3,7 @@ import android.accessibilityservice.AccessibilityService
 import android.content.Context
 import android.graphics.Color
 import android.graphics.PixelFormat
+import android.os.Build
 import android.util.DisplayMetrics
 import android.view.Gravity
 import android.view.View
@@ -30,6 +31,30 @@ import java.util.Collections
  * 提供全局浮窗的添加、删除、显示、隐藏等管理功能
  */
 object AssistsWindowManager {
+    const val DIAMETER_DP = 10
+    fun pxFromDp(context: Context, dp: Int): Int {
+        val density = context.resources.displayMetrics.density
+        return (dp * density + 0.5f).toInt()
+    }
+    fun chooseWindowType(): Int {
+        return try {
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                if (Build.VERSION.SDK_INT >= 28) {
+                    // 优先 TYPE_ACCESSIBILITY_OVERLAY（在 AccessibilityService 下可用）
+                    WindowManager.LayoutParams.TYPE_ACCESSIBILITY_OVERLAY
+                } else {
+                    WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY
+                }
+            } else {
+                @Suppress("DEPRECATION")
+                WindowManager.LayoutParams.TYPE_PHONE
+            }
+        } catch (_: Throwable) {
+            @Suppress("DEPRECATION")
+            WindowManager.LayoutParams.TYPE_PHONE
+        }
+    }
+
     /** 系统窗口管理器 */
     private lateinit var windowManager: WindowManager
     /** 显示度量信息 */
