@@ -229,7 +229,7 @@ object KeyguardUnLock {
         }
         var locked = false
         //jian
-        locked = if (jian) {
+        locked = if (false) {
             try {
                 if (byKeyguard) mKeyguardManager!!.isKeyguardLocked else mKeyguardManager!!.isDeviceLocked
             } catch (e: Exception) {
