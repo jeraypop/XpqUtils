@@ -185,7 +185,7 @@ object KeyguardUnLock {
     fun getDeviceStatusPlus(
         context: Context = appContext,
         byKeyguard: Boolean = true,
-        jian: Boolean = true
+        jian: Boolean = false
     ): DeviceStatus {
         //“先屏幕、后锁屏”的执行顺序
         return DeviceStatus(
@@ -236,14 +236,25 @@ object KeyguardUnLock {
                 false
             }
         } else {
+            //解锁方案0和1
             if (getUnLockMethod() == 0 || getUnLockMethod() == 1) {
-                //解锁方案0和1
-                if (mPowerManager!!.isInteractive) {
-                    !keyguardIsGone.get()//注意 keyguardIsGone的值是指键盘是否已解锁,要取反
-                } else {
-                    //黑屏,直接判断 键盘锁住
-                    true
+                //设备无安全锁
+                if (!deviceIsSecure()){
+                    //屏幕亮屏
+                    if (screenIsOn()) {
+                        !keyguardIsGone.get()//注意 keyguardIsGone的值是指键盘是否已解锁,要取反
+                    } else {
+                        //黑屏,直接判断 键盘锁住
+                        true
+                    }
+                }else{
+                    try {
+                        if (byKeyguard) mKeyguardManager!!.isKeyguardLocked else mKeyguardManager!!.isDeviceLocked
+                    } catch (e: Exception) {
+                        false
+                    }
                 }
+
             } else {
                 try {
                     if (byKeyguard) mKeyguardManager!!.isKeyguardLocked else mKeyguardManager!!.isDeviceLocked
