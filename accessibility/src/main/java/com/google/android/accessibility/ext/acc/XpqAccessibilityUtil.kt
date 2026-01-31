@@ -3,6 +3,7 @@ package com.google.android.accessibility.ext.acc
 import android.content.ClipData
 import android.content.ClipboardManager
 import android.content.Context
+import android.graphics.Rect
 import android.os.Bundle
 import android.view.accessibility.AccessibilityNodeInfo
 import com.google.android.accessibility.ext.utils.LibCtxProvider.Companion.appContext
@@ -127,7 +128,6 @@ object XpqAccessibilityUtil {
     }
 
 
-
     suspend fun pasteTextSuspend(
         context: Context = appContext,
         node: AccessibilityNodeInfo?,
@@ -135,24 +135,34 @@ object XpqAccessibilityUtil {
         delayMs: Long = 500
     ): Boolean {
         if (node == null || !node.isEnabled) return false
+        if (node.text?.toString() == text) {
+            //Log.e("是否输入", "已经成功: "+node.text?.toString() )
+            return true
+        }
 
-        val before = node.text?.toString()
-
+        // 1️⃣  写剪贴板  ""空字符串 目的也就是清空
+        val clipboard = context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
+        clipboard.setPrimaryClip(ClipData.newPlainText("label", ""))
+        // 2️⃣ focus + paste
+        node.performAction(AccessibilityNodeInfo.ACTION_FOCUS)
+        node.performAction(AccessibilityNodeInfo.ACTION_PASTE)
+        delay(delayMs)
         // 1️⃣ 写剪贴板
-        val clipboard =
-            context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
         clipboard.setPrimaryClip(ClipData.newPlainText("label", text))
-
         // 2️⃣ focus + paste
         node.performAction(AccessibilityNodeInfo.ACTION_FOCUS)
         node.performAction(AccessibilityNodeInfo.ACTION_PASTE)
 
         // 3️⃣ 等待 UI 线程处理
         delay(delayMs)
+        val sig = node.nodeSignature()
+        val latestNode = findEditText{
+            it.className == sig.className &&
+                    Rect().also { r -> it.getBoundsInScreen(r) } == sig.bounds
+        }
+        val after = latestNode?.text?.toString()
 
-        val after = node.text?.toString()
-
-        return after != null && after != before && after.contains(text)
+        return after == text
     }
 
     suspend fun inputTextSuspend(
@@ -162,6 +172,10 @@ object XpqAccessibilityUtil {
         delayMs: Long = 500
     ): Boolean {
         if (node == null || !node.isEditable || !node.isEnabled) return false
+
+        if (node.text?.toString() == text) {
+            return true
+        }
 
         // 1️⃣ 优先 SET_TEXT
         val args = Bundle().apply {
@@ -173,13 +187,28 @@ object XpqAccessibilityUtil {
         node.performAction(AccessibilityNodeInfo.ACTION_FOCUS)
         if (node.performAction(AccessibilityNodeInfo.ACTION_SET_TEXT, args)) {
             delay(delayMs)
-            if (node.text?.toString() == text) {
+            val sig = node.nodeSignature()
+            val latestNode = findEditText{
+                it.className == sig.className &&
+                        Rect().also { r -> it.getBoundsInScreen(r) } == sig.bounds
+            }
+
+            if (latestNode?.text?.toString() == text) {
+                //Log.e("是否输入", "成功: "+latestNode?.text?.toString() )
                 return true
+            }else{
+                //Log.e("是否输入", "失败: "+latestNode?.text?.toString() )
             }
         }
 
+        val sig = node.nodeSignature()
+        val latestNode = findEditText{
+            it.className == sig.className &&
+                    Rect().also { r -> it.getBoundsInScreen(r) } == sig.bounds
+        }
+
         // 2️⃣ fallback PASTE
-        return pasteTextSuspend(context, node, text)
+        return pasteTextSuspend(context, latestNode,text,delayMs)
     }
 
 
@@ -188,4 +217,18 @@ object XpqAccessibilityUtil {
 
 
 
+}
+
+data class NodeSignature(
+    val className: CharSequence?,
+    val bounds: Rect ,
+    val viewIdResourceName: String?,
+    val text: CharSequence?,
+    val contentDescription: CharSequence?
+)
+
+fun AccessibilityNodeInfo.nodeSignature(): NodeSignature {
+    val rect = Rect()
+    getBoundsInScreen(rect)
+    return NodeSignature(className, rect,viewIdResourceName,text,contentDescription)
 }
