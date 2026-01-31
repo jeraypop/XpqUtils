@@ -5,7 +5,9 @@ import android.content.ClipboardManager
 import android.content.Context
 import android.os.Bundle
 import android.view.accessibility.AccessibilityNodeInfo
+import com.google.android.accessibility.ext.utils.LibCtxProvider.Companion.appContext
 import com.google.android.accessibility.selecttospeak.accessibilityService
+import kotlinx.coroutines.delay
 
 /**
  * Company    :
@@ -123,6 +125,64 @@ object XpqAccessibilityUtil {
         node.performAction(AccessibilityNodeInfo.ACTION_FOCUS)
         node.performAction(AccessibilityNodeInfo.ACTION_PASTE)
     }
+
+
+
+    suspend fun pasteTextSuspend(
+        context: Context = appContext,
+        node: AccessibilityNodeInfo?,
+        text: String,
+        delayMs: Long = 500
+    ): Boolean {
+        if (node == null || !node.isEnabled) return false
+
+        val before = node.text?.toString()
+
+        // 1️⃣ 写剪贴板
+        val clipboard =
+            context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
+        clipboard.setPrimaryClip(ClipData.newPlainText("label", text))
+
+        // 2️⃣ focus + paste
+        node.performAction(AccessibilityNodeInfo.ACTION_FOCUS)
+        node.performAction(AccessibilityNodeInfo.ACTION_PASTE)
+
+        // 3️⃣ 等待 UI 线程处理
+        delay(delayMs)
+
+        val after = node.text?.toString()
+
+        return after != null && after != before && after.contains(text)
+    }
+
+    suspend fun inputTextSuspend(
+        context: Context  = appContext,
+        node: AccessibilityNodeInfo?,
+        text: String,
+        delayMs: Long = 500
+    ): Boolean {
+        if (node == null || !node.isEditable || !node.isEnabled) return false
+
+        // 1️⃣ 优先 SET_TEXT
+        val args = Bundle().apply {
+            putCharSequence(
+                AccessibilityNodeInfo.ACTION_ARGUMENT_SET_TEXT_CHARSEQUENCE,
+                text
+            )
+        }
+        node.performAction(AccessibilityNodeInfo.ACTION_FOCUS)
+        if (node.performAction(AccessibilityNodeInfo.ACTION_SET_TEXT, args)) {
+            delay(delayMs)
+            if (node.text?.toString() == text) {
+                return true
+            }
+        }
+
+        // 2️⃣ fallback PASTE
+        return pasteTextSuspend(context, node, text)
+    }
+
+
 
 
 
