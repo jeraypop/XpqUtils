@@ -98,6 +98,17 @@ fun AccessibilityService.findByIdAndText(id: String, text: String): Accessibilit
     return safe
 }
 
+fun AccessibilityService.findByIdAndTextToUser(id: String, text: String): AccessibilityNodeInfo? {
+    val raw = rootInActiveWindow
+        ?.findNodesById(id)
+        ?.firstOrNull { it.text == text && it.isVisibleToUser }
+        ?: return null
+
+    val safe = copyNodeCompat(raw)
+    recycleCompat(raw)
+    return safe
+}
+
 
 
 //fun AccessibilityService?.clickById(id: String, gestureClick: Boolean = true): Boolean {
