@@ -29,6 +29,7 @@ import com.google.android.accessibility.ext.utils.MMKVConst
 import com.google.android.accessibility.ext.utils.NotificationUtilXpq
 import com.google.android.accessibility.ext.utils.NotificationUtilXpq.isNotificationListenerEnabled
 import com.google.android.accessibility.notification.ClearNotificationListenerServiceImp
+import com.google.android.accessibility.selecttospeak.accessibilityService
 import com.hjq.permissions.permission.PermissionLists
 
 class AliveActivity : XpqBaseActivity<ActivityAliveXpqBinding>(
@@ -43,6 +44,8 @@ class AliveActivity : XpqBaseActivity<ActivityAliveXpqBinding>(
     private var drawableNo: Drawable? = null
 
     private var serviceClass: Class<out NotificationListenerService>? = null
+    private  var showOpenAccessibility = false
+    private  var resourceId  = -1
     private  var showReadBar = false
     private  var showTskHide = false
 
@@ -96,10 +99,35 @@ class AliveActivity : XpqBaseActivity<ActivityAliveXpqBinding>(
             serviceClass = intent.getSerializableExtra(MMKVConst.NOTIFICATION_SERVICE_CLASS) as? Class<out NotificationListenerService>
         }
 
+        showOpenAccessibility = intent.getBooleanExtra(MMKVConst.SHOW_OPEN_ACCESSIBILITY, false)
+        resourceId = intent.getIntExtra(MMKVConst.SEND_IMAGE_ID, -1)
         showReadBar = intent.getBooleanExtra(MMKVConst.SHOW_READ_NOTIFICATION, false)
         showTskHide = intent.getBooleanExtra(MMKVConst.SHOW_TASK_HIDE, false)
         updateUI()
         //====================按钮监测===============================================
+        //开启无障碍服务
+        binding.trOpenAccessibility.visibility = if (showOpenAccessibility){
+            View.VISIBLE
+        }else{
+            View.GONE
+        }
+        binding.buttonAccessibilityPermission.setOnClickListener {
+            closeTaskHidePlus(binding.imageRecentTaskHidePermissionPlus)
+            //  打开让用户设置
+            if (NotificationUtilXpq.isAccessibilityEnabled()) {
+                AliveUtils.toast(applicationContext, getString(R.string.qxykqxpq))
+                NotificationUtilXpq.gotoAccessibilitySetting()
+            } else {
+
+                AliveUtils.showCheckDialog(this@AliveActivity,
+                    R.string.wzaxpq,
+                    resourceId,
+                    R.string.quanxian0,
+                    MMKVConst.BTN_ACCESSIBILITY)
+
+            }
+        }
+
         //电池优化
         binding.buttonPowerPermission.setOnClickListener {
             closeTaskHidePlus(binding.imageRecentTaskHidePermissionPlus)
@@ -397,6 +425,9 @@ class AliveActivity : XpqBaseActivity<ActivityAliveXpqBinding>(
 
     private fun updateUI() {
         //图形开关监测
+
+        //无障碍服务
+        binding.imageAccessibilityPermission.setImageDrawable(if (accessibilityService!=null){drawableYes}else{drawableNo})
 
         //电池优化
         val packageName = this@AliveActivity.packageName

@@ -51,6 +51,19 @@ class TaichiFabMenuView @JvmOverloads constructor(
         }
     }
 
+    companion object {
+        @JvmStatic
+        fun createFabMenuItem(
+            title: String,
+            @DrawableRes icon: Int,
+            onClick: Runnable
+        ): FabMenuItem {
+            return FabMenuItem(title, icon) {
+                onClick.run()
+            }
+        }
+    }
+
     fun setMenus(items: List<FabMenuItem>) {
         menuContainer.removeAllViews()
         items.forEach { item ->

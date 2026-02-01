@@ -208,7 +208,11 @@ class MainActivity : XpqBaseActivity<ActivityMainBinding>(
         fabMenu.setMenus(
             listOf(
                 FabMenuItem("应用保活", com.android.accessibility.ext.R.drawable.ic_open_xpq) {
-                    AliveUtils.openAliveActivity(true,false,NotificationListenerServiceImp::class.java)
+                    AliveUtils.openAliveActivity(true,
+                        false,
+                        NotificationListenerServiceImp::class.java,
+                         true
+                    )
                 },
                 FabMenuItem("视频播放", com.android.accessibility.ext.R.drawable.ic_close_xpq) {
                     ActivityUtils.showVideoDialog(this@MainActivity, "https://gitlab.com/mytiper/wechat/-/raw/master/public/unlock.mp4")

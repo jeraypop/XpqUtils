@@ -14,6 +14,7 @@ object MMKVConst {
     const val BTN_PERMISSION = 3
     const val BTN_RECENT_HIDE = 4
     const val BTN_RECENT_HIDE_PLUS = 5
+    const val BTN_ACCESSIBILITY = 6
 
     const val KEY_SCREEN_WIDTH = "screen_width"
     const val KEY_SCREEN_HEIGHT = "screen_height"
@@ -48,6 +49,8 @@ object MMKVConst {
     const val TASKHIDE_BROADCAST = "TASKHIDE_BROADCAST"
     const val TASKHIDE_BROADCAST_PLUS = "TASKHIDE_BROADCAST_PLUS"
     const val NOTIFICATION_SERVICE_CLASS = "NOTIFICATION_SERVICE_CLASS"
+    const val SHOW_OPEN_ACCESSIBILITY = "SHOW_OPEN_ACCESSIBILITY"
+    const val SEND_IMAGE_ID = "SEND_IMAGE_ID"
     const val SHOW_READ_NOTIFICATION = "SHOW_READ_NOTIFICATION"
     const val SHOW_TASK_HIDE = "SHOW_TASK_HIDE"
 

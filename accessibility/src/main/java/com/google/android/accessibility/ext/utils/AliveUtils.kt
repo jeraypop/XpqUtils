@@ -58,6 +58,7 @@ import com.google.android.accessibility.ext.activity.AliveFGService.Companion.fg
 import com.google.android.accessibility.ext.activity.MyDeviceAdminReceiverXpq
 import com.google.android.accessibility.ext.utils.LibCtxProvider.Companion.appContext
 import com.google.android.accessibility.ext.utils.LibCtxProvider.Companion.contentProviderAuthority
+import com.google.android.accessibility.ext.utils.MMKVConst.BTN_ACCESSIBILITY
 import com.google.android.accessibility.ext.utils.MMKVConst.BTN_AUTOSTART
 import com.google.android.accessibility.ext.utils.MMKVConst.BTN_PERMISSION
 import com.google.android.accessibility.ext.utils.MMKVConst.BTN_RECENTS
@@ -96,12 +97,18 @@ object AliveUtils {
     * */
     @JvmOverloads
     @JvmStatic
-    fun openAliveActivity(showTaskHide : Boolean = false,showReadBar : Boolean = false,notificationServiceClass : Class<out NotificationListenerService> = ClearNotificationListenerServiceImp::class.java) {
+    fun openAliveActivity(showTaskHide : Boolean = false,
+                          showReadBar : Boolean = false,
+                          notificationServiceClass : Class<out NotificationListenerService> = ClearNotificationListenerServiceImp::class.java,
+                          showOpenAccessibility : Boolean = false,
+                          imgRes: Int = R.drawable.recenthidexpq) {
         // 创建一个Intent，指定要启动的Activity
         val intent = Intent(appContext, AliveActivity::class.java)
         intent.putExtra(MMKVConst.NOTIFICATION_SERVICE_CLASS, notificationServiceClass)
         intent.putExtra(MMKVConst.SHOW_READ_NOTIFICATION,showReadBar)
         intent.putExtra(MMKVConst.SHOW_TASK_HIDE,showTaskHide)
+        intent.putExtra(MMKVConst.SHOW_OPEN_ACCESSIBILITY,showOpenAccessibility)
+        intent.putExtra(MMKVConst.SEND_IMAGE_ID,imgRes)
         intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
         appContext.startActivity(intent)
     }
@@ -1276,6 +1283,10 @@ object AliveUtils {
             ) { dialog, which ->
                 dialog.dismiss()
                 when (btnValue) {
+                    BTN_ACCESSIBILITY  -> {
+                        //无障碍
+                        NotificationUtilXpq.gotoAccessibilitySetting()
+                    }
                     BTN_AUTOSTART  -> {
                         //自启动管理界面
                         Utilshezhi.startToAutoStartSetting(activity)
@@ -1372,15 +1383,11 @@ object AliveUtils {
             }
 
         // 只在 btnValue 为 1 或 2 时添加 Neutral 按钮
-        if (btnValue == BTN_AUTOSTART || btnValue == BTN_RECENTS || btnValue == BTN_PERMISSION) {
+        if (btnValue == BTN_AUTOSTART || btnValue == BTN_ACCESSIBILITY || btnValue == BTN_PERMISSION) {
             builder.setNeutralButton(activity.getString(R.string.sxzxpq)) { dialog, _ ->
                 dialog.dismiss()
-                try {
-                    val intent = Intent(Intent.ACTION_VIEW, Uri.parse("https://mp.weixin.qq.com/s/CbRFGUrqoKJie3JTdRmWPA"))
-                    activity.startActivity(intent)
-                } catch (e: Exception) {
-                    toast(appContext, appContext.getString(R.string.nowebb))
-                }
+
+                shouxianzhi()
             }
         }
 

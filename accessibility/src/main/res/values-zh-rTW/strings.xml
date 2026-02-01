@@ -2,6 +2,7 @@
     <string name ="quanxianguide">点我查看教程指导:</string>
     <string name ="quanxiantip1">第6,7项也非常重要,但是软件无法判断是否成功开启
         \n务必按照上方教程指导仔细设置哦</string>
+    <string name="quanxian0">0.无障碍服务</string>
     <string name ="quanxian1">1.不优化电池</string>
     <string name ="quanxiansetting">设置</string>
     <string name ="quanxian2">2.通知栏保活</string>
@@ -67,6 +68,13 @@
     <string name="floatxpq">Float</string>
     <string name="dqtzllxpq">Background redirection, reminder functions, etc. require this permission</string>
     <string name="xiangsuxpq">0 pixel (floating window) keep alive, requires accessibility service or floating window permission</string>
+    <string name="wzaxpq">点进 已下载(安装)的应用(服务)里,找到本软件打开即可(一屏找不到,可以上滑屏幕找找),
+        \n如果开启无障碍后,返回到本软件发现该开关仍然是红叉状态,需要重新关闭无障碍开关再次打开,重复两三次即可,或者重启下手机
+        \n注意:
+        \n1.如果在设置中发现开启按钮是灰色的(受限设置),无法开启,点击下方受限制按钮,查看解决方法
+        \n2.快捷方式开启与否,不影响使用,因为开启后,屏幕会多出现一个悬浮按钮
+
+    </string>
     <string name="httcxpq">Go to the app settings to check if necessary permissions have been granted successfully. Some phones may also need to additionally enable the "Display pop-up windows while running in the background" permission.</string>
     <string name="checkqxxpq">Check if permission is granted</string>
     <string name="lockrencentxpq">Lock this app in the recent tasks list to prevent it from being cleared with one click</string>

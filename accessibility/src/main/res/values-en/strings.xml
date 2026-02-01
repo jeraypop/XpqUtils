@@ -4,6 +4,7 @@
     <string name ="quanxianguide">Guide Tutorial:</string>
     <string name ="quanxiantip1">Items 6 and 7 are also very important, but the software cannot determine whether they have been successfully opened
 \nBe sure to carefully set it up according to the tutorial above</string>
+    <string name="quanxian0">0.Open Accessibility Service</string>
     <string name ="quanxian1">1.Not optimizing the battery</string>
     <string name ="quanxiansetting">setting</string>
     <string name ="quanxian2">2.Notification bar keeps active</string>
@@ -67,6 +68,13 @@
     <string name="floatxpq">Float</string>
     <string name="dqtzllxpq">Background redirection, reminder functions, etc. require this permission</string>
     <string name="xiangsuxpq">0 pixel (floating window) keep alive, requires accessibility service or floating window permission</string>
+    <string name="wzaxpq">Click on the downloaded (installed) application (service), find this software and open it. (If you can not find it on one screen, you can scroll up the screen to look for it.),
+        \n If after enabling accessibility, you return to this software and find that the switch is still in a Red Cross state, you need to turn off the accessibility switch and turn it on again. Repeat this process two or three times, or restart your phone
+        \n Notes:
+        \n 1.If you find that the enable button is grayed out (restricted Settings) in the Settings and cannot be enabled, click the restricted button below to view the solution
+        \n 2.Whether the shortcut is enabled or not does not affect its usage, because once it is enabled, an additional floating button will appear on the screen
+
+    </string>
     <string name="httcxpq">Go to the app settings to check if necessary permissions have been granted successfully. Some phones may also need to additionally enable the "Display pop-up windows while running in the background" permission.</string>
     <string name="checkqxxpq">Check if permission is granted</string>
     <string name="lockrencentxpq">Lock this app in the recent tasks list to prevent it from being cleared with one click</string>

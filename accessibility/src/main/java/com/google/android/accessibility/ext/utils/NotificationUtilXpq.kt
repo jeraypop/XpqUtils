@@ -96,6 +96,14 @@ object NotificationUtilXpq {
         context.startActivity(intent)
     }
     /*
+    * 检测无障碍服务是否被授权
+    * */
+    @JvmOverloads
+    @JvmStatic
+    fun isAccessibilityEnabled(context: Context = appContext): Boolean {
+        return accessibilityService != null
+    }
+    /*
     * 打开通知监听设置页面
     * */
     @JvmOverloads
