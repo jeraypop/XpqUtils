@@ -34,6 +34,8 @@ import com.google.android.accessibility.ext.utils.broadcastutil.ScreenStateRecei
 import com.google.android.accessibility.ext.utils.broadcastutil.UnifiedBroadcastManager
 import com.google.android.accessibility.ext.utils.broadcastutil.UnifiedBroadcastManager.CHANNEL_SCREEN
 import com.google.android.accessibility.ext.utils.broadcastutil.UnifiedBroadcastManager.screenFilter
+import com.google.android.accessibility.ext.view.FabMenuItem
+import com.google.android.accessibility.ext.view.TaichiFabMenuView
 
 import com.google.android.accessibility.ext.wcapi.PayConfig
 import com.google.android.accessibility.ext.wcapi.decrypt
@@ -45,6 +47,7 @@ import com.google.android.accessibility.ext.wcapi.restoreAllIllusion
 import com.google.android.accessibility.ext.window.OverlayLog
 import com.google.android.accessibility.selecttospeak.SelectToSpeakService
 import com.lygttpod.android.auto.notification.NotificationListenerServiceImp
+import xpq.friend.R
 
 
 import xpq.friend.databinding.ActivityMainBinding
@@ -198,6 +201,30 @@ class MainActivity : XpqBaseActivity<ActivityMainBinding>(
 //            screenFilter,
 //            lifecycleOwner = this
 //        )
+
+
+        val fabMenu = findViewById<TaichiFabMenuView>(R.id.fabMenu)
+
+        fabMenu.setMenus(
+            listOf(
+                FabMenuItem("应用保活", com.android.accessibility.ext.R.drawable.ic_open_xpq) {
+                    AliveUtils.openAliveActivity(true,false,NotificationListenerServiceImp::class.java)
+                },
+                FabMenuItem("视频播放", com.android.accessibility.ext.R.drawable.ic_close_xpq) {
+                    ActivityUtils.showVideoDialog(this@MainActivity, "https://gitlab.com/mytiper/wechat/-/raw/master/public/unlock.mp4")
+                },
+                FabMenuItem("解锁方案", com.android.accessibility.ext.R.drawable.ic_close_xpq) {
+                    NumberPickerDialog.showDefault(context = this@MainActivity)
+                },
+                FabMenuItem("充值会员", com.android.accessibility.ext.R.drawable.ic_close_xpq) {
+                    ActivityUtils.showKaWangDialog(activity = this@MainActivity,
+                        xiaopu = "https://pay.ldxp.cn/shop/R24YFBFV/jtfovn",
+                        weifk = "",
+                        isDan = false)
+                }
+
+            )
+        )
 
 
     }

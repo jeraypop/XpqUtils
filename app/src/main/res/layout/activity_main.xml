@@ -120,8 +120,15 @@ android:fitsSystemWindows="true"
         android:layout_height="wrap_content"
         android:layout_gravity="bottom|end"
         android:layout_margin="20dp"
-        android:src="@drawable/jiahao"
-
+        android:src="@drawable/jiahao_xpq"
+        android:visibility="gone"
         app:layout_anchorGravity="bottom|right"/>
+
+    <com.google.android.accessibility.ext.view.TaichiFabMenuView
+        android:id="@+id/fabMenu"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        />
+
 
 </androidx.coordinatorlayout.widget.CoordinatorLayout>

@@ -1,0 +1,23 @@
+<layer-list xmlns:android="http://schemas.android.com/apk/res/android">
+
+    <!-- 阴影 -->
+    <item
+        android:left="3dp"
+        android:top="3dp"
+        android:right="3dp"
+        android:bottom="3dp">
+        <shape>
+            <solid android:color="#22000000"/>
+            <corners android:radius="12dp"/>
+        </shape>
+    </item>
+
+    <!-- 背景 -->
+    <item>
+        <shape>
+            <solid android:color="#FFFFFF"/>
+            <corners android:radius="12dp"/>
+        </shape>
+    </item>
+
+</layer-list>
