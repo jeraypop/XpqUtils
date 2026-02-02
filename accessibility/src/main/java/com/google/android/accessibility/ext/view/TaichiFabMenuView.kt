@@ -3,6 +3,7 @@ package com.google.android.accessibility.ext.view
 import android.content.Context
 import android.util.AttributeSet
 import android.view.LayoutInflater
+import android.view.MotionEvent
 import android.view.View
 import android.view.animation.DecelerateInterpolator
 import android.widget.FrameLayout
@@ -80,15 +81,24 @@ class TaichiFabMenuView @JvmOverloads constructor(
         titleView.text = item.title
         iconView.setImageResource(item.icon)
         // 图标的点击事件 - 可以执行相同的逻辑或不同的逻辑
-        iconView.setOnClickListener {
-            item.onClick()
-            collapse()
+    
+
+        view.setOnTouchListener { _, event ->
+            if (event.action == MotionEvent.ACTION_UP) {
+                item.onClick()
+                collapse()
+            }
+            true // ✅ 吃掉整个事件链，绝不穿透
         }
 
-        view.setOnClickListener {
-            item.onClick()
-            collapse()
+        iconView.setOnTouchListener { _, event ->
+            if (event.action == MotionEvent.ACTION_UP) {
+                item.onClick()
+                collapse()
+            }
+            true
         }
+
 
         // 初始状态（用于动画）
         view.alpha = 0f
