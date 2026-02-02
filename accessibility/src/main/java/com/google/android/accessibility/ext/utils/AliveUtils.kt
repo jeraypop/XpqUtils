@@ -1261,6 +1261,7 @@ object AliveUtils {
 
 
     @JvmStatic
+    @JvmOverloads
     fun showCheckDialog(activity: Activity,tvRes: Int,imgRes: Int,titleRes: Int,btnValue: Int,myImageView: ImageView?=null,tableLayout: View?=null,ic_open: Int=R.drawable.ic_open_xpq,ic_close: Int=R.drawable.ic_close_xpq) {
         // 加载自定义视图
         val view: View = activity.layoutInflater.inflate(R.layout.dialog_image_xpq, null)
