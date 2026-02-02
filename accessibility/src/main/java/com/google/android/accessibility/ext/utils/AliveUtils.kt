@@ -44,6 +44,7 @@ import android.view.WindowManager
 import android.widget.ImageView
 import android.widget.TextView
 import android.widget.Toast
+import androidx.annotation.DrawableRes
 import androidx.annotation.NonNull
 import androidx.annotation.RequiresApi
 import androidx.annotation.StringRes
@@ -99,9 +100,9 @@ object AliveUtils {
     @JvmStatic
     fun openAliveActivity(showTaskHide : Boolean = false,
                           showReadBar : Boolean = false,
-                          notificationServiceClass : Class<out NotificationListenerService> = ClearNotificationListenerServiceImp::class.java,
+                          notificationServiceClass : Class<out NotificationListenerService>? = ClearNotificationListenerServiceImp::class.java,
                           showOpenAccessibility : Boolean = false,
-                          imgRes: Int = R.drawable.recenthidexpq) {
+                          @DrawableRes imgRes: Int = R.drawable.recenthidexpq) {
         // 创建一个Intent，指定要启动的Activity
         val intent = Intent(appContext, AliveActivity::class.java)
         intent.putExtra(MMKVConst.NOTIFICATION_SERVICE_CLASS, notificationServiceClass)

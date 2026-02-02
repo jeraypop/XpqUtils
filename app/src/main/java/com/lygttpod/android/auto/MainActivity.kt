@@ -6,9 +6,12 @@ package com.lygttpod.android.auto
 
 
 import android.app.Activity
+import android.graphics.Color
 import android.os.Bundle
 import android.util.Log
+import android.view.View
 import android.view.WindowManager
+import android.widget.TextView
 import androidx.activity.enableEdgeToEdge
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.view.ViewCompat
@@ -26,8 +29,10 @@ import com.google.android.accessibility.ext.utils.ActivityUtils
 
 import com.google.android.accessibility.ext.utils.AliveUtils
 import com.google.android.accessibility.ext.utils.LibCtxProvider.Companion.appBuildTime
+import com.google.android.accessibility.ext.utils.LibCtxProvider.Companion.appContext
 import com.google.android.accessibility.ext.utils.LoginDialog
 import com.google.android.accessibility.ext.utils.NumberPickerDialog
+import com.google.android.accessibility.ext.utils.NumberPickerDialog.dp
 import com.google.android.accessibility.ext.utils.broadcastutil.BroadcastOwnerType
 import com.google.android.accessibility.ext.utils.broadcastutil.ScreenStateCallback
 import com.google.android.accessibility.ext.utils.broadcastutil.ScreenStateReceiver
@@ -36,6 +41,8 @@ import com.google.android.accessibility.ext.utils.broadcastutil.UnifiedBroadcast
 import com.google.android.accessibility.ext.utils.broadcastutil.UnifiedBroadcastManager.screenFilter
 import com.google.android.accessibility.ext.view.FabMenuItem
 import com.google.android.accessibility.ext.view.TaichiFabMenuView
+
+
 
 import com.google.android.accessibility.ext.wcapi.PayConfig
 import com.google.android.accessibility.ext.wcapi.decrypt
@@ -205,22 +212,24 @@ class MainActivity : XpqBaseActivity<ActivityMainBinding>(
 
         val fabMenu = findViewById<TaichiFabMenuView>(R.id.fabMenu)
 
+
+
         fabMenu.setMenus(
             listOf(
-                FabMenuItem("应用保活", com.android.accessibility.ext.R.drawable.ic_open_xpq) {
+                FabMenuItem("应用保活", com.android.accessibility.ext.R.drawable.icon3_xpq) {
                     AliveUtils.openAliveActivity(true,
                         false,
                         NotificationListenerServiceImp::class.java,
                          true
                     )
                 },
-                FabMenuItem("视频播放", com.android.accessibility.ext.R.drawable.ic_close_xpq) {
+                FabMenuItem("视频播放", com.android.accessibility.ext.R.drawable.scale_xpq) {
                     ActivityUtils.showVideoDialog(this@MainActivity, "https://gitlab.com/mytiper/wechat/-/raw/master/public/unlock.mp4")
                 },
-                FabMenuItem("解锁方案", com.android.accessibility.ext.R.drawable.ic_close_xpq) {
+                FabMenuItem("解锁方案", com.android.accessibility.ext.R.drawable.move_xpq) {
                     NumberPickerDialog.showDefault(context = this@MainActivity)
                 },
-                FabMenuItem("充值会员", com.android.accessibility.ext.R.drawable.ic_close_xpq) {
+                FabMenuItem("充值会员", com.android.accessibility.ext.R.drawable.minimize_xpq) {
                     ActivityUtils.showKaWangDialog(activity = this@MainActivity,
                         xiaopu = "https://pay.ldxp.cn/shop/R24YFBFV/jtfovn",
                         weifk = "",
@@ -232,6 +241,8 @@ class MainActivity : XpqBaseActivity<ActivityMainBinding>(
 
 
     }
+
+
 
     override fun initView_Xpq() {
 

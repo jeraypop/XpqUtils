@@ -123,6 +123,7 @@ class TaichiFabMenuView @JvmOverloads constructor(
         }
     }
 
+
     private fun collapse() {
         if (!expanded) return
         expanded = false
