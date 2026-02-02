@@ -75,29 +75,40 @@ class TaichiFabMenuView @JvmOverloads constructor(
     private fun createMenuItem(item: FabMenuItem): View {
         val view = LayoutInflater.from(context)
             .inflate(R.layout.item_fab_menu, menuContainer, false)
+        view.isClickable = true
+        view.isFocusable = true
 
         val titleView = view.findViewById<TextView>(R.id.tvTitle)
         val iconView = view.findViewById<ImageButton>(R.id.btnIcon)
         titleView.text = item.title
         iconView.setImageResource(item.icon)
         // 图标的点击事件 - 可以执行相同的逻辑或不同的逻辑
-    
+
 
         view.setOnTouchListener { _, event ->
-            if (event.action == MotionEvent.ACTION_UP) {
-                item.onClick()
-                collapse()
+            when (event.actionMasked) {
+                MotionEvent.ACTION_DOWN -> true
+                MotionEvent.ACTION_UP -> {
+                    item.onClick()
+                    collapse()
+                    true
+                }
+                else -> true
             }
-            true // ✅ 吃掉整个事件链，绝不穿透
         }
 
         iconView.setOnTouchListener { _, event ->
-            if (event.action == MotionEvent.ACTION_UP) {
-                item.onClick()
-                collapse()
+            when (event.actionMasked) {
+                MotionEvent.ACTION_DOWN -> true
+                MotionEvent.ACTION_UP -> {
+                    item.onClick()
+                    collapse()
+                    true
+                }
+                else -> true
             }
-            true
         }
+
 
 
         // 初始状态（用于动画）
