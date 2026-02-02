@@ -85,31 +85,15 @@ class TaichiFabMenuView @JvmOverloads constructor(
         // 图标的点击事件 - 可以执行相同的逻辑或不同的逻辑
 
 
-        view.setOnTouchListener { _, event ->
-            when (event.actionMasked) {
-                MotionEvent.ACTION_DOWN -> true
-                MotionEvent.ACTION_UP -> {
-                    item.onClick()
-                    collapse()
-                    true
-                }
-                else -> true
-            }
+        iconView.setOnClickListener {
+            item.onClick()
+            collapse()
         }
 
-        iconView.setOnTouchListener { _, event ->
-            when (event.actionMasked) {
-                MotionEvent.ACTION_DOWN -> true
-                MotionEvent.ACTION_UP -> {
-                    item.onClick()
-                    collapse()
-                    true
-                }
-                else -> true
-            }
+        view.setOnClickListener {
+            item.onClick()
+            collapse()
         }
-
-
 
         // 初始状态（用于动画）
         view.alpha = 0f
