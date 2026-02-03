@@ -34,6 +34,7 @@ import com.google.android.accessibility.ext.acc.inputTextPaste
 import com.google.android.accessibility.ext.utils.LibCtxProvider.Companion.appContext
 import com.google.android.accessibility.notification.ClearNotificationListenerServiceImp
 import com.google.android.accessibility.notification.MessageStyleInfo
+import com.google.android.accessibility.notification.notificationService
 import com.google.android.accessibility.selecttospeak.accessibilityService
 import java.util.regex.Pattern
 
@@ -207,7 +208,25 @@ object NotificationUtilXpq {
 
 
 
-
+    // 在调用 getActiveNotifications() 的地方进行包裹
+    fun safeGetActiveNotifications(service: NotificationListenerService? = notificationService): Array<StatusBarNotification>? {
+        try {
+            if (service == null) return null
+            // 尝试获取通知
+            return service.activeNotifications
+            // 或者 super.getActiveNotifications()
+        } catch (e: SecurityException) {
+            // 系统认为监听器未连接
+            Log.e("MicroX", "Error fetching notifications: Service not bound/allowed", e)
+        } catch (e: IllegalStateException) {
+            // 某些旧版本可能会抛出此异常
+            Log.e("MicroX", "Error fetching notifications: Service not connected", e)
+        } catch (e: Exception) {
+            // 捕获其他潜在的 IPC 错误
+            Log.e("MicroX", "Unknown error in getActiveNotifications", e)
+        }
+        return null
+    }
 
 
     /**

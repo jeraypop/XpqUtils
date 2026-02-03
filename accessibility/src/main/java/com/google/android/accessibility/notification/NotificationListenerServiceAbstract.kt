@@ -31,6 +31,7 @@ import com.google.android.accessibility.ext.utils.NotificationUtilXpq.getAllSort
 import com.google.android.accessibility.ext.utils.NotificationUtilXpq.getAllSortedMessagingStyleByTime
 
 import com.google.android.accessibility.ext.utils.NotificationUtilXpq.getNotificationData
+import com.google.android.accessibility.ext.utils.NotificationUtilXpq.safeGetActiveNotifications
 import com.google.android.accessibility.ext.utils.broadcastutil.BroadcastOwnerType
 import com.google.android.accessibility.ext.utils.broadcastutil.ScreenStateCallback
 import com.google.android.accessibility.ext.utils.broadcastutil.ScreenStateReceiver
@@ -217,8 +218,9 @@ abstract class NotificationListenerServiceAbstract : NotificationListenerService
             if (enableShouldHandleFilter && !shouldHandle(sbn)) return@execute
             var sbns:List<StatusBarNotification> = emptyList()
             val n_info = buildNotificationInfo(sbn,notification, null)
+
             if (isTitleAndContentEmpty(n_info.title, n_info.content)){
-                sbns = getAllSortedByTime(activeNotifications)
+                sbns = getAllSortedByTime(safeGetActiveNotifications())
               /*  val first_sbn = sbns.getOrNull(0) ?:return@execute
                 val first_n = first_sbn.notification ?: return@execute
                 val first_n_info = buildNotificationInfo(first_sbn,first_n, null)
@@ -258,7 +260,7 @@ abstract class NotificationListenerServiceAbstract : NotificationListenerService
             }
             //2 循环遍历 所有活动的通知
             if (sbns.isEmpty()) {
-                sbns = getAllSortedByTime(activeNotifications)
+                sbns = getAllSortedByTime(safeGetActiveNotifications())
             }
             if (true){
                 //不带索引
@@ -330,7 +332,7 @@ abstract class NotificationListenerServiceAbstract : NotificationListenerService
         Handler(Looper.getMainLooper()).postDelayed({
 
             val sbns: List<StatusBarNotification> = try {
-                activeNotifications?.let {
+                safeGetActiveNotifications()?.let {
                     getAllSortedByTime(it)
                 } ?: emptyList()
             } catch (e: SecurityException) {
