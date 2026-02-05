@@ -228,7 +228,8 @@ class MainActivity : XpqBaseActivity<ActivityMainBinding>(
                     )
                 },
                 FabMenuItem("视频播放", com.android.accessibility.ext.R.drawable.scale_xpq) {
-                    val url = "https://v.douyin.com/zkSF9GvODpk/ i@p.dN 04/03 OKw:/"
+                    var url = "https://v.douyin.com/zkSF9GvODpk/ i@p.dN 04/03 OKw:/"
+                    url = "https://v.kuaishou.com/nP273bPw"
                     ActivityUtils.showWebViewDialog(activity = this@MainActivity,url)
 
 

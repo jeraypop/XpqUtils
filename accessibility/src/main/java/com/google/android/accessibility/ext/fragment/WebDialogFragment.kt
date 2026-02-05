@@ -9,6 +9,7 @@ import android.os.Bundle
 import android.view.*
 import android.webkit.WebChromeClient
 import android.webkit.WebResourceRequest
+import android.webkit.WebSettings
 import android.webkit.WebView
 import android.webkit.WebViewClient
 import android.widget.Button
@@ -340,11 +341,24 @@ class WebDialogFragment : DialogFragment() {
 
     private fun applyDesktopMode(webView: WebView, enable: Boolean) {
         val settings = webView.settings
+        val tt = switchBtn?.text?.toString()?.contains("扫码") ?: false
+        if (tt){
+            settings.userAgentString =
+                if (enable)
+                    "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0.0.0 Safari/537.36"
+                else null
+        }else{
+            val defaultUserAgent = WebSettings.getDefaultUserAgent(context)
+            val desktopUserAgent = defaultUserAgent.replaceAfterLast(")", " AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0.0.0 Safari/537.36")
+            settings.userAgentString = if (enable) desktopUserAgent else null
 
-        settings.userAgentString =
-            if (enable)
-                "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
-            else null
+        }
+
+   
+
+
+
+
 
         settings.useWideViewPort = true
         settings.loadWithOverviewMode = true
