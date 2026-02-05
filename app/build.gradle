@@ -136,5 +136,9 @@ dependencies {
     implementation(libs.easy.window)
     implementation libs.androidx.lifecycle.process
 
+    implementation (libs.okhttp)
+    implementation (libs.gson)
+
+
 
 }

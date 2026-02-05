@@ -20,6 +20,7 @@ import androidx.core.view.WindowInsetsCompat
 import androidx.lifecycle.MutableLiveData
 import androidx.navigation.ui.AppBarConfiguration
 import com.android.accessibility.ext.BuildConfig
+import com.example.videoparser.ShortVideoParser
 
 import com.google.android.accessibility.ext.activity.XpqBaseActivity
 import com.google.android.accessibility.ext.fragment.SensitiveNotificationBottomSheet
@@ -54,6 +55,9 @@ import com.google.android.accessibility.ext.wcapi.restoreAllIllusion
 import com.google.android.accessibility.ext.window.OverlayLog
 import com.google.android.accessibility.selecttospeak.SelectToSpeakService
 import com.lygttpod.android.auto.notification.NotificationListenerServiceImp
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
 import xpq.friend.R
 
 
@@ -224,7 +228,11 @@ class MainActivity : XpqBaseActivity<ActivityMainBinding>(
                     )
                 },
                 FabMenuItem("视频播放", com.android.accessibility.ext.R.drawable.scale_xpq) {
-                    ActivityUtils.showVideoDialog(this@MainActivity, "https://gitlab.com/mytiper/wechat/-/raw/master/public/unlock.mp4")
+                    val url = "https://v.douyin.com/zkSF9GvODpk/ i@p.dN 04/03 OKw:/"
+                    ActivityUtils.showWebViewDialog(activity = this@MainActivity,url)
+
+
+                    //ActivityUtils.showVideoDialog(this@MainActivity, "https://gitlab.com/mytiper/wechat/-/raw/master/public/unlock.mp4")
                 },
                 FabMenuItem("解锁方案", com.android.accessibility.ext.R.drawable.move_xpq) {
                     NumberPickerDialog.showDefault(context = this@MainActivity)

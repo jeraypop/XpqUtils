@@ -22,22 +22,30 @@ import kotlin.math.abs
 class WebDialogFragment : DialogFragment() {
 
     companion object {
+        private const val ARG_CAN_DESKTOP = "arg_can_desktop"
+
         private const val ARG_URL = "arg_url"
 
         private const val SP_NAME = "web_dialog_float_btn"
         private const val KEY_X = "x"
         private const val KEY_Y = "y"
 
-        fun newInstance(url: String): WebDialogFragment =
+        @JvmStatic
+        @JvmOverloads
+        fun newInstance(url: String, canDesktop: Boolean = false): WebDialogFragment =
             WebDialogFragment().apply {
                 arguments = Bundle().apply {
                     putString(ARG_URL, url)
+                    putBoolean(ARG_CAN_DESKTOP, canDesktop)
                 }
             }
     }
 
     private var webView: WebView? = null
     private var isDesktopMode = false
+    private var switchBtn: Button? = null
+    private var canDesktop = false
+
 
     // =========================
     // Dialog
@@ -82,8 +90,14 @@ class WebDialogFragment : DialogFragment() {
             setColor(Color.parseColor("#66000000"))
         }
 
-        val switchBtn = Button(context).apply {
-            text = "无法拉起支付宝?\n点我切换成电脑模式"
+        canDesktop =
+            arguments?.getBoolean(ARG_CAN_DESKTOP, false) ?: false
+        switchBtn = Button(context).apply {
+            text = if (!canDesktop) {
+                "无法拉起支付宝?\n点我切换成扫码模式"
+            } else {
+                "无法正常显示?\n点我切换成电脑模式"
+            }
             alpha = 0.85f
             setTextColor(Color.WHITE)
             setPadding(36, 18, 36, 18)
@@ -125,7 +139,8 @@ class WebDialogFragment : DialogFragment() {
     // 拖动 + 点击 + 持久化
     // =========================
     @SuppressLint("ClickableViewAccessibility")
-    private fun attachDragAndClick(root: FrameLayout, btn: View) {
+    private fun attachDragAndClick(root: FrameLayout, btn: View?) {
+        btn ?: return // 如果 btn 为空则直接返回
         val context = requireContext()
         val sp = context.getSharedPreferences(SP_NAME, Context.MODE_PRIVATE)
         val touchSlop = ViewConfiguration.get(context).scaledTouchSlop
@@ -240,6 +255,46 @@ class WebDialogFragment : DialogFragment() {
     private fun handleUrl(context: Context, url: String): Boolean {
         return try {
             when {
+                url.startsWith("http://") || url.startsWith("https://") -> {
+                    false // 让 WebView 自己加载
+                }
+                //Android 原生协议
+                //处理 Android 特有的 intent:// 协议。
+                //使用 Intent.parseUri(url, Intent.URI_INTENT_SCHEME) 解析 URL，将其转换为一个完整的 Intent 对象
+                //这种协议通常用于跨应用跳转，携带更复杂的参数（如包名、类名、action 等）
+                url.startsWith("intent://") -> {
+                    context.startActivity(
+                        Intent.parseUri(url, Intent.URI_INTENT_SCHEME)
+                    )
+                    true
+                }
+                //第三方应用自定义协议
+                //用途：处理第三方应用自定义的 URL scheme（如微信、支付宝、QQ）
+                //直接使用 Intent(Intent.ACTION_VIEW, Uri.parse(url)) 构造 Intent。
+                //这些协议是各应用自己定义的，用于唤起对应的应用或执行特定功能
+                url.startsWith("weixin://")
+                        || url.startsWith("alipays://")
+                        || url.startsWith("qq://") -> {
+                    context.startActivity(
+                        Intent(Intent.ACTION_VIEW, Uri.parse(url))
+                    )
+                    true
+                }
+
+                else -> {
+                    // 🔥 核心：未知 scheme 一律拦掉
+                    true
+                }
+            }
+        } catch (e: Exception) {
+            true
+        }
+    }
+
+
+    private fun handleUrl000(context: Context, url: String): Boolean {
+        return try {
+            when {
                 url.startsWith("intent://") -> {
                     context.startActivity(
                         Intent.parseUri(url, Intent.URI_INTENT_SCHEME)
@@ -270,6 +325,16 @@ class WebDialogFragment : DialogFragment() {
         webView?.let {
             isDesktopMode = !isDesktopMode
             applyDesktopMode(it, isDesktopMode)
+            switchBtn?.text =
+                if (isDesktopMode) {
+                    "已切换为电脑模式\n点我切回手机模式"
+                } else {
+                    if (!canDesktop) {
+                        "无法拉起支付宝?\n点我切换成扫码模式"
+                    } else {
+                        "无法正常显示?\n点我切换成电脑模式"
+                    }
+                }
         }
     }
 
