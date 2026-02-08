@@ -603,11 +603,12 @@ object KeyguardUnLock {
     *
     * */
     const val SET_ALARM_ACTION_XPQ = "SET_ALARM_ACTION_XPQ"
+    const val ALARM_ID = "ALARM_ID"
     @SuppressLint("MissingPermission")
     @JvmStatic
     @JvmOverloads
     fun setSendAlarm(triggerTimeMillis: Long,
-                         requestCode: Int = 0,
+                         alarm_id: Int = 0,
                          actionAlarm: String = SET_ALARM_ACTION_XPQ,
                          isAlarmClock: Boolean = true,
                          isForgroundService: Boolean = false,
@@ -622,11 +623,11 @@ object KeyguardUnLock {
         val alarmPI = if (alarmReceiver!= null){
             val intent = Intent(context, alarmReceiver).apply {
                 action = actionAlarm
-                putExtra("alarm_id", "alarmId")
+                putExtra(ALARM_ID, alarm_id)
             }
             PendingIntent.getBroadcast(
                 context,
-                requestCode,
+                alarm_id,
                 intent,
                 PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
             )
@@ -635,7 +636,7 @@ object KeyguardUnLock {
         }else if (alarmService != null){
             val intent = Intent(context, alarmService).apply {
                 action = actionAlarm
-                putExtra("alarm_id", "alarmId")
+                putExtra(ALARM_ID, alarm_id)
             }
             if (isForgroundService){
                 // Android 8.0 (Oreo) 及以上必须使用 getForegroundService
@@ -643,7 +644,7 @@ object KeyguardUnLock {
                 if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
                     PendingIntent.getForegroundService(
                         context,
-                        requestCode,
+                        alarm_id,
                         intent,
                         PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
                     )
@@ -651,7 +652,7 @@ object KeyguardUnLock {
                     // 8.0 以下普通 Service 即可
                     PendingIntent.getService(
                         context,
-                        requestCode,
+                        alarm_id,
                         intent,
                         PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
                     )
@@ -659,7 +660,7 @@ object KeyguardUnLock {
             }else{
                 PendingIntent.getService(
                     context,
-                    requestCode,
+                    alarm_id,
                     intent,
                     PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
                 )
@@ -675,10 +676,13 @@ object KeyguardUnLock {
            if (isAlarmClock){
                // 2. 准备 "点击闹钟图标" 跳转的 Intent (这是 setAlarmClock 必须的参数)
                // 当用户在系统状态栏下拉看到闹钟信息点击时，会跳转到这个 Activity
-               val infoIntent = Intent(context, activity)
+               val infoIntent = Intent(context, activity).apply {
+                   action = actionAlarm
+                   putExtra(ALARM_ID, alarm_id)
+               }
                val infoPendingIntent = PendingIntent.getActivity(
                    context,
-                   0,
+                   alarm_id,
                    infoIntent,
                    PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
                )
