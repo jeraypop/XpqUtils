@@ -5,8 +5,11 @@ import android.accessibilityservice.AccessibilityService.GestureResultCallback
 import android.accessibilityservice.GestureDescription
 import android.accessibilityservice.GestureDescription.StrokeDescription
 import android.annotation.SuppressLint
+import android.app.AlarmManager
 import android.app.KeyguardManager
+import android.app.PendingIntent
 import android.content.Context
+import android.content.Intent
 import android.content.pm.PackageManager
 import android.graphics.Path
 import android.graphics.Rect
@@ -22,6 +25,7 @@ import android.util.Log
 import android.view.Display
 import android.view.accessibility.AccessibilityNodeInfo
 import androidx.annotation.IntRange
+import com.google.android.accessibility.ext.activity.AliveActivity
 import com.google.android.accessibility.ext.task.PERIOD
 import com.google.android.accessibility.ext.task.TIMEOUT
 import com.google.android.accessibility.ext.task.retryCheckTaskWithLog
@@ -574,7 +578,152 @@ object KeyguardUnLock {
 
         return null
     }
+
+    /*
+    *  闹钟是否会被覆盖，取决于：AlarmManager 认为你的 PendingIntent 是不是“同一个”
+    *  跟你设置的时间、extras、Alarm 类型 几乎没关系
+    *  ✅ 参与比较的字段（非常重要）
+
+        Intent 的 component
+
+        target Service / Receiver / Activity
+
+        Intent action
+
+        Intent data（URI）
+
+        Intent categories
+
+        requestCode
+
+        PendingIntent 类型
+
+        getService / getBroadcast / getActivity / getForegroundService
+    *
+    *
+    * */
+    const val SET_ALARM_ACTION_XPQ = "SET_ALARM_ACTION_XPQ"
+    @SuppressLint("MissingPermission")
+    @JvmStatic
+    @JvmOverloads
+    fun setSendAlarm(triggerTimeMillis: Long,
+                         requestCode: Int = 0,
+                         actionAlarm: String = SET_ALARM_ACTION_XPQ,
+                         isAlarmClock: Boolean = true,
+                         isForgroundService: Boolean = false,
+                         alarmReceiver: Class<*>? = null,
+                         alarmService: Class<*>? = null,
+                         activity: Class<*>? = AliveActivity::class.java
+    ) {
+        val context = appContext?: return
+        val alarmManager = context.getSystemService(Context.ALARM_SERVICE) as AlarmManager
+
+        // 1. 准备 PendingIntent，用于闹钟触发时发送广播
+        val alarmPI = if (alarmReceiver!= null){
+            val intent = Intent(context, alarmReceiver).apply {
+                action = actionAlarm
+                putExtra("alarm_id", "alarmId")
+            }
+            PendingIntent.getBroadcast(
+                context,
+                requestCode,
+                intent,
+                PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+            )
+
+
+        }else if (alarmService != null){
+            val intent = Intent(context, alarmService).apply {
+                action = actionAlarm
+                putExtra("alarm_id", "alarmId")
+            }
+            if (isForgroundService){
+                // Android 8.0 (Oreo) 及以上必须使用 getForegroundService
+                // 这样系统才会允许你在后台直接启动服务，并给予你 5秒钟 的豁免期去显示通知
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                    PendingIntent.getForegroundService(
+                        context,
+                        requestCode,
+                        intent,
+                        PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+                    )
+                } else {
+                    // 8.0 以下普通 Service 即可
+                    PendingIntent.getService(
+                        context,
+                        requestCode,
+                        intent,
+                        PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+                    )
+                }
+            }else{
+                PendingIntent.getService(
+                    context,
+                    requestCode,
+                    intent,
+                    PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+                )
+            }
+
+
+
+        }else{
+            null
+        }
+        alarmPI ?: return
+        fun setAlarmTask(isAlarmClock: Boolean = true) {
+           if (isAlarmClock){
+               // 2. 准备 "点击闹钟图标" 跳转的 Intent (这是 setAlarmClock 必须的参数)
+               // 当用户在系统状态栏下拉看到闹钟信息点击时，会跳转到这个 Activity
+               val infoIntent = Intent(context, activity)
+               val infoPendingIntent = PendingIntent.getActivity(
+                   context,
+                   0,
+                   infoIntent,
+                   PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+               )
+               // 3. 设置 AlarmClockInfo
+               val alarmClockInfo = AlarmManager.AlarmClockInfo(triggerTimeMillis, infoPendingIntent)
+               alarmManager.setAlarmClock(alarmClockInfo, alarmPI)
+           }else{
+               alarmManager.setExactAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, triggerTimeMillis, alarmPI)
+           }
+        }
+
+        // 4. 发射！(这种方式会在系统状态栏显示一个小闹钟图标)
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+            if (alarmManager.canScheduleExactAlarms()) {
+                setAlarmTask(isAlarmClock)
+            } else {
+                // 引导用户去设置页面开启 "闹钟和提醒" 权限
+                 //intent: Settings.ACTION_REQUEST_SCHEDULE_EXACT_ALARM
+            }
+        } else {
+            setAlarmTask(isAlarmClock)
+        }
+    }
+
+
     private var mPowerManager: PowerManager? = null
+
+    @JvmOverloads
+    @JvmStatic
+    fun deviceIsDoze(context: Context = appContext): Boolean {
+        var deviceIsDoze = false
+        //是否需要亮屏唤醒屏幕
+        if (mPowerManager == null) {
+            mPowerManager = context.getSystemService(Context.POWER_SERVICE) as PowerManager
+        }
+
+        if (!mPowerManager!!.isDeviceIdleMode) {
+            //设备活跃
+            deviceIsDoze = false
+        }else{
+            //设备doze
+            deviceIsDoze = true
+        }
+        return deviceIsDoze
+    }
     @JvmOverloads
     @JvmStatic
     fun screenIsOn(context: Context = appContext): Boolean {
@@ -621,6 +770,7 @@ object KeyguardUnLock {
     // 用来防止Handler内存泄露
     private val mHandler = Handler(Looper.getMainLooper())
     private val mReenableRunnable = Runnable { wakeKeyguardOff() }
+    @SuppressLint("MissingPermission")
     @JvmOverloads
     @JvmStatic
     fun wakeKeyguardOn(context: Context = appContext,tip: String = "") {
@@ -654,6 +804,7 @@ object KeyguardUnLock {
 
 
     }
+    @SuppressLint("MissingPermission")
     @JvmOverloads
     @JvmStatic
     fun wakeKeyguardOff(context: Context = appContext,tip: String = "") {
