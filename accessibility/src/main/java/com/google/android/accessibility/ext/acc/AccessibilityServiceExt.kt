@@ -1,9 +1,16 @@
 package com.google.android.accessibility.ext.acc
 
 import android.accessibilityservice.AccessibilityService
+import android.accessibilityservice.GestureDescription
+import android.graphics.Path
+import android.graphics.Rect
+import android.os.Build
+import android.text.TextUtils
 import android.util.Log
 import android.view.accessibility.AccessibilityNodeInfo
+import androidx.annotation.RequiresApi
 import com.google.android.accessibility.ext.default
+import com.google.android.accessibility.ext.utils.KeyguardUnLock
 import com.google.android.accessibility.selecttospeak.SelectToSpeakServiceAbstract.Companion.copyNodeCompat
 import com.google.android.accessibility.selecttospeak.SelectToSpeakServiceAbstract.Companion.recycleCompat
 import kotlinx.coroutines.delay
@@ -185,6 +192,110 @@ fun AccessibilityService?.clickByText(
         recycleCompat(node)
     }
 }
+
+
+/**
+ * 根据 text / desc 查找并点击
+ * @param useGesture true = 手势点击，false = performAction 点击
+ */
+fun AccessibilityService.clickByTextOrDesc(
+    keyword: String,
+    useGesture: Boolean = true
+): Boolean {
+    val root = rootInActiveWindow ?: return false
+
+    val node = root.findNodeByTextOrDesc(keyword) ?: return false
+
+    return KeyguardUnLock.xpqclickNode(nodeInfo = node,isMoNi = useGesture,noParent = false)
+
+//    return if (useGesture && Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {
+//        clickByGesture(node)
+//    } else {
+//        node.performAction(AccessibilityNodeInfo.ACTION_CLICK)
+//    }
+
+}
+
+/*
+* 有的页面是 text
+有的页面是 desc
+甚至同一个按钮，版本不同字段不同
+*
+* 在节点树中查找 text / desc 匹配的节点
+*
+* */
+private fun AccessibilityNodeInfo.findNodeByTextOrDesc(
+    keyword: String
+): AccessibilityNodeInfo? {
+
+    val text = this.text?.toString()
+    val desc = this.contentDescription?.toString()
+    if (!TextUtils.equals(desc,null)){
+        Log.e("查找发送按钮", "desc=: "+desc)
+    }
+
+    if (
+        text?.equals(keyword) == true ||
+        desc?.equals(keyword) == true
+    ) {
+        Log.e("查找发送按钮111", "desc=: "+desc)
+        return if (isClickable) this else findClickableParent()
+    }
+
+    for (i in 0 until childCount) {
+        val child = getChild(i) ?: continue
+        val result = child.findNodeByTextOrDesc(keyword)
+        if (result != null) return result
+    }
+
+    return null
+}
+
+
+/**
+ * 向上查找可点击父节点
+ */
+private fun AccessibilityNodeInfo.findClickableParent(): AccessibilityNodeInfo? {
+    var current: AccessibilityNodeInfo? = this
+    while (current != null) {
+        if (current.isClickable) return current
+        current = current.parent
+    }
+    return null
+}
+
+@RequiresApi(Build.VERSION_CODES.N)
+private fun AccessibilityService.clickByGesture(
+    node: AccessibilityNodeInfo
+): Boolean {
+
+    val rect = Rect()
+    node.getBoundsInScreen(rect)
+
+    if (rect.isEmpty) return false
+
+    val x = rect.centerX().toFloat()
+    val y = rect.centerY().toFloat()
+
+    val path = Path().apply {
+        moveTo(x, y)
+    }
+
+    val stroke = GestureDescription.StrokeDescription(
+        path,
+        0,
+        50   // 点击时长，别太短
+    )
+
+    val gesture = GestureDescription.Builder()
+        .addStroke(stroke)
+        .build()
+
+    return dispatchGesture(gesture, null, null)
+}
+
+
+
 
 
 //fun AccessibilityService?.clickByCustomRule(gestureClick: Boolean = true, customRule: (AccessibilityNodeInfo) -> Boolean): Boolean {

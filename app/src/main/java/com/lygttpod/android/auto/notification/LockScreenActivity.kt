@@ -3,15 +3,20 @@ package com.lygttpod.android.auto.notification
 import android.app.PendingIntent
 import android.content.Context
 import android.content.Intent
+import com.google.android.accessibility.ext.acc.XpqAccessibilityUtil
+import com.google.android.accessibility.ext.acc.clickByText
+import com.google.android.accessibility.ext.acc.clickByTextOrDesc
 
 import com.google.android.accessibility.ext.activity.BaseLockScreenActivity
+import com.google.android.accessibility.ext.task.retryCheckTaskWithLog
 import com.google.android.accessibility.ext.utils.AliveUtils
 import com.google.android.accessibility.ext.utils.KeyguardUnLock
+import com.google.android.accessibility.ext.utils.KeyguardUnLock.delayAction
 import com.google.android.accessibility.ext.utils.KeyguardUnLock.sendLog
 import com.google.android.accessibility.ext.utils.LibCtxProvider.Companion.appContext
 import com.google.android.accessibility.ext.utils.MMKVConst
 import com.google.android.accessibility.notification.LatestPendingIntentStore
-
+import com.google.android.accessibility.selecttospeak.accessibilityService
 
 
 import kotlinx.coroutines.GlobalScope
@@ -45,12 +50,14 @@ class LockScreenActivity : BaseLockScreenActivity() {
             val (key, pending) = pair
             try {
                 //val yanchitime = MyApplication.sp()!!.getString(Constants.KEY_JIESUO_YANCHITIME,Constants.KEY_JIESUO_YANCHITIME_DEFAULT)
-                //GlobalScope.launch {
-                    //delay(yanchitime!!.toLong())
-                    //TiperFunction.piSend(pending)
-                //}
-                AliveUtils.piSend(pending)
-                sendLog("通知已跳转(如果实测没跳,则是安卓系统偶尔的抽疯)")
+                GlobalScope.launch {
+                    AliveUtils.piSend(pending)
+                    sendLog("通知已跳转(如果实测没跳,则是安卓系统偶尔的抽疯)")
+                    delay(3000)
+                    inputMsgHint()
+                    clickDYSend()
+                }
+
             } catch (e: PendingIntent.CanceledException) {
                 sendLog("通知已取消跳转: ${e.message} (key=$key)")
                 // 已用 getAndClearLatest() 原子清除，无需额外处理
@@ -60,6 +67,32 @@ class LockScreenActivity : BaseLockScreenActivity() {
             }
 
 
+        }
+
+        suspend fun inputMsgHint(msg: String = "定时软件下载地址在群公告,请点击群公告查看哦(本条消息为自动发送)"): Boolean {
+            return delayAction(delayMillis = 1000) {
+                retryCheckTaskWithLog("在发送收藏页自动粘贴发送内容", timeOutMillis = 3000, periodMillis = 1000) {
+                    val editNode = XpqAccessibilityUtil.findEditText{ it.hintText?.toString()?.contains("发送消息") == true }
+                        ?:return@retryCheckTaskWithLog false
+
+                    if (editNode.text?.toString() == msg) {
+                        return@retryCheckTaskWithLog true
+                    }
+                    val success = XpqAccessibilityUtil.inputTextSuspend(
+                        node = editNode,
+                        text = msg
+                    )
+                    success
+                }
+            }
+        }
+
+        suspend fun clickDYSend(): Boolean {
+            return delayAction(delayMillis = 1000) {
+                retryCheckTaskWithLog("点击【发送】按钮", timeOutMillis = 3000, periodMillis = 1000) {
+                    accessibilityService?.clickByTextOrDesc("发送",useGesture = true) == true
+                }
+            }
         }
 
     }

@@ -22,6 +22,7 @@ import androidx.core.app.NotificationCompat
 import androidx.lifecycle.MutableLiveData
 import com.android.accessibility.ext.R
 import com.google.android.accessibility.ext.utils.AliveUtils
+import com.google.android.accessibility.ext.utils.KeyguardUnLock
 
 import com.google.android.accessibility.ext.utils.LibCtxProvider.Companion.appContext
 import com.google.android.accessibility.ext.utils.MMKVConst
@@ -632,8 +633,6 @@ abstract class NotificationListenerServiceAbstract : NotificationListenerService
             messageStyleList = msgmaplist // 包含来自 MessagingStyle 的消息列表
         )
     }
-
-
     fun clearNotification(sbn: StatusBarNotification,title: String,content: String,pkgName: String){
         //某些 包含本应用的  系统通知的消除
         if (isSystemApp(pkg = pkgName)) {
