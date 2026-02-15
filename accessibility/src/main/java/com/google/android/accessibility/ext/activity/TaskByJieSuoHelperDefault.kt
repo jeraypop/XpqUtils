@@ -255,8 +255,8 @@ open class TaskByJieSuoHelperDefault(
          */
         @JvmOverloads
         @JvmStatic
-        fun startJieSuoTaskInstance(context: Context, i: Int, start: Long = System.currentTimeMillis()) {
-            getInstance().startJieSuoTask(context, i, start)
+        fun startJieSuoTaskInstance(context: Context, i: Int, start: Long = System.currentTimeMillis(),myList: ArrayList<String> = arrayListOf()) {
+            getInstance().startJieSuoTask(context, i, start,myList)
         }
     }
 }
