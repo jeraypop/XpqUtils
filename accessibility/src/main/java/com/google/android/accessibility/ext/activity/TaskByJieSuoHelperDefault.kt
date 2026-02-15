@@ -46,7 +46,7 @@ open class TaskByJieSuoHelperDefault(
      * 保留原来的 @JvmOverloads 签名，方法仍然以原有逻辑执行。
      * 仅将方法设为 open 以允许子类覆盖（不强制子类覆盖）。
      */
-    fun startJieSuoTask(context: Context, i: Int, start: Long = System.currentTimeMillis()) {
+    fun startJieSuoTask(context: Context, i: Int, start: Long = System.currentTimeMillis(),myList: ArrayList<String> = arrayListOf()) {
         taskScope.launch {
             if (mutex.isLocked) {
                 sendLog("♥♥ 上次【自动解锁(方案0)】还没结束哦(有重试机制)，请稍等再试")
@@ -63,7 +63,7 @@ open class TaskByJieSuoHelperDefault(
                     }
 
                     sendLog("♥♥ 开始执行【自动解锁(方案0)】任务")
-                    JieSuoTask(context, i, start)
+                    JieSuoTask(context, i, start,myList)
 
                 } finally {
 
@@ -81,7 +81,7 @@ open class TaskByJieSuoHelperDefault(
     /**
      * 保留为 suspend，逻辑与你原来的一致。
      */
-    protected open suspend fun JieSuoTask(context: Context, i: Int, start: Long = System.currentTimeMillis()) {
+    protected open suspend fun JieSuoTask(context: Context, i: Int, start: Long = System.currentTimeMillis(),myList: ArrayList<String> = arrayListOf()) {
         val pwd = getUnlockPassword()
         sendLog("♥♥ 保存的解锁密码为: ${pwd}")
         var isJieSuo = false
@@ -186,7 +186,7 @@ open class TaskByJieSuoHelperDefault(
             //return
         }
         //直接启动
-        doMyWork(i)
+        doMyWork(i,myList)
 
 
     }
@@ -201,7 +201,7 @@ open class TaskByJieSuoHelperDefault(
      * 尝试 新方法 点亮屏幕  用 activity
      * 子类可以重写此方法以改变点亮/解锁的行为（默认行为不变）
      */
-    open fun jieSuoBy2(i:Int){
+    open fun jieSuoBy2(i:Int,myList: ArrayList<String> = arrayListOf()){
 
     }
 
@@ -209,7 +209,7 @@ open class TaskByJieSuoHelperDefault(
      * 执行业务方法，子类可重写以自定义发送逻辑或更换数据源
      * 保持原有的分发逻辑不变
      */
-    open fun doMyWork(i: Int){
+    open fun doMyWork(i: Int,myList: ArrayList<String> = arrayListOf()){
 
     }
 

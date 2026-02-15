@@ -17,14 +17,14 @@ import com.lygttpod.android.auto.notification.LockScreenActivity.Companion.dealW
 class MyJieSuoHelperDefault : TaskByJieSuoHelperDefault() {
 
     // 改写解锁逻辑（例如使用不同的 Activity）
-    override fun jieSuoBy2(i: Int) {
+    override fun jieSuoBy2(i: Int,myList: ArrayList<String> ) {
         //sendLog("🔥 使用自定义解锁方式")
-        BaseLockScreenActivity.openBaseLockScreenActivity(cls=LockScreenActivity::class.java, i=i)
+        BaseLockScreenActivity.openBaseLockScreenActivity(cls=LockScreenActivity::class.java, i=i,myList=myList)
 
     }
 
     // 改写任务结束逻辑
-    override fun doMyWork(i: Int) {
+    override fun doMyWork(i: Int,myList: ArrayList<String>) {
         //sendLog("🔥 执行自定义任务逻辑 i = $i")
         dealWithPendingIntent()
     }

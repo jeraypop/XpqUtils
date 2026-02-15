@@ -73,7 +73,9 @@ open class BaseLockScreenActivity : XpqBaseActivity<ActivityLockScreenBinding>(
         @JvmStatic
         fun openBaseLockScreenActivity(context: Context = appContext,
                                        cls: Class<out Activity> = BaseLockScreenActivity::class.java,
-                                       i: Int) {
+                                       i: Int,
+                                       myList: ArrayList<String>? =  arrayListOf()
+        ) {
             val currentTime = System.currentTimeMillis()
             if (currentTime - lastLaunchTime < LAUNCH_INTERVAL) {
                 KeyguardUnLock.sendLog("防抖：Activity启动被忽略，间隔太短")
@@ -82,6 +84,8 @@ open class BaseLockScreenActivity : XpqBaseActivity<ActivityLockScreenBinding>(
             lastLaunchTime = currentTime
             val intent = Intent(context, cls)
             intent.putExtra(MMKVConst.SEND_MSG_INDEX, i)
+            intent.putStringArrayListExtra(MMKVConst.SEND_MSG_LIST, myList)
+
             intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK)
             context.startActivity(intent)
         }
@@ -89,6 +93,7 @@ open class BaseLockScreenActivity : XpqBaseActivity<ActivityLockScreenBinding>(
 
     // --- intent data ---
     protected var index: Int = 1
+    protected var myList: ArrayList<String> = arrayListOf()
 
     // --- debounce 控制 ---
     @Volatile
@@ -177,6 +182,7 @@ open class BaseLockScreenActivity : XpqBaseActivity<ActivityLockScreenBinding>(
 
     protected open fun handleIntent(intent: Intent) {
         index = intent.getIntExtra(MMKVConst.SEND_MSG_INDEX, 1)
+        myList = intent.getStringArrayListExtra(MMKVConst.SEND_MSG_LIST) ?: arrayListOf()
     }
 
     override fun onResume() { super.onResume() }
@@ -709,7 +715,7 @@ open class BaseLockScreenActivity : XpqBaseActivity<ActivityLockScreenBinding>(
         lastClickTime = currentTime
 
         //KeyguardUnLock.appScope.launch {
-            doMyWork(index)
+            doMyWork(index,myList)
         //}
     }
 
@@ -717,7 +723,7 @@ open class BaseLockScreenActivity : XpqBaseActivity<ActivityLockScreenBinding>(
      * 子类可以覆盖以实现发送行为或其它操作
      * 如果 子类 覆盖此方法 有防抖功能
      */
-    protected open suspend fun doMyWork(i: Int) {
+    protected open suspend fun doMyWork(i: Int,myList: ArrayList<String> = arrayListOf()) {
 
     }
 

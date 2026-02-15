@@ -32,14 +32,6 @@ import kotlin.jvm.java
 
 class LockScreenActivity : BaseLockScreenActivity() {
     companion object {
-        @JvmOverloads
-        @JvmStatic
-        fun openLockScreenActivity(context: Context = appContext, index:Int) {
-            val intent = Intent(context, LockScreenActivity::class.java)
-            intent.putExtra(MMKVConst.SEND_MSG_INDEX,index)
-            intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK)
-            context.startActivity(intent)
-        }
         const val dymsg = "定时软件下载地址在群公告,请点击群公告查看哦(本条消息为自动发送)"
         /**
          * 根据索引获取对应的发送列表
@@ -126,7 +118,7 @@ class LockScreenActivity : BaseLockScreenActivity() {
 
     }
 
-    override suspend fun doMyWork(i: Int) {
+    override suspend fun doMyWork(i: Int,myList: ArrayList<String>) {
         // 如果你想自定义执行逻辑，覆写此方法
         dealWithPendingIntent()
     }

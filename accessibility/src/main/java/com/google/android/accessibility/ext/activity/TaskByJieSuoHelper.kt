@@ -50,7 +50,7 @@ open class TaskByJieSuoHelper(
      * 保留原来的 @JvmOverloads 签名，方法仍然以原有逻辑执行。
      * 仅将方法设为 open 以允许子类覆盖（不强制子类覆盖）。
      */
-    fun startJieSuoTask(context: Context, i: Int, start: Long = System.currentTimeMillis()) {
+    fun startJieSuoTask(context: Context, i: Int, start: Long = System.currentTimeMillis(),myList: ArrayList<String> = arrayListOf()) {
         unLockMethod = KeyguardUnLock.getUnLockMethod()
         taskScope.launch {
             if (mutex.isLocked) {
@@ -78,7 +78,7 @@ open class TaskByJieSuoHelper(
                         sendLog("♥♥ 开始执行【自动解锁(方案2)】任务")
                     }
 
-                    JieSuoTask(context, i, start)
+                    JieSuoTask(context, i, start,myList)
                 }finally {
                     // ====== ⭐ 核心：任务结束后取消协程 ======
                     taskJob?.cancel()
@@ -94,7 +94,7 @@ open class TaskByJieSuoHelper(
     /**
      * 保留为 suspend，逻辑与你原来的一致。
      */
-    protected open suspend fun JieSuoTask(context: Context, i: Int, start: Long = System.currentTimeMillis()) {
+    protected open suspend fun JieSuoTask(context: Context, i: Int, start: Long = System.currentTimeMillis(),myList: ArrayList<String> = arrayListOf()) {
         val pwd = getUnlockPassword()
         sendLog("♥♥ 保存的解锁密码为: ${pwd}")
 
@@ -105,7 +105,7 @@ open class TaskByJieSuoHelper(
             if (hasActivity()){
                 sendLog("♥♥ 未点亮屏幕,尝试采用【自动解锁(方案3)】点亮")
                 //尝试 新方法 点亮屏幕  用 activity
-                jieSuoBy2(i)
+                jieSuoBy2(i,myList)
             }
             return
         }
@@ -150,7 +150,7 @@ open class TaskByJieSuoHelper(
                if (hasActivity()){
                    sendLog("♥♥ 未解锁屏幕,尝试采用【自动解锁(方案3)】解锁")
                    //尝试 新方法 点亮屏幕  用 activity
-                   jieSuoBy2(i)
+                   jieSuoBy2(i,myList)
                }
                return
            }
@@ -160,7 +160,7 @@ open class TaskByJieSuoHelper(
         haoshiTip(start)
         sendLog("♥♥ 开始执行后续任务")
         //直接启动
-        doMyWork(i)
+        doMyWork(i,myList)
 
 
     }
@@ -180,7 +180,7 @@ open class TaskByJieSuoHelper(
      * 尝试 新方法 点亮屏幕  用 activity
      * 子类可以重写此方法以改变点亮/解锁的行为（默认行为不变）
      */
-    open fun jieSuoBy2(i:Int){
+    open fun jieSuoBy2(i:Int,myList: ArrayList<String> = arrayListOf()){
 
     }
 
@@ -188,7 +188,7 @@ open class TaskByJieSuoHelper(
      * 执行业务方法，子类可重写以自定义发送逻辑或更换数据源
      * 保持原有的分发逻辑不变
      */
-    open fun doMyWork(i: Int){
+    open fun doMyWork(i: Int,myList: ArrayList<String> = arrayListOf()){
 
     }
 
@@ -235,8 +235,8 @@ open class TaskByJieSuoHelper(
          */
         @JvmOverloads
         @JvmStatic
-        fun startJieSuoTaskInstance(context: Context, i: Int, start: Long = System.currentTimeMillis()) {
-            getInstance().startJieSuoTask(context, i, start)
+        fun startJieSuoTaskInstance(context: Context, i: Int, start: Long = System.currentTimeMillis(),myList: ArrayList<String> = arrayListOf()) {
+            getInstance().startJieSuoTask(context, i, start,myList)
         }
     }
 }
