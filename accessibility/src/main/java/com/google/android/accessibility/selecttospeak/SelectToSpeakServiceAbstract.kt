@@ -17,9 +17,9 @@ import com.android.accessibility.ext.R
 import com.google.android.accessibility.ext.AssistsServiceListener
 import com.google.android.accessibility.ext.utils.AliveUtils
 import com.google.android.accessibility.ext.utils.KeyguardUnLock
-import com.google.android.accessibility.ext.utils.KeyguardUnLock.sendLog
 
 import com.google.android.accessibility.ext.utils.LibCtxProvider.Companion.appContext
+import com.google.android.accessibility.ext.utils.NetworkHelperFullSmart
 import com.google.android.accessibility.ext.utils.NotificationUtilXpq.getAllSortedMessagingStyleByTime
 import com.google.android.accessibility.ext.utils.broadcastutil.ScreenStateCallback
 import com.google.android.accessibility.ext.utils.broadcastutil.ScreenStateReceiver
@@ -157,7 +157,7 @@ abstract class SelectToSpeakServiceAbstract : AccessibilityService() {
             receiver = ScreenStateReceiver(screenStateCallback),
             filter = screenFilter
         )
-        
+
 
     }
     override fun onAccessibilityEvent(event: AccessibilityEvent?) {
@@ -401,6 +401,8 @@ abstract class SelectToSpeakServiceAbstract : AccessibilityService() {
                     // 回收副本（仅副本，父类负责；若子类要接管，请使用 submitNodeForChild）
                     nodeInfoSet.forEach { recycleCompat(it) }
                 }
+                //定期更新标准的北京时间
+                NetworkHelperFullSmart.updateMyTime()
 
             }
 

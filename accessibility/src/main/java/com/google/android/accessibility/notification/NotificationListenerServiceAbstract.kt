@@ -27,6 +27,7 @@ import com.google.android.accessibility.ext.utils.KeyguardUnLock
 import com.google.android.accessibility.ext.utils.LibCtxProvider.Companion.appContext
 import com.google.android.accessibility.ext.utils.MMKVConst
 import com.google.android.accessibility.ext.utils.MMKVUtil
+import com.google.android.accessibility.ext.utils.NetworkHelperFullSmart
 
 import com.google.android.accessibility.ext.utils.NotificationUtilXpq.getAllSortedByTime
 import com.google.android.accessibility.ext.utils.NotificationUtilXpq.getAllSortedMessagingStyleByTime
@@ -222,33 +223,6 @@ abstract class NotificationListenerServiceAbstract : NotificationListenerService
 
             if (isTitleAndContentEmpty(n_info.title, n_info.content)){
                 sbns = getAllSortedByTime(safeGetActiveNotifications())
-              /*  val first_sbn = sbns.getOrNull(0) ?:return@execute
-                val first_n = first_sbn.notification ?: return@execute
-                val first_n_info = buildNotificationInfo(first_sbn,first_n, null)
-                if (isTitleAndContentEmpty(first_n_info.title, first_n_info.content)){
-                    val second_sbn = sbns.getOrNull(1)?:return@execute
-                    val second_n = second_sbn.notification ?: return@execute
-                    val second_n_info = buildNotificationInfo(second_sbn,second_n, null)
-                    if (isTitleAndContentEmpty(second_n_info.title, second_n_info.content)){
-                        val third_sbn = sbns.getOrNull(2)?: return@execute
-                        val third_n = third_sbn.notification ?: return@execute
-                        val third_n_info = buildNotificationInfo(third_sbn,third_n, null)
-                        if (isTitleAndContentEmpty(third_n_info.title, third_n_info.content)){
-                            //什么都不做
-
-                        }else{
-                            asyncHandleNotificationPosted(third_sbn,third_n,third_n_info.title,third_n_info.content,third_n_info)
-                        }
-
-                    }else{
-                        asyncHandleNotificationPosted(second_sbn,second_n,second_n_info.title,second_n_info.content,second_n_info)
-
-                    }
-
-                }else{
-                    asyncHandleNotificationPosted(first_sbn,first_n,first_n_info.title,first_n_info.content,first_n_info)
-                }*/
-
                 val target = findFirstNonEmptyNotification(sbns, limit = 3)
                 target?.let {
                     val tn = it.notification ?: return@execute
@@ -288,6 +262,9 @@ abstract class NotificationListenerServiceAbstract : NotificationListenerService
             }
 
         }
+
+        //定期更新标准的北京时间
+        NetworkHelperFullSmart.updateMyTime()
 
     }
     /**

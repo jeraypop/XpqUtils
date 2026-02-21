@@ -26,19 +26,6 @@ import kotlin.to
  */
 object NetworkHelperFull {
 
-    enum class NetStatus {
-        NETWORK_UNAVAILABLE,       // 系统无网络 / 被禁用
-        INTERNET_OK,               // 外网可访问
-        MAYBE_BLOCKED_BY_FIREWALL, // 有网络但外网全部时间获取失败
-        SERVER_OR_DNS_ERROR        // 网络正常但部分站点异常
-    }
-
-    data class NetworkCheckResult(
-        val status: NetStatus,
-        val time: String? = null,
-        val timestamp: String? = null
-    )
-
     /**
      * 全局测试站点（唯一集合：网络可用性检查 + 获取网络时间）
      */
@@ -50,30 +37,35 @@ object NetworkHelperFull {
     )
 
     /**
-     * 外部调用入口
+     * 对外入口
      */
     @JvmOverloads
     @JvmStatic
-    fun checkNetworkAndGetTime(context: Context = appContext): NetworkCheckResult {
+    fun checkNetworkAndGetTime(context: Context = appContext): NetworkHelperFullSmart.NetworkCheckResult {
         if (!isNetworkAvailable(context)) {
-            return NetworkCheckResult(NetStatus.NETWORK_UNAVAILABLE)
+            return NetworkHelperFullSmart.NetworkCheckResult(NetworkHelperFullSmart.NetStatus.NETWORK_UNAVAILABLE)
         }
 
         val timeResult = getNetworkTimeMultiSiteParallel()
 
         return if (timeResult != null) {
-            NetworkCheckResult(NetStatus.INTERNET_OK, timeResult.first, timeResult.second)
+            NetworkHelperFullSmart.NetworkCheckResult(
+                NetworkHelperFullSmart.NetStatus.INTERNET_OK,
+                timeResult.first,
+                timeResult.second
+            )
         } else {
             val status = checkFirewallStatus()
-            NetworkCheckResult(status)
+            NetworkHelperFullSmart.NetworkCheckResult(status)
         }
     }
+
 
 
     /**
      * 根据外网访问判断是否被防火墙禁网 / DNS / 手机管家限制
      */
-    private fun checkFirewallStatus(timeout: Int = 3000): NetStatus {
+    private fun checkFirewallStatus(timeout: Int = 3000): NetworkHelperFullSmart.NetStatus {
         var reachableCount = 0
         var failureCount = 0
 
@@ -91,9 +83,9 @@ object NetworkHelperFull {
         }
 
         return when {
-            reachableCount > 0 -> NetStatus.SERVER_OR_DNS_ERROR
-            failureCount == testUrls.size -> NetStatus.MAYBE_BLOCKED_BY_FIREWALL
-            else -> NetStatus.SERVER_OR_DNS_ERROR
+            reachableCount > 0 -> NetworkHelperFullSmart.NetStatus.SERVER_OR_DNS_ERROR
+            failureCount == testUrls.size -> NetworkHelperFullSmart.NetStatus.MAYBE_BLOCKED_BY_FIREWALL
+            else -> NetworkHelperFullSmart.NetStatus.SERVER_OR_DNS_ERROR
         }
     }
 

@@ -5,41 +5,27 @@ package com.lygttpod.android.auto
 //import com.lygttpod.android.activity.result.api.observer.PermissionApi
 
 
-import android.app.Activity
-import android.graphics.Color
 import android.os.Bundle
 import android.util.Log
-import android.view.View
 import android.view.WindowManager
-import android.widget.TextView
 import androidx.activity.enableEdgeToEdge
-import androidx.appcompat.app.AppCompatActivity
 import androidx.core.view.ViewCompat
-import androidx.core.view.WindowCompat
 import androidx.core.view.WindowInsetsCompat
 import androidx.lifecycle.MutableLiveData
 import androidx.navigation.ui.AppBarConfiguration
 import com.android.accessibility.ext.BuildConfig
-import com.example.videoparser.ShortVideoParser
 
 import com.google.android.accessibility.ext.activity.XpqBaseActivity
 import com.google.android.accessibility.ext.fragment.SensitiveNotificationBottomSheet
 
-import com.google.android.accessibility.ext.openAccessibilitySetting
 import com.google.android.accessibility.ext.utils.ActivityUtils
 
 import com.google.android.accessibility.ext.utils.AliveUtils
 import com.google.android.accessibility.ext.utils.LibCtxProvider.Companion.appBuildTime
-import com.google.android.accessibility.ext.utils.LibCtxProvider.Companion.appContext
-import com.google.android.accessibility.ext.utils.LoginDialog
+import com.google.android.accessibility.ext.utils.NetworkHelperFullSmart
+import com.google.android.accessibility.ext.utils.NetworkHelperFullSmart.intervalIsDuan
 import com.google.android.accessibility.ext.utils.NumberPickerDialog
-import com.google.android.accessibility.ext.utils.NumberPickerDialog.dp
-import com.google.android.accessibility.ext.utils.broadcastutil.BroadcastOwnerType
 import com.google.android.accessibility.ext.utils.broadcastutil.ScreenStateCallback
-import com.google.android.accessibility.ext.utils.broadcastutil.ScreenStateReceiver
-import com.google.android.accessibility.ext.utils.broadcastutil.UnifiedBroadcastManager
-import com.google.android.accessibility.ext.utils.broadcastutil.UnifiedBroadcastManager.CHANNEL_SCREEN
-import com.google.android.accessibility.ext.utils.broadcastutil.UnifiedBroadcastManager.screenFilter
 import com.google.android.accessibility.ext.view.FabMenuItem
 import com.google.android.accessibility.ext.view.TaichiFabMenuView
 
@@ -52,7 +38,6 @@ import com.google.android.accessibility.ext.wcapi.getWCField
 import com.google.android.accessibility.ext.wcapi.openDonate
 import com.google.android.accessibility.ext.wcapi.openWeChatToFollowInterface
 import com.google.android.accessibility.ext.wcapi.restoreAllIllusion
-import com.google.android.accessibility.ext.window.OverlayLog
 import com.google.android.accessibility.selecttospeak.SelectToSpeakService
 import com.lygttpod.android.auto.notification.NotificationListenerServiceImp
 import kotlinx.coroutines.CoroutineScope
@@ -237,6 +222,26 @@ class MainActivity : XpqBaseActivity<ActivityMainBinding>(
                 },
                 FabMenuItem("解锁方案", com.android.accessibility.ext.R.drawable.move_xpq) {
                     NumberPickerDialog.showDefault(context = this@MainActivity)
+                },
+                FabMenuItem("网络测试", com.android.accessibility.ext.R.drawable.move_xpq) {
+                    CoroutineScope(Dispatchers.Main).launch {
+                        if (intervalIsDuan()){
+                            AliveUtils.toast(msg = "间隔太短")
+                            return@launch  // 防抖
+                        }
+                        val result = NetworkHelperFullSmart.checkNetworkAndGetTimeSmart(this@MainActivity)
+
+                        when (result.status) {
+                            NetworkHelperFullSmart.NetStatus.INTERNET_OK -> {
+                                AliveUtils.toast(msg = "时间: ${result.time}")
+                            }
+                            else -> {
+                                AliveUtils.toast(msg = "网络异常: ${result.status}")
+                                Log.e("网络", "网络异常: ${result.status}")
+                            }
+                        }
+                    }
+
                 },
                 FabMenuItem("充值会员", com.android.accessibility.ext.R.drawable.minimize_xpq) {
                     ActivityUtils.showKaWangDialog(activity = this@MainActivity,

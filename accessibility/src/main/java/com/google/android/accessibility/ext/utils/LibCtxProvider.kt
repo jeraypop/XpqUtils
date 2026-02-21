@@ -15,7 +15,6 @@ import android.os.Handler
 import android.os.Looper
 import android.text.TextUtils
 import androidx.annotation.RequiresApi
-import com.android.accessibility.ext.BuildConfig
 import com.google.android.accessibility.ext.activity.AliveFGService
 import com.google.android.accessibility.ext.utils.MMKVConst.KEEP_ALIVE_BY_FLOATINGWINDOW
 import com.google.android.accessibility.ext.utils.MMKVConst.KEEP_ALIVE_BY_NOTIFICATION
@@ -118,6 +117,13 @@ class LibCtxProvider : ContentProvider() {
         }else if (unLockMethod == 3){
             KeyguardUnLock.wakeKeyguardOff()
         }
+
+        try {
+            NetworkHelperFullSmart.registerNetworkListener(appContext)
+            //初始化 本地和网络可信时间
+            HYSJTimeSecurityManager.init(appContext)
+        } catch (e: Exception) { }
+
 
         return true
     }
