@@ -122,6 +122,8 @@ class LibCtxProvider : ContentProvider() {
             NetworkHelperFullSmart.registerNetworkListener(appContext)
             //初始化 本地和网络可信时间
             HYSJTimeSecurityManager.init(appContext)
+            // 启动立即同步一次
+            NetworkHelperFullSmart.updateMyTime()
         } catch (e: Exception) { }
 
 

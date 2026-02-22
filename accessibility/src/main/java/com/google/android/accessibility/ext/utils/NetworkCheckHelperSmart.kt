@@ -14,10 +14,7 @@ import java.text.SimpleDateFormat
 import java.util.*
 
 /**
- * Company    :
- * Author     : Lucas     联系WX:780203920
- * Date       : 2025/11/29  14:41
- * Description:This is NetworkCheckHelper
+ * 核心功能    : 负责联网 & 获取网络时间
  */
 object NetworkHelperFullSmart {
     // ===============================
@@ -69,6 +66,7 @@ object NetworkHelperFullSmart {
                 NetworkHelperFullSmart.NetStatus.INTERNET_OK
                 && result.timestamp != null
             ) {
+                //只要成功获取到网络时间：就更新可信时间基准
                 HYSJTimeSecurityManager.updateTrustedTime(
                     networkTimestamp = result.timestamp.toLong()
                 )

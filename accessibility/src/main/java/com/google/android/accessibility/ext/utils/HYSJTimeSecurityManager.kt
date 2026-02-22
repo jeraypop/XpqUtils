@@ -1,6 +1,8 @@
 package com.google.android.accessibility.ext.utils
 
 import android.content.Context
+import android.net.ConnectivityManager
+import android.net.NetworkCapabilities
 import android.os.Build
 import android.os.SystemClock
 import android.provider.Settings
@@ -10,6 +12,21 @@ import kotlin.math.abs
 import javax.crypto.Mac
 import javax.crypto.spec.SecretKeySpec
 
+/*
+* 核心功能:  负责时间防篡改逻辑
+*
+*
+* ✔ 飞行模式绕不过
+✔ 管家断网绕不过
+✔ VPN 阻断绕不过
+✔ DNS 劫持绕不过
+✔ 系统回拨绕不过
+✔ SP 篡改绕不过
+✔ 重启绕不过
+*
+*
+* */
+
 object HYSJTimeSecurityManager {
 
     private const val SP_NAME = "hysj_time_secure"
@@ -18,10 +35,13 @@ object HYSJTimeSecurityManager {
 
     // 允许本地时间和可信时间最大误差 30 分钟
     private const val MAX_TIME_DRIFT = 30 * 60 * 1000L
+    // 默认允许离线小时数
+    private const val DEFAULT_OFFLINE_HOURS = 1L
     //可信网络时间
     private var trustedNetworkTime: Long = 0L
     //本地运行时间
     private var baseElapsedRealtime: Long = 0L
+    private var lastSyncElapsedRealtime: Long = 0L
 
     private var sp: android.content.SharedPreferences? = null
 
@@ -52,8 +72,10 @@ object HYSJTimeSecurityManager {
 
         trustedNetworkTime = networkTimestamp
         baseElapsedRealtime = SystemClock.elapsedRealtime()
+        lastSyncElapsedRealtime = baseElapsedRealtime
 
-        val rawData = "$trustedNetworkTime|$baseElapsedRealtime"
+        val rawData =
+            "$trustedNetworkTime|$baseElapsedRealtime|$lastSyncElapsedRealtime"
         val sign = generateHmac(context, rawData)
 
         sp?.edit()
@@ -81,6 +103,46 @@ object HYSJTimeSecurityManager {
     }
 
     /**
+     * 3️⃣ 判断会员
+     * 会员是否有效
+     * expireTimestamp 必须是服务器下发的会员毫秒时间戳
+     */
+    @JvmStatic
+    @JvmOverloads
+    fun isKYSJValid(
+        context: Context = appContext,
+        expireTimestamp: Long,
+        allowOfflineHours: Long = DEFAULT_OFFLINE_HOURS
+    ): Boolean {
+
+        // 1️⃣ SP校验
+        if (!verifySp(context)) {
+            clear()
+            return false
+        }
+
+        val nowElapsed = SystemClock.elapsedRealtime()
+        val offlineLimit = allowOfflineHours * 60 * 60 * 1000L
+        val offlineTime = nowElapsed - lastSyncElapsedRealtime
+
+        // 2️⃣ 快速路径：系统判断无网络
+        if (!isNetworkConnected(context)) {
+            if (offlineTime > offlineLimit) return false
+        } else {
+            // 3️⃣ 有网络也必须限制最长未同步时间
+            if (offlineTime > offlineLimit) return false
+        }
+
+        // 4️⃣ 系统时间校验（防回拨）
+        if (!isSystemTimeValid()) {
+            return false
+        }
+
+        // 5️⃣ 判断是否过期
+        return expireTimestamp > getTrustedNow()
+    }
+
+    /**
      * 判断是否有人为修改系统时间
      * 如果系统时间和可信时间差超过 30 分钟则判定异常
      * 如果网络时间和本地时间对比相差 30 分钟之内，则判定没有人为修改
@@ -88,11 +150,6 @@ object HYSJTimeSecurityManager {
     @JvmStatic
     @JvmOverloads
     fun isSystemTimeValid(context: Context = appContext): Boolean {
-
-        if (!verifySp(context)) {
-            clear()
-            return false
-        }
 
         if (trustedNetworkTime == 0L) return true
 
@@ -104,44 +161,20 @@ object HYSJTimeSecurityManager {
         return drift <= MAX_TIME_DRIFT
     }
 
-    /**
-     * 3️⃣ 判断会员
-     * 会员是否有效
-     * expireTimestamp 必须是服务器下发的会员毫秒时间戳
-     */
-    @JvmStatic
-    @JvmOverloads
-    fun isKYSJValid(context: Context = appContext, expireTimestamp: Long): Boolean {
+    // =============================
+    // SP校验
+    // =============================
 
-        if (!isSystemTimeValid(context)) {
-            return false
-        }
-
-        return expireTimestamp > getTrustedNow(context)
-    }
-    // ===============================
-    // 校验SP是否被篡改
-    // ===============================
-
-    private fun verifySp(context: Context = appContext): Boolean {
+    private fun verifySp(context: Context): Boolean {
 
         val rawData = sp?.getString(KEY_DATA, null) ?: return false
         val savedSign = sp?.getString(KEY_SIGN, null) ?: return false
-
         val realSign = generateHmac(context, rawData)
 
-        if (realSign != savedSign) {
-            return false
-        }
-
-        return true
+        return realSign == savedSign
     }
 
-    // ===============================
-    // 从SP恢复数据（带校验）
-    // ===============================
-
-    private fun loadFromSp(context: Context = appContext) {
+    private fun loadFromSp(context: Context) {
 
         if (!verifySp(context)) {
             clear()
@@ -149,19 +182,15 @@ object HYSJTimeSecurityManager {
         }
 
         val rawData = sp?.getString(KEY_DATA, null) ?: return
-
         val parts = rawData.split("|")
-        if (parts.size != 2) return
+        if (parts.size != 3) return
 
         trustedNetworkTime = parts[0].toLongOrNull() ?: 0L
         baseElapsedRealtime = parts[1].toLongOrNull() ?: 0L
+        lastSyncElapsedRealtime = parts[2].toLongOrNull() ?: 0L
     }
 
-    // ===============================
-    // HMAC签名生成
-    // ===============================
-
-    private fun generateHmac(context: Context = appContext, data: String): String {
+    private fun generateHmac(context: Context, data: String): String {
 
         val secret = getDeviceSecret(context)
 
@@ -170,15 +199,10 @@ object HYSJTimeSecurityManager {
         mac.init(keySpec)
 
         val hash = mac.doFinal(data.toByteArray())
-
         return Base64.encodeToString(hash, Base64.NO_WRAP)
     }
 
-    // ===============================
-    // 设备绑定密钥
-    // ===============================
-
-    private fun getDeviceSecret(context: Context = appContext): String {
+    private fun getDeviceSecret(context: Context): String {
 
         val androidId = Settings.Secure.getString(
             context.contentResolver,
@@ -190,12 +214,26 @@ object HYSJTimeSecurityManager {
         return "VIP_SECRET_${androidId}_${model}_2025"
     }
 
+    private fun isNetworkConnected(context: Context): Boolean {
+
+        val cm = context.getSystemService(Context.CONNECTIVITY_SERVICE)
+                as? ConnectivityManager ?: return false
+
+        val network = cm.activeNetwork ?: return false
+        val capabilities =
+            cm.getNetworkCapabilities(network) ?: return false
+
+        return capabilities.hasCapability(
+            NetworkCapabilities.NET_CAPABILITY_INTERNET
+        )
+    }
     /**
      * 清除可信时间（可选）
      */
     fun clear() {
         trustedNetworkTime = 0L
         baseElapsedRealtime = 0L
+        lastSyncElapsedRealtime = 0L
         sp?.edit()?.clear()?.apply()
     }
 }
