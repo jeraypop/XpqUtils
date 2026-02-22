@@ -213,8 +213,9 @@ object HYSJTimeSecurityManager {
 
         return "VIP_SECRET_${androidId}_${model}_2025"
     }
-
-    private fun isNetworkConnected(context: Context): Boolean {
+    @JvmStatic
+    @JvmOverloads
+    fun isNetworkConnected(context: Context = appContext): Boolean {
 
         val cm = context.getSystemService(Context.CONNECTIVITY_SERVICE)
                 as? ConnectivityManager ?: return false
