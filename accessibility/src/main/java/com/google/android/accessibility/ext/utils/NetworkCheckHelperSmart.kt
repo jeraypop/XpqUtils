@@ -6,6 +6,7 @@ import android.net.Network
 import android.net.NetworkCapabilities
 import com.google.android.accessibility.ext.utils.LibCtxProvider.Companion.appContext
 import kotlinx.coroutines.*
+import kotlinx.coroutines.selects.select
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import java.net.HttpURLConnection
@@ -59,6 +60,18 @@ object NetworkHelperFullSmart {
     private val appScope = CoroutineScope(
         SupervisorJob() + Dispatchers.Main
     )
+
+    // =====  不获取时间 就纯粹外网检测缓存（5秒）=====
+    private const val FAST_CHECK_CACHE_DURATION = 5000L
+
+    @Volatile
+    private var lastFastCheckResult: Boolean? = null
+
+    @Volatile
+    private var lastFastCheckTime: Long = 0L
+
+    private val fastCheckMutex = Mutex()
+
 
 
     @JvmStatic
@@ -190,8 +203,11 @@ object NetworkHelperFullSmart {
         val cm = context.getSystemService(Context.CONNECTIVITY_SERVICE) as ConnectivityManager
         val network = cm.activeNetwork ?: return false
         val capabilities = cm.getNetworkCapabilities(network) ?: return false
+
         return capabilities.hasCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET)
+                && capabilities.hasCapability(NetworkCapabilities.NET_CAPABILITY_VALIDATED)
     }
+
 
     // ===============================
     // 系统网络检测 + 等待准备
@@ -230,18 +246,18 @@ object NetworkHelperFullSmart {
                 }
             }
 
-            try {
-                deferredList.firstNotNullOfOrNull { deferred ->
-                    try {
-                        deferred.await()
-                    } catch (_: Exception) {
-                        null
+            select<Pair<String, String>?> {
+                deferredList.forEach { deferred ->
+                    deferred.onAwait { result ->
+                        if (result != null) {
+                            deferredList.forEach { it.cancel() }
+                            result
+                        } else null
                     }
                 }
-            } finally {
-                deferredList.forEach { it.cancel() }
             }
         }
+
 
     // ===============================
     // 单站点重试
@@ -293,32 +309,36 @@ object NetworkHelperFullSmart {
     // 防火墙检测
     // ===============================
 
-    private fun checkFirewallStatus(timeout: Int = 3000): NetStatus {
+    private suspend fun checkFirewallStatus(timeout: Int = 3000): NetStatus =
+        withContext(Dispatchers.IO) {
 
-        var reachableCount = 0
-        var failureCount = 0
+            var reachableCount = 0
+            var failureCount = 0
 
-        testUrls.forEach { urlStr ->
-            try {
-                val conn = (URL(urlStr).openConnection() as HttpURLConnection).apply {
-                    connectTimeout = timeout
-                    readTimeout = timeout
-                    connect()
+            testUrls.forEach { urlStr ->
+                try {
+                    val conn = (URL(urlStr).openConnection() as HttpURLConnection).apply {
+                        connectTimeout = timeout
+                        readTimeout = timeout
+                        connect()
+                    }
+
+                    if (conn.responseCode in 200..399) reachableCount++
+                    else failureCount++
+
+                    conn.disconnect()
+                } catch (_: Exception) {
+                    failureCount++
                 }
-                if (conn.responseCode in 200..399) reachableCount++
-                else failureCount++
-                conn.disconnect()
-            } catch (_: Exception) {
-                failureCount++
+            }
+
+            when {
+                reachableCount > 0 -> NetStatus.SERVER_OR_DNS_ERROR
+                failureCount == testUrls.size -> NetStatus.MAYBE_BLOCKED_BY_FIREWALL
+                else -> NetStatus.SERVER_OR_DNS_ERROR
             }
         }
 
-        return when {
-            reachableCount > 0 -> NetStatus.SERVER_OR_DNS_ERROR
-            failureCount == testUrls.size -> NetStatus.MAYBE_BLOCKED_BY_FIREWALL
-            else -> NetStatus.SERVER_OR_DNS_ERROR
-        }
-    }
 
     // ===============================
     // 网络变化自动清缓存
@@ -369,6 +389,85 @@ object NetworkHelperFullSmart {
             ) == android.content.pm.PackageManager.PERMISSION_GRANTED
 
         return internet && networkState
+    }
+
+    /**
+     * 极速外网可达检测（5秒缓存版）
+     * 2 秒超时
+     * 任意一个站点成功即返回 true
+     */
+    suspend fun canAccessAnyExternalSiteFastCached(): Boolean = coroutineScope {
+
+        val now = System.currentTimeMillis()
+
+        // ===== ① 快速缓存命中 =====
+        lastFastCheckResult?.let {
+            if (now - lastFastCheckTime < FAST_CHECK_CACHE_DURATION) {
+                return@coroutineScope it
+            }
+        }
+
+        fastCheckMutex.withLock {
+
+            // ===== 双重检查 =====
+            lastFastCheckResult?.let {
+                if (System.currentTimeMillis() - lastFastCheckTime < FAST_CHECK_CACHE_DURATION) {
+                    return@coroutineScope it
+                }
+            }
+
+            // ===== 系统网络能力检查 =====
+            if (!isNetworkAvailable()) {
+                lastFastCheckResult = false
+                lastFastCheckTime = System.currentTimeMillis()
+                return@coroutineScope false
+            }
+
+            // ===== 并发 HEAD 请求 =====
+            val deferredList = testUrls.map { url ->
+                async(Dispatchers.IO) {
+                    try {
+                        val conn = (URL(url).openConnection() as HttpURLConnection).apply {
+                            requestMethod = "HEAD"
+                            instanceFollowRedirects = false
+                            connectTimeout = 2000
+                            readTimeout = 2000
+                            useCaches = false
+                            connect()
+                        }
+
+                        val code = conn.responseCode
+                        conn.disconnect()
+
+                        code in 200..399
+
+                    } catch (_: Exception) {
+                        false
+                    }
+                }
+            }
+
+            val result = try {
+                select<Boolean> {
+                    deferredList.forEach { deferred ->
+                        deferred.onAwait { success ->
+                            if (success) {
+                                deferredList.forEach { it.cancel() }
+                                true
+                            } else false
+                        }
+                    }
+                }
+            } finally {
+                deferredList.forEach { it.cancel() }
+            }
+
+            // ===== 更新缓存 =====
+            lastFastCheckResult = result
+            lastFastCheckTime = System.currentTimeMillis()
+
+            return@coroutineScope result
+        }
     }
 
 
