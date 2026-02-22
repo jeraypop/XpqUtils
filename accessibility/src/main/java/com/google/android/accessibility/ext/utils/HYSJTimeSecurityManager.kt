@@ -121,16 +121,14 @@ object HYSJTimeSecurityManager {
             return false
         }
 
-        val nowElapsed = SystemClock.elapsedRealtime()
-        val offlineLimit = allowOfflineHours * 60 * 60 * 1000L
-        val offlineTime = nowElapsed - lastSyncElapsedRealtime
-
         // 2️⃣ 快速路径：系统判断无网络
         if (!isNetworkConnected(context)) {
-            if (offlineTime > offlineLimit) return false
+            if (isOfflineExpired(allowOfflineHours)) return false
+
         } else {
             // 3️⃣ 有网络也必须限制最长未同步时间
-            if (offlineTime > offlineLimit) return false
+            if (isOfflineExpired(allowOfflineHours)) return false
+
         }
 
         // 4️⃣ 系统时间校验（防回拨）
@@ -160,6 +158,100 @@ object HYSJTimeSecurityManager {
 
         return drift <= MAX_TIME_DRIFT
     }
+
+    /**
+     * 是否超过允许的离线时间
+     *
+     * @param allowOfflineHours 允许离线小时数
+     */
+    @JvmStatic
+    @JvmOverloads
+    fun isOfflineExpired(
+        allowOfflineHours: Long = DEFAULT_OFFLINE_HOURS
+    ): Boolean {
+
+        if (trustedNetworkTime == 0L) {
+            // 从未同步过时间，直接视为超时
+            return true
+        }
+
+        val nowElapsed = SystemClock.elapsedRealtime()
+        val offlineLimit = allowOfflineHours * 60 * 60 * 1000L
+        val offlineTime = nowElapsed - lastSyncElapsedRealtime
+
+        return offlineTime > offlineLimit
+    }
+
+    /**
+     * 获取已离线毫秒数
+     */
+    @JvmStatic
+    fun getOfflinePassedMillis(): Long {
+
+        if (trustedNetworkTime == 0L || lastSyncElapsedRealtime == 0L) {
+            return Long.MAX_VALUE
+        }
+
+        val nowElapsed = SystemClock.elapsedRealtime()
+        val offlineMillis = nowElapsed - lastSyncElapsedRealtime
+
+        return if (offlineMillis < 0) 0L else offlineMillis
+    }
+
+
+    /**
+     * 获取已离线的小时数（自上次成功同步网络时间起）
+     *
+     * 返回：
+     * - 如果从未同步过网络时间，返回 Long.MAX_VALUE
+     * - 否则返回已离线的小时数（向下取整）
+     */
+    @JvmStatic
+    fun getOfflinePassedHours(): Long {
+
+        if (trustedNetworkTime == 0L || lastSyncElapsedRealtime == 0L) {
+            // 从未同步过网络时间
+            return Long.MAX_VALUE
+        }
+
+        val nowElapsed = SystemClock.elapsedRealtime()
+        val offlineMillis = nowElapsed - lastSyncElapsedRealtime
+
+        if (offlineMillis <= 0) return 0L
+
+        return offlineMillis / (60 * 60 * 1000L)
+    }
+    /**
+     * 获取剩余可离线分钟数
+     *
+     * @param limitHours 允许的最大离线小时数
+     *
+     * 返回：
+     * - 如果从未同步过网络时间，返回 0
+     * - 如果已经超出限制，返回 0
+     * - 否则返回剩余可离线分钟数
+     */
+    @JvmStatic
+    @JvmOverloads
+    fun getOfflineRemainMinutes(limitHours: Long = DEFAULT_OFFLINE_HOURS): Long {
+
+        if (trustedNetworkTime == 0L || lastSyncElapsedRealtime == 0L) {
+            return 0L
+        }
+
+        if (limitHours <= 0) return 0L
+
+        val nowElapsed = SystemClock.elapsedRealtime()
+        val passedMillis = nowElapsed - lastSyncElapsedRealtime
+
+        val limitMillis = limitHours * 60 * 60 * 1000L
+        val remainMillis = limitMillis - passedMillis
+
+        if (remainMillis <= 0) return 0L
+
+        return remainMillis / (60 * 1000L)
+    }
+
 
     // =============================
     // SP校验
@@ -237,4 +329,70 @@ object HYSJTimeSecurityManager {
         lastSyncElapsedRealtime = 0L
         sp?.edit()?.clear()?.apply()
     }
+
+    @JvmStatic
+    @JvmOverloads
+    fun checkTimeSecurityStatus(
+        context: Context = appContext,
+        expireTimestamp: Long,
+        allowOfflineHours: Long = DEFAULT_OFFLINE_HOURS
+    ): TimeSecurityStatus {
+
+        // 1️⃣ SP签名校验
+        if (!verifySp(context)) {
+            clear()
+            return TimeSecurityStatus(
+                isValid = false,
+                isVipExpired = true,
+                isOfflineExpired = true,
+                isSystemTimeInvalid = true,
+                offlinePassedHours = 0,
+                offlineRemainMinutes = 0
+            )
+        }
+
+        val offlinePassed = getOfflinePassedHours()
+        val offlineRemain = getOfflineRemainMinutes(allowOfflineHours)
+
+        val offlineExpired = isOfflineExpired(allowOfflineHours)
+        val systemInvalid = !isSystemTimeValid(context)
+        val vipExpired = expireTimestamp <= getTrustedNow(context)
+
+        val finalValid = !offlineExpired && !systemInvalid && !vipExpired
+
+        return TimeSecurityStatus(
+            isValid = finalValid,
+            isVipExpired = vipExpired,
+            isOfflineExpired = offlineExpired,
+            isSystemTimeInvalid = systemInvalid,
+            offlinePassedHours = offlinePassed,
+            offlineRemainMinutes = offlineRemain
+        )
+    }
+
 }
+
+/**
+ * 时间安全统一状态模型
+ */
+data class TimeSecurityStatus(
+
+    // 是否通过所有安全校验
+    val isValid: Boolean,
+
+    // 是否会员过期
+    val isVipExpired: Boolean,
+
+    // 是否超过离线限制
+    val isOfflineExpired: Boolean,
+
+    // 是否系统时间异常（回拨 / 快进）
+    val isSystemTimeInvalid: Boolean,
+
+    // 已离线小时数
+    val offlinePassedHours: Long,
+
+    // 剩余可离线分钟数
+    val offlineRemainMinutes: Long
+)
+
