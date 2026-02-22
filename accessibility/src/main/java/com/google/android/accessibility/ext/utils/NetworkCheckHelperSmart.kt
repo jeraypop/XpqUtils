@@ -56,22 +56,16 @@ object NetworkHelperFullSmart {
     private var runningJob: Deferred<NetworkCheckResult>? = null
     private var fangdouTime = 0L
 
+    private val appScope = CoroutineScope(
+        SupervisorJob() + Dispatchers.Main
+    )
+
+
     @JvmStatic
     @JvmOverloads
     fun updateMyTime(interval: Long = CACHE_DURATION) {
         if (intervalIsDuan(interval))return
-        CoroutineScope(Dispatchers.Main).launch {
-            val result = NetworkHelperFullSmart.checkNetworkAndGetTimeSmart()
-            if (result.status ==
-                NetworkHelperFullSmart.NetStatus.INTERNET_OK
-                && result.timestamp != null
-            ) {
-                //只要成功获取到网络时间：就更新可信时间基准
-                HYSJTimeSecurityManager.updateTrustedTime(
-                    networkTimestamp = result.timestamp.toLong()
-                )
-            }
-        }
+        updateTimeForNet()
     }
     @JvmStatic
     @JvmOverloads
@@ -84,6 +78,21 @@ object NetworkHelperFullSmart {
         return false
     }
 
+    @JvmStatic
+    fun updateTimeForNet() {
+        appScope.launch {
+            val result = NetworkHelperFullSmart.checkNetworkAndGetTimeSmart()
+            if (result.status ==
+                NetworkHelperFullSmart.NetStatus.INTERNET_OK
+                && result.timestamp != null
+            ) {
+                //只要成功获取到网络时间：就更新可信时间基准
+                HYSJTimeSecurityManager.updateTrustedTime(
+                    networkTimestamp = result.timestamp.toLong()
+                )
+            }
+        }
+    }
 
     // ===============================
     // 对外入口（智能缓存版）

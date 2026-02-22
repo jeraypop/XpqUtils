@@ -346,10 +346,13 @@ object HYSJTimeSecurityManager {
                 isVipExpired = true,
                 isOfflineExpired = true,
                 isSystemTimeInvalid = true,
+                isNetworkAvailable = isNetworkConnected(context),
                 offlinePassedHours = 0,
                 offlineRemainMinutes = 0
             )
         }
+
+        val networkAvailable = isNetworkConnected(context)
 
         val offlinePassed = getOfflinePassedHours()
         val offlineRemain = getOfflineRemainMinutes(allowOfflineHours)
@@ -365,6 +368,7 @@ object HYSJTimeSecurityManager {
             isVipExpired = vipExpired,
             isOfflineExpired = offlineExpired,
             isSystemTimeInvalid = systemInvalid,
+            isNetworkAvailable = networkAvailable,
             offlinePassedHours = offlinePassed,
             offlineRemainMinutes = offlineRemain
         )
@@ -388,6 +392,8 @@ data class TimeSecurityStatus(
 
     // 是否系统时间异常（回拨 / 快进）
     val isSystemTimeInvalid: Boolean,
+    //网络是否可用 不参与安全校验
+    val isNetworkAvailable: Boolean,
 
     // 已离线小时数
     val offlinePassedHours: Long,
