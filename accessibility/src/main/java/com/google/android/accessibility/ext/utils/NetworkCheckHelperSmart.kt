@@ -164,7 +164,7 @@ object NetworkHelperFullSmart {
     // 实际网络检测逻辑
     // ===============================
 
-    private suspend fun realCheckNetwork(
+    suspend fun realCheckNetwork(
         context: Context = appContext
     ): NetworkCheckResult {
 
@@ -198,8 +198,9 @@ object NetworkHelperFullSmart {
     // ===============================
     // 系统网络检查
     // ===============================
-
-    private fun isNetworkAvailable(context: Context = appContext): Boolean {
+    @JvmStatic
+    @JvmOverloads
+    fun isNetworkAvailable(context: Context = appContext): Boolean {
         val cm = context.getSystemService(Context.CONNECTIVITY_SERVICE) as ConnectivityManager
         val network = cm.activeNetwork ?: return false
         val capabilities = cm.getNetworkCapabilities(network) ?: return false
@@ -212,7 +213,7 @@ object NetworkHelperFullSmart {
     // ===============================
     // 系统网络检测 + 等待准备
     // ===============================
-    private suspend fun waitForNetworkReady(
+     suspend fun waitForNetworkReady(
         context: Context = appContext,
         maxWaitMs: Long = 15000L,
         checkIntervalMs: Long = 1000L
@@ -308,8 +309,9 @@ object NetworkHelperFullSmart {
     // ===============================
     // 防火墙检测
     // ===============================
-
-    private suspend fun checkFirewallStatus(timeout: Int = 3000): NetStatus =
+    @JvmStatic
+    @JvmOverloads
+    suspend fun checkFirewallStatus(timeout: Int = 3000): NetStatus =
         withContext(Dispatchers.IO) {
 
             var reachableCount = 0
