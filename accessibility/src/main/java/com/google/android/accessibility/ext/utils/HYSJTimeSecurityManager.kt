@@ -122,7 +122,7 @@ object HYSJTimeSecurityManager {
         }
 
         // 2️⃣ 快速路径：系统判断无网络
-        if (!isNetworkConnected(context)) {
+        if (!isNetworkAvailable(context)) {
             if (isOfflineExpired(allowOfflineHours)) return false
 
         } else {
@@ -305,20 +305,24 @@ object HYSJTimeSecurityManager {
 
         return "VIP_SECRET_${androidId}_${model}_2025"
     }
+    // ===============================
+    // 系统网络检查
+    // ===============================
     @JvmStatic
     @JvmOverloads
-    fun isNetworkConnected(context: Context = appContext): Boolean {
-
+    fun isNetworkAvailable(context: Context = appContext,valid: Boolean = true): Boolean {
         val cm = context.getSystemService(Context.CONNECTIVITY_SERVICE)
                 as? ConnectivityManager ?: return false
-
         val network = cm.activeNetwork ?: return false
-        val capabilities =
-            cm.getNetworkCapabilities(network) ?: return false
+        val capabilities = cm.getNetworkCapabilities(network) ?: return false
+        val b = if (valid){
+            capabilities.hasCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET)
+                    && capabilities.hasCapability(NetworkCapabilities.NET_CAPABILITY_VALIDATED)
+        }else{
+            capabilities.hasCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET)
+        }
 
-        return capabilities.hasCapability(
-            NetworkCapabilities.NET_CAPABILITY_INTERNET
-        )&& capabilities.hasCapability(NetworkCapabilities.NET_CAPABILITY_VALIDATED)
+        return b
     }
 
 
@@ -348,13 +352,13 @@ object HYSJTimeSecurityManager {
                 isVipExpired = true,
                 isOfflineExpired = true,
                 isSystemTimeInvalid = true,
-                isNetworkAvailable = isNetworkConnected(context),
+                isNetworkAvailable = isNetworkAvailable(context),
                 offlinePassedHours = 0,
                 offlineRemainMinutes = 0
             )
         }
 
-        val networkAvailable = isNetworkConnected(context)
+        val networkAvailable = isNetworkAvailable(context)
 
         val offlinePassed = getOfflinePassedHours()
         val offlineRemain = getOfflineRemainMinutes(allowOfflineHours)

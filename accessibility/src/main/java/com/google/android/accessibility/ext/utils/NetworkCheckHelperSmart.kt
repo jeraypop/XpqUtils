@@ -200,13 +200,19 @@ object NetworkHelperFullSmart {
     // ===============================
     @JvmStatic
     @JvmOverloads
-    fun isNetworkAvailable(context: Context = appContext): Boolean {
-        val cm = context.getSystemService(Context.CONNECTIVITY_SERVICE) as ConnectivityManager
+    fun isNetworkAvailable(context: Context = appContext,valid: Boolean = true): Boolean {
+        val cm = context.getSystemService(Context.CONNECTIVITY_SERVICE)
+                as? ConnectivityManager ?: return false
         val network = cm.activeNetwork ?: return false
         val capabilities = cm.getNetworkCapabilities(network) ?: return false
+        val b = if (valid){
+            capabilities.hasCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET)
+                    && capabilities.hasCapability(NetworkCapabilities.NET_CAPABILITY_VALIDATED)
+        }else{
+            capabilities.hasCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET)
+        }
 
-        return capabilities.hasCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET)
-                && capabilities.hasCapability(NetworkCapabilities.NET_CAPABILITY_VALIDATED)
+        return b
     }
 
 
@@ -398,6 +404,7 @@ object NetworkHelperFullSmart {
      * 2 秒超时
      * 任意一个站点成功即返回 true
      */
+    @JvmStatic
     suspend fun canAccessAnyExternalSiteFastCached(): Boolean = coroutineScope {
 
         val now = System.currentTimeMillis()
@@ -469,6 +476,65 @@ object NetworkHelperFullSmart {
             lastFastCheckTime = System.currentTimeMillis()
 
             return@coroutineScope result
+        }
+    }
+
+    /**
+     * 极速网络时间获取（前提：已确认外网可访问）
+     * 单站点顺序尝试
+     * 每个站点最大 1500ms
+     * 不重试
+     */
+    @JvmStatic
+    @JvmOverloads
+    suspend fun getNetworkTimeFast(pat: String ="yy-MM-dd HH:mm"): Pair<String, String>? =
+        withContext(Dispatchers.IO) {
+
+            for (url in testUrls) {
+                var conn: HttpURLConnection? = null
+                try {
+                    conn = (URL(url).openConnection() as HttpURLConnection).apply {
+                        requestMethod = "HEAD"
+                        instanceFollowRedirects = false
+                        connectTimeout = 1500
+                        readTimeout = 1500
+                        useCaches = false
+                        connect()
+                    }
+
+                    val date = conn.date
+                    if (date > 0) {
+                        val formatted = SimpleDateFormat(
+                            pat,
+                            Locale.getDefault()
+                        ).format(Date(date))
+
+                        return@withContext formatted to date.toString()
+                    }
+
+                } catch (_: Exception) {
+                } finally {
+                    conn?.disconnect()
+                }
+            }
+
+            return@withContext null
+        }
+    @JvmStatic
+    suspend fun updateTimeFastIfInternetOk() {
+
+        // ① 先快速确认外网
+        if (!NetworkHelperFullSmart.canAccessAnyExternalSiteFastCached()) {
+            return
+        }
+
+        // ② 再快速获取时间
+        val result = NetworkHelperFullSmart.getNetworkTimeFast()
+
+        result?.let {
+            HYSJTimeSecurityManager.updateTrustedTime(
+                networkTimestamp = it.second.toLong()
+            )
         }
     }
 
