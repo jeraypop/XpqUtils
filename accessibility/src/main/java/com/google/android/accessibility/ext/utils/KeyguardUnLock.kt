@@ -2056,7 +2056,7 @@ isDeviceSecure = 这台设备“有没有任何安全门槛”
             recycleSafe(nodeInfo)
 
             if (!hasValidRect) return false
-            if (service.rootInActiveWindow == null) return false
+            //if (service.rootInActiveWindow == null) return false
 
             sendLog("强制 Gesture 点击 (${centerX}, ${centerY})")
 
