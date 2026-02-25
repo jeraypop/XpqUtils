@@ -68,8 +68,8 @@ class NotificationListenerServiceImp : NotificationListenerServiceAbstract() {
         Log.e("通知监控1", "title="+ title+" content="+content )
         //================
         serviceScope.launch {
-            //if (!content.contains("我爱")) return@launch
-            if (!Regex("@.*欢迎.*加入").containsMatchIn(content)) return@launch
+            if (!content.contains("我爱")) return@launch
+            //if (!Regex("@.*欢迎.*加入").containsMatchIn(content)) return@launch
 
             if (pI != null) {
                 LatestPendingIntentStore.saveLatest(buildNotificationUniqueKey(sbn), pI)

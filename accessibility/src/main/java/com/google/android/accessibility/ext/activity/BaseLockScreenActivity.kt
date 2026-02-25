@@ -154,13 +154,16 @@ open class BaseLockScreenActivity : XpqBaseActivity<ActivityLockScreenBinding>(
             } catch (e: CancellationException) {
                 sendLog("⚠ 协程被取消")
                 if (KeyguardUnLock.getTanLog()) OverlayLog.show()
+                finishSelf()
             }catch (t: Throwable) {
                 sendLog("【自动解锁(方案3)】执行出错")
                 if (KeyguardUnLock.getTanLog()) OverlayLog.show()
+                finishSelf()
             }finally {
                 //delay(5000L)
                 //sendLog("【自动解锁(方案3)】界面自动清理")
                 //finishAndRemoveTask()
+
                 gestureJob.cancel()   // ⭐ 解锁结束即回收
                 val eWai = KeyguardUnLock.getUnLockResult(isOKJieSuo.get())
                 if (eWai){
@@ -168,6 +171,7 @@ open class BaseLockScreenActivity : XpqBaseActivity<ActivityLockScreenBinding>(
                     sendLog("【自动解锁(方案3)】解锁成功 (兜底执行)")
                     onUnlockedAndProceed()
                 }
+                finishSelf()
             }
         }
     }
@@ -252,7 +256,7 @@ open class BaseLockScreenActivity : XpqBaseActivity<ActivityLockScreenBinding>(
         return false
     }
 
-    fun finishSelf(activity: Activity) {
+    fun finishSelf(activity: Activity = this@BaseLockScreenActivity) {
         // ⭐ 核心：下一帧立刻释放 Activity Window
         window.decorView.post {
             if (!activity.isFinishing && !activity.isDestroyed) {
@@ -293,8 +297,10 @@ open class BaseLockScreenActivity : XpqBaseActivity<ActivityLockScreenBinding>(
 
         val lockResult = when (val lockState = status.lockState) {
             is DeviceLockState.Unlocked -> {
+                finishSelf(activity)
                 val msg = if (lockState.isDeviceSecure) "设备已被解锁（有安全锁）,即将执行后续操作" else "设备已被解锁（无安全锁）,即将执行后续操作"
                 sendLog(msg)
+                Log.e("解锁失败了", msg )
                 true
             }
             DeviceLockState.LockedNotSecure -> {

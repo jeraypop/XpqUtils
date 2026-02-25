@@ -506,7 +506,8 @@ object KeyguardUnLock {
     @JvmStatic
     fun getLockID(): String {
         val brand = Build.BRAND.uppercase(Locale.getDefault()) //获取设备品牌
-        Log.e("解锁", "手机品牌 = " + brand);
+        Log.e("解锁", "手机品牌 = " + brand)
+
         var id = "com.android.systemui:id/"
         when (brand) {
             "XIAOMI", "MIUI" -> {
@@ -530,6 +531,7 @@ object KeyguardUnLock {
                 id = id + "digit_text"
             }
         }
+        sendLog("手机品牌 = " + brand+" 采用默认解锁界面节点id= "+id)
         return id
     }
 
@@ -543,7 +545,7 @@ object KeyguardUnLock {
         return findLockView(nodeInfo) ?: getLockID()
     }
 
-    private fun findLockView(nodeInfo: AccessibilityNodeInfo): String? {
+    private fun findLockViewOld(nodeInfo: AccessibilityNodeInfo): String? {
         val className = nodeInfo.className?.toString() ?: ""
         val className_lower = className.lowercase()
         val viewIdName = nodeInfo.viewIdResourceName ?: ""
@@ -562,14 +564,14 @@ object KeyguardUnLock {
                             ||viewIdName_lower.contains("digit_text")
                     )
         ) {
-            sendLog("本次查询解锁界面节点id= "+viewIdName)
+            sendLog("本次查询到解锁界面节点id= "+viewIdName)
             return viewIdName
         }
 
         // 递归遍历子节点
         for (i in 0 until nodeInfo.childCount) {
             nodeInfo.getChild(i)?.let { childNode ->
-                val result = findLockView(childNode)
+                val result = findLockViewOld(childNode)
                 if (result != null) {
                     return result
                 }
@@ -578,6 +580,50 @@ object KeyguardUnLock {
 
         return null
     }
+
+    private fun findLockView(root: AccessibilityNodeInfo?): String? {
+        if (root == null) return null
+
+        val stack = ArrayDeque<AccessibilityNodeInfo>()
+        stack.add(root)
+
+        while (stack.isNotEmpty()) {
+            val node = stack.removeLast()
+
+            val className = node.className?.toString() ?: ""
+            val viewIdName = node.viewIdResourceName ?: ""
+
+            if (isTargetNode(className, viewIdName)) {
+                sendLog("本次查询到解锁界面节点id= $viewIdName")
+                return viewIdName
+            }
+
+            for (i in 0 until node.childCount) {
+                node.getChild(i)?.let { stack.add(it) }
+            }
+        }
+
+        return null
+    }
+
+    private fun isTargetNode(className: String, viewId: String): Boolean {
+
+        // 直接用 ignoreCase，不再 lowercase()
+        val isMatchClass =
+            className.contains("Text", true) ||
+                    className.contains("Button", true) ||
+                    className.contains("Chip", true)
+
+        val isMatchId =
+            viewId.contains("digitText", true) ||
+                    viewId.contains("digit_text", true)
+
+        return isMatchClass && isMatchId
+    }
+
+
+
+
 
     /*
     *  闹钟是否会被覆盖，取决于：AlarmManager 认为你的 PendingIntent 是不是“同一个”
@@ -1049,7 +1095,7 @@ isDeviceSecure = 这台设备“有没有任何安全门槛”
 
     @JvmOverloads
     @JvmStatic
-    fun inputPassword(access_Service: AccessibilityService? = accessibilityService, password: String="", isJava: Boolean = false): Boolean {
+    fun inputPassword(access_Service: AccessibilityService? = accessibilityService, password: String="", isJava: Boolean = false, isNew: Boolean = true): Boolean {
         var    isSuc = false
         if (access_Service == null) {
             sendLog("无障碍服务未开启!")
@@ -1064,53 +1110,59 @@ isDeviceSecure = 这台设备“有没有任何安全门槛”
             sendLog("解锁密码为空,请先输入密码")
             return isSuc
         }
-        //===============
-        fun jiesuoRun(digitId: String) {
-            //====================
-            Log.e("解锁", "第1步:获得解锁界面节点id= "+digitId)
-            sendLog("第1步:获得解锁界面节点id= "+digitId)
-            //====================
-            //3.模拟锁屏密码输入完成解锁
-            Log.e("解锁", "第2步,准备遍历并输入保存的密码= "+password)
-            sendLog("第2.1步,准备遍历并输入保存的密码= "+password)
-            var num=1
-            fun inputMiMa(s: Char) =
-                findAndPerformClickNodeInfo(
-                    access_Service!!,
-                    digitId,
-                    s.toString(),
-                    s.toString(),
-                    isJava
-                )
-            var trueCount = 0
-            var falseCount = 0
-            for (s in password!!) {
-                val inputSuccess = inputMiMa(s)
-                if (!inputSuccess) {
-                    falseCount++
-                    val i = num++
-                    sendLog("自动输入第 "+i+" 位密码, "+ s +" 失败")
-                } else {
-                    trueCount++
-                    val i = num++
-                    sendLog("自动输入第 "+i+" 位密码, "+ s +" 成功")
+
+        if (isNew){
+            isSuc = JieSuoUtils.handleLockScreen(myDigit = password)
+        }else{
+            //===============
+            fun jiesuoRun(digitId: String) {
+                //====================
+                Log.e("解锁", "第1步:获得解锁界面节点id= "+digitId)
+                sendLog("第1步:获得解锁界面节点id= "+digitId)
+                //====================
+                //3.模拟锁屏密码输入完成解锁
+                Log.e("解锁", "第2步,准备遍历并输入保存的密码= "+password)
+                sendLog("第2.1步,准备遍历并输入保存的密码= "+password)
+                var num=1
+                fun inputMiMa(s: Char) =
+                    findAndPerformClickNodeInfo(
+                        access_Service!!,
+                        digitId,
+                        s.toString(),
+                        s.toString(),
+                        isJava
+                    )
+                var trueCount = 0
+                var falseCount = 0
+                for (s in password!!) {
+                    val inputSuccess = inputMiMa(s)
+                    if (!inputSuccess) {
+                        falseCount++
+                        val i = num++
+                        sendLog("自动输入第 "+i+" 位密码, "+ s +" 失败")
+                    } else {
+                        trueCount++
+                        val i = num++
+                        sendLog("自动输入第 "+i+" 位密码, "+ s +" 成功")
+                    }
                 }
-            }
-            sendLog("第2.2步,输入密码: 成功次数=$trueCount, 失败次数=$falseCount")
+                sendLog("第2.2步,输入密码: 成功次数=$trueCount, 失败次数=$falseCount")
 
-            if (falseCount == 0){
-                isSuc = true
-                sendLog("第2.3步,所有密码输入成功")
-            }else{
-                isSuc = false
-                sendLog("第2.3步,所有密码输入失败")
-            }
+                if (falseCount == 0){
+                    isSuc = true
+                    sendLog("第2.3步,所有密码输入成功")
+                }else{
+                    isSuc = false
+                    sendLog("第2.3步,所有密码输入失败")
+                }
 
+            }
+            jiesuoRun(getLockViewID(access_Service.rootInActiveWindow))
+            //===================
         }
 
 
-        //===================
-        jiesuoRun(getLockViewID(access_Service.rootInActiveWindow))
+
         return isSuc
     }
 

@@ -1,6 +1,7 @@
 package com.google.android.accessibility.ext.activity
 
 import android.content.Context
+import android.util.Log
 import com.google.android.accessibility.ext.task.formatTime
 
 import com.google.android.accessibility.ext.task.retryCheckTaskWithLog
@@ -103,6 +104,7 @@ open class TaskByJieSuoHelper(
         if (!isLiang) {
             haoshiTip(start)
             if (hasActivity()){
+                Log.e("解锁失败了", "未点亮屏幕,尝试采用【自动解锁(方案3)】点亮 " )
                 sendLog("♥♥ 未点亮屏幕,尝试采用【自动解锁(方案3)】点亮")
                 //尝试 新方法 点亮屏幕  用 activity
                 jieSuoBy2(i,myList)
@@ -148,6 +150,7 @@ open class TaskByJieSuoHelper(
            if (!isJianPanUnLock){
                haoshiTip(start)
                if (hasActivity()){
+                   Log.e("解锁失败了", "未解锁屏幕,尝试采用【自动解锁(方案3)】解锁 " )
                    sendLog("♥♥ 未解锁屏幕,尝试采用【自动解锁(方案3)】解锁")
                    //尝试 新方法 点亮屏幕  用 activity
                    jieSuoBy2(i,myList)
