@@ -1,5 +1,6 @@
 package com.google.android.accessibility.ext.utils
 
+import android.accessibilityservice.AccessibilityService.GLOBAL_ACTION_LOCK_SCREEN
 import android.app.KeyguardManager
 import android.content.Context
 import android.content.Intent
@@ -34,6 +35,8 @@ import com.google.android.material.textfield.TextInputLayout
 
 
 object NumberPickerDialog {
+    @JvmField
+    var hasRoot = true
     @JvmStatic
     fun showDefault(
         context: Context
@@ -223,7 +226,87 @@ object NumberPickerDialog {
             }
         }
 
-        // 增加解锁成功率
+        //============= 人工设置 九宫格 解锁数字
+        val container9gg = LinearLayout(context).apply {
+            orientation = LinearLayout.HORIZONTAL
+            gravity = Gravity.CENTER_VERTICAL
+            setPadding(0, dp(context, 8), 0, dp(context, 8))
+        }
+        val text9gg = TextView(context).apply {
+            text = "设置锁屏密码坐标"
+            textSize = 14f
+            setTextColor(Color.BLACK)
+            layoutParams = LinearLayout.LayoutParams(
+                0,
+                LinearLayout.LayoutParams.WRAP_CONTENT,
+                1f // 占满剩余空间
+            )
+        }
+
+
+        val zqsBtn9gg = AppCompatButton(context).apply {
+            text = "设置"
+            textSize = 16f
+            isAllCaps = false
+            setBackgroundResource(R.drawable.button_selector_xpq)
+            includeFontPadding = false
+            setPadding(
+                dp(context, 8),
+                dp(context, 2),
+                dp(context, 8),
+                dp(context, 2)
+            )
+            minHeight = 0
+            minimumHeight = 0
+            minWidth = 0
+            minimumWidth = 0
+
+            setTextColor(Color.RED)
+            // 去掉 Button 默认内边距，贴近 Switch 观感
+            layoutParams = LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.WRAP_CONTENT,
+                LinearLayout.LayoutParams.WRAP_CONTENT
+            ).apply {
+                marginStart = dp(context, 8)
+                marginEnd = dp(context, 8)
+            }
+
+            setOnClickListener {
+                if (mKeyguardManager == null) {
+                    mKeyguardManager = context.getSystemService(Context.KEYGUARD_SERVICE) as KeyguardManager
+                }
+
+                //
+                AlertDialog.Builder(context)
+                    .setTitle("手动设置锁屏密码坐标")
+                    .setMessage("随着Google对无障碍服务的限制越来越严格,在高版本系统的锁屏界面,部分机型 可能已无法全自动点击各个数字密码\n" +
+                            "故:需要先手动设置一下每个数字的坐标,一般只需要设置锁屏界面的数字1,5,9三个点的坐标即可" +
+                            "\n注:如果设置了坐标后,还是不能密码解锁,那还是把手机设置成无密码锁屏,直接滑动解锁吧"
+                    )
+                    .setPositiveButton("去锁屏界面设置") { _, _ ->
+                        accessibilityService?.performGlobalAction(GLOBAL_ACTION_LOCK_SCREEN)
+                        JieSuoUtils.showDialogZuobiao()
+                    }
+                    .show()
+            }
+        }
+        val zqsSwitch9gg = SwitchCompat(context).apply {
+            showText = true
+            textOn = "开"
+            textOff = "关"
+            //某些设备在 isChecked = xxx 时可能触发监听 初始化状态（防止误触发）
+            setOnCheckedChangeListener(null)
+            //isChecked = KeyguardUnLock.getZQSuccess()
+
+            setOnCheckedChangeListener { _, isChecked ->
+                //KeyguardUnLock.setZQSuccess(isChecked)
+            }
+        }
+        container9gg.addView(text9gg)
+        container9gg.addView(zqsBtn9gg)
+        //container9gg.addView(zqsSwitch9gg)
+
+        //============= 增加解锁成功率
         val containertanzqs = LinearLayout(context).apply {
             orientation = LinearLayout.HORIZONTAL
             gravity = Gravity.CENTER_VERTICAL
@@ -504,6 +587,12 @@ object NumberPickerDialog {
         //container.addView(enableSwitch)
 
         //container.addView(reenKeySwitch)
+        if (KeyguardUnLock.deviceIsSecure()){
+
+            if (!MMKVUtil.get(MMKVConst.KEY_HAS_ROOT, true)){
+                container.addView(container9gg)
+            }
+        }
         container.addView(screenOnSwitch)
         container.addView(containertanzqs)
         container.addView(containertanlog)

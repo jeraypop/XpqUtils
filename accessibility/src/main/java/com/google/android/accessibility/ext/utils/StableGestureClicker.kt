@@ -4,6 +4,8 @@ import android.accessibilityservice.AccessibilityService
 import android.accessibilityservice.GestureDescription
 import android.graphics.Path
 import android.os.Build
+import com.google.android.accessibility.ext.utils.KeyguardUnLock.showClickIndicator
+import com.google.android.accessibility.selecttospeak.accessibilityService
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
@@ -32,21 +34,28 @@ object StableGestureClicker {
     /**
      * 串行、稳定的真实点击
      */
+    @JvmStatic
+    @JvmOverloads
     fun click(
-        service: AccessibilityService,
+        service: AccessibilityService? = accessibilityService,
         x: Int,
         y: Int,
         duration: Long = 60L
     ): Boolean {
-
+        service ?: return false
         if (x <= 0 || y <= 0) return false
-        if (service.rootInActiveWindow == null) return false
+        //if (service.rootInActiveWindow == null) return false
 
         scope.launch {
             mutex.withLock {
                 try {
                     dispatch(service, x, y, duration)
                     delay(120) // 给系统一点喘息时间（非常重要）
+                    showClickIndicator(
+                        service,
+                        x,
+                        y
+                    )
                 } catch (_: Throwable) {
                 }
             }
@@ -99,7 +108,7 @@ object StableGestureClicker {
     ): Boolean {
 
         if (x <= 0 || y <= 0) return false
-        if (service.rootInActiveWindow == null) return false
+        //if (service.rootInActiveWindow == null) return false
         if (Build.VERSION.SDK_INT < Build.VERSION_CODES.N) return false
 
         return mutex.withLock {

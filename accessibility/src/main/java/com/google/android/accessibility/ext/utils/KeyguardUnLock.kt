@@ -1809,6 +1809,7 @@ isDeviceSecure = 这台设备“有没有任何安全门槛”
     }
 
     @JvmStatic
+    @JvmOverloads
     fun showClickIndicator(service: AccessibilityService? = accessibilityService, x: Int, y: Int) {
         service?: return
         val showguiji = MMKVUtil.get(MMKVConst.SHOW_DO_GUIJI, false)
@@ -1913,7 +1914,7 @@ isDeviceSecure = 这台设备“有没有任何安全门槛”
             recycleSafe(nodeInfo)
 
             if (!hasValidRect) return false
-            if (service.rootInActiveWindow == null) return false
+            //if (service.rootInActiveWindow == null) return false
 
             sendLog("强制 Gesture 点击 (${centerX}, ${centerY})")
 
@@ -1922,14 +1923,6 @@ isDeviceSecure = 这台设备“有没有任何安全门槛”
                 centerX,
                 centerY
             )
-
-            if (clicked) {
-                showClickIndicator(
-                    service,
-                    centerX,
-                    centerY
-                )
-            }
 
             return clicked
         }
@@ -1974,7 +1967,7 @@ isDeviceSecure = 这台设备“有没有任何安全门槛”
          * 3️⃣ Gesture 兜底
          */
         if (!hasValidRect) return false
-        if (service.rootInActiveWindow == null) return false
+        //if (service.rootInActiveWindow == null) return false
 
         sendLog("Gesture 兜底点击 (${centerX}, ${centerY})")
 
@@ -1984,26 +1977,19 @@ isDeviceSecure = 这台设备“有没有任何安全门槛”
             centerY
         )
 
-        if (clicked) {
-            showClickIndicator(
-                service,
-                centerX,
-                centerY
-            )
-        }
 
         return clicked
     }
 
 
 
-    private fun Rect.isValid(): Boolean =
+     fun Rect.isValid(): Boolean =
         width() > 10 &&
                 height() > 10 &&
                 centerX() > 0 &&
                 centerY() > 0
 
-    private fun recycleSafe(node: AccessibilityNodeInfo) {
+     fun recycleSafe(node: AccessibilityNodeInfo) {
         if (Build.VERSION.SDK_INT < Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
             try {
                 node.recycle()
@@ -2066,13 +2052,6 @@ isDeviceSecure = 这台设备“有没有任何安全门槛”
                 centerY
             )
 
-            if (clicked) {
-                showClickIndicator(
-                    service,
-                    centerX,
-                    centerY
-                )
-            }
 
             return clicked
         }
@@ -2117,7 +2096,7 @@ isDeviceSecure = 这台设备“有没有任何安全门槛”
          * 3️⃣ Gesture 兜底
          */
         if (!hasValidRect) return false
-        if (service.rootInActiveWindow == null) return false
+        //if (service.rootInActiveWindow == null) return false
 
         sendLog("Gesture 兜底点击 (${centerX}, ${centerY})")
 
@@ -2127,13 +2106,6 @@ isDeviceSecure = 这台设备“有没有任何安全门槛”
             centerY
         )
 
-        if (clicked) {
-            showClickIndicator(
-                service,
-                centerX,
-                centerY
-            )
-        }
 
         return clicked
     }

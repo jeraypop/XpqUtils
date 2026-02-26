@@ -63,4 +63,7 @@ object MMKVConst {
     const val XPQ_SCREEN_ON = "XPQ_SCREEN_ON"
     const val XPQ_TAN_LOG = "XPQ_TAN_LOG"
     const val XPQ_ZQ_SUCCESS = "XPQ_ZQ_SUCCESS"
+    const val KEY_LOCK_POINTS = "key_lock_points"
+    const val KEY_HAS_ROOT = "KEY_HAS_ROOT"
+
 }

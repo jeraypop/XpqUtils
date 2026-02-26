@@ -21,6 +21,7 @@ import com.google.android.accessibility.ext.fragment.SensitiveNotificationBottom
 import com.google.android.accessibility.ext.utils.ActivityUtils
 
 import com.google.android.accessibility.ext.utils.AliveUtils
+import com.google.android.accessibility.ext.utils.JieSuoUtils
 import com.google.android.accessibility.ext.utils.LibCtxProvider.Companion.appBuildTime
 import com.google.android.accessibility.ext.utils.NetworkHelperFullSmart
 import com.google.android.accessibility.ext.utils.NetworkHelperFullSmart.intervalIsDuan
@@ -248,7 +249,12 @@ class MainActivity : XpqBaseActivity<ActivityMainBinding>(
                         xiaopu = "https://pay.ldxp.cn/shop/R24YFBFV/jtfovn",
                         weifk = "",
                         isDan = false)
+                },
+                FabMenuItem("获取坐标", com.android.accessibility.ext.R.drawable.minimize_xpq) {
+                JieSuoUtils.showDialogZuobiao()
                 }
+
+
 
             )
         )

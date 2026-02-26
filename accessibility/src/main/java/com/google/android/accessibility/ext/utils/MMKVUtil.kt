@@ -15,71 +15,57 @@ class MMKVUtil {
         }
 
         fun put(key: String, value: Any?): Boolean {
-            if (TextUtils.isEmpty(key)) {
-//                Timber.v("key 为空")
+            if (key.isEmpty()) return false
+
+            val mmkv = MMKV.defaultMMKV()
+
+            if (value == null) {
+                mmkv.removeValueForKey(key)
                 return false
             }
-            if (value == null) {
-                MMKV.defaultMMKV().removeValueForKey(key)
-//                Timber.v("value 为 null 删除存储值")
-                return false
-            } else {
-                if (value is Int) {
-                    MMKV.defaultMMKV().encode(key, value)
-                    return true
-                } else if (value is String) {
-                    MMKV.defaultMMKV().encode(key, value)
-                    return true
-                } else if (value is Double) {
-                    MMKV.defaultMMKV().encode(key, value)
-                    return true
-                } else if (value is Float) {
-                    MMKV.defaultMMKV().encode(key, value)
-                    return true
-                } else if (value is ByteArray) {
-                    MMKV.defaultMMKV().encode(key, value)
-                    return true
-                } else if (value is Boolean) {
-                    MMKV.defaultMMKV().encode(key, value)
-                    return true
-                } else if (value is Long) {
-                    MMKV.defaultMMKV().encode(key, value)
-                    return true
-                } else if (value is Parcelable) {
-                    MMKV.defaultMMKV().encode(key, value)
-                    return true
-                } else {
-//                    Timber.w("value 类型不符合存储要求")
-                    return false
+
+            return when (value) {
+                is Int -> mmkv.encode(key, value)
+                is String -> mmkv.encode(key, value)
+                is Double -> mmkv.encode(key, value)
+                is Float -> mmkv.encode(key, value)
+                is Boolean -> mmkv.encode(key, value)
+                is Long -> mmkv.encode(key, value)
+                is ByteArray -> mmkv.encode(key, value)
+                is Parcelable -> mmkv.encode(key, value)
+                is Set<*> -> {
+                    // 安全检查：只允许 String
+                    if (value.all { it is String }) {
+                        mmkv.encode(key, value as Set<String>)
+                    } else return false
                 }
+                else -> false
             }
         }
 
+
+        @Suppress("UNCHECKED_CAST")
         fun <T> get(key: String, defaultValue: T): T {
-            if (MMKV.defaultMMKV().containsKey(key)) {
-                if (defaultValue is Int) {
-                    return MMKV.defaultMMKV().decodeInt(key, defaultValue) as T
-                } else if (defaultValue is String) {
-                    return MMKV.defaultMMKV().decodeString(key, defaultValue) as T
-                } else if (defaultValue is Double) {
-                    return MMKV.defaultMMKV().decodeDouble(key, defaultValue) as T
-                } else if (defaultValue is Float) {
-                    return MMKV.defaultMMKV().decodeFloat(key, defaultValue) as T
-                } else if (defaultValue is ByteArray) {
-                    return MMKV.defaultMMKV().decodeBytes(key, defaultValue) as T
-                } else if (defaultValue is Boolean) {
-                    return MMKV.defaultMMKV().decodeBool(key, defaultValue) as T
-                } else if (defaultValue is Long) {
-                    return MMKV.defaultMMKV().decodeLong(key, defaultValue) as T
-                } else {
-//                    Timber.w(R.string.warn_type_does_not_match.toString())
-                    return defaultValue
+            val mmkv = MMKV.defaultMMKV()
+            if (!mmkv.containsKey(key)) return defaultValue
+
+            return when (defaultValue) {
+                is Int -> mmkv.decodeInt(key, defaultValue) as T
+                is String -> mmkv.decodeString(key, defaultValue) as T
+                is Double -> mmkv.decodeDouble(key, defaultValue) as T
+                is Float -> mmkv.decodeFloat(key, defaultValue) as T
+                is Boolean -> mmkv.decodeBool(key, defaultValue) as T
+                is Long -> mmkv.decodeLong(key, defaultValue) as T
+                is ByteArray -> mmkv.decodeBytes(key, defaultValue) as T
+                is Parcelable -> mmkv.decodeParcelable(key, defaultValue::class.java) as T
+                is Set<*> -> {
+                    val defaultSet = defaultValue as? Set<String> ?: emptySet()
+                    mmkv.decodeStringSet(key, defaultSet) as T
                 }
-            } else {
-//                Timber.w("key: $key 不存在")
-                return defaultValue
+                else -> defaultValue
             }
         }
+
 
         fun <T : Parcelable> get(
             key: String,
