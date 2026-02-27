@@ -16,6 +16,7 @@ import android.util.TypedValue
 import android.view.Gravity
 import android.view.View
 import android.view.ViewGroup
+import android.widget.ImageView
 import android.widget.LinearLayout
 import android.widget.NumberPicker
 import android.widget.ScrollView
@@ -226,84 +227,7 @@ object NumberPickerDialog {
             }
         }
 
-        //============= 人工设置 九宫格 应用锁  解锁数字
-        val container9gg_App = LinearLayout(context).apply {
-            orientation = LinearLayout.HORIZONTAL
-            gravity = Gravity.CENTER_VERTICAL
-            setPadding(0, dp(context, 8), 0, dp(context, 8))
-        }
-        val text9gg_App = TextView(context).apply {
-            text = "设置应用锁密码坐标"
-            textSize = 14f
-            setTextColor(Color.BLACK)
-            layoutParams = LinearLayout.LayoutParams(
-                0,
-                LinearLayout.LayoutParams.WRAP_CONTENT,
-                1f // 占满剩余空间
-            )
-        }
 
-
-        val zqsBtn9gg_App = AppCompatButton(context).apply {
-            text = "设置"
-            textSize = 16f
-            isAllCaps = false
-            setBackgroundResource(R.drawable.button_selector_xpq)
-            includeFontPadding = false
-            setPadding(
-                dp(context, 8),
-                dp(context, 2),
-                dp(context, 8),
-                dp(context, 2)
-            )
-            minHeight = 0
-            minimumHeight = 0
-            minWidth = 0
-            minimumWidth = 0
-
-            setTextColor(Color.RED)
-            // 去掉 Button 默认内边距，贴近 Switch 观感
-            layoutParams = LinearLayout.LayoutParams(
-                LinearLayout.LayoutParams.WRAP_CONTENT,
-                LinearLayout.LayoutParams.WRAP_CONTENT
-            ).apply {
-                marginStart = dp(context, 8)
-                marginEnd = dp(context, 8)
-            }
-
-            setOnClickListener {
-                //
-                AlertDialog.Builder(context)
-                    .setTitle("手动设置应用锁密码坐标")
-                    .setMessage("随着Google对无障碍服务的限制越来越严格,在高版本系统的应用锁界面,部分机型 可能已无法全自动点击各个数字密码\n" +
-                            "故:需要先手动设置一下每个数字的坐标,一般只需要设置应用锁界面的数字1,5,9三个点的坐标即可" +
-                            "\n注:如果设置了坐标后,还是不能自动解锁应用锁,那还是不要设置应用锁了"
-                    )
-                    .setPositiveButton("去设置") { _, _ ->
-                        JieSuoUtils.showDialogZuobiao(MMKVConst.KEY_APP_LOCK_POINTS)
-                    }
-                    //.setNegativeButton("清除") { _, _ ->
-                    //    val set = mutableSetOf<String>()
-                    //    MMKVUtil.put(MMKVConst.KEY_APP_LOCK_POINTS, set)
-                    //}
-                    .show()
-            }
-        }
-        val zqsSwitch9gg_App = SwitchCompat(context).apply {
-            showText = true
-            textOn = "开"
-            textOff = "关"
-            //某些设备在 isChecked = xxx 时可能触发监听 初始化状态（防止误触发）
-            setOnCheckedChangeListener(null)
-            //isChecked = KeyguardUnLock.getZQSuccess()
-
-            setOnCheckedChangeListener { _, isChecked ->
-                //KeyguardUnLock.setZQSuccess(isChecked)
-            }
-        }
-        container9gg_App.addView(text9gg_App)
-        container9gg_App.addView(zqsBtn9gg_App)
-        //container9gg_App.addView(zqsSwitch9gg_App)
 
         //============= 人工设置 九宫格 锁屏解锁数字
         val container9gg = LinearLayout(context).apply {
@@ -351,23 +275,64 @@ object NumberPickerDialog {
             }
 
             setOnClickListener {
-                if (mKeyguardManager == null) {
-                    mKeyguardManager = context.getSystemService(Context.KEYGUARD_SERVICE) as KeyguardManager
+                // 创建外部ScrollView来支持滚动
+                val scrollView = ScrollView(context).apply {
+                    isFillViewport = true  // 让内容填充视口
                 }
 
-                //
-                AlertDialog.Builder(context)
-                    .setTitle("手动设置锁屏密码坐标")
-                    .setMessage("随着Google对无障碍服务的限制越来越严格,在高版本系统的锁屏界面,部分机型 可能已无法全自动点击各个数字密码\n" +
+                // 创建自定义布局包含图片和文字
+                val customLayout = LinearLayout(context).apply {
+                    orientation = LinearLayout.VERTICAL
+                    setPadding(dp(context, 20), dp(context, 20), dp(context, 20), dp(context, 20))
+                }
+
+                // 添加图片
+                val imageView = ImageView(context).apply {
+                    setImageResource(R.drawable.applock)
+                    layoutParams = LinearLayout.LayoutParams(
+                        ViewGroup.LayoutParams.MATCH_PARENT,
+                        ViewGroup.LayoutParams.WRAP_CONTENT
+                    ).apply {
+                        gravity = Gravity.CENTER
+                        setMargins(0, 0, 0, dp(context, 16))
+                    }
+                    scaleType = ImageView.ScaleType.FIT_CENTER
+                    adjustViewBounds = true
+                    maxWidth = context.resources.displayMetrics.widthPixels
+                }
+                customLayout.addView(imageView)
+
+                // 添加说明文字
+                val messageText = TextView(context).apply {
+                    text = "随着Google对无障碍服务的限制越来越严格,在高版本系统的锁屏界面,部分机型 可能已无法全自动点击各个数字密码\n" +
                             "故:需要先手动设置一下每个数字的坐标,一般只需要设置锁屏界面的数字1,5,9三个点的坐标即可" +
                             "\n注:如果设置了坐标后,还是不能密码解锁,那还是把手机设置成无密码锁屏,直接滑动解锁吧"
+                    textSize = 14f
+                    setTextColor(Color.BLACK)
+                    layoutParams = LinearLayout.LayoutParams(
+                        ViewGroup.LayoutParams.MATCH_PARENT,
+                        ViewGroup.LayoutParams.WRAP_CONTENT
                     )
+                }
+                customLayout.addView(messageText)
+
+                // 将自定义布局添加到ScrollView中
+                scrollView.addView(customLayout)
+
+                // 创建带滚动功能的对话框
+                AlertDialog.Builder(context)
+                    .setTitle("手动设置锁屏密码坐标")
+                    .setView(scrollView)  // 使用ScrollView作为内容视图
                     .setPositiveButton("去锁屏界面设置") { _, _ ->
                         accessibilityService?.performGlobalAction(GLOBAL_ACTION_LOCK_SCREEN)
                         JieSuoUtils.showDialogZuobiao()
                     }
+                    .setNegativeButton("取消"){ _, _ ->
+
+                    }
                     .show()
             }
+
         }
         val zqsSwitch9gg = SwitchCompat(context).apply {
             showText = true
@@ -609,11 +574,11 @@ object NumberPickerDialog {
             setOnCheckedChangeListener(null)
             // 读取已保存状态
             isChecked = KeyguardUnLock.getAppLock()
-            container9gg_App.visibility = if (isChecked) View.VISIBLE else View.GONE
+            //container9gg_App.visibility = if (isChecked) View.VISIBLE else View.GONE
             // ★ 关键：切换即保存
             setOnCheckedChangeListener { _, isChecked ->
                 KeyguardUnLock.setAppLock(isChecked)
-                container9gg_App.visibility = if (isChecked) View.VISIBLE else View.GONE
+                //container9gg_App.visibility = if (isChecked) View.VISIBLE else View.GONE
             }
             // 设置布局参数
             layoutParams = LinearLayout.LayoutParams(
@@ -626,7 +591,130 @@ object NumberPickerDialog {
 
         // 将组件添加到水平容器中
         appPasswordContainer.addView(passwordLayout_app)
-        appPasswordContainer.addView(appLockSwitch)
+        //appPasswordContainer.addView(appLockSwitch)
+
+        //============= 人工设置 九宫格 应用锁  解锁数字 开关
+        val container9gg_App = LinearLayout(context).apply {
+            orientation = LinearLayout.HORIZONTAL
+            gravity = Gravity.CENTER_VERTICAL
+            setPadding(0, dp(context, 8), 0, dp(context, 8))
+        }
+        val text9gg_App = TextView(context).apply {
+            text = "应用锁密码开关"
+            textSize = 14f
+            setTextColor(Color.BLACK)
+            layoutParams = LinearLayout.LayoutParams(
+                0,
+                LinearLayout.LayoutParams.WRAP_CONTENT,
+                1f // 占满剩余空间
+            )
+        }
+
+
+        val zqsBtn9gg_App = AppCompatButton(context).apply {
+            text = "说明"
+            textSize = 16f
+            isAllCaps = false
+            setBackgroundResource(R.drawable.button_selector_xpq)
+            includeFontPadding = false
+            setPadding(
+                dp(context, 8),
+                dp(context, 2),
+                dp(context, 8),
+                dp(context, 2)
+            )
+            minHeight = 0
+            minimumHeight = 0
+            minWidth = 0
+            minimumWidth = 0
+
+            setTextColor(Color.RED)
+            // 去掉 Button 默认内边距，贴近 Switch 观感
+            layoutParams = LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.WRAP_CONTENT,
+                LinearLayout.LayoutParams.WRAP_CONTENT
+            ).apply {
+                marginStart = dp(context, 8)
+                marginEnd = dp(context, 8)
+            }
+
+            //
+            setOnClickListener {
+                // 创建外部ScrollView来支持滚动
+                val scrollView = ScrollView(context).apply {
+                    isFillViewport = true  // 让内容填充视口
+                }
+
+                // 创建自定义布局包含图片和文字
+                val customLayout = LinearLayout(context).apply {
+                    orientation = LinearLayout.VERTICAL
+                    setPadding(dp(context, 20), dp(context, 20), dp(context, 20), dp(context, 20))
+                }
+
+                // 添加图片
+                val imageView = ImageView(context).apply {
+                    setImageResource(R.drawable.applock)
+                    layoutParams = LinearLayout.LayoutParams(
+                        ViewGroup.LayoutParams.MATCH_PARENT,
+                        ViewGroup.LayoutParams.WRAP_CONTENT
+                    ).apply {
+                        gravity = Gravity.CENTER
+                        setMargins(0, 0, 0, dp(context, 16))
+                    }
+                    scaleType = ImageView.ScaleType.FIT_CENTER
+                    adjustViewBounds = true
+                    maxWidth = context.resources.displayMetrics.widthPixels
+                }
+                customLayout.addView(imageView)
+
+                // 添加说明文字
+                val messageText = TextView(context).apply {
+                    text = "随着Google对无障碍服务的限制越来越严格,在高版本系统的应用锁界面,部分机型 可能已无法全自动点击各个数字密码\n" +
+                            "故:需要先手动设置一下每个数字的坐标,一般只需要设置应用锁界面的数字1,5,9三个点的坐标即可" +
+                            "\n注:如果设置了坐标后,还是不能自动解锁应用锁,那还是不要设置应用锁了"
+                    textSize = 14f
+                    setTextColor(Color.BLACK)
+                    layoutParams = LinearLayout.LayoutParams(
+                        ViewGroup.LayoutParams.MATCH_PARENT,
+                        ViewGroup.LayoutParams.WRAP_CONTENT
+                    )
+                }
+                customLayout.addView(messageText)
+
+                // 将自定义布局添加到ScrollView中
+                scrollView.addView(customLayout)
+
+                // 创建带滚动功能的对话框
+                AlertDialog.Builder(context)
+                    .setTitle("手动设置应用锁密码坐标")
+                    .setView(scrollView)  // 使用ScrollView作为内容视图
+                    .setPositiveButton("去设置") { _, _ ->
+                        JieSuoUtils.showDialogZuobiao(MMKVConst.KEY_APP_LOCK_POINTS)
+                    }
+                    .setNegativeButton("取消"){ _, _ ->
+
+                    }
+                    .show()
+            }
+
+
+        }
+        val zqsSwitch9gg_App = SwitchCompat(context).apply {
+            showText = true
+            textOn = "开"
+            textOff = "关"
+            //某些设备在 isChecked = xxx 时可能触发监听 初始化状态（防止误触发）
+            setOnCheckedChangeListener(null)
+            isChecked = KeyguardUnLock.getAppLock()
+            appPasswordContainer.visibility = if (isChecked) View.VISIBLE else View.GONE
+            setOnCheckedChangeListener { _, isChecked ->
+                KeyguardUnLock.setAppLock(isChecked)
+                appPasswordContainer.visibility = if (isChecked) View.VISIBLE else View.GONE
+            }
+        }
+        container9gg_App.addView(text9gg_App)
+        container9gg_App.addView(zqsBtn9gg_App)
+        container9gg_App.addView(zqsSwitch9gg_App)
 
 
         /** ---------------- 数字密码输入 ---------------- */
@@ -733,7 +821,11 @@ object NumberPickerDialog {
 
         /** ---------------- 组装 ---------------- */
         container.addView(passwordLayout)
-
+        if (KeyguardUnLock.deviceIsSecure()){
+            if (!MMKVUtil.get(MMKVConst.KEY_HAS_ROOT, true)){
+                container.addView(container9gg)
+            }
+        }
         if (!descText.isNullOrEmpty()) {
             container.addView(descTextView)
         }
@@ -741,26 +833,23 @@ object NumberPickerDialog {
         container.addView(explainTextView)
         container.addView(valueTextView)
         container.addView(picker)
-        container.addView(appPasswordContainer)
-        if (!MMKVUtil.get(MMKVConst.KEY_HAS_ROOT_APPLOCK, true)){
-            container.addView(container9gg_App)
-        }
+
 
         //container.addView(LP_Switch)
         //container.addView(enableSwitch)
 
         //container.addView(reenKeySwitch)
-        if (KeyguardUnLock.deviceIsSecure()){
 
-            if (!MMKVUtil.get(MMKVConst.KEY_HAS_ROOT, true)){
-                container.addView(container9gg)
-            }
-        }
 
         container.addView(screenOnSwitch)
         container.addView(containertanzqs)
         container.addView(containertanlog)
 
+
+        //if (!MMKVUtil.get(MMKVConst.KEY_HAS_ROOT_APPLOCK, true)){
+            container.addView(container9gg_App)
+        //}
+        container.addView(appPasswordContainer)
 
         /** ---------------- Dialog ---------------- */
         val dialog = AlertDialog.Builder(context)
