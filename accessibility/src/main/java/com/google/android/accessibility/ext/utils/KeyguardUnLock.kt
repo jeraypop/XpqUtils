@@ -1778,6 +1778,18 @@ isDeviceSecure = 这台设备“有没有任何安全门槛”
 
     @JvmOverloads
     @JvmStatic
+    fun setAppLock(zqs: Boolean = false) {
+        MMKVUtil.put(MMKVConst.KEY_APP_LOCK_ENABLED,zqs)
+    }
+    @JvmOverloads
+    @JvmStatic
+    fun getAppLock(default: Boolean = false): Boolean {
+        return MMKVUtil.get(MMKVConst.KEY_APP_LOCK_ENABLED,default)
+    }
+
+
+    @JvmOverloads
+    @JvmStatic
     fun setScreenPassWord(pwd: String = "1234") {
         MMKVUtil.put(MMKVConst.KEY_LOCK_SCREEN_PASSWORD,pwd)
         MMKVUtil.put(MMKVConst.KEY_JIESUO_MIMA,pwd)
@@ -1786,6 +1798,17 @@ isDeviceSecure = 这台设备“有没有任何安全门槛”
     @JvmStatic
     fun getScreenPassWord(default: String = "1234"): String {
         return MMKVUtil.get(MMKVConst.KEY_LOCK_SCREEN_PASSWORD,default)
+    }
+
+    @JvmOverloads
+    @JvmStatic
+    fun setAppPassWord(pwd: String = "1234") {
+        MMKVUtil.put(MMKVConst.KEY_APP_PASSWORD,pwd)
+    }
+    @JvmOverloads
+    @JvmStatic
+    fun getAppPassWord(default: String = "1234"): String {
+        return MMKVUtil.get(MMKVConst.KEY_APP_PASSWORD,default)
     }
 
     @JvmOverloads

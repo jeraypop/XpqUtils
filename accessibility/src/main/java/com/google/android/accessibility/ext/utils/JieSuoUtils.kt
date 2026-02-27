@@ -8,7 +8,7 @@ import android.graphics.PixelFormat
 import android.graphics.drawable.GradientDrawable
 import android.os.Build
 import android.os.SystemClock
-import android.util.DisplayMetrics
+import android.text.TextUtils
 import android.util.Log
 import android.view.Gravity
 import android.view.LayoutInflater
@@ -21,11 +21,11 @@ import android.widget.FrameLayout
 import android.widget.ImageView
 import android.widget.TextView
 import com.android.accessibility.ext.R
-import com.google.android.accessibility.ext.CoroutineWrapper
+import com.google.android.accessibility.ext.utils.KeyguardUnLock.findAndPerformClickNodeInfo
+import com.google.android.accessibility.ext.utils.KeyguardUnLock.getLockViewID
 import com.google.android.accessibility.ext.utils.KeyguardUnLock.getScreenSize
 import com.google.android.accessibility.ext.utils.KeyguardUnLock.getZQSuccess
 import com.google.android.accessibility.ext.utils.KeyguardUnLock.sendLog
-import com.google.android.accessibility.ext.utils.KeyguardUnLock.showClickIndicator
 import com.google.android.accessibility.ext.utils.LibCtxProvider.Companion.appContext
 import com.google.android.accessibility.ext.utils.NumberPickerDialog.hasRoot
 import com.google.android.accessibility.selecttospeak.accessibilityService
@@ -48,7 +48,8 @@ object JieSuoUtils {
     }
 
     @JvmStatic
-    fun showDialogZuobiao() {
+    @JvmOverloads
+    fun showDialogZuobiao(groupKey: String = MMKVConst.KEY_SCREEN_LOCK_POINTS) {
         if (accessibilityService == null){
             AliveUtils.toast(msg = "无障碍服务未开启")
             return
@@ -302,20 +303,7 @@ object JieSuoUtils {
         }
 
         btSave.setOnClickListener {
-
-            if (positionList.isEmpty()) {
-                AliveUtils.toast(msg = "没有可保存的坐标")
-                return@setOnClickListener
-            }
-            val set = mutableSetOf<String>()
-
-            positionList.forEachIndexed { index, pair ->
-                val value = "$index:${pair.first},${pair.second}"
-                set.add(value)
-            }
-            MMKVUtil.put(MMKVConst.KEY_LOCK_POINTS, set)
-
-            AliveUtils.toast(msg = "已覆盖保存 ${positionList.size} 个坐标")
+            saveLockPoints(groupKey, positionList)
         }
 
         btQuit.setOnClickListener {
@@ -332,9 +320,25 @@ object JieSuoUtils {
         }
     }
 
-    fun getSavedLockPoints(): List<Point> {
+    fun saveLockPoints(groupKey: String = MMKVConst.KEY_SCREEN_LOCK_POINTS, positionList: List<Pair<Int, Int>>) {
 
-        val set: Set<String> = MMKVUtil.get(MMKVConst.KEY_LOCK_POINTS, mutableSetOf())
+        if (positionList.isEmpty()) return
+
+        val set = mutableSetOf<String>()
+
+        positionList.forEachIndexed { index, pair ->
+            val value = "$index:${pair.first},${pair.second}"
+            set.add(value)
+        }
+
+        MMKVUtil.put(groupKey, set)
+        AliveUtils.toast(msg = "已覆盖保存 ${positionList.size} 个坐标")
+    }
+    @JvmStatic
+    @JvmOverloads
+    fun getSavedLockPoints(groupKey: String = MMKVConst.KEY_SCREEN_LOCK_POINTS): List<Point> {
+
+        val set: Set<String> = MMKVUtil.get(groupKey, mutableSetOf())
 
         return set.mapNotNull { item ->
             try {
@@ -356,12 +360,14 @@ object JieSuoUtils {
      * @param numbers 编号列表（从 1 开始）
      * @return Map<编号, LockPoint>，不存在的编号不会出现在返回值里
      */
-    fun getLockPointsByNumbers(numbers: List<Int>): Map<Int, Point> {
+    @JvmOverloads
+    @JvmStatic
+    fun getLockPointsByNumbers(numbers: List<Int>,groupKey: String = MMKVConst.KEY_SCREEN_LOCK_POINTS,): Map<Int, Point> {
 
         if (numbers.isEmpty()) return emptyMap()
 
         val numberSet = numbers.toSet()  // 去重
-        val set: Set<String> = MMKVUtil.get(MMKVConst.KEY_LOCK_POINTS, mutableSetOf())
+        val set: Set<String> = MMKVUtil.get(groupKey, mutableSetOf())
 
         val map = set.mapNotNull { item ->
             try {
@@ -404,7 +410,7 @@ object JieSuoUtils {
         if (!getZQSuccess()){
             val km = context.getSystemService(Context.KEYGUARD_SERVICE) as KeyguardManager
             if (!km.isKeyguardLocked) {
-                return LockReadState.NOT_LOCK_SCREEN
+                //return LockReadState.NOT_LOCK_SCREEN
             }
         }
 
@@ -475,6 +481,92 @@ object JieSuoUtils {
 
         return null
     }
+    @JvmStatic
+    @JvmOverloads
+    fun fallbackAppLock(myDigit: String = "123456",
+                         hasNode: Boolean = false,
+                         context: Context = appContext): Boolean {
+        var    isSuc = false
+        //1.获取设备的宽和高
+        val screenSize = getScreenSize(appContext)
+        val w = screenSize.first
+        val h = screenSize.second
+        if (!hasNode){
+            //获取前3个保存的锁屏密码界面数字点的集合一般是 1 5 9这3个点的集合
+            val numbersToGet = listOf(1, 2, 3)
+            val pointsMap = getLockPointsByNumbers(numbersToGet,MMKVConst.KEY_APP_LOCK_POINTS)
+
+            pointsMap.forEach { (number, point) ->
+                Log.e("编号: ", "$number -> X=${point.x}, Y=${point.y}")
+            }
+
+            // 单独获取编号123的坐标
+            val point1 = pointsMap[1]
+            val point2 = pointsMap[2]
+            val point3 = pointsMap[3]
+
+            val p1 = Point(point1?.x ?: 297f, point1?.y ?: 1299f)
+            val p5 = Point(point2?.x ?: 628f, point2?.y ?: 1597f)
+            val p9 = Point(point3?.x ?: 957f, point3?.y ?: 1902f)
+
+            //宽 1256  高 2808
+            //val p1 = Point(297f, 1299f)
+            //val p5 = Point(628f, 1597f)
+            //val p9 = Point(957f, 1902f)
+            //根据 1 5 9 这3个点的坐标 初始化 锁屏密码界面的所有数字点的集合
+            init(p1, p5, p9)
+        }
+        sendLog("准备遍历并输入保存的应用锁密码= "+myDigit)
+        // 在合法范围内操作
+        var trueCount = 0
+        var falseCount = 0
+        for (i in myDigit.indices) {
+            val dig = myDigit[i].toString()
+            //=
+            var inputSuccess = false
+            if (hasNode){
+                val node = findDigitNode(digit = dig)
+                inputSuccess = KeyguardUnLock.xpqclickNode(isMoNi = true, nodeInfo = node)
+            }else{
+                val (x, y) = if (false){
+                    getDigitPointInt(dig.toInt(), w, h)
+                }
+                else{
+                    getPointInt(dig.toInt())
+                }
+                //===========================
+                inputSuccess = StableGestureClicker.click(x = x, y = y)
+                //=
+            }
+
+
+            if (!inputSuccess) {
+                falseCount++
+                sendLog("自动输入第 ${i + 1} 位应用锁密码, $dig 失败")
+            } else {
+                trueCount++
+                sendLog("自动输入第 ${i + 1} 位应用锁密码, $dig 成功")
+            }
+            SystemClock.sleep(200)
+        }
+        sendLog("完成输入应用锁密码: 成功次数=$trueCount, 失败次数=$falseCount")
+        if (falseCount == 0){
+            isSuc = true
+            sendLog("所有应用锁密码输入成功")
+        }else{
+            isSuc = false
+            if (trueCount == 0){
+                sendLog("所有应用锁密码输入失败")
+            }else{
+                sendLog("部分应用锁密码输入失败")
+            }
+
+        }
+        return isSuc
+        //=================================
+
+    }
+
     @JvmStatic
     @JvmOverloads
     fun fallbackStrategy(myDigit: String = "123456",
@@ -560,23 +652,6 @@ object JieSuoUtils {
         //=================================
 
     }
-    fun getDigitPointOLD(digit: Int, w: Int, h: Int): Pair<Int, Int> {
-
-        val startY = (h * 0.45f).toInt()
-        val cellW = w / 3
-        val cellH = (h - startY) / 4
-
-        val index = if (digit == 0) 10 else digit - 1
-
-        val row = index / 3
-        val col = index % 3
-
-        val x = col * cellW + cellW / 2
-        val y = startY + row * cellH + cellH / 2
-
-        return Pair(x, y)
-    }
-
 
     @JvmStatic
     @JvmOverloads
@@ -587,7 +662,7 @@ object JieSuoUtils {
     ): Boolean {
         val (w,h) = getScreenSize()
         var    isSuc = false
-        if (!isOnLockScreen(context)) return  isSuc
+        //if (!isOnLockScreen(context)) return  isSuc
         val brand = Build.BRAND.uppercase(Locale.getDefault()) //获取设备品牌
         fun getTips(): String {
             val b = getSavedLockPoints().isNullOrEmpty()
@@ -609,7 +684,7 @@ object JieSuoUtils {
                 hasRoot = false
                 MMKVUtil.put(MMKVConst.KEY_HAS_ROOT, false)
                 val s = getTips()
-                sendLog("设备品牌: "+brand+" 系统阻止读取锁屏节点,$s,尝试盲点")
+                sendLog("设备品牌: "+brand+" 系统阻止读取锁屏节点,$s,尝试盲点(如果还是无法解锁,建议取消锁屏密码,注重隐私的话,可以加应用锁)")
                 return  fallbackStrategy(myDigit)
             }
 
@@ -617,7 +692,7 @@ object JieSuoUtils {
                 hasRoot = false
                 MMKVUtil.put(MMKVConst.KEY_HAS_ROOT, false)
                 val s = getTips()
-                sendLog("设备品牌: "+brand+" 锁屏被隔离层包裹,$s,尝试盲点")
+                sendLog("设备品牌: "+brand+" 锁屏被隔离层包裹,$s,尝试盲点(如果还是无法解锁,建议取消锁屏密码,注重隐私的话,可以加应用锁)")
                 return  fallbackStrategy(myDigit)
             }
 
@@ -625,7 +700,7 @@ object JieSuoUtils {
                 hasRoot = false
                 MMKVUtil.put(MMKVConst.KEY_HAS_ROOT, false)
                 val s = getTips()
-                sendLog("设备品牌: "+brand+" 只能读取结构，不能读取内容,$s,尝试盲点")
+                sendLog("设备品牌: "+brand+" 只能读取结构，不能读取内容,$s,尝试盲点(如果还是无法解锁,建议取消锁屏密码,注重隐私的话,可以加应用锁)")
                 return  fallbackStrategy(myDigit)
             }
 
@@ -636,6 +711,76 @@ object JieSuoUtils {
                 return fallbackStrategy(myDigit,true)
             }
         }
+    }
+
+    @JvmOverloads
+    @JvmStatic
+    fun inputAppLockPassword(access_Service: AccessibilityService? = accessibilityService, password: String= KeyguardUnLock.getAppPassWord()): Boolean {
+        if (!KeyguardUnLock.getAppLock() || TextUtils.isEmpty(KeyguardUnLock.getAppPassWord())){
+            return  false
+        }else{
+            SystemClock.sleep(2000)
+        }
+        var    isSuc = false
+        if (access_Service == null) {
+            sendLog("无障碍服务未开启!")
+            return isSuc
+        }
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.N) {
+            sendLog("系统版本小于7.0")
+            return isSuc
+        }
+        //val password = MMKVUtil.get(MMKVConst.KEY_LOCK_SCREEN_PASSWORD, "")
+        if (TextUtils.isEmpty(password)) {
+            sendLog("应用锁密码为空,请先设置密码")
+            return isSuc
+        }
+        //===
+        val brand = Build.BRAND.uppercase(Locale.getDefault()) //获取设备品牌
+        fun getTips(): String {
+            val b = getSavedLockPoints(MMKVConst.KEY_APP_LOCK_POINTS).isNullOrEmpty()
+            val s = if (b) "请先获取应用锁输入密码界面的数字(1,5,9的坐标)" else ""
+            return s
+        }
+
+        when (checkLockscreenReadable(root = access_Service.rootInActiveWindow)) {
+
+            LockReadState.NOT_LOCK_SCREEN -> {
+                // 不处理
+                MMKVUtil.put(MMKVConst.KEY_HAS_ROOT_APPLOCK, true)
+                sendLog("当前界面不是锁屏界面")
+                return  fallbackAppLock(password)
+            }
+
+            LockReadState.ROOT_NULL -> {
+                MMKVUtil.put(MMKVConst.KEY_HAS_ROOT_APPLOCK, false)
+                val s = getTips()
+                sendLog("设备品牌: "+brand+" 系统阻止读取应用锁节点,$s,尝试盲点(如果还是无法解锁,建议取消应用锁)")
+                return  fallbackAppLock(password)
+            }
+
+            LockReadState.NO_CHILDREN -> {
+                MMKVUtil.put(MMKVConst.KEY_HAS_ROOT_APPLOCK, false)
+                val s = getTips()
+                sendLog("设备品牌: "+brand+" 应用锁被隔离层包裹,$s,尝试盲点(如果还是无法解锁,建议取消应用锁)")
+                return  fallbackAppLock(password)
+            }
+
+            LockReadState.STRUCTURE_ONLY -> {
+                MMKVUtil.put(MMKVConst.KEY_HAS_ROOT_APPLOCK, false)
+                val s = getTips()
+                sendLog("设备品牌: "+brand+" 只能读取结构，不能读取内容,$s,尝试盲点(如果还是无法解锁,建议取消应用锁)")
+                return  fallbackAppLock(password)
+            }
+
+            LockReadState.FULLY_READABLE -> {
+                MMKVUtil.put(MMKVConst.KEY_HAS_ROOT_APPLOCK, true)
+                sendLog("设备品牌: "+brand+" 允许读取应用锁节点")
+                return fallbackAppLock(password,true)
+            }
+        }
+        //===
+        return isSuc
     }
 
     //=================根据1  5  9 三个点 生成算法

@@ -14,6 +14,7 @@ import com.google.android.accessibility.ext.acc.clickByTextOrDesc
 import com.google.android.accessibility.ext.activity.BaseLockScreenActivity
 import com.google.android.accessibility.ext.task.retryCheckTaskWithLog
 import com.google.android.accessibility.ext.utils.AliveUtils
+import com.google.android.accessibility.ext.utils.JieSuoUtils.inputAppLockPassword
 import com.google.android.accessibility.ext.utils.KeyguardUnLock
 import com.google.android.accessibility.ext.utils.KeyguardUnLock.delayAction
 import com.google.android.accessibility.ext.utils.KeyguardUnLock.sendLog
@@ -50,6 +51,10 @@ class LockScreenActivity : BaseLockScreenActivity() {
                 GlobalScope.launch {
                     AliveUtils.piSend(pending)
                     sendLog("通知已跳转(如果实测没跳,则是安卓系统偶尔的抽疯)")
+
+                    inputAppLockPassword()
+
+
                     inputMsgHint()
                     clickDYSend()
                     //输入框还有内容,意味着 发送按钮点击失败了
