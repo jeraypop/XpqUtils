@@ -8,7 +8,10 @@ import android.content.pm.PackageManager
 import android.graphics.Color
 import android.net.Uri
 import android.os.Build
+import android.view.Gravity
 import android.view.View
+import android.view.ViewGroup
+import android.widget.ImageView
 import android.widget.LinearLayout
 import android.widget.ScrollView
 import android.widget.Switch
@@ -262,6 +265,73 @@ object ActivityUtils {
 
 
     }
+
+    // 创建带图片的对话框
+    @JvmStatic
+    @JvmOverloads
+    fun showPicDialog(
+        context: Context,
+        title: String,
+        message: String,
+        imageResource: Int,
+        onConfirm: () -> Unit,
+        onCancel: () -> Unit
+    ) {
+        // 创建外部ScrollView来支持滚动
+        val scrollView = ScrollView(context).apply {
+            isFillViewport = true  // 让内容填充视口
+        }
+
+        // 创建自定义布局包含图片和文字
+        val customLayout = LinearLayout(context).apply {
+            orientation = LinearLayout.VERTICAL
+            setPadding(dp(context, 20), dp(context, 20), dp(context, 20), dp(context, 20))
+        }
+
+        // 添加图片
+        val imageView = ImageView(context).apply {
+            setImageResource(imageResource)
+            layoutParams = LinearLayout.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT,
+                ViewGroup.LayoutParams.WRAP_CONTENT
+            ).apply {
+                gravity = Gravity.CENTER
+                setMargins(0, 0, 0, dp(context, 16))
+            }
+            scaleType = ImageView.ScaleType.FIT_CENTER
+            adjustViewBounds = true
+            maxWidth = context.resources.displayMetrics.widthPixels
+        }
+        customLayout.addView(imageView)
+
+        // 添加说明文字
+        val messageText = TextView(context).apply {
+            text = message
+            textSize = 14f
+            setTextColor(Color.BLACK)
+            layoutParams = LinearLayout.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT,
+                ViewGroup.LayoutParams.WRAP_CONTENT
+            )
+        }
+        customLayout.addView(messageText)
+
+        // 将自定义布局添加到ScrollView中
+        scrollView.addView(customLayout)
+
+        // 创建带滚动功能的对话框
+        AlertDialog.Builder(context)
+            .setTitle(title)
+            .setView(scrollView)
+            .setPositiveButton("去设置") { _, _ ->
+                onConfirm()
+            }
+            .setNegativeButton("取消") { _, _ ->
+                onCancel()
+            }
+            .show()
+    }
+
 
 
 }

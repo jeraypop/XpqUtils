@@ -717,8 +717,10 @@ object JieSuoUtils {
     @JvmStatic
     fun inputAppLockPassword(access_Service: AccessibilityService? = accessibilityService, password: String= KeyguardUnLock.getAppPassWord()): Boolean {
         if (!KeyguardUnLock.getAppLock() || TextUtils.isEmpty(KeyguardUnLock.getAppPassWord())){
+            sendLog("应用锁开关为关,或者应用锁密码为空")
             return  false
         }else{
+            sendLog("应用锁开关为开")
             SystemClock.sleep(2000)
         }
         var    isSuc = false

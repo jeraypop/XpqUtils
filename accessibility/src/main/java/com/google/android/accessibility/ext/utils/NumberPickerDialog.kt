@@ -25,6 +25,7 @@ import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.widget.AppCompatButton
 import androidx.appcompat.widget.SwitchCompat
 import com.android.accessibility.ext.R
+import com.google.android.accessibility.ext.utils.ActivityUtils.showPicDialog
 import com.google.android.accessibility.ext.utils.AliveUtils.keepAliveByFloatingWindow
 import com.google.android.accessibility.ext.utils.KeyguardUnLock.mKeyguardManager
 import com.google.android.accessibility.ext.utils.broadcastutil.UnifiedBroadcastManager.XPQ_SCREEN_TEST
@@ -275,62 +276,21 @@ object NumberPickerDialog {
             }
 
             setOnClickListener {
-                // 创建外部ScrollView来支持滚动
-                val scrollView = ScrollView(context).apply {
-                    isFillViewport = true  // 让内容填充视口
-                }
-
-                // 创建自定义布局包含图片和文字
-                val customLayout = LinearLayout(context).apply {
-                    orientation = LinearLayout.VERTICAL
-                    setPadding(dp(context, 20), dp(context, 20), dp(context, 20), dp(context, 20))
-                }
-
-                // 添加图片
-                val imageView = ImageView(context).apply {
-                    setImageResource(R.drawable.applock)
-                    layoutParams = LinearLayout.LayoutParams(
-                        ViewGroup.LayoutParams.MATCH_PARENT,
-                        ViewGroup.LayoutParams.WRAP_CONTENT
-                    ).apply {
-                        gravity = Gravity.CENTER
-                        setMargins(0, 0, 0, dp(context, 16))
-                    }
-                    scaleType = ImageView.ScaleType.FIT_CENTER
-                    adjustViewBounds = true
-                    maxWidth = context.resources.displayMetrics.widthPixels
-                }
-                customLayout.addView(imageView)
-
-                // 添加说明文字
-                val messageText = TextView(context).apply {
-                    text = "随着Google对无障碍服务的限制越来越严格,在高版本系统的锁屏界面,部分机型 可能已无法全自动点击各个数字密码\n" +
+                showPicDialog(
+                    context = context,
+                    title = "手动设置锁屏密码坐标",
+                    message = "随着Google对无障碍服务的限制越来越严格,在高版本系统的锁屏界面,部分机型 可能已无法全自动点击各个数字密码\n" +
                             "故:需要先手动设置一下每个数字的坐标,一般只需要设置锁屏界面的数字1,5,9三个点的坐标即可" +
-                            "\n注:如果设置了坐标后,还是不能密码解锁,那还是把手机设置成无密码锁屏,直接滑动解锁吧"
-                    textSize = 14f
-                    setTextColor(Color.BLACK)
-                    layoutParams = LinearLayout.LayoutParams(
-                        ViewGroup.LayoutParams.MATCH_PARENT,
-                        ViewGroup.LayoutParams.WRAP_CONTENT
-                    )
-                }
-                customLayout.addView(messageText)
-
-                // 将自定义布局添加到ScrollView中
-                scrollView.addView(customLayout)
-
-                // 创建带滚动功能的对话框
-                AlertDialog.Builder(context)
-                    .setTitle("手动设置锁屏密码坐标")
-                    .setView(scrollView)  // 使用ScrollView作为内容视图
-                    .setPositiveButton("去锁屏界面设置") { _, _ ->
+                            "\n注:如果设置了坐标后,还是不能密码解锁,那还是把手机设置成无密码锁屏,直接滑动解锁吧",
+                    imageResource = R.drawable.applock,
+                    onConfirm = {
                         accessibilityService?.performGlobalAction(GLOBAL_ACTION_LOCK_SCREEN)
                         JieSuoUtils.showDialogZuobiao()
+                    },
+                    onCancel = {
+                        //取消
                     }
-                    .setNegativeButton("取消"){ _, _ ->
-
-                    }
-                    .show()
+                )
             }
 
         }
@@ -640,61 +600,20 @@ object NumberPickerDialog {
 
             //
             setOnClickListener {
-                // 创建外部ScrollView来支持滚动
-                val scrollView = ScrollView(context).apply {
-                    isFillViewport = true  // 让内容填充视口
-                }
-
-                // 创建自定义布局包含图片和文字
-                val customLayout = LinearLayout(context).apply {
-                    orientation = LinearLayout.VERTICAL
-                    setPadding(dp(context, 20), dp(context, 20), dp(context, 20), dp(context, 20))
-                }
-
-                // 添加图片
-                val imageView = ImageView(context).apply {
-                    setImageResource(R.drawable.applock)
-                    layoutParams = LinearLayout.LayoutParams(
-                        ViewGroup.LayoutParams.MATCH_PARENT,
-                        ViewGroup.LayoutParams.WRAP_CONTENT
-                    ).apply {
-                        gravity = Gravity.CENTER
-                        setMargins(0, 0, 0, dp(context, 16))
-                    }
-                    scaleType = ImageView.ScaleType.FIT_CENTER
-                    adjustViewBounds = true
-                    maxWidth = context.resources.displayMetrics.widthPixels
-                }
-                customLayout.addView(imageView)
-
-                // 添加说明文字
-                val messageText = TextView(context).apply {
-                    text = "随着Google对无障碍服务的限制越来越严格,在高版本系统的应用锁界面,部分机型 可能已无法全自动点击各个数字密码\n" +
+                showPicDialog(
+                    context = context,
+                    title = "手动设置应用锁密码坐标",
+                    message = "随着Google对无障碍服务的限制越来越严格,在高版本系统的应用锁界面,部分机型 可能已无法全自动点击各个数字密码\n" +
                             "故:需要先手动设置一下每个数字的坐标,一般只需要设置应用锁界面的数字1,5,9三个点的坐标即可" +
-                            "\n注:如果设置了坐标后,还是不能自动解锁应用锁,那还是不要设置应用锁了"
-                    textSize = 14f
-                    setTextColor(Color.BLACK)
-                    layoutParams = LinearLayout.LayoutParams(
-                        ViewGroup.LayoutParams.MATCH_PARENT,
-                        ViewGroup.LayoutParams.WRAP_CONTENT
-                    )
-                }
-                customLayout.addView(messageText)
-
-                // 将自定义布局添加到ScrollView中
-                scrollView.addView(customLayout)
-
-                // 创建带滚动功能的对话框
-                AlertDialog.Builder(context)
-                    .setTitle("手动设置应用锁密码坐标")
-                    .setView(scrollView)  // 使用ScrollView作为内容视图
-                    .setPositiveButton("去设置") { _, _ ->
+                            "\n注:如果设置了坐标后,还是不能自动解锁应用锁,那还是不要设置应用锁了",
+                    imageResource = R.drawable.applock,
+                    onConfirm = {
                         JieSuoUtils.showDialogZuobiao(MMKVConst.KEY_APP_LOCK_POINTS)
+                    },
+                    onCancel = {
+                        //取消
                     }
-                    .setNegativeButton("取消"){ _, _ ->
-
-                    }
-                    .show()
+                )
             }
 
 
