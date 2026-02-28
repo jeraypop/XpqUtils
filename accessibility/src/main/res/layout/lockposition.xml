@@ -27,7 +27,7 @@
                 android:textSize="12sp" />
 
             <TextView
-                android:id="@+id/tv_package_name"
+                android:id="@+id/buzhou_1"
 
                 android:text="每点击\'①增加\'按钮,都会出现一个靶子"
                 android:singleLine="true"
@@ -45,7 +45,7 @@
                 android:textSize="12sp" />
 
             <TextView
-                android:id="@+id/tv_widget_info"
+                android:id="@+id/buzhou_2"
                 android:layout_span="2"
                 android:text="拖动靶子到各个解锁数字的位置:
                 \n一般只需要数字1,5,9的位置坐标即可"
@@ -63,9 +63,8 @@
                 android:textSize="12sp" />
 
             <TextView
-                android:id="@+id/tv_activity_name"
-
-                android:text="点击\'②保存\'按钮,会自动保存位置的坐标"
+                android:id="@+id/buzhou_3"
+                android:text="点击\'②保存\'按钮,会自动保存该位置的坐标"
                 android:singleLine="true"
                 android:textColor="@android:color/background_light"
                 android:textSize="12sp" />
@@ -76,7 +75,7 @@
             android:layout_marginBottom="2dp">
 
             <TextView
-                android:text="坐标："
+                android:text="坐标点："
                 android:textColor="@android:color/background_light"
                 android:textSize="12sp" />
 

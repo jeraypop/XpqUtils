@@ -47,9 +47,13 @@ object JieSuoUtils {
         FULLY_READABLE
     }
 
+
     @JvmStatic
     @JvmOverloads
-    fun showDialogZuobiao(groupKey: String = MMKVConst.KEY_SCREEN_LOCK_POINTS) {
+    fun showDialogZuobiao(groupKey: String = MMKVConst.KEY_SCREEN_LOCK_POINTS,
+                             maxCount: Int = 100 ,    // 默认只允许100个
+                             onSave: (() -> Unit)? = null
+                             ) {
         if (accessibilityService == null){
             AliveUtils.toast(msg = "无障碍服务未开启")
             return
@@ -67,6 +71,23 @@ object JieSuoUtils {
         val controlView = inflater.inflate(R.layout.lockposition, null)
 
         val tvPositionInfo = controlView.findViewById<TextView>(R.id.tv_position_info)
+        val buzhou1 = controlView.findViewById<TextView>(R.id.buzhou_1)
+        val buzhou2 = controlView.findViewById<TextView>(R.id.buzhou_2)
+        val buzhou3 = controlView.findViewById<TextView>(R.id.buzhou_3)
+        // 默认行为（如果没传回调）
+        if (onSave == null) {
+            buzhou1.text = "每点击\'①增加\'按钮,都会出现一个靶子"
+            buzhou2.text = "拖动靶子到各个解锁数字的位置: 一般只需要数字1,5,9的位置坐标即可"
+            buzhou3.text = "点击\'②保存\'按钮,会保存获取的坐标"
+        } else {
+            buzhou1.text = "点击\'①增加\'按钮,会出现一个靶子"
+            buzhou2.text = "拖动靶子到双开(主/分身版)的位置上"
+            buzhou3.text = "点击\'②保存\'按钮,会保存获取的坐标"
+        }
+
+
+
+
         val btAdd = controlView.findViewById<Button>(R.id.button_add)
         val btSave = controlView.findViewById<Button>(R.id.button_save)
         val btQuit = controlView.findViewById<Button>(R.id.button_quit)
@@ -299,11 +320,20 @@ object JieSuoUtils {
         // ==============================
 
         btAdd.setOnClickListener {
+            if (targetViews.size >= maxCount) {
+                AliveUtils.toast(msg = "最多只能添加 $maxCount 个准星")
+                return@setOnClickListener
+            }
             addTarget()
         }
 
         btSave.setOnClickListener {
-            saveLockPoints(groupKey, positionList)
+            // 默认行为（如果没传回调）
+            if (onSave == null) {
+                saveLockPoints(groupKey, positionList)
+            } else {
+                onSave.invoke()
+            }
         }
 
         btQuit.setOnClickListener {
