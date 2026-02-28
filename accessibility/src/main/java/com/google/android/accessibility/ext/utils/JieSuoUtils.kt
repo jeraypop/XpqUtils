@@ -47,12 +47,11 @@ object JieSuoUtils {
         FULLY_READABLE
     }
 
-
     @JvmStatic
     @JvmOverloads
     fun showDialogZuobiao(groupKey: String = MMKVConst.KEY_SCREEN_LOCK_POINTS,
                              maxCount: Int = 100 ,    // 默认只允许100个
-                             onSave: (() -> Unit)? = null
+                          onSave: ((x: String, y: String) -> Unit)? = null
                              ) {
         if (accessibilityService == null){
             AliveUtils.toast(msg = "无障碍服务未开启")
@@ -328,11 +327,31 @@ object JieSuoUtils {
         }
 
         btSave.setOnClickListener {
+            // ====== 单点模式 ======
+            if (maxCount == 1) {
+
+                val (x, y) = positionList.first()
+
+                if (onSave == null) {
+                    // 默认保存
+                    MMKVUtil.put("${groupKey}_x", x)
+                    MMKVUtil.put("${groupKey}_y", y)
+                    AliveUtils.toast(msg = "已保存 X=$x Y=$y")
+                } else {
+                    onSave.invoke(x.toString(), y.toString())
+                }
+
+                return@setOnClickListener
+            }
+            // ====== 多点模式 ======
             // 默认行为（如果没传回调）
             if (onSave == null) {
                 saveLockPoints(groupKey, positionList)
             } else {
-                onSave.invoke()
+                // 如果你想把所有点拼成字符串传出去
+                val xStr = positionList.joinToString(",") { it.first.toString() }
+                val yStr = positionList.joinToString(",") { it.second.toString() }
+                onSave.invoke(xStr, yStr)
             }
         }
 
