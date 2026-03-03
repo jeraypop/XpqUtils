@@ -7,28 +7,11 @@ import com.google.android.accessibility.ext.utils.LibCtxProvider.Companion.appCo
 import java.net.HttpURLConnection
 import java.net.URL
 import java.text.SimpleDateFormat
-import java.util.Date
-import java.util.Locale
-import java.util.concurrent.Executors
-import java.util.concurrent.TimeUnit
-import kotlin.apply
-import kotlin.collections.forEach
-import kotlin.collections.lastIndex
-import kotlin.collections.map
-import kotlin.ranges.coerceAtMost
-import kotlin.to
+import java.util.*
+import java.util.concurrent.*
 
-/**
- * Company    :
- * Author     : Lucas     联系WX:780203920
- * Date       : 2025/11/29  14:41
- * Description:This is NetworkCheckHelper
- */
 object NetworkHelperFull {
 
-    /**
-     * 全局测试站点（唯一集合：网络可用性检查 + 获取网络时间）
-     */
     private val testUrls = listOf(
         "https://www.baidu.com",
         "https://www.taobao.com",
@@ -37,133 +20,150 @@ object NetworkHelperFull {
     )
 
     /**
-     * 对外入口
+     * 极简高效线程池
+     * 核心线程=2，最大=4，避免过度并发
      */
+    private val executor: ExecutorService by lazy {
+        ThreadPoolExecutor(
+            2,
+            4,
+            30L,
+            TimeUnit.SECONDS,
+            LinkedBlockingQueue(),
+            ThreadPoolExecutor.AbortPolicy()
+        )
+    }
+
+    private val sdf by lazy {
+        SimpleDateFormat("yyyy-MM-dd HH:mm:ss", Locale.getDefault())
+    }
+
     @JvmOverloads
     @JvmStatic
-    fun checkNetworkAndGetTime(context: Context = appContext): NetworkHelperFullSmart.NetworkCheckResult {
+    fun checkNetworkAndGetTime(context: Context = appContext)
+            : NetworkHelperFullSmart.NetworkCheckResult {
+
         if (!isNetworkAvailable(context)) {
-            return NetworkHelperFullSmart.NetworkCheckResult(NetworkHelperFullSmart.NetStatus.NETWORK_UNAVAILABLE)
+            return NetworkHelperFullSmart.NetworkCheckResult(
+                NetworkHelperFullSmart.NetStatus.NETWORK_UNAVAILABLE
+            )
         }
 
-        val timeResult = getNetworkTimeMultiSiteParallel()
+        val result = getNetworkTimeFastest()
 
-        return if (timeResult != null) {
+        return if (result != null) {
             NetworkHelperFullSmart.NetworkCheckResult(
                 NetworkHelperFullSmart.NetStatus.INTERNET_OK,
-                timeResult.first,
-                timeResult.second
+                result.first,
+                result.second
             )
         } else {
-            val status = checkFirewallStatus()
-            NetworkHelperFullSmart.NetworkCheckResult(status)
+            NetworkHelperFullSmart.NetworkCheckResult(checkFirewallFast())
         }
     }
 
-
-
     /**
-     * 根据外网访问判断是否被防火墙禁网 / DNS / 手机管家限制
+     * 极限最快返回
+     * invokeAny 自动返回第一个成功结果
      */
-    private fun checkFirewallStatus(timeout: Int = 3000): NetworkHelperFullSmart.NetStatus {
-        var reachableCount = 0
-        var failureCount = 0
+    private fun getNetworkTimeFastest(): Pair<String, String>? {
 
-        testUrls.forEach { urlStr ->
-            try {
-                val conn = (URL(urlStr).openConnection() as HttpURLConnection).apply {
-                    connectTimeout = timeout
-                    readTimeout = timeout
-                    connect()
-                }
-                if (conn.responseCode in 200..399) reachableCount++ else failureCount++
-            } catch (_: Exception) {
-                failureCount++
+        val tasks = testUrls.map { url ->
+            Callable<Pair<String, String>?> {
+                getNetworkTimeWithRetry(url)
             }
-        }
-
-        return when {
-            reachableCount > 0 -> NetworkHelperFullSmart.NetStatus.SERVER_OR_DNS_ERROR
-            failureCount == testUrls.size -> NetworkHelperFullSmart.NetStatus.MAYBE_BLOCKED_BY_FIREWALL
-            else -> NetworkHelperFullSmart.NetStatus.SERVER_OR_DNS_ERROR
-        }
-    }
-
-
-    /**
-     * 系统网络状态检查
-     */
-    private fun isNetworkAvailable(context: Context): Boolean {
-        val cm = context.getSystemService(Context.CONNECTIVITY_SERVICE) as ConnectivityManager
-        val network = cm.activeNetwork ?: return false
-        val capabilities = cm.getNetworkCapabilities(network) ?: return false
-        return capabilities.hasCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET)
-    }
-
-
-    /**
-     * 并发最快站点返回网络时间
-     */
-    private fun getNetworkTimeMultiSiteParallel(): Pair<String, String>? {
-        val executor = Executors.newFixedThreadPool(testUrls.size)
-        val futures = testUrls.map { site ->
-            executor.submit<Pair<String, String>?> { getNetworkTimeWithRetry(site) }
         }
 
         return try {
-            for (future in futures) {
-                try {
-                    val r = future.get(15, TimeUnit.SECONDS)
-                    if (r != null) {
-                        futures.forEach { it.cancel(true) }
-                        return r
-                    }
-                } catch (_: Exception) { }
-            }
+            executor.invokeAny(tasks, 15, TimeUnit.SECONDS)
+        } catch (_: Exception) {
             null
-        } finally {
-            executor.shutdownNow()
         }
     }
 
     /**
-     * 单站点重试
+     * 单站点重试（缩短延迟）
      */
     private fun getNetworkTimeWithRetry(webUrl: String): Pair<String, String>? {
-        val maxRetries = 3
-        val timeouts = intArrayOf(3000, 5000, 8000)
 
-        repeat(maxRetries) { attempt ->
+        val timeouts = intArrayOf(2000, 4000, 6000)
+
+        repeat(timeouts.size) { attempt ->
+
             var conn: HttpURLConnection? = null
+
             try {
                 conn = (URL(webUrl).openConnection() as HttpURLConnection).apply {
-                    connectTimeout = timeouts[attempt.coerceAtMost(timeouts.lastIndex)]
-                    readTimeout = timeouts[attempt.coerceAtMost(timeouts.lastIndex)]
+                    connectTimeout = timeouts[attempt]
+                    readTimeout = timeouts[attempt]
+                    useCaches = false
+                    instanceFollowRedirects = true
+                    requestMethod = "HEAD"   // 🚀 只取头部，更快
                     connect()
                 }
 
                 val dateL = conn.date
                 if (dateL > 0) {
-                    val formatted = SimpleDateFormat("yyyy-MM-dd HH:mm:ss", Locale.getDefault())
-                        .format(Date(dateL))
-                    //sendLog("$webUrl 当前时间 = $formatted")
-                    return formatted to dateL.toString()
+                    return sdf.format(Date(dateL)) to dateL.toString()
                 }
 
-            } catch (e: Exception) {
-                //sendLog("第${attempt + 1}次尝试 $webUrl 错误：$e")
+            } catch (_: Exception) {
             } finally {
                 conn?.disconnect()
-            }
-
-            if (attempt < maxRetries - 1) {
-                Thread.sleep(((attempt + 1) * 2000).toLong())
             }
         }
 
         return null
     }
 
+    /**
+     * 极快防火墙判断
+     * 任意成功即返回
+     */
+    private fun checkFirewallFast(timeout: Int = 2500)
+            : NetworkHelperFullSmart.NetStatus {
+
+        val completionService =
+            ExecutorCompletionService<Boolean>(executor)
+
+        testUrls.forEach { url ->
+            completionService.submit {
+                try {
+                    val conn = (URL(url).openConnection() as HttpURLConnection).apply {
+                        connectTimeout = timeout
+                        readTimeout = timeout
+                        useCaches = false
+                        requestMethod = "HEAD"
+                        connect()
+                    }
+                    val ok = conn.responseCode in 200..399
+                    conn.disconnect()
+                    ok
+                } catch (_: Exception) {
+                    false
+                }
+            }
+        }
+
+        repeat(testUrls.size) {
+            try {
+                if (completionService.take().get()) {
+                    return NetworkHelperFullSmart.NetStatus.SERVER_OR_DNS_ERROR
+                }
+            } catch (_: Exception) {
+            }
+        }
+
+        return NetworkHelperFullSmart.NetStatus.MAYBE_BLOCKED_BY_FIREWALL
+    }
+
+    private fun isNetworkAvailable(context: Context): Boolean {
+        val cm = context.getSystemService(Context.CONNECTIVITY_SERVICE)
+                as ConnectivityManager
+
+        val network = cm.activeNetwork ?: return false
+        val capabilities = cm.getNetworkCapabilities(network) ?: return false
+
+        return capabilities.hasCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET)
+    }
 }
-
-

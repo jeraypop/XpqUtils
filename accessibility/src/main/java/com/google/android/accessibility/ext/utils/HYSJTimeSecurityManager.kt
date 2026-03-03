@@ -111,7 +111,7 @@ object HYSJTimeSecurityManager {
     @JvmOverloads
     fun isKYSJValid(
         context: Context = appContext,
-        expireTimestamp: Long,
+        expireTimestamp: Long = 0L,//0 → 1970-01-01 00:00:00 UTC
         allowOfflineHours: Long = DEFAULT_OFFLINE_HOURS
     ): Boolean {
 
@@ -340,7 +340,7 @@ object HYSJTimeSecurityManager {
     @JvmOverloads
     fun checkTimeSecurityStatus(
         context: Context = appContext,
-        expireTimestamp: Long,
+        expireTimestamp: Long = 0L,//0 → 1970-01-01 00:00:00 UTC
         allowOfflineHours: Long = DEFAULT_OFFLINE_HOURS
     ): TimeSecurityStatus {
 

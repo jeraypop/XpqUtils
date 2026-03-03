@@ -4,6 +4,7 @@ import android.content.Context
 import android.net.ConnectivityManager
 import android.net.Network
 import android.net.NetworkCapabilities
+import com.google.android.accessibility.ext.utils.KeyguardUnLock.sendLog
 import com.google.android.accessibility.ext.utils.LibCtxProvider.Companion.appContext
 import kotlinx.coroutines.*
 import kotlinx.coroutines.selects.select
@@ -22,7 +23,8 @@ object NetworkHelperFullSmart {
     // 状态定义
     // ===============================
     enum class NetStatus {
-        NETWORK_UNAVAILABLE,       // 系统无网络 / 被禁用
+        NETWORK_NO_PERMISSION,     // 没有权限,
+        NETWORK_UNAVAILABLE,       // WIFI开关被关闭 无网络
         INTERNET_OK,               // 外网可访问
         MAYBE_BLOCKED_BY_FIREWALL, // 有网络但外网全部时间获取失败
         SERVER_OR_DNS_ERROR        // 网络正常但部分站点异常
@@ -95,15 +97,32 @@ object NetworkHelperFullSmart {
     fun updateTimeForNet() {
         appScope.launch {
             val result = NetworkHelperFullSmart.checkNetworkAndGetTimeSmart()
-            if (result.status ==
-                NetworkHelperFullSmart.NetStatus.INTERNET_OK
-                && result.timestamp != null
-            ) {
-                //只要成功获取到网络时间：就更新可信时间基准
-                HYSJTimeSecurityManager.updateTrustedTime(
-                    networkTimestamp = result.timestamp.toLong()
-                )
+            when (result.status) {
+                NetStatus.NETWORK_NO_PERMISSION -> {
+                    sendLog("清单文件中没有添加网络权限")
+                }
+                NetStatus.NETWORK_UNAVAILABLE -> {
+                    sendLog("网络不可用：请检查WiFi或移动数据开关是否开启")
+                }
+                NetStatus.MAYBE_BLOCKED_BY_FIREWALL -> {
+                    sendLog("网络可能被防火墙阻止,或者被管家类App禁止联网")
+                }
+                NetStatus.SERVER_OR_DNS_ERROR -> {
+                    sendLog("服务器或DNS异常：可能是目标网站维护或DNS解析问题")
+                }
+                NetStatus.INTERNET_OK -> {
+                    sendLog("网络连接正常")
+                    if (result.timestamp != null){
+                        //只要成功获取到网络时间：就更新可信时间基准
+                        HYSJTimeSecurityManager.updateTrustedTime(
+                            networkTimestamp = result.timestamp.toLong()
+                        )
+                    }
+                }
             }
+
+
+
         }
     }
 
@@ -169,7 +188,7 @@ object NetworkHelperFullSmart {
     ): NetworkCheckResult {
 
         if (!hasRequiredPermissions(context)) {
-            return NetworkCheckResult(NetStatus.NETWORK_UNAVAILABLE)
+            return NetworkCheckResult(NetStatus.NETWORK_NO_PERMISSION)
         }
 
         //等待系统网络准备好（刚解锁场景）
