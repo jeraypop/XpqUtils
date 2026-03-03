@@ -6,8 +6,14 @@ import android.net.NetworkCapabilities
 import android.os.Build
 import android.os.SystemClock
 import android.provider.Settings
+import android.text.TextUtils
 import android.util.Base64
 import com.google.android.accessibility.ext.utils.LibCtxProvider.Companion.appContext
+import org.intellij.lang.annotations.Pattern
+import java.text.SimpleDateFormat
+import java.util.Date
+import java.util.Locale
+import java.util.TimeZone
 import kotlin.math.abs
 import javax.crypto.Mac
 import javax.crypto.spec.SecretKeySpec
@@ -341,8 +347,10 @@ object HYSJTimeSecurityManager {
     fun checkTimeSecurityStatus(
         context: Context = appContext,
         expireTimestamp: Long = 0L,//0 → 1970-01-01 00:00:00 UTC
-        allowOfflineHours: Long = DEFAULT_OFFLINE_HOURS
+        allowOfflineHours: Long = DEFAULT_OFFLINE_HOURS,
+        expireTimeString: String = ""
     ): TimeSecurityStatus {
+
 
         // 1️⃣ SP签名校验
         if (!verifySp(context)) {
@@ -365,7 +373,14 @@ object HYSJTimeSecurityManager {
 
         val offlineExpired = isOfflineExpired(allowOfflineHours)
         val systemInvalid = !isSystemTimeValid(context)
-        val vipExpired = expireTimestamp <= getTrustedNow(context)
+        val vipExpired = if (!TextUtils.isEmpty(expireTimeString)){
+            //把时间字符串转换为时间戳
+            parseTimeStringToMillis(expireTimeString) <= getTrustedNow(context)
+        }else{
+            expireTimestamp <= getTrustedNow(context)
+        }
+
+        //val vipExpired = expireTimestamp <= getTrustedNow(context)
 
         val finalValid = !offlineExpired && !systemInvalid && !vipExpired
 
@@ -379,6 +394,21 @@ object HYSJTimeSecurityManager {
             offlineRemainMinutes = offlineRemain
         )
     }
+    @JvmStatic
+    @JvmOverloads
+    fun createFormatter(patt: String = "yyyy-MM-dd HH:mm:ss") =
+        SimpleDateFormat(patt, Locale.getDefault()).apply {
+            isLenient = true
+        }
+    @JvmStatic
+    @JvmOverloads
+    fun parseTimeStringToMillis(timeStr: String,patt: String = "yyyy-MM-dd HH:mm:ss"): Long =
+        runCatching { createFormatter(patt).parse(timeStr)?.time ?: 0L }.getOrDefault(0L)
+    @JvmStatic
+    @JvmOverloads
+    fun parseMillisToTimeString(timeMillis: Long,patt: String = "yyyy-MM-dd HH:mm:ss"): String =
+        runCatching { createFormatter(patt).format(Date(timeMillis)) }.getOrDefault("")
+
 
 }
 
