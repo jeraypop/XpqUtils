@@ -20,8 +20,8 @@ import javax.crypto.spec.SecretKeySpec
 
 /*
 * 核心功能:  负责时间防篡改逻辑
-*
-*
+* 双时间源模式（无封号版）
+* 公网时间与会员时间解耦
 * ✔ 飞行模式绕不过
 ✔ 管家断网绕不过
 ✔ VPN 阻断绕不过
@@ -30,6 +30,17 @@ import javax.crypto.spec.SecretKeySpec
 ✔ SP 篡改绕不过
 ✔ 重启绕不过
 *
+* 🚀 推荐调用流程（双源）
+* App启动
+* // 1. 先更新公网时间（百度/腾讯）
+HYSJTimeSecurityManager.updateTrustedTime(networkTime)
+
+// 2. 如果登录成功，从你服务器拿会员时间
+HYSJTimeSecurityManager.updateVipExpireTime(expireTimestamp)
+*   判断是否会员
+* if (HYSJTimeSecurityManager.isKYSJValid()) {
+    // 有效
+}
 *
 * */
 
@@ -48,8 +59,11 @@ object HYSJTimeSecurityManager {
     //本地运行时间
     private var baseElapsedRealtime: Long = 0L
     private var lastSyncElapsedRealtime: Long = 0L
+    // 会员过期时间（服务器下发）
+    private var cachedExpireTimestamp: Long = 0L
 
     private var sp: android.content.SharedPreferences? = null
+
 
     /**
      * 1️⃣ Application 中初始化
@@ -62,7 +76,8 @@ object HYSJTimeSecurityManager {
     }
 
     /**
-     * 2️⃣ 每次获取服务器时间后调用
+     * 2️⃣ ① 更新公网时间（百度/腾讯等）
+     * 每次获取服务器时间后调用
      * 联网成功后调用
      * 传入服务器时间戳（毫秒）为了稳定性 最好传入 从百度,阿里获取到的时间
      *
@@ -79,9 +94,9 @@ object HYSJTimeSecurityManager {
         trustedNetworkTime = networkTimestamp
         baseElapsedRealtime = SystemClock.elapsedRealtime()
         lastSyncElapsedRealtime = baseElapsedRealtime
-
+        saveToSp(context)
         val rawData =
-            "$trustedNetworkTime|$baseElapsedRealtime|$lastSyncElapsedRealtime"
+            "$trustedNetworkTime|$baseElapsedRealtime|$lastSyncElapsedRealtime|$cachedExpireTimestamp"
         val sign = generateHmac(context, rawData)
 
         sp?.edit()
@@ -89,35 +104,28 @@ object HYSJTimeSecurityManager {
             ?.putString(KEY_SIGN, sign)
             ?.apply()
     }
+    // =============================
+    // 3️⃣ 更新会员时间（自己服务器）
+    // =============================
 
-    /**
-     * 获取可信当前时间
-     * 核心算法：网络基准时间 + 真实经过时间
-     */
     @JvmStatic
     @JvmOverloads
-    fun getTrustedNow(context: Context = appContext): Long {
-
-        if (trustedNetworkTime == 0L) {
-            return System.currentTimeMillis()
-        }
-
-        val nowElapsed = SystemClock.elapsedRealtime()
-        val passed = nowElapsed - baseElapsedRealtime
-
-        return trustedNetworkTime + passed
+    fun updateHuiYuanTime(
+        context: Context = appContext,
+        expireTimestamp: Long
+    ) {
+        cachedExpireTimestamp = expireTimestamp
+        saveToSp(context)
     }
 
     /**
-     * 3️⃣ 判断会员
-     * 会员是否有效
+     * 3️⃣.2 判断会员是否有效
      * expireTimestamp 必须是服务器下发的会员毫秒时间戳
      */
     @JvmStatic
     @JvmOverloads
     fun isKYSJValid(
         context: Context = appContext,
-        expireTimestamp: Long = 0L,//0 → 1970-01-01 00:00:00 UTC
         allowOfflineHours: Long = DEFAULT_OFFLINE_HOURS
     ): Boolean {
 
@@ -143,10 +151,29 @@ object HYSJTimeSecurityManager {
         }
 
         // 5️⃣ 判断是否过期
-        return expireTimestamp > getTrustedNow()
+        return cachedExpireTimestamp  > getTrustedNow()
     }
 
     /**
+     * 获取可信当前时间
+     * 核心算法：网络基准时间 + 真实经过时间
+     */
+    @JvmStatic
+    @JvmOverloads
+    fun getTrustedNow(context: Context = appContext): Long {
+
+        if (trustedNetworkTime == 0L) {
+            return System.currentTimeMillis()
+        }
+
+        val nowElapsed = SystemClock.elapsedRealtime()
+        val passed = nowElapsed - baseElapsedRealtime
+
+        return trustedNetworkTime + passed
+    }
+
+    /**
+     * 时间合法性判断
      * 判断是否有人为修改系统时间
      * 如果系统时间和可信时间差超过 30 分钟则判定异常
      * 如果网络时间和本地时间对比相差 30 分钟之内，则判定没有人为修改
@@ -165,7 +192,7 @@ object HYSJTimeSecurityManager {
         return drift <= MAX_TIME_DRIFT
     }
 
-    /**
+    /** 离线时间控制
      * 是否超过允许的离线时间
      *
      * @param allowOfflineHours 允许离线小时数
@@ -258,7 +285,25 @@ object HYSJTimeSecurityManager {
         return remainMillis / (60 * 1000L)
     }
 
+    // =============================
+    // SP签名保护
+    // =============================
 
+    private fun saveToSp(context: Context) {
+
+        val rawData =
+            "$trustedNetworkTime|" +
+                    "$baseElapsedRealtime|" +
+                    "$lastSyncElapsedRealtime|" +
+                    "$cachedExpireTimestamp"
+
+        val sign = generateHmac(context, rawData)
+
+        sp?.edit()
+            ?.putString(KEY_DATA, rawData)
+            ?.putString(KEY_SIGN, sign)
+            ?.apply()
+    }
     // =============================
     // SP校验
     // =============================
@@ -281,11 +326,12 @@ object HYSJTimeSecurityManager {
 
         val rawData = sp?.getString(KEY_DATA, null) ?: return
         val parts = rawData.split("|")
-        if (parts.size != 3) return
+        if (parts.size != 4) return
 
         trustedNetworkTime = parts[0].toLongOrNull() ?: 0L
         baseElapsedRealtime = parts[1].toLongOrNull() ?: 0L
         lastSyncElapsedRealtime = parts[2].toLongOrNull() ?: 0L
+        cachedExpireTimestamp = parts[3].toLongOrNull() ?: 0L
     }
 
     private fun generateHmac(context: Context, data: String): String {
@@ -311,6 +357,7 @@ object HYSJTimeSecurityManager {
 
         return "VIP_SECRET_${androidId}_${model}_2025"
     }
+
     // ===============================
     // 系统网络检查
     // ===============================
@@ -335,10 +382,12 @@ object HYSJTimeSecurityManager {
     /**
      * 清除可信时间（可选）
      */
+    @JvmStatic
     fun clear() {
         trustedNetworkTime = 0L
         baseElapsedRealtime = 0L
         lastSyncElapsedRealtime = 0L
+        cachedExpireTimestamp = 0L
         sp?.edit()?.clear()?.apply()
     }
 
@@ -346,11 +395,8 @@ object HYSJTimeSecurityManager {
     @JvmOverloads
     fun checkTimeSecurityStatus(
         context: Context = appContext,
-        expireTimestamp: Long = 0L,//0 → 1970-01-01 00:00:00 UTC
-        allowOfflineHours: Long = DEFAULT_OFFLINE_HOURS,
-        expireTimeString: String = ""
+        allowOfflineHours: Long = DEFAULT_OFFLINE_HOURS
     ): TimeSecurityStatus {
-
 
         // 1️⃣ SP签名校验
         if (!verifySp(context)) {
@@ -373,14 +419,9 @@ object HYSJTimeSecurityManager {
 
         val offlineExpired = isOfflineExpired(allowOfflineHours)
         val systemInvalid = !isSystemTimeValid(context)
-        val vipExpired = if (!TextUtils.isEmpty(expireTimeString)){
-            //把时间字符串转换为时间戳
-            parseTimeStringToMillis(expireTimeString) <= getTrustedNow(context)
-        }else{
-            expireTimestamp <= getTrustedNow(context)
-        }
 
-        //val vipExpired = expireTimestamp <= getTrustedNow(context)
+        // 🔥 使用本地签名保护的会员时间
+        val vipExpired = cachedExpireTimestamp <= getTrustedNow(context)
 
         val finalValid = !offlineExpired && !systemInvalid && !vipExpired
 
