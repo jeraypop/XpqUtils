@@ -36,7 +36,7 @@ import javax.crypto.spec.SecretKeySpec
 HYSJTimeSecurityManager.updateTrustedTime(networkTime)
 
 // 2. 如果登录成功，从你服务器拿会员时间
-HYSJTimeSecurityManager.updateHuiYuanTime(expireTimestamp)
+HYSJTimeSecurityManager.updateHuiYuanTime(expireTimestamp = expireTimestamp)
 *   判断是否会员
 * if (HYSJTimeSecurityManager.isKYSJValid()) {
     // 有效
@@ -64,6 +64,7 @@ object HYSJTimeSecurityManager {
 
     private var sp: android.content.SharedPreferences? = null
 
+    const val defaultTimeString = "1970-01-01 00:00:00"
 
     /**
      * 1️⃣ Application 中初始化
@@ -104,9 +105,21 @@ object HYSJTimeSecurityManager {
     @JvmOverloads
     fun updateHuiYuanTime(
         context: Context = appContext,
-        expireTimestamp: Long
+        expireTimestamp: Long = 0L,
+        expireTimeString: String = "",
+        pattern: String = "yyyy-MM-dd HH:mm:ss"
     ) {
-        cachedExpireTimestamp = expireTimestamp
+
+        val finalExpireTime = when {
+            expireTimestamp > 0L -> expireTimestamp
+
+            expireTimeString.isNotEmpty() ->
+                parseTimeStringToMillis(expireTimeString, pattern)
+
+            else -> 0L
+        }
+
+        cachedExpireTimestamp = finalExpireTime
         saveToSp(context)
     }
 
