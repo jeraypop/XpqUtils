@@ -36,7 +36,7 @@ import javax.crypto.spec.SecretKeySpec
 HYSJTimeSecurityManager.updateTrustedTime(networkTime)
 
 // 2. 如果登录成功，从你服务器拿会员时间
-HYSJTimeSecurityManager.updateVipExpireTime(expireTimestamp)
+HYSJTimeSecurityManager.updateHuiYuanTime(expireTimestamp)
 *   判断是否会员
 * if (HYSJTimeSecurityManager.isKYSJValid()) {
     // 有效
@@ -95,14 +95,6 @@ object HYSJTimeSecurityManager {
         baseElapsedRealtime = SystemClock.elapsedRealtime()
         lastSyncElapsedRealtime = baseElapsedRealtime
         saveToSp(context)
-        val rawData =
-            "$trustedNetworkTime|$baseElapsedRealtime|$lastSyncElapsedRealtime|$cachedExpireTimestamp"
-        val sign = generateHmac(context, rawData)
-
-        sp?.edit()
-            ?.putString(KEY_DATA, rawData)
-            ?.putString(KEY_SIGN, sign)
-            ?.apply()
     }
     // =============================
     // 3️⃣ 更新会员时间（自己服务器）
