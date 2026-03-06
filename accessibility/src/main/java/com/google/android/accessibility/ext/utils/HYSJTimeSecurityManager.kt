@@ -49,6 +49,7 @@ object HYSJTimeSecurityManager {
     private const val SP_NAME = "hysj_time_secure"
     private const val KEY_DATA = "secure_data"
     private const val KEY_SIGN = "secure_sign"
+    private const val BOOT_TIME_TOLERANCE = 5000L
 
     // 允许本地时间和可信时间最大误差 30 分钟
     private const val MAX_TIME_DRIFT = 30 * 60 * 1000L
@@ -61,6 +62,10 @@ object HYSJTimeSecurityManager {
     private var lastSyncElapsedRealtime: Long = 0L
     // 会员过期时间（服务器下发）
     private var cachedExpireTimestamp: Long = 0L
+    // ⭐（保存开机时间）用于检测设备重启
+    private var savedBootTime: Long = 0L
+    // ⭐ 防SP回滚
+    private var secureNonce: Long = 0L
 
     private var sp: android.content.SharedPreferences? = null
 
@@ -95,7 +100,23 @@ object HYSJTimeSecurityManager {
         trustedNetworkTime = networkTimestamp
         baseElapsedRealtime = SystemClock.elapsedRealtime()
         lastSyncElapsedRealtime = baseElapsedRealtime
+        // ⭐ 保存当前设备开机时间
+        savedBootTime = getCurrentBootTime()
         saveToSp(context)
+    }
+    // ⭐ 获取当前设备开机时间
+    fun getCurrentBootTime(): Long {
+        return SystemClock.elapsedRealtime() - SystemClock.uptimeMillis()
+    }
+
+    // ⭐检测设备是否重启
+    fun isDeviceRebooted(): Boolean {
+
+        if (savedBootTime == 0L) return false
+
+        val currentBoot = getCurrentBootTime()
+
+        return abs(currentBoot - savedBootTime) > BOOT_TIME_TOLERANCE
     }
     // =============================
     // 3️⃣ 更新会员时间（自己服务器）
@@ -139,6 +160,11 @@ object HYSJTimeSecurityManager {
             clear()
             return false
         }
+        // ⭐检测重启绕过
+        if (isDeviceRebooted()) {
+            return false
+        }
+
 
         // 2️⃣ 快速路径：系统判断无网络
         if (!isNetworkAvailable(context)) {
@@ -165,10 +191,14 @@ object HYSJTimeSecurityManager {
      */
     @JvmStatic
     @JvmOverloads
-    fun getTrustedNow(context: Context = appContext): Long {
+    fun getTrustedNow(context: Context = appContext,isSystem: Boolean = false): Long {
 
         if (trustedNetworkTime == 0L) {
-            return System.currentTimeMillis()
+            return  if (isSystem) {
+                System.currentTimeMillis()
+            }else{
+                0L
+            }
         }
 
         val nowElapsed = SystemClock.elapsedRealtime()
@@ -182,12 +212,19 @@ object HYSJTimeSecurityManager {
      * 判断是否有人为修改系统时间
      * 如果系统时间和可信时间差超过 30 分钟则判定异常
      * 如果网络时间和本地时间对比相差 30 分钟之内，则判定没有人为修改
+     *
+     * 网络时间 + 运行时间 = 可信时间
+     *
+     * 如果
+     * 系统时间 和 可信时间 差 > 30分钟
+     *
+     * = 用户修改了系统时间
      */
     @JvmStatic
     @JvmOverloads
     fun isSystemTimeValid(context: Context = appContext): Boolean {
 
-        if (trustedNetworkTime == 0L) return true
+        if (trustedNetworkTime == 0L) return false
 
         val trustedNow = getTrustedNow(context)
         val systemNow = System.currentTimeMillis()
@@ -295,12 +332,15 @@ object HYSJTimeSecurityManager {
     // =============================
 
     private fun saveToSp(context: Context) {
-
+        // ⭐nonce自增
+        secureNonce++
         val rawData =
             "$trustedNetworkTime|" +
                     "$baseElapsedRealtime|" +
                     "$lastSyncElapsedRealtime|" +
-                    "$cachedExpireTimestamp"
+                    "$cachedExpireTimestamp|"+
+                    "$savedBootTime|" +
+                    "$secureNonce"
 
         val sign = generateHmac(context, rawData)
 
@@ -316,6 +356,7 @@ object HYSJTimeSecurityManager {
     private fun verifySp(context: Context): Boolean {
 
         val rawData = sp?.getString(KEY_DATA, null) ?: return false
+        if (rawData.isEmpty()) return false
         val savedSign = sp?.getString(KEY_SIGN, null) ?: return false
         val realSign = generateHmac(context, rawData)
 
@@ -330,13 +371,15 @@ object HYSJTimeSecurityManager {
         }
 
         val rawData = sp?.getString(KEY_DATA, null) ?: return
-        val parts = rawData.split("|")
-        if (parts.size != 4) return
+        val parts = rawData.split('|')
+        if (parts.size < 6) return
 
         trustedNetworkTime = parts[0].toLongOrNull() ?: 0L
         baseElapsedRealtime = parts[1].toLongOrNull() ?: 0L
         lastSyncElapsedRealtime = parts[2].toLongOrNull() ?: 0L
         cachedExpireTimestamp = parts[3].toLongOrNull() ?: 0L
+        savedBootTime = parts[4].toLongOrNull() ?: 0L
+        secureNonce = parts[5].toLongOrNull() ?: 0L
     }
 
     private fun generateHmac(context: Context, data: String): String {
@@ -363,12 +406,64 @@ object HYSJTimeSecurityManager {
         return "VIP_SECRET_${androidId}_${model}_2025"
     }
 
+    // ⭐新增 Hook/Xposed检测
+    private val HOOK_KEYWORDS = arrayOf(
+        "de.robv.android.xposed",
+        "lsposed",
+        "edxposed",
+        "frida",
+        "substrate",
+        "zygisk",
+        "riru",
+        "magisk"
+    )
+
+    private val hookEnvironment by lazy { detectHookEnvironment() }
+
+    fun isHookEnvironment(): Boolean {
+        return hookEnvironment || isXposedPresent()
+    }
+
+    private fun detectHookEnvironment(): Boolean {
+
+        return try {
+
+            val stack = Thread.currentThread().stackTrace
+
+            for (element in stack) {
+                val cls = element.className
+                for (key in HOOK_KEYWORDS) {
+                    if (cls.contains(key)) return true
+                }
+            }
+
+            false
+
+        } catch (_: Throwable) {
+            false
+        }
+    }
+
+    private fun isXposedPresent(): Boolean {
+        return try {
+            Class.forName("de.robv.android.xposed.XposedBridge")
+            true
+        } catch (_: Throwable) {
+            false
+        }
+    }
+
+    // ⭐新增 Debug检测
+    fun isDebuggerAttached(): Boolean {
+        return android.os.Debug.isDebuggerConnected()
+    }
+
     // ===============================
     // 系统网络检查
     // ===============================
     @JvmStatic
     @JvmOverloads
-    fun isNetworkAvailable(context: Context = appContext,valid: Boolean = true): Boolean {
+    fun isNetworkAvailable(context: Context = appContext,valid: Boolean = false): Boolean {
         val cm = context.getSystemService(Context.CONNECTIVITY_SERVICE)
                 as? ConnectivityManager ?: return false
         val network = cm.activeNetwork ?: return false
@@ -393,6 +488,8 @@ object HYSJTimeSecurityManager {
         baseElapsedRealtime = 0L
         lastSyncElapsedRealtime = 0L
         cachedExpireTimestamp = 0L
+        savedBootTime = 0L
+        secureNonce = 0L
         sp?.edit()?.clear()?.apply()
     }
 
@@ -402,6 +499,31 @@ object HYSJTimeSecurityManager {
         context: Context = appContext,
         allowOfflineHours: Long = DEFAULT_OFFLINE_HOURS
     ): TimeSecurityStatus {
+        // ⭐新增 Hook检测
+        if (isHookEnvironment()) {
+            return TimeSecurityStatus(
+                isValid = false,
+                isVipExpired = false,
+                isOfflineExpired = false,
+                isSystemTimeInvalid = true,
+                isNetworkAvailable = isNetworkAvailable(context),
+                offlinePassedHours = 0,
+                offlineRemainMinutes = 0
+            )
+        }
+
+        // ⭐新增 Debug检测
+        if (isDebuggerAttached()) {
+            return TimeSecurityStatus(
+                isValid = false,
+                isVipExpired = false,
+                isOfflineExpired = false,
+                isSystemTimeInvalid = true,
+                isNetworkAvailable = isNetworkAvailable(context),
+                offlinePassedHours = 0,
+                offlineRemainMinutes = 0
+            )
+        }
 
         // 1️⃣ SP签名校验
         if (!verifySp(context)) {
@@ -411,6 +533,19 @@ object HYSJTimeSecurityManager {
                 isVipExpired = true,
                 isOfflineExpired = true,
                 isSystemTimeInvalid = true,
+                isNetworkAvailable = isNetworkAvailable(context),
+                offlinePassedHours = 0,
+                offlineRemainMinutes = 0
+            )
+        }
+
+        // ⭐ 重启检测
+        if (isDeviceRebooted()) {
+            return TimeSecurityStatus(
+                isValid = false,
+                isVipExpired = false,
+                isOfflineExpired = true,
+                isSystemTimeInvalid = false,
                 isNetworkAvailable = isNetworkAvailable(context),
                 offlinePassedHours = 0,
                 offlineRemainMinutes = 0
