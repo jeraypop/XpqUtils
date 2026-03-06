@@ -367,6 +367,29 @@ object HYSJTimeSecurityManager {
         return remainMillis / (60 * 1000L)
     }
 
+    @JvmStatic
+    @JvmOverloads
+    fun getOfflineRemainTimeText(limitHours: Long = DEFAULT_OFFLINE_HOURS): String {
+        if (trustedNetworkTime == 0L) return "未同步"
+        val lastSync = lastSyncElapsedRealtime
+        if (lastSync == 0L || limitHours <= 0) return "0分钟"
+
+        val remainMillis = limitHours * 3600000L -
+                (SystemClock.elapsedRealtime() - lastSync)
+
+        if (remainMillis <= 0) return "0分钟"
+
+        val totalMinutes = remainMillis / 60000L
+        val hours = totalMinutes / 60
+        val minutes = totalMinutes % 60
+
+        return when {
+            hours > 0 && minutes > 0 -> "${hours}小时${minutes}分钟"
+            hours > 0 -> "${hours}小时"
+            else -> "${minutes}分钟"
+        }
+    }
+
     // =============================
     // SP签名保护
     // =============================
@@ -551,7 +574,7 @@ object HYSJTimeSecurityManager {
                 isSystemTimeInvalid = false,
                 isNetworkAvailable = isNetworkAvailable(context),
                 offlinePassedHours = 0,
-                offlineRemainMinutes = 0
+                offlineRemainMinutes = "0分钟"
             )
         }
 
@@ -564,7 +587,7 @@ object HYSJTimeSecurityManager {
                 isSystemTimeInvalid = true,
                 isNetworkAvailable = isNetworkAvailable(context),
                 offlinePassedHours = 0,
-                offlineRemainMinutes = 0
+                offlineRemainMinutes = "0分钟"
             )
         }
 
@@ -577,7 +600,7 @@ object HYSJTimeSecurityManager {
                 isSystemTimeInvalid = true,
                 isNetworkAvailable = isNetworkAvailable(context),
                 offlinePassedHours = 0,
-                offlineRemainMinutes = 0
+                offlineRemainMinutes = "0分钟"
             )
         }
 
@@ -592,7 +615,7 @@ object HYSJTimeSecurityManager {
                 isSystemTimeInvalid = true,
                 isNetworkAvailable = isNetworkAvailable(context),
                 offlinePassedHours = 0,
-                offlineRemainMinutes = 0
+                offlineRemainMinutes = "0分钟"
             )
         }
 
@@ -606,14 +629,14 @@ object HYSJTimeSecurityManager {
                 isSystemTimeInvalid = false,
                 isNetworkAvailable = isNetworkAvailable(context),
                 offlinePassedHours = 0,
-                offlineRemainMinutes = 0
+                offlineRemainMinutes = "0分钟"
             )
         }
 
         val networkAvailable = isNetworkAvailable(context)
 
         val offlinePassed = getOfflinePassedHours()
-        val offlineRemain = getOfflineRemainMinutes(allowOfflineHours)
+        val offlineRemain = getOfflineRemainTimeText(allowOfflineHours)
 
         val offlineExpired = isOfflineExpired(allowOfflineHours)
         val systemInvalid = !isSystemTimeValid(context)
@@ -673,7 +696,7 @@ data class TimeSecurityStatus(
     // 已离线小时数
     val offlinePassedHours: Long,
 
-    // 剩余可离线分钟数
-    val offlineRemainMinutes: Long
+    // 剩余可离线小时分钟数
+    val offlineRemainMinutes: String
 )
 
