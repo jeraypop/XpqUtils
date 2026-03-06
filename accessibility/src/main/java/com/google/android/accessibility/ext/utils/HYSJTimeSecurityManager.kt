@@ -323,7 +323,7 @@ object HYSJTimeSecurityManager {
      */
     @JvmStatic
     fun getOfflinePassedHours(): Long {
-
+        if (isDeviceRebooted()) return Long.MAX_VALUE
         if (trustedNetworkTime == 0L || lastSyncElapsedRealtime == 0L) {
             // 从未同步过网络时间
             return Long.MAX_VALUE
@@ -349,7 +349,8 @@ object HYSJTimeSecurityManager {
     @JvmStatic
     @JvmOverloads
     fun getOfflineRemainMinutes(limitHours: Long = DEFAULT_OFFLINE_HOURS): Long {
-
+        // ⭐设备重启直接返回0
+        if (isDeviceRebooted()) return 0
         if (trustedNetworkTime == 0L || lastSyncElapsedRealtime == 0L) {
             return 0L
         }
@@ -370,6 +371,8 @@ object HYSJTimeSecurityManager {
     @JvmStatic
     @JvmOverloads
     fun getOfflineRemainTimeText(limitHours: Long = DEFAULT_OFFLINE_HOURS): String {
+        // ⭐设备重启直接返回0
+        if (isDeviceRebooted()) return "0分钟"
         if (trustedNetworkTime == 0L) return "未同步"
         val lastSync = lastSyncElapsedRealtime
         if (lastSync == 0L || limitHours <= 0) return "0分钟"
