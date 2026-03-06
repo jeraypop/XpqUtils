@@ -8,6 +8,7 @@ import android.os.SystemClock
 import android.provider.Settings
 import android.text.TextUtils
 import android.util.Base64
+import com.google.android.accessibility.ext.utils.KeyguardUnLock.sendLog
 import com.google.android.accessibility.ext.utils.LibCtxProvider.Companion.appContext
 import org.intellij.lang.annotations.Pattern
 import java.text.SimpleDateFormat
@@ -66,6 +67,8 @@ object HYSJTimeSecurityManager {
     private var savedBootTime: Long = 0L
     // ⭐ 防SP回滚
     private var secureNonce: Long = 0L
+    // 首次运行elapsed时间
+    private var firstRunElapsedRealtime: Long = 0L
 
     private var sp: android.content.SharedPreferences? = null
 
@@ -79,6 +82,10 @@ object HYSJTimeSecurityManager {
     fun init(context: Context = appContext) {
         sp = context.getSharedPreferences(SP_NAME, Context.MODE_PRIVATE)
         loadFromSp(context)
+        if (firstRunElapsedRealtime == 0L) {
+            firstRunElapsedRealtime = SystemClock.elapsedRealtime()
+            saveToSp(context)
+        }
     }
 
     /**
@@ -154,14 +161,21 @@ object HYSJTimeSecurityManager {
         context: Context = appContext,
         allowOfflineHours: Long = DEFAULT_OFFLINE_HOURS
     ): Boolean {
+        // ⭐安装30分钟豁免
+        if (isInstallGracePeriod()) {
+            sendLog("首次安装的30分钟内")
+            return true
+        }
 
         // 1️⃣ SP校验
         if (!verifySp(context)) {
             clear()
+            sendLog("sp被人为修改了")
             return false
         }
         // ⭐检测重启绕过
         if (isDeviceRebooted()) {
+            sendLog("设备重启了")
             return false
         }
 
@@ -178,6 +192,7 @@ object HYSJTimeSecurityManager {
 
         // 4️⃣ 系统时间校验（防回拨）
         if (!isSystemTimeValid()) {
+            sendLog("设备时间被修改了")
             return false
         }
 
@@ -205,6 +220,31 @@ object HYSJTimeSecurityManager {
         val passed = nowElapsed - baseElapsedRealtime
 
         return trustedNetworkTime + passed
+    }
+    //首次安装30分钟豁免
+    fun isInstallGracePeriod(): Boolean {
+
+        if (firstRunElapsedRealtime == 0L) return false
+
+        val nowElapsed = SystemClock.elapsedRealtime()
+        // 30分钟豁免
+        val inGrace = nowElapsed - firstRunElapsedRealtime <= MAX_TIME_DRIFT
+
+        if (!inGrace) return false
+        // ⭐新增：检测是否修改系统时间骗豁免
+        val installTime = appContext.packageManager
+            .getPackageInfo(appContext.packageName, 0)
+            .firstInstallTime
+
+        val systemNow = System.currentTimeMillis()
+
+        // 如果系统时间距离安装时间非常久，却还在30分钟豁免
+        if (abs(systemNow - installTime) > 7 * 24 * 60 * 60 * 1000L) {
+            return false
+        }
+
+        return true
+
     }
 
     /**
@@ -340,7 +380,8 @@ object HYSJTimeSecurityManager {
                     "$lastSyncElapsedRealtime|" +
                     "$cachedExpireTimestamp|"+
                     "$savedBootTime|" +
-                    "$secureNonce"
+                    "$secureNonce|" +
+                    "$firstRunElapsedRealtime"
 
         val sign = generateHmac(context, rawData)
 
@@ -372,7 +413,7 @@ object HYSJTimeSecurityManager {
 
         val rawData = sp?.getString(KEY_DATA, null) ?: return
         val parts = rawData.split('|')
-        if (parts.size < 6) return
+        if (parts.size < 7) return
 
         trustedNetworkTime = parts[0].toLongOrNull() ?: 0L
         baseElapsedRealtime = parts[1].toLongOrNull() ?: 0L
@@ -380,6 +421,7 @@ object HYSJTimeSecurityManager {
         cachedExpireTimestamp = parts[3].toLongOrNull() ?: 0L
         savedBootTime = parts[4].toLongOrNull() ?: 0L
         secureNonce = parts[5].toLongOrNull() ?: 0L
+        firstRunElapsedRealtime = parts[6].toLongOrNull() ?: 0L
     }
 
     private fun generateHmac(context: Context, data: String): String {
@@ -499,6 +541,20 @@ object HYSJTimeSecurityManager {
         context: Context = appContext,
         allowOfflineHours: Long = DEFAULT_OFFLINE_HOURS
     ): TimeSecurityStatus {
+        // ⭐安装30分钟豁免
+        if (isInstallGracePeriod()) {
+            sendLog("首次安装的30分钟内")
+            return TimeSecurityStatus(
+                isValid = true,
+                isVipExpired = false,
+                isOfflineExpired = false,
+                isSystemTimeInvalid = false,
+                isNetworkAvailable = isNetworkAvailable(context),
+                offlinePassedHours = 0,
+                offlineRemainMinutes = 0
+            )
+        }
+
         // ⭐新增 Hook检测
         if (isHookEnvironment()) {
             return TimeSecurityStatus(
@@ -528,6 +584,7 @@ object HYSJTimeSecurityManager {
         // 1️⃣ SP签名校验
         if (!verifySp(context)) {
             clear()
+            sendLog("sp被人为修改了")
             return TimeSecurityStatus(
                 isValid = false,
                 isVipExpired = true,
@@ -541,6 +598,7 @@ object HYSJTimeSecurityManager {
 
         // ⭐ 重启检测
         if (isDeviceRebooted()) {
+            sendLog("设备重启了")
             return TimeSecurityStatus(
                 isValid = false,
                 isVipExpired = false,
