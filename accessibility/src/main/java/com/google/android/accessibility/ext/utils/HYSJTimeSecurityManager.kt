@@ -231,7 +231,7 @@ object HYSJTimeSecurityManager {
         val inGrace = nowElapsed - firstRunElapsedRealtime <= MAX_TIME_DRIFT
 
         if (!inGrace) return false
-        // ⭐新增：检测是否修改系统时间骗豁免
+        // ⭐检测是否修改系统时间骗豁免
         val installTime = appContext.packageManager
             .getPackageInfo(appContext.packageName, 0)
             .firstInstallTime
