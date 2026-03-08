@@ -6,17 +6,22 @@ import android.net.NetworkCapabilities
 import android.os.Build
 import android.os.SystemClock
 import android.provider.Settings
+import android.security.keystore.KeyGenParameterSpec
+import android.security.keystore.KeyProperties
 import android.text.TextUtils
 import android.util.Base64
 import com.google.android.accessibility.ext.utils.KeyguardUnLock.sendLog
 import com.google.android.accessibility.ext.utils.LibCtxProvider.Companion.appContext
 import org.intellij.lang.annotations.Pattern
+import java.security.KeyStore
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
 import java.util.TimeZone
+import javax.crypto.KeyGenerator
 import kotlin.math.abs
 import javax.crypto.Mac
+import javax.crypto.SecretKey
 import javax.crypto.spec.SecretKeySpec
 
 /*
@@ -43,6 +48,16 @@ HYSJTimeSecurityManager.updateHuiYuanTime(expireTimestamp = expireTimestamp)
     // 有效
 }
 *
+*
+* | 场景         | 结果         |
+| ---------- | ---------- |
+| 断网 + App重启 | ✅ 离线时间继续计算 |
+| 断网 + 设备重启  | ❌ 直接失效     |
+| 联网重新同步时间   | ✅ 恢复正常     |
+
+*
+* 设备重启后只有一种恢复方式： 重新同步网络时间
+*
 * */
 
 object HYSJTimeSecurityManager {
@@ -50,29 +65,36 @@ object HYSJTimeSecurityManager {
     private const val SP_NAME = "hysj_time_secure"
     private const val KEY_DATA = "secure_data"
     private const val KEY_SIGN = "secure_sign"
-    private const val BOOT_TIME_TOLERANCE = 5000L
+    private const val BOOT_TIME_TOLERANCE = 15000L
 
     // 允许本地时间和可信时间最大误差 30 分钟
     private const val MAX_TIME_DRIFT = 30 * 60 * 1000L
     // 默认允许离线小时数
     private const val DEFAULT_OFFLINE_HOURS = 1L
     //可信网络时间
-    private var trustedNetworkTime: Long = 0L
+    @Volatile private var trustedNetworkTime: Long = 0L
     //本地运行时间
-    private var baseElapsedRealtime: Long = 0L
-    private var lastSyncElapsedRealtime: Long = 0L
+    @Volatile private var baseElapsedRealtime: Long = 0L
+    @Volatile private var lastSyncElapsedRealtime: Long = 0L
     // 会员过期时间（服务器下发）
-    private var cachedExpireTimestamp: Long = 0L
-    // ⭐（保存开机时间）用于检测设备重启
-    private var savedBootTime: Long = 0L
-    // ⭐ 防SP回滚
-    private var secureNonce: Long = 0L
+    @Volatile private var cachedExpireTimestamp: Long = 0L
+    // （保存开机时间）用于检测设备重启
+    @Volatile private var savedBootTime: Long = 0L
+    // 防SP回滚
+    @Volatile private var secureNonce: Long = 0L
     // 首次运行elapsed时间
-    private var firstRunElapsedRealtime: Long = 0L
+    @Volatile private var firstRunElapsedRealtime: Long = 0L
+
+    // 防冷启动SP回滚
+    @Volatile private var maxNonce: Long = 0L
+    private val stateLock = Any()// 写操作锁
 
     private var sp: android.content.SharedPreferences? = null
 
     const val defaultTimeString = "1970-01-01 00:00:00"
+
+
+    private val formatterMap = mutableMapOf<String, SimpleDateFormat>()
 
     /**
      * 1️⃣ Application 中初始化
@@ -103,23 +125,31 @@ object HYSJTimeSecurityManager {
     @JvmStatic
     @JvmOverloads
     fun updateTrustedTime(context: Context = appContext, networkTimestamp: Long) {
-
-        trustedNetworkTime = networkTimestamp
-        baseElapsedRealtime = SystemClock.elapsedRealtime()
-        lastSyncElapsedRealtime = baseElapsedRealtime
-        // ⭐ 保存当前设备开机时间
-        savedBootTime = getCurrentBootTime()
-        saveToSp(context)
+        synchronized(stateLock) {
+            trustedNetworkTime = networkTimestamp
+            baseElapsedRealtime = SystemClock.elapsedRealtime()
+            lastSyncElapsedRealtime = baseElapsedRealtime
+            // 保存当前设备开机时间
+            savedBootTime = getCurrentBootTime()
+            saveToSp(context)
+        }
     }
-    // ⭐ 获取当前设备开机时间
+    //  获取当前设备开机时间
+    //虽然真实时间可被篡改，但你后续已经有 isSystemTimeValid 来防御时间篡改了，所以这里是安全的
     fun getCurrentBootTime(): Long {
-        return SystemClock.elapsedRealtime() - SystemClock.uptimeMillis()
+        //return SystemClock.elapsedRealtime() - SystemClock.uptimeMillis()
+        // 逻辑：当前真实时间戳 - 开机到现在流逝的时间 = 固定的设备开机时间戳
+        return System.currentTimeMillis() - SystemClock.elapsedRealtime()
     }
 
-    // ⭐检测设备是否重启
+    // 检测设备是否重启
     fun isDeviceRebooted(): Boolean {
 
         if (savedBootTime == 0L) return false
+        //底层流逝时间回退检测。如果当前流逝时间比基准时间还小，绝对是发生了重启。
+        if (baseElapsedRealtime > 0L && SystemClock.elapsedRealtime() < baseElapsedRealtime) {
+            return true
+        }
 
         val currentBoot = getCurrentBootTime()
 
@@ -146,9 +176,10 @@ object HYSJTimeSecurityManager {
 
             else -> 0L
         }
-
-        cachedExpireTimestamp = finalExpireTime
-        saveToSp(context)
+        synchronized(stateLock) {
+            cachedExpireTimestamp = finalExpireTime
+            saveToSp(context)
+        }
     }
 
     /**
@@ -161,38 +192,41 @@ object HYSJTimeSecurityManager {
         context: Context = appContext,
         allowOfflineHours: Long = DEFAULT_OFFLINE_HOURS
     ): Boolean {
-        // ⭐安装30分钟豁免
+        // Hook 检测
+        if (isHookEnvironment) {
+            sendLog("检测到Hook环境")
+            return false
+        }
+
+        // Debug 检测
+        if (isDebuggerAttached()) {
+            sendLog("检测到调试器")
+            return false
+        }
+
+        // 安装30分钟豁免
         if (isInstallGracePeriod()) {
             sendLog("首次安装的30分钟内")
             return true
         }
 
-        // 1️⃣ SP校验
+        //  SP校验
         if (!verifySp(context)) {
             clear()
             sendLog("sp被人为修改了")
             return false
         }
-        // ⭐检测重启绕过
-        if (isDeviceRebooted()) {
-            sendLog("设备重启了")
-            return false
-        }
 
-
-        // 2️⃣ 快速路径：系统判断无网络
-        if (!isNetworkAvailable(context)) {
-            if (isOfflineExpired(allowOfflineHours)) return false
-
-        } else {
-            // 3️⃣ 有网络也必须限制最长未同步时间
-            if (isOfflineExpired(allowOfflineHours)) return false
-
-        }
-
-        // 4️⃣ 系统时间校验（防回拨）
+        // 快速路径：系统判断无网络
+        if (isOfflineExpired(allowOfflineHours)) return false
+        //  系统时间校验（防回拨）
         if (!isSystemTimeValid()) {
             sendLog("设备时间被修改了")
+            return false
+        }
+        // 检测重启绕过
+        if (isDeviceRebooted()) {
+            sendLog("设备重启了")
             return false
         }
 
@@ -206,7 +240,7 @@ object HYSJTimeSecurityManager {
      */
     @JvmStatic
     @JvmOverloads
-    fun getTrustedNow(context: Context = appContext,isSystem: Boolean = false): Long {
+    fun getTrustedNow(isSystem: Boolean = false): Long {
 
         if (trustedNetworkTime == 0L) {
             return  if (isSystem) {
@@ -217,26 +251,34 @@ object HYSJTimeSecurityManager {
         }
 
         val nowElapsed = SystemClock.elapsedRealtime()
-        val passed = nowElapsed - baseElapsedRealtime
+        val passed = maxOf(0L, nowElapsed - baseElapsedRealtime)
 
         return trustedNetworkTime + passed
+    }
+
+
+    private val installTimeCache: Long by lazy {
+        appContext.packageManager
+            .getPackageInfo(appContext.packageName, 0)
+            .firstInstallTime
     }
     //首次安装30分钟豁免
     fun isInstallGracePeriod(): Boolean {
 
-        if (firstRunElapsedRealtime == 0L) return false
+        if (firstRunElapsedRealtime <= 0L) return false
 
         val nowElapsed = SystemClock.elapsedRealtime()
+        // 如果当前流逝时间小于首次运行记录的流逝时间，说明设备绝对重启过
+        if (nowElapsed < firstRunElapsedRealtime) return false
         // 30分钟豁免
         val inGrace = nowElapsed - firstRunElapsedRealtime <= MAX_TIME_DRIFT
 
         if (!inGrace) return false
-        // ⭐检测是否修改系统时间骗豁免
-        val installTime = appContext.packageManager
-            .getPackageInfo(appContext.packageName, 0)
-            .firstInstallTime
+        // 检测是否修改系统时间骗豁免
+        val installTime = installTimeCache
 
         val systemNow = System.currentTimeMillis()
+        if (systemNow < installTime) return false
 
         // 如果系统时间距离安装时间非常久，却还在30分钟豁免
         if (abs(systemNow - installTime) > 7 * 24 * 60 * 60 * 1000L) {
@@ -263,10 +305,16 @@ object HYSJTimeSecurityManager {
     @JvmStatic
     @JvmOverloads
     fun isSystemTimeValid(context: Context = appContext): Boolean {
+         //如果返回false的话   在安装 > 30分钟 后  还没同步网络时间
+        //会被误判为 系统时间被修改
+        //如果没有可信网络时间
+        //只允许安装30分钟内运行
+        //否则必须联网同步时间
+        if (trustedNetworkTime == 0L) {
+            return isInstallGracePeriod()
+        }
 
-        if (trustedNetworkTime == 0L) return false
-
-        val trustedNow = getTrustedNow(context)
+        val trustedNow = getTrustedNow()
         val systemNow = System.currentTimeMillis()
 
         val drift = abs(trustedNow - systemNow)
@@ -349,7 +397,7 @@ object HYSJTimeSecurityManager {
     @JvmStatic
     @JvmOverloads
     fun getOfflineRemainMinutes(limitHours: Long = DEFAULT_OFFLINE_HOURS): Long {
-        // ⭐设备重启直接返回0
+        // 设备重启直接返回0
         if (isDeviceRebooted()) return 0
         if (trustedNetworkTime == 0L || lastSyncElapsedRealtime == 0L) {
             return 0L
@@ -371,7 +419,7 @@ object HYSJTimeSecurityManager {
     @JvmStatic
     @JvmOverloads
     fun getOfflineRemainTimeText(limitHours: Long = DEFAULT_OFFLINE_HOURS): String {
-        // ⭐设备重启直接返回0
+        // 设备重启直接返回0
         if (isDeviceRebooted()) return "0分钟"
         if (trustedNetworkTime == 0L) return "未同步"
         val lastSync = lastSyncElapsedRealtime
@@ -398,23 +446,30 @@ object HYSJTimeSecurityManager {
     // =============================
 
     private fun saveToSp(context: Context) {
-        // ⭐nonce自增
-        secureNonce++
-        val rawData =
-            "$trustedNetworkTime|" +
-                    "$baseElapsedRealtime|" +
-                    "$lastSyncElapsedRealtime|" +
-                    "$cachedExpireTimestamp|"+
-                    "$savedBootTime|" +
-                    "$secureNonce|" +
-                    "$firstRunElapsedRealtime"
+        synchronized(stateLock) {
+            // nonce自增
+            secureNonce++
+            if (secureNonce > maxNonce) {
+                maxNonce = secureNonce
+            }
+            val rawData =
+                "$trustedNetworkTime|" +
+                        "$baseElapsedRealtime|" +
+                        "$lastSyncElapsedRealtime|" +
+                        "$cachedExpireTimestamp|"+
+                        "$savedBootTime|" +
+                        "$secureNonce|" +
+                        "$firstRunElapsedRealtime"
 
-        val sign = generateHmac(context, rawData)
+            val sign = generateHmac(context, rawData)
 
-        sp?.edit()
-            ?.putString(KEY_DATA, rawData)
-            ?.putString(KEY_SIGN, sign)
-            ?.apply()
+            sp?.edit()
+                ?.putString(KEY_DATA, rawData)
+                ?.putString(KEY_SIGN, sign)
+                ?.putLong("max_nonce", maxNonce)
+                ?.apply()
+        }
+
     }
     // =============================
     // SP校验
@@ -424,19 +479,44 @@ object HYSJTimeSecurityManager {
 
         val rawData = sp?.getString(KEY_DATA, null) ?: return false
         if (rawData.isEmpty()) return false
+
         val savedSign = sp?.getString(KEY_SIGN, null) ?: return false
         val realSign = generateHmac(context, rawData)
 
-        return realSign == savedSign
+        if (realSign != savedSign) {
+            return false
+        }
+
+        // 防 SP 回滚攻击
+        val parts = rawData.split('|')
+        if (parts.size < 7) return false
+
+        val nonce = parts[5].toLongOrNull() ?: return false
+
+        val savedMaxNonce = sp?.getLong("max_nonce", 0L) ?: 0L
+
+        if (nonce < savedMaxNonce) {
+            return false
+        }
+
+        secureNonce = nonce
+
+        if (nonce > savedMaxNonce) {
+            maxNonce = nonce
+        }
+
+        return true
     }
 
     private fun loadFromSp(context: Context) {
 
         if (!verifySp(context)) {
             clear()
+            //发现 SP 被人为修改后，强行打上负数防伪标记，阻止 init() 重新走首装逻辑
+            firstRunElapsedRealtime = -1L
             return
         }
-
+        maxNonce = sp?.getLong("max_nonce", 0L) ?: 0L
         val rawData = sp?.getString(KEY_DATA, null) ?: return
         val parts = rawData.split('|')
         if (parts.size < 7) return
@@ -451,15 +531,31 @@ object HYSJTimeSecurityManager {
     }
 
     private fun generateHmac(context: Context, data: String): String {
+        return try {
+            // 优先使用 Android 系统底层的 TEE 硬件 KeyStore 加密签名，防逆向、防提取
+            val keyStore = KeyStore.getInstance("AndroidKeyStore").apply { load(null) }
+            val alias = "hysj_hardware_hmac_alias"
 
-        val secret = getDeviceSecret(context)
-
-        val mac = Mac.getInstance("HmacSHA256")
-        val keySpec = SecretKeySpec(secret.toByteArray(), "HmacSHA256")
-        mac.init(keySpec)
-
-        val hash = mac.doFinal(data.toByteArray())
-        return Base64.encodeToString(hash, Base64.NO_WRAP)
+            val secretKey: SecretKey = if (keyStore.containsAlias(alias)) {
+                keyStore.getKey(alias, null) as SecretKey
+            } else {
+                val keyGenerator = KeyGenerator.getInstance(KeyProperties.KEY_ALGORITHM_HMAC_SHA256, "AndroidKeyStore")
+                keyGenerator.init(
+                    KeyGenParameterSpec.Builder(alias, KeyProperties.PURPOSE_SIGN).build()
+                )
+                keyGenerator.generateKey()
+            }
+            val mac = Mac.getInstance("HmacSHA256")
+            mac.init(secretKey)
+            Base64.encodeToString(mac.doFinal(data.toByteArray()), Base64.NO_WRAP)
+        } catch (e: Exception) {
+            // 降级方案：如果设备不支持硬件加密，退回到原始的软加密方式
+            val secret = getDeviceSecret(context)
+            val mac = Mac.getInstance("HmacSHA256")
+            val keySpec = SecretKeySpec(secret.toByteArray(Charsets.UTF_8), "HmacSHA256")
+            mac.init(keySpec)
+            Base64.encodeToString(mac.doFinal(data.toByteArray()), Base64.NO_WRAP)
+        }
     }
 
     private fun getDeviceSecret(context: Context): String {
@@ -474,7 +570,7 @@ object HYSJTimeSecurityManager {
         return "VIP_SECRET_${androidId}_${model}_2025"
     }
 
-    // ⭐新增 Hook/Xposed检测
+    // Hook/Xposed检测
     private val HOOK_KEYWORDS = arrayOf(
         "de.robv.android.xposed",
         "lsposed",
@@ -486,11 +582,10 @@ object HYSJTimeSecurityManager {
         "magisk"
     )
 
-    private val hookEnvironment by lazy { detectHookEnvironment() }
+    private val hookEnvironment by lazy { detectHookEnvironment() || isXposedPresent() }
 
-    fun isHookEnvironment(): Boolean {
-        return hookEnvironment || isXposedPresent()
-    }
+    val isHookEnvironment: Boolean
+        get() = hookEnvironment
 
     private fun detectHookEnvironment(): Boolean {
 
@@ -521,7 +616,7 @@ object HYSJTimeSecurityManager {
         }
     }
 
-    // ⭐新增 Debug检测
+    // Debug检测
     fun isDebuggerAttached(): Boolean {
         return android.os.Debug.isDebuggerConnected()
     }
@@ -552,13 +647,18 @@ object HYSJTimeSecurityManager {
      */
     @JvmStatic
     fun clear() {
-        trustedNetworkTime = 0L
-        baseElapsedRealtime = 0L
-        lastSyncElapsedRealtime = 0L
-        cachedExpireTimestamp = 0L
-        savedBootTime = 0L
-        secureNonce = 0L
-        sp?.edit()?.clear()?.apply()
+        synchronized(stateLock) {
+            trustedNetworkTime = 0L
+            baseElapsedRealtime = 0L
+            lastSyncElapsedRealtime = 0L
+            cachedExpireTimestamp = 0L
+            savedBootTime = 0L
+            secureNonce = 0L
+            //防止重新触发首装30分钟豁免
+            firstRunElapsedRealtime = -1L
+            sp?.edit()?.clear()?.apply()
+        }
+
     }
 
     @JvmStatic
@@ -567,7 +667,33 @@ object HYSJTimeSecurityManager {
         context: Context = appContext,
         allowOfflineHours: Long = DEFAULT_OFFLINE_HOURS
     ): TimeSecurityStatus {
-        // ⭐安装30分钟豁免
+
+        //  Hook检测
+        if (isHookEnvironment) {
+            return TimeSecurityStatus(
+                isValid = false,
+                isVipExpired = false,
+                isOfflineExpired = false,
+                isSystemTimeInvalid = true,
+                isNetworkAvailable = isNetworkAvailable(context),
+                offlinePassedHours = 0,
+                offlineRemainMinutes = "0分钟"
+            )
+        }
+
+        //  Debug检测
+        if (isDebuggerAttached()) {
+            return TimeSecurityStatus(
+                isValid = false,
+                isVipExpired = false,
+                isOfflineExpired = false,
+                isSystemTimeInvalid = true,
+                isNetworkAvailable = isNetworkAvailable(context),
+                offlinePassedHours = 0,
+                offlineRemainMinutes = "0分钟"
+            )
+        }
+        // 安装30分钟豁免
         if (isInstallGracePeriod()) {
             sendLog("首次安装的30分钟内")
             return TimeSecurityStatus(
@@ -575,32 +701,6 @@ object HYSJTimeSecurityManager {
                 isVipExpired = false,
                 isOfflineExpired = false,
                 isSystemTimeInvalid = false,
-                isNetworkAvailable = isNetworkAvailable(context),
-                offlinePassedHours = 0,
-                offlineRemainMinutes = "0分钟"
-            )
-        }
-
-        // ⭐新增 Hook检测
-        if (isHookEnvironment()) {
-            return TimeSecurityStatus(
-                isValid = false,
-                isVipExpired = false,
-                isOfflineExpired = false,
-                isSystemTimeInvalid = true,
-                isNetworkAvailable = isNetworkAvailable(context),
-                offlinePassedHours = 0,
-                offlineRemainMinutes = "0分钟"
-            )
-        }
-
-        // ⭐新增 Debug检测
-        if (isDebuggerAttached()) {
-            return TimeSecurityStatus(
-                isValid = false,
-                isVipExpired = false,
-                isOfflineExpired = false,
-                isSystemTimeInvalid = true,
                 isNetworkAvailable = isNetworkAvailable(context),
                 offlinePassedHours = 0,
                 offlineRemainMinutes = "0分钟"
@@ -622,7 +722,33 @@ object HYSJTimeSecurityManager {
             )
         }
 
-        // ⭐ 重启检测
+        // 离线时间过长
+        if (isOfflineExpired(allowOfflineHours)){
+            sendLog("离线时间过长")
+            return TimeSecurityStatus(
+                isValid = false,
+                isVipExpired = false,
+                isOfflineExpired = true,
+                isSystemTimeInvalid = false,
+                isNetworkAvailable = isNetworkAvailable(context),
+                offlinePassedHours = 0,
+                offlineRemainMinutes = "0分钟"
+            )
+        }
+        //  系统时间校验（防回拨）
+        if (!isSystemTimeValid()) {
+            sendLog("设备时间被修改了")
+            return TimeSecurityStatus(
+                isValid = false,
+                isVipExpired = false,
+                isOfflineExpired = false,
+                isSystemTimeInvalid = true,
+                isNetworkAvailable = isNetworkAvailable(context),
+                offlinePassedHours = 0,
+                offlineRemainMinutes = "0分钟"
+            )
+        }
+        // 检测重启绕过
         if (isDeviceRebooted()) {
             sendLog("设备重启了")
             return TimeSecurityStatus(
@@ -644,8 +770,8 @@ object HYSJTimeSecurityManager {
         val offlineExpired = isOfflineExpired(allowOfflineHours)
         val systemInvalid = !isSystemTimeValid(context)
 
-        // 🔥 使用本地签名保护的会员时间
-        val vipExpired = cachedExpireTimestamp <= getTrustedNow(context)
+        // 使用本地签名保护的会员时间
+        val vipExpired = cachedExpireTimestamp <= getTrustedNow()
 
         val finalValid = !offlineExpired && !systemInvalid && !vipExpired
 
@@ -659,21 +785,24 @@ object HYSJTimeSecurityManager {
             offlineRemainMinutes = offlineRemain
         )
     }
+    //配合前面的 formatterMap，添加同步锁，保证线程安全
     @JvmStatic
-    @JvmOverloads
-    fun createFormatter(patt: String = "yyyy-MM-dd HH:mm:ss") =
-        SimpleDateFormat(patt, Locale.getDefault()).apply {
-            isLenient = true
+    @Synchronized
+    private fun getFormatter(patt: String): SimpleDateFormat {
+        return formatterMap.getOrPut(patt) {
+            SimpleDateFormat(patt, Locale.ROOT).apply { isLenient = true }
         }
-    @JvmStatic
-    @JvmOverloads
-    fun parseTimeStringToMillis(timeStr: String,patt: String = "yyyy-MM-dd HH:mm:ss"): Long =
-        runCatching { createFormatter(patt).parse(timeStr)?.time ?: 0L }.getOrDefault(0L)
-    @JvmStatic
-    @JvmOverloads
-    fun parseMillisToTimeString(timeMillis: Long,patt: String = "yyyy-MM-dd HH:mm:ss"): String =
-        runCatching { createFormatter(patt).format(Date(timeMillis)) }.getOrDefault("")
+    }
 
+    @JvmStatic
+    @JvmOverloads
+    fun parseTimeStringToMillis(timeStr: String, patt: String = "yyyy-MM-dd HH:mm:ss"): Long =
+        runCatching { getFormatter(patt).parse(timeStr)?.time ?: 0L }.getOrDefault(0L)
+
+    @JvmStatic
+    @JvmOverloads
+    fun parseMillisToTimeString(timeMillis: Long, patt: String = "yyyy-MM-dd HH:mm:ss"): String =
+        runCatching { getFormatter(patt).format(Date(timeMillis)) }.getOrDefault("")
 
 }
 
