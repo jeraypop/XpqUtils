@@ -99,19 +99,19 @@ object NetworkHelperFullSmart {
             val result = NetworkHelperFullSmart.checkNetworkAndGetTimeSmart()
             when (result.status) {
                 NetStatus.NETWORK_NO_PERMISSION -> {
-                    sendLog("清单文件中没有添加网络权限")
+                    sendLog("网络异常: 清单文件中没有添加网络权限")
                 }
                 NetStatus.NETWORK_UNAVAILABLE -> {
-                    sendLog("网络不可用：请检查WiFi或移动数据开关是否开启")
+                    sendLog("网络异常: 请检查WiFi或移动数据开关是否开启")
                 }
                 NetStatus.MAYBE_BLOCKED_BY_FIREWALL -> {
-                    sendLog("网络可能被防火墙阻止,或者被管家类App禁止联网")
+                    sendLog("网络异常: 可能被防火墙阻止,或者被管家类App禁止联网")
                 }
                 NetStatus.SERVER_OR_DNS_ERROR -> {
-                    sendLog("服务器或DNS异常：可能是目标网站维护或DNS解析问题")
+                    sendLog("网络异常: 可能是目标网站维护或DNS解析问题")
                 }
                 NetStatus.INTERNET_OK -> {
-                    sendLog("网络连接正常")
+                    //sendLog("网络正常: ")
                     if (result.timestamp != null){
                         //只要成功获取到网络时间：就更新可信时间基准
                         HYSJTimeSecurityManager.updateTrustedTime(
