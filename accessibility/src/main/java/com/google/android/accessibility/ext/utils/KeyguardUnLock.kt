@@ -813,6 +813,23 @@ object KeyguardUnLock {
         }, 60_000L)
 
     }
+    @JvmOverloads
+    @JvmStatic
+    fun wakeCPU(context: Context = appContext) {
+
+        if (mPowerManager == null) {
+            mPowerManager = context.getSystemService(Context.POWER_SERVICE) as PowerManager
+        }
+        val wl = mPowerManager!!.newWakeLock(
+            PowerManager.PARTIAL_WAKE_LOCK,
+            "${context.packageName}:wakecpu"
+        ).apply {
+            setReferenceCounted(false)
+        }
+        //自动释放
+        wl.acquire(30_000L)
+
+    }
     public var mKeyguardManager: KeyguardManager? = null
     // 1. 使用静态变量持有锁对象的引用
     private var mKeyguardLock: KeyguardManager.KeyguardLock? = null
