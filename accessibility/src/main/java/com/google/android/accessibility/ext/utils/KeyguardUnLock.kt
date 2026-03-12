@@ -888,18 +888,18 @@ object KeyguardUnLock {
         }
     }
 
-    private var lastTrigger = 0L
 
+    private val lastTrigger = LongArray(10)
+    @JvmOverloads
     @JvmStatic
-    @Synchronized
-    fun allowTrigger(intervalMillis: Long = 30_000L): Boolean {
+    fun allowTrigger(timerId: Int, intervalMillis: Long = 180_000L): Boolean {
         val now = System.currentTimeMillis()
-        if (now - lastTrigger < intervalMillis) return false
-        lastTrigger = now
+
+        if (now - lastTrigger[timerId] < intervalMillis) return false
+
+        lastTrigger[timerId] = now
         return true
     }
-
-
 
 
     private var mPowerManager: PowerManager? = null
