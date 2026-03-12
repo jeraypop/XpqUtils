@@ -121,6 +121,9 @@
             </intent-filter>
         </receiver>
         <receiver
+            android:name="com.google.android.accessibility.baoshi.TimeReportReceiver"
+            android:exported="false"/>
+        <receiver
             android:name="com.google.android.accessibility.receiver.XpqBootReceiver"
             android:enabled="true"
             android:exported="true">

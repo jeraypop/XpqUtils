@@ -3,6 +3,7 @@ package com.google.android.accessibility.receiver
 import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
+import com.google.android.accessibility.baoshi.TimeReportScheduler
 import com.google.android.accessibility.ext.utils.AliveUtils
 
 /**
@@ -39,7 +40,8 @@ class XpqBootReceiver : BroadcastReceiver() {
                 if (AliveUtils.getKeepAliveByNotification()){
                     AliveUtils.startFGAlive(enable = true)
                 }
-
+                 //报时
+                //TimeReportScheduler.schedule(context)
 
             }
 

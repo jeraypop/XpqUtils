@@ -651,7 +651,7 @@ object KeyguardUnLock {
     const val SET_ALARM_ACTION_XPQ = "SET_ALARM_ACTION_XPQ"
     const val ALARM_ID = "ALARM_ID"
     @SuppressLint("MissingPermission")
-    @JvmStatic
+/*    @JvmStatic
     @JvmOverloads
     fun setSendAlarm(triggerTimeMillis: Long,
                          alarm_id: Int = 0,
@@ -751,7 +751,155 @@ object KeyguardUnLock {
         } else {
             setAlarmTask(isAlarmClock)
         }
+    }*/
+
+    const val ADVANCE_OFFSET = 20_000  // 提前20秒防ROM延迟
+
+    @JvmOverloads
+    @JvmStatic
+    fun setSendAlarm(
+        triggerTimeMillis: Long,
+        alarm_id: Int = 0,
+        actionAlarm: String = SET_ALARM_ACTION_XPQ,
+        isAlarmClock: Boolean = true,
+        isForgroundService: Boolean = false,
+        alarmReceiver: Class<*>? = null,
+        alarmService: Class<*>? = null,
+        activity: Class<*>? = AliveActivity::class.java
+    ) {
+        val context = appContext ?: return
+        val alarmManager = context.getSystemService(Context.ALARM_SERVICE) as AlarmManager
+
+        // Android12+ exact alarm 权限检查
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S &&
+            !alarmManager.canScheduleExactAlarms()
+        ) return
+
+        fun setAlarm(trigger: Long, id: Int) {
+            val alarmPI = buildPendingIntent(
+                context,
+                id,
+                actionAlarm,
+                isForgroundService,
+                alarmReceiver,
+                alarmService
+            ) ?: return
+
+            if (isAlarmClock && activity != null) {
+                val infoIntent = Intent(context, activity).apply {
+                    action = actionAlarm
+                    putExtra(ALARM_ID, id)
+                }
+                val infoPI = PendingIntent.getActivity(
+                    context,
+                    id,
+                    infoIntent,
+                    PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+                )
+                val alarmClockInfo = AlarmManager.AlarmClockInfo(trigger, infoPI)
+                alarmManager.setAlarmClock(alarmClockInfo, alarmPI)
+            } else {
+                alarmManager.setExactAndAllowWhileIdle(
+                    AlarmManager.RTC_WAKEUP,
+                    trigger,
+                    alarmPI
+                )
+            }
+        }
+
+        // 提前闹钟
+        //setAlarm(triggerTimeMillis - ADVANCE_OFFSET, alarm_id + 100_000)
+
+        // 正常闹钟
+        setAlarm(triggerTimeMillis, alarm_id)
     }
+
+    @JvmStatic
+    @JvmOverloads
+    fun cancelSendAlarm(
+        alarm_id: Int,
+        actionAlarm: String = SET_ALARM_ACTION_XPQ,
+        alarmReceiver: Class<*>? = null,
+        alarmService: Class<*>? = null,
+        isForgroundService: Boolean = false
+    ) {
+        val context = appContext ?: return
+        val alarmManager = context.getSystemService(Context.ALARM_SERVICE) as AlarmManager
+
+        fun cancelAlarm(id: Int) {
+            val pi = buildPendingIntent(
+                context,
+                id,
+                actionAlarm,
+                isForgroundService,
+                alarmReceiver,
+                alarmService
+            )
+            pi?.let { alarmManager.cancel(it) }
+        }
+
+        // 同时取消提前和正常闹钟
+        cancelAlarm(alarm_id)
+        //cancelAlarm(alarm_id + 100_000)
+    }
+
+    private fun buildPendingIntent(
+        context: Context,
+        alarmId: Int,
+        action: String,
+        isForeground: Boolean,
+        receiver: Class<*>?,
+        service: Class<*>?
+    ): PendingIntent? {
+        val intent = Intent().apply {
+            setPackage(context.packageName)
+            this.action = action
+            putExtra(ALARM_ID, alarmId)
+        }
+        return when {
+            receiver != null -> {
+                intent.setClass(context, receiver)
+                PendingIntent.getBroadcast(
+                    context,
+                    alarmId,
+                    intent,
+                    PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+                )
+            }
+            service != null -> {
+                intent.setClass(context, service)
+                if (isForeground && Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                    PendingIntent.getForegroundService(
+                        context,
+                        alarmId,
+                        intent,
+                        PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+                    )
+                } else {
+                    PendingIntent.getService(
+                        context,
+                        alarmId,
+                        intent,
+                        PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+                    )
+                }
+            }
+            else -> null
+        }
+    }
+
+    private var lastTrigger = 0L
+
+    @JvmStatic
+    @Synchronized
+    fun allowTrigger(intervalMillis: Long = 30_000L): Boolean {
+        val now = System.currentTimeMillis()
+        if (now - lastTrigger < intervalMillis) return false
+        lastTrigger = now
+        return true
+    }
+
+
 
 
     private var mPowerManager: PowerManager? = null

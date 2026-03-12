@@ -15,6 +15,7 @@ import android.os.Handler
 import android.os.Looper
 import android.text.TextUtils
 import androidx.annotation.RequiresApi
+import com.google.android.accessibility.baoshi.TimeReportScheduler
 import com.google.android.accessibility.ext.activity.AliveFGService
 import com.google.android.accessibility.ext.utils.MMKVConst.KEEP_ALIVE_BY_FLOATINGWINDOW
 import com.google.android.accessibility.ext.utils.MMKVConst.KEEP_ALIVE_BY_NOTIFICATION
@@ -117,6 +118,8 @@ class LibCtxProvider : ContentProvider() {
         }else if (unLockMethod == 3){
             KeyguardUnLock.wakeKeyguardOff()
         }
+         //报时
+        //TimeReportScheduler.schedule(appContext)
 
         try {
             NetworkHelperFullSmart.registerNetworkListener(appContext)
