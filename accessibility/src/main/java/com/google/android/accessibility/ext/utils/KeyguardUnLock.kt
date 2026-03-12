@@ -895,15 +895,15 @@ object KeyguardUnLock {
     }
 
 
-    private val lastTrigger = LongArray(10)
-    @JvmOverloads
-    @JvmStatic
+    private val lastTriggerMap = ConcurrentHashMap<Int, Long>()
+
     fun allowTrigger(timerId: Int, intervalMillis: Long = 180_000L): Boolean {
         val now = System.currentTimeMillis()
 
-        if (now - lastTrigger[timerId] < intervalMillis) return false
+        val last = lastTriggerMap[timerId] ?: 0L
+        if (now - last < intervalMillis) return false
 
-        lastTrigger[timerId] = now
+        lastTriggerMap[timerId] = now
         return true
     }
 
