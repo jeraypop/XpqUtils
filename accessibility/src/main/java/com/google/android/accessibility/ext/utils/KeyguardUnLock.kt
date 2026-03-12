@@ -51,6 +51,7 @@ import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
 import kotlinx.coroutines.withTimeoutOrNull
 import java.util.Locale
+import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.atomic.AtomicBoolean
 import kotlin.coroutines.resume
 import kotlin.math.abs
@@ -650,6 +651,7 @@ object KeyguardUnLock {
     * */
     const val SET_ALARM_ACTION_XPQ = "SET_ALARM_ACTION_XPQ"
     const val ALARM_ID = "ALARM_ID"
+    const val ALARM_TOKEN = "ALARM_TOKEN"
     @SuppressLint("MissingPermission")
 /*    @JvmStatic
     @JvmOverloads
@@ -842,7 +844,8 @@ object KeyguardUnLock {
         cancelAlarm(alarm_id)
         //cancelAlarm(alarm_id + 100_000)
     }
-
+    @JvmField
+    val lastTokenMap = ConcurrentHashMap<Int, Long>()
     private fun buildPendingIntent(
         context: Context,
         alarmId: Int,
@@ -851,10 +854,13 @@ object KeyguardUnLock {
         receiver: Class<*>?,
         service: Class<*>?
     ): PendingIntent? {
+        val token = System.currentTimeMillis()
+        lastTokenMap[alarmId] = token
         val intent = Intent().apply {
             setPackage(context.packageName)
             this.action = action
             putExtra(ALARM_ID, alarmId)
+            putExtra(ALARM_TOKEN, token)
         }
         return when {
             receiver != null -> {
