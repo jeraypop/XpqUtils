@@ -779,6 +779,7 @@ object KeyguardUnLock {
 
         fun setAlarm(trigger: Long, id: Int) {
             val alarmPI = buildPendingIntent(
+                triggerTimeMillis,
                 context,
                 id,
                 actionAlarm,
@@ -830,6 +831,7 @@ object KeyguardUnLock {
 
         fun cancelAlarm(id: Int) {
             val pi = buildPendingIntent(
+                0L,
                 context,
                 id,
                 actionAlarm,
@@ -847,6 +849,7 @@ object KeyguardUnLock {
     @JvmField
     val lastTokenMap = ConcurrentHashMap<Int, Long>()
     private fun buildPendingIntent(
+        triggerTimeMillis: Long = 0L,
         context: Context,
         alarmId: Int,
         action: String,
@@ -854,7 +857,8 @@ object KeyguardUnLock {
         receiver: Class<*>?,
         service: Class<*>?
     ): PendingIntent? {
-        val token = System.currentTimeMillis()
+
+        val token = triggerTimeMillis
         lastTokenMap[alarmId] = token
         val intent = Intent().apply {
             setPackage(context.packageName)
