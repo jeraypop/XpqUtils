@@ -546,66 +546,59 @@ object KeyguardUnLock {
         return findLockView(nodeInfo) ?: getLockID()
     }
 
-    private fun findLockViewOld(nodeInfo: AccessibilityNodeInfo): String? {
-        val className = nodeInfo.className?.toString() ?: ""
-        val className_lower = className.lowercase()
-        val viewIdName = nodeInfo.viewIdResourceName ?: ""
-        val viewIdName_lower = viewIdName.lowercase()
-
-        // 检查是否为目标TextView节点
-        if (
-            (
-                    className_lower.contains("text")
-                            ||className_lower.contains("button")
-                            ||className_lower.contains("chip")
-                    )&&
-            viewIdName_lower.contains("id")&&
-            (
-                    viewIdName_lower.contains("digittext")
-                            ||viewIdName_lower.contains("digit_text")
-                    )
-        ) {
-            sendLog("本次查询到解锁界面节点id= "+viewIdName)
-            return viewIdName
-        }
-
-        // 递归遍历子节点
-        for (i in 0 until nodeInfo.childCount) {
-            nodeInfo.getChild(i)?.let { childNode ->
-                val result = findLockViewOld(childNode)
-                if (result != null) {
-                    return result
-                }
-            }
-        }
-
-        return null
-    }
-
     private fun findLockView(root: AccessibilityNodeInfo?): String? {
+
         if (root == null) return null
 
-        val stack = ArrayDeque<AccessibilityNodeInfo>()
-        stack.add(root)
+        val queue: ArrayDeque<AccessibilityNodeInfo> = ArrayDeque()
+        val visited = HashSet<Int>()
 
-        while (stack.isNotEmpty()) {
-            val node = stack.removeLast()
+        queue.add(root)
+
+        while (queue.isNotEmpty()) {
+
+            val node = queue.removeFirst()
+
+            val hash = node.hashCode()
+            if (!visited.add(hash)) continue
+
+            if (visited.size > 500) break
 
             val className = node.className?.toString() ?: ""
-            val viewIdName = node.viewIdResourceName ?: ""
+            val classNameLower = className.lowercase()
 
-            if (isTargetNode(className, viewIdName)) {
+            val viewIdName = node.viewIdResourceName ?: ""
+            val viewIdNameLower = viewIdName.lowercase()
+
+            if (
+                (
+                        classNameLower.contains("text") ||
+                                classNameLower.contains("button") ||
+                                classNameLower.contains("chip")
+                        ) &&
+                viewIdNameLower.contains("id") &&
+                (
+                        viewIdNameLower.contains("digittext") ||
+                                viewIdNameLower.contains("digit_text")
+                        )
+            ) {
                 sendLog("本次查询到解锁界面节点id= $viewIdName")
                 return viewIdName
             }
 
-            for (i in 0 until node.childCount) {
-                node.getChild(i)?.let { stack.add(it) }
+            val count = node.childCount
+
+            for (i in 0 until count) {
+                val child = node.getChild(i) ?: continue
+                if (child === node) continue
+                queue.add(child)
             }
         }
 
         return null
     }
+
+
 
     private fun isTargetNode(className: String, viewId: String): Boolean {
 
@@ -986,6 +979,11 @@ object KeyguardUnLock {
         }
         //自动释放
         wl.acquire(30_000L)
+        Handler(Looper.getMainLooper()).postDelayed({
+
+            if (wl.isHeld) wl.release()
+
+        }, 30_000)
 
     }
     public var mKeyguardManager: KeyguardManager? = null
