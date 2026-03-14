@@ -192,46 +192,7 @@ object HYSJTimeSecurityManager {
         context: Context = appContext,
         allowOfflineHours: Long = DEFAULT_OFFLINE_HOURS
     ): Boolean {
-        // Hook 检测
-        if (isHookEnvironment) {
-            sendLog("检测到Hook环境")
-            return false
-        }
-
-        // Debug 检测
-        if (isDebuggerAttached()) {
-            sendLog("检测到调试器")
-            return false
-        }
-
-        // 安装30分钟豁免
-        if (isInstallGracePeriod()) {
-            sendLog("首次安装的30分钟内")
-            return true
-        }
-
-        //  SP校验
-        if (!verifySp(context)) {
-            clear()
-            sendLog("sp被人为修改了")
-            return false
-        }
-
-        // 快速路径：系统判断无网络
-        if (isOfflineExpired(allowOfflineHours)) return false
-        //  系统时间校验（防回拨）
-        if (!isSystemTimeValid()) {
-            sendLog("设备时间被修改了")
-            return false
-        }
-        // 检测重启绕过
-        if (isDeviceRebooted()) {
-            sendLog("设备重启了")
-            return false
-        }
-
-        // 5️⃣ 判断是否过期
-        return cachedExpireTimestamp  > getTrustedNow()
+        return checkTimeSecurityStatus(context, allowOfflineHours).isValid
     }
 
     /**
@@ -332,7 +293,7 @@ object HYSJTimeSecurityManager {
     fun isOfflineExpired(
         allowOfflineHours: Long = DEFAULT_OFFLINE_HOURS
     ): Boolean {
-
+        if (isDeviceRebooted()) return true
         if (trustedNetworkTime == 0L) {
             // 从未同步过时间，直接视为超时
             return true
@@ -350,6 +311,7 @@ object HYSJTimeSecurityManager {
      */
     @JvmStatic
     fun getOfflinePassedMillis(): Long {
+        if (isDeviceRebooted()) return Long.MAX_VALUE
 
         if (trustedNetworkTime == 0L || lastSyncElapsedRealtime == 0L) {
             return Long.MAX_VALUE
@@ -371,6 +333,7 @@ object HYSJTimeSecurityManager {
      */
     @JvmStatic
     fun getOfflinePassedHours(): Long {
+        // 设备重启或者未同步过网络时间 → 最大值
         if (isDeviceRebooted()) return Long.MAX_VALUE
         if (trustedNetworkTime == 0L || lastSyncElapsedRealtime == 0L) {
             // 从未同步过网络时间
@@ -421,7 +384,7 @@ object HYSJTimeSecurityManager {
     fun getOfflineRemainTimeText(limitHours: Long = DEFAULT_OFFLINE_HOURS): String {
         // 设备重启直接返回0
         if (isDeviceRebooted()) return "0分钟"
-        if (trustedNetworkTime == 0L) return "未同步"
+        if (trustedNetworkTime == 0L) return "App未联网"
         val lastSync = lastSyncElapsedRealtime
         if (lastSync == 0L || limitHours <= 0) return "0分钟"
 
@@ -661,23 +624,25 @@ object HYSJTimeSecurityManager {
 
     }
 
+
+
     @JvmStatic
     @JvmOverloads
     fun checkTimeSecurityStatus(
         context: Context = appContext,
         allowOfflineHours: Long = DEFAULT_OFFLINE_HOURS
     ): TimeSecurityStatus {
-
+        val networkAvailable = isNetworkAvailable(context)
+        val offlinePassed = getOfflinePassedHours()  //保持 Long.MAX_VALUE 在设备重启或未同步时
+        val offlineRemain = getOfflineRemainTimeText(allowOfflineHours)
         //  Hook检测
         if (isHookEnvironment) {
             return TimeSecurityStatus(
                 isValid = false,
-                isVipExpired = false,
-                isOfflineExpired = false,
-                isSystemTimeInvalid = true,
-                isNetworkAvailable = isNetworkAvailable(context),
-                offlinePassedHours = 0,
-                offlineRemainMinutes = "0分钟"
+                reason =  TimeSecurityReason.HOOK_DETECTED,
+                isNetworkAvailable = networkAvailable,
+                offlinePassedHours = offlinePassed,
+                offlineRemainMinutes = offlineRemain
             )
         }
 
@@ -685,27 +650,13 @@ object HYSJTimeSecurityManager {
         if (isDebuggerAttached()) {
             return TimeSecurityStatus(
                 isValid = false,
-                isVipExpired = false,
-                isOfflineExpired = false,
-                isSystemTimeInvalid = true,
-                isNetworkAvailable = isNetworkAvailable(context),
-                offlinePassedHours = 0,
-                offlineRemainMinutes = "0分钟"
+                reason =  TimeSecurityReason.DEBUGGER_DETECTED,
+                isNetworkAvailable = networkAvailable,
+                offlinePassedHours = offlinePassed,
+                offlineRemainMinutes = offlineRemain
             )
         }
-        // 安装30分钟豁免
-        if (isInstallGracePeriod()) {
-            sendLog("首次安装的30分钟内")
-            return TimeSecurityStatus(
-                isValid = true,
-                isVipExpired = false,
-                isOfflineExpired = false,
-                isSystemTimeInvalid = false,
-                isNetworkAvailable = isNetworkAvailable(context),
-                offlinePassedHours = 0,
-                offlineRemainMinutes = "0分钟"
-            )
-        }
+
 
         // 1️⃣ SP签名校验
         if (!verifySp(context)) {
@@ -713,26 +664,56 @@ object HYSJTimeSecurityManager {
             sendLog("sp被人为修改了")
             return TimeSecurityStatus(
                 isValid = false,
-                isVipExpired = true,
-                isOfflineExpired = true,
-                isSystemTimeInvalid = true,
-                isNetworkAvailable = isNetworkAvailable(context),
-                offlinePassedHours = 0,
-                offlineRemainMinutes = "0分钟"
+                reason =  TimeSecurityReason.SP_TAMPERED,
+                isNetworkAvailable = networkAvailable,
+                offlinePassedHours = offlinePassed,
+                offlineRemainMinutes = offlineRemain
+            )
+        }
+        // 安装30分钟豁免
+        if (isInstallGracePeriod()) {
+            sendLog("首次安装的30分钟内")
+            return TimeSecurityStatus(
+                isValid = true,
+                reason =  TimeSecurityReason.OK,
+                isNetworkAvailable = networkAvailable,
+                offlinePassedHours = offlinePassed,
+                offlineRemainMinutes = offlineRemain
             )
         }
 
+        // 检测重启绕过
+        if (isDeviceRebooted()) {
+            sendLog("设备重启了")
+            return TimeSecurityStatus(
+                isValid = false,
+                reason =  TimeSecurityReason.DEVICE_REBOOTED,
+                isNetworkAvailable = networkAvailable,
+                offlinePassedHours = offlinePassed,
+                offlineRemainMinutes = offlineRemain
+            )
+        }
+
+        // 未同步网络时间
+        if (trustedNetworkTime == 0L) {
+            return TimeSecurityStatus(
+                isValid = false,
+                reason =  TimeSecurityReason.NETWORK_NOT_SYNCED,
+                isNetworkAvailable = networkAvailable,
+                offlinePassedHours = offlinePassed,
+                offlineRemainMinutes = offlineRemain
+            )
+        }
+        
         // 离线时间过长
         if (isOfflineExpired(allowOfflineHours)){
             sendLog("离线时间过长")
             return TimeSecurityStatus(
                 isValid = false,
-                isVipExpired = false,
-                isOfflineExpired = true,
-                isSystemTimeInvalid = false,
-                isNetworkAvailable = isNetworkAvailable(context),
-                offlinePassedHours = 0,
-                offlineRemainMinutes = "0分钟"
+                reason =  TimeSecurityReason.OFFLINE_EXPIRED,
+                isNetworkAvailable = networkAvailable,
+                offlinePassedHours = offlinePassed,
+                offlineRemainMinutes = offlineRemain
             )
         }
         //  系统时间校验（防回拨）
@@ -740,50 +721,34 @@ object HYSJTimeSecurityManager {
             sendLog("设备时间被修改了")
             return TimeSecurityStatus(
                 isValid = false,
-                isVipExpired = false,
-                isOfflineExpired = false,
-                isSystemTimeInvalid = true,
-                isNetworkAvailable = isNetworkAvailable(context),
-                offlinePassedHours = 0,
-                offlineRemainMinutes = "0分钟"
+                reason =  TimeSecurityReason.SYSTEM_TIME_INVALID,
+                isNetworkAvailable = networkAvailable,
+                offlinePassedHours = offlinePassed,
+                offlineRemainMinutes = offlineRemain
             )
         }
-        // 检测重启绕过
-        if (isDeviceRebooted()) {
-            sendLog("设备重启了")
+
+        // VIP过期
+        if (cachedExpireTimestamp <= getTrustedNow()) {
             return TimeSecurityStatus(
                 isValid = false,
-                isVipExpired = false,
-                isOfflineExpired = true,
-                isSystemTimeInvalid = false,
-                isNetworkAvailable = isNetworkAvailable(context),
-                offlinePassedHours = 0,
-                offlineRemainMinutes = "0分钟"
+                reason =  TimeSecurityReason.VIP_EXPIRED,
+                isNetworkAvailable = networkAvailable,
+                offlinePassedHours = offlinePassed,
+                offlineRemainMinutes = offlineRemain
             )
         }
 
-        val networkAvailable = isNetworkAvailable(context)
 
-        val offlinePassed = getOfflinePassedHours()
-        val offlineRemain = getOfflineRemainTimeText(allowOfflineHours)
-
-        val offlineExpired = isOfflineExpired(allowOfflineHours)
-        val systemInvalid = !isSystemTimeValid(context)
-
-        // 使用本地签名保护的会员时间
-        val vipExpired = cachedExpireTimestamp <= getTrustedNow()
-
-        val finalValid = !offlineExpired && !systemInvalid && !vipExpired
-
+        // 正常
         return TimeSecurityStatus(
-            isValid = finalValid,
-            isVipExpired = vipExpired,
-            isOfflineExpired = offlineExpired,
-            isSystemTimeInvalid = systemInvalid,
+            isValid = true,
+            reason =  TimeSecurityReason.OK,
             isNetworkAvailable = networkAvailable,
             offlinePassedHours = offlinePassed,
             offlineRemainMinutes = offlineRemain
         )
+
     }
     //配合前面的 formatterMap，添加同步锁，保证线程安全
     @JvmStatic
@@ -806,6 +771,29 @@ object HYSJTimeSecurityManager {
 
 }
 
+// 失败原因枚举
+enum class TimeSecurityReason {
+   // 正常
+    OK,
+    // 会员过期
+    VIP_EXPIRED,
+    //超过离线限制
+    OFFLINE_EXPIRED,
+
+    //系统时间异常（回拨 / 快进）
+    SYSTEM_TIME_INVALID,
+    //设备重启
+    DEVICE_REBOOTED,
+    //网络时间未同步
+    NETWORK_NOT_SYNCED,
+    //sp被修改
+    SP_TAMPERED,
+    //hook检测
+    HOOK_DETECTED,
+    //debug检测
+    DEBUGGER_DETECTED
+}
+
 /**
  * 时间安全统一状态模型
  */
@@ -814,14 +802,9 @@ data class TimeSecurityStatus(
     // 是否通过所有安全校验
     val isValid: Boolean,
 
-    // 是否会员过期
-    val isVipExpired: Boolean,
+    //失败原因
+    val reason: TimeSecurityReason,
 
-    // 是否超过离线限制
-    val isOfflineExpired: Boolean,
-
-    // 是否系统时间异常（回拨 / 快进）
-    val isSystemTimeInvalid: Boolean,
     //网络是否可用 不参与安全校验
     val isNetworkAvailable: Boolean,
 
