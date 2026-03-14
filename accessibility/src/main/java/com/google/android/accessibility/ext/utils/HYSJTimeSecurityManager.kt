@@ -635,7 +635,7 @@ object HYSJTimeSecurityManager {
         val networkAvailable = isNetworkAvailable(context)
         val offlinePassed = getOfflinePassedHours()  //保持 Long.MAX_VALUE 在设备重启或未同步时
         val offlineRemain = getOfflineRemainTimeText(allowOfflineHours)
-        //  Hook检测
+        //  1️⃣ Hook检测
         if (isHookEnvironment) {
             sendLog("App被hook")
             return TimeSecurityStatus(
@@ -647,7 +647,7 @@ object HYSJTimeSecurityManager {
             )
         }
 
-        //  Debug检测
+        //  2️⃣ Debug检测
         if (isDebuggerAttached()) {
             sendLog("App被debug")
             return TimeSecurityStatus(
@@ -660,7 +660,7 @@ object HYSJTimeSecurityManager {
         }
 
 
-        // 1️⃣ SP签名校验
+        // 13️⃣ SP篡改检测
         if (!verifySp(context)) {
             clear()
             sendLog("sp被修改了")
@@ -684,7 +684,7 @@ object HYSJTimeSecurityManager {
             )
         }
 
-        // 检测重启绕过
+        // 4️⃣ 设备重启
         if (isDeviceRebooted()) {
             sendLog("设备重启了,待联网后恢复")
             return TimeSecurityStatus(
@@ -719,7 +719,7 @@ object HYSJTimeSecurityManager {
                 offlineRemainMinutes = offlineRemain
             )
         }
-        //  系统时间校验（防回拨）
+        //  系统时间被修改（防回拨）
         if (!isSystemTimeValid()) {
             sendLog("设备时间被修改了")
             return TimeSecurityStatus(
@@ -730,10 +730,21 @@ object HYSJTimeSecurityManager {
                 offlineRemainMinutes = offlineRemain
             )
         }
+        // 未同步会员时间
+        if (cachedExpireTimestamp <= 0L) {
+            sendLog("App当前是免费版(未更新)")
+            return TimeSecurityStatus(
+                isValid = false,
+                reason = TimeSecurityReason.VIP_TIME_NOT_SYNCED,
+                isNetworkAvailable = networkAvailable,
+                offlinePassedHours = offlinePassed,
+                offlineRemainMinutes = offlineRemain
+            )
+        }
 
-        // VIP过期
+        // VIP过期   会员真的过期
         if (cachedExpireTimestamp <= getTrustedNow()) {
-            sendLog("App当前是免费版")
+            sendLog("App当前是免费版(已过期)")
             return TimeSecurityStatus(
                 isValid = false,
                 reason =  TimeSecurityReason.VIP_EXPIRED,
@@ -779,6 +790,8 @@ object HYSJTimeSecurityManager {
 enum class TimeSecurityReason {
    // 正常
     OK,
+   //会员时间未同步
+    VIP_TIME_NOT_SYNCED,
     // 会员过期
     VIP_EXPIRED,
     //超过离线限制
