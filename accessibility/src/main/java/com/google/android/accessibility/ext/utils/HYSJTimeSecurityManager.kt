@@ -637,6 +637,7 @@ object HYSJTimeSecurityManager {
         val offlineRemain = getOfflineRemainTimeText(allowOfflineHours)
         //  Hook检测
         if (isHookEnvironment) {
+            sendLog("App被hook")
             return TimeSecurityStatus(
                 isValid = false,
                 reason =  TimeSecurityReason.HOOK_DETECTED,
@@ -648,6 +649,7 @@ object HYSJTimeSecurityManager {
 
         //  Debug检测
         if (isDebuggerAttached()) {
+            sendLog("App被debug")
             return TimeSecurityStatus(
                 isValid = false,
                 reason =  TimeSecurityReason.DEBUGGER_DETECTED,
@@ -661,7 +663,7 @@ object HYSJTimeSecurityManager {
         // 1️⃣ SP签名校验
         if (!verifySp(context)) {
             clear()
-            sendLog("sp被人为修改了")
+            sendLog("sp被修改了")
             return TimeSecurityStatus(
                 isValid = false,
                 reason =  TimeSecurityReason.SP_TAMPERED,
@@ -684,7 +686,7 @@ object HYSJTimeSecurityManager {
 
         // 检测重启绕过
         if (isDeviceRebooted()) {
-            sendLog("设备重启了")
+            sendLog("设备重启了,待联网后恢复")
             return TimeSecurityStatus(
                 isValid = false,
                 reason =  TimeSecurityReason.DEVICE_REBOOTED,
@@ -696,6 +698,7 @@ object HYSJTimeSecurityManager {
 
         // 未同步网络时间
         if (trustedNetworkTime == 0L) {
+            sendLog("App还未联网")
             return TimeSecurityStatus(
                 isValid = false,
                 reason =  TimeSecurityReason.NETWORK_NOT_SYNCED,
@@ -707,7 +710,7 @@ object HYSJTimeSecurityManager {
         
         // 离线时间过长
         if (isOfflineExpired(allowOfflineHours)){
-            sendLog("离线时间过长")
+            sendLog("App离线时间过长")
             return TimeSecurityStatus(
                 isValid = false,
                 reason =  TimeSecurityReason.OFFLINE_EXPIRED,
@@ -730,6 +733,7 @@ object HYSJTimeSecurityManager {
 
         // VIP过期
         if (cachedExpireTimestamp <= getTrustedNow()) {
+            sendLog("App当前是免费版")
             return TimeSecurityStatus(
                 isValid = false,
                 reason =  TimeSecurityReason.VIP_EXPIRED,
