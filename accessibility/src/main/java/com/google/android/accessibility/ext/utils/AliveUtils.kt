@@ -1197,66 +1197,75 @@ object AliveUtils {
     @JvmStatic
     fun piSend(pendingIntent: PendingIntent?) {
         if (pendingIntent == null) return
+        // 检查当前是否在主线程
+        if (Looper.myLooper() == Looper.getMainLooper()) {
+            // 已经在主线程，直接执行启动逻辑
+            val intentSender = pendingIntent.intentSender
+            // 统一定义旧版回退逻辑
+            fun oldPiSend() {
+                try {
+                    pendingIntent.send()
+                } catch (e: Exception) {
+                    Log.e("piSend", "Fallback send failed", e)
+                }
+            }
 
-        val intentSender = pendingIntent.intentSender
+            // 1. 如果无法获取 IntentSender 或版本低于 31，直接走旧逻辑
+            // 特别说明：API 31/32 官方没有暴露显式的后台启动控制 API
+            if (intentSender == null || Build.VERSION.SDK_INT < 33) {
+                oldPiSend()
+                return
+            }
 
-        // 统一定义旧版回退逻辑
-        fun oldPiSend() {
+            // 2. 构建 ActivityOptions Bundle
+            val optionsBundle: Bundle? = try {
+                val options = ActivityOptions.makeBasic()
+                when {
+                    // Android 14+ (API 34)
+                    Build.VERSION.SDK_INT >= 34 -> {
+                        // 如果你担心华为/鸿蒙某些机型混淆了 API，可以在这里局部使用反射
+                        // 否则直接调用即可
+                        options.setPendingIntentBackgroundActivityStartMode(
+                            ActivityOptions.MODE_BACKGROUND_ACTIVITY_START_ALLOW_ALWAYS
+                        )
+                        options.toBundle()
+                    }
+                    // Android 13 (API 33)
+                    Build.VERSION.SDK_INT == 33 -> {
+                        options.setPendingIntentBackgroundActivityLaunchAllowed(true)
+                        options.toBundle()
+                    }
+                    else -> null
+                }
+            } catch (e: Throwable) {
+                // 捕捉包括 NoSuchMethodError 在内的所有异常，确保健壮性
+                Log.w("piSend", "Failed to set background start options", e)
+                null
+            }
+
+            // 3. 执行启动
             try {
-                pendingIntent.send()
+                val newTaskFlag = Intent.FLAG_ACTIVITY_NEW_TASK
+                appContext.startIntentSender(
+                    intentSender,
+                    null,
+                    newTaskFlag,
+                    newTaskFlag,
+                    0,
+                    optionsBundle
+                )
             } catch (e: Exception) {
-                Log.e("piSend", "Fallback send failed", e)
+                Log.e("piSend", "startIntentSender failed, trying fallback", e)
+                oldPiSend()
+            }
+        } else {
+            // 不在主线程，切换到主线程执行
+            Handler(Looper.getMainLooper()).post {
+                piSend(pendingIntent) // 递归调用自己，保证逻辑在主线程
             }
         }
 
-        // 1. 如果无法获取 IntentSender 或版本低于 31，直接走旧逻辑
-        // 特别说明：API 31/32 官方没有暴露显式的后台启动控制 API
-        if (intentSender == null || Build.VERSION.SDK_INT < 33) {
-            oldPiSend()
-            return
-        }
 
-        // 2. 构建 ActivityOptions Bundle
-        val optionsBundle: Bundle? = try {
-            val options = ActivityOptions.makeBasic()
-            when {
-                // Android 14+ (API 34)
-                Build.VERSION.SDK_INT >= 34 -> {
-                    // 如果你担心华为/鸿蒙某些机型混淆了 API，可以在这里局部使用反射
-                    // 否则直接调用即可
-                    options.setPendingIntentBackgroundActivityStartMode(
-                        ActivityOptions.MODE_BACKGROUND_ACTIVITY_START_ALLOW_ALWAYS
-                    )
-                    options.toBundle()
-                }
-                // Android 13 (API 33)
-                Build.VERSION.SDK_INT == 33 -> {
-                    options.setPendingIntentBackgroundActivityLaunchAllowed(true)
-                    options.toBundle()
-                }
-                else -> null
-            }
-        } catch (e: Throwable) {
-            // 捕捉包括 NoSuchMethodError 在内的所有异常，确保健壮性
-            Log.w("piSend", "Failed to set background start options", e)
-            null
-        }
-
-        // 3. 执行启动
-        try {
-            val newTaskFlag = Intent.FLAG_ACTIVITY_NEW_TASK
-            appContext.startIntentSender(
-                intentSender,
-                null,
-                newTaskFlag,
-                newTaskFlag,
-                0,
-                optionsBundle
-            )
-        } catch (e: Exception) {
-            Log.e("piSend", "startIntentSender failed, trying fallback", e)
-            oldPiSend()
-        }
     }
 
 

@@ -730,7 +730,10 @@ object HYSJTimeSecurityManager {
                 offlineRemainMinutes = offlineRemain
             )
         }
-        // 未同步会员时间
+        // 未同步会员时间 会员时间还没获取到
+        //包含两种场景：
+        //1 首次安装还没登录
+         //2 SP被篡改导致数据清空
         if (cachedExpireTimestamp <= 0L) {
             sendLog("App当前是免费版(未更新)")
             return TimeSecurityStatus(
