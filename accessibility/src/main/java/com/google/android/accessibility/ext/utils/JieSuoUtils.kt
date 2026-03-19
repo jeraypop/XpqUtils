@@ -501,30 +501,44 @@ object JieSuoUtils {
     // 在允许读取时查找数字节点
     @JvmStatic
     @JvmOverloads
-    private fun findDigitNode(
+    fun findDigitNode(
         digit: String = "1",
         root: AccessibilityNodeInfo? = accessibilityService?.rootInActiveWindow
     ): AccessibilityNodeInfo? {
 
         if (root == null) return null
 
-        val stack = ArrayDeque<AccessibilityNodeInfo>()
-        stack.add(root)
+        val queue = ArrayDeque<AccessibilityNodeInfo>()
+        queue.add(root)
 
-        while (stack.isNotEmpty()) {
-            val node = stack.removeLast()
+        var count = 0
+        val maxNodes = 1000  // 防止极端情况卡死
 
-            val text = node.text?.toString()
-            val desc = node.contentDescription?.toString()
-            //其实就是不额外判断节点是否可点击了  && (node.isClickable || !node.isClickable)
+        while (queue.isNotEmpty()) {
+            val node = queue.removeFirst()
+            count++
+            if (count > maxNodes) break
+
+            val text = node.text?.toString()?.trim()
+            val desc = node.contentDescription?.toString()?.trim()
+
             if (text == digit || desc == digit) {
-                node.viewIdResourceName?.toString()
-                sendLog("解锁数字节点ID: " + node.viewIdResourceName)
+                sendLog("命中数字: $digit  viewId=${node.viewIdResourceName}")
                 return node
             }
 
+            // ⭐ 子节点兜底（关键：适配不同机型结构）
             for (i in 0 until node.childCount) {
-                node.getChild(i)?.let { stack.add(it) }
+                val child = node.getChild(i) ?: continue
+
+                val cText = child.text?.toString()?.trim()
+                val cDesc = child.contentDescription?.toString()?.trim()
+
+                if (cText == digit || cDesc == digit) {
+                    return child
+                }
+
+                queue.add(child)
             }
         }
 
