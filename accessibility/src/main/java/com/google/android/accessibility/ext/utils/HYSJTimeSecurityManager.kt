@@ -10,6 +10,7 @@ import android.security.keystore.KeyGenParameterSpec
 import android.security.keystore.KeyProperties
 import android.text.TextUtils
 import android.util.Base64
+import android.util.Log
 import com.google.android.accessibility.ext.utils.KeyguardUnLock.sendLog
 import com.google.android.accessibility.ext.utils.LibCtxProvider.Companion.appContext
 import org.intellij.lang.annotations.Pattern
@@ -508,6 +509,7 @@ object HYSJTimeSecurityManager {
                 )
                 keyGenerator.generateKey()
             }
+            Log.e("sp怎么回事", "alias exist = ${keyStore.containsAlias(alias)}" )
             val mac = Mac.getInstance("HmacSHA256")
             mac.init(secretKey)
             Base64.encodeToString(mac.doFinal(data.toByteArray()), Base64.NO_WRAP)
