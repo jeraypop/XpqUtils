@@ -88,6 +88,10 @@ object HYSJTimeSecurityManager {
 
     // 防冷启动SP回滚
     @Volatile private var maxNonce: Long = 0L
+    // ✅【自动恢复】防止重复恢复（防抖）
+    @Volatile private var recovering = false
+    // ✅恢复后的短暂保护期
+    @Volatile private var justRecovered = false
     private val stateLock = Any()// 写操作锁
 
     private var sp: android.content.SharedPreferences? = null
@@ -405,6 +409,40 @@ object HYSJTimeSecurityManager {
         }
     }
 
+    // ✅【自动恢复核心】
+// ✅【修改】增加锁
+    private fun recoverIfNeeded(context: Context) {
+        synchronized(stateLock) {
+
+            if (recovering) return
+            recovering = true
+            try {
+                sendLog("触发SP自动恢复")
+
+                trustedNetworkTime = 0L
+                baseElapsedRealtime = 0L
+                lastSyncElapsedRealtime = 0L
+                cachedExpireTimestamp = 0L
+                savedBootTime = 0L
+
+                secureNonce = 0L
+                maxNonce = 0L
+
+                // ❗防止重新进入首装豁免
+                firstRunElapsedRealtime = -1L
+
+                // ✅ 写入干净状态
+                saveToSp(context)
+
+                // ✅ 标记“刚恢复”，供下一帧保护使用
+                justRecovered = true
+
+            } finally {
+                recovering = false
+            }
+        }
+    }
+
     // =============================
     // SP签名保护
     // =============================
@@ -412,10 +450,8 @@ object HYSJTimeSecurityManager {
     private fun saveToSp(context: Context) {
         synchronized(stateLock) {
             // nonce自增
-            secureNonce++
-            if (secureNonce > maxNonce) {
-                maxNonce = secureNonce
-            }
+            secureNonce = maxOf(secureNonce + 1, maxNonce + 1)
+            maxNonce = secureNonce
             val rawData =
                 "$trustedNetworkTime|" +
                         "$baseElapsedRealtime|" +
@@ -442,7 +478,7 @@ object HYSJTimeSecurityManager {
     private fun verifySp(context: Context): Boolean {
 
         val rawData = sp?.getString(KEY_DATA, null) ?: return true
-        if (rawData.isEmpty()) return false
+        if (rawData.isEmpty()) return true
 
         val savedSign = sp?.getString(KEY_SIGN, null) ?: return false
         val realSign = generateHmac(context, rawData)
@@ -464,22 +500,18 @@ object HYSJTimeSecurityManager {
         }
 
         secureNonce = nonce
-
-        if (nonce > savedMaxNonce) {
-            maxNonce = nonce
-        }
+        maxNonce = savedMaxNonce
 
         return true
     }
 
     private fun loadFromSp(context: Context) {
-
-        if (!verifySp(context)) {
-            clear()
-            //发现 SP 被人为修改后，强行打上负数防伪标记，阻止 init() 重新走首装逻辑
-            firstRunElapsedRealtime = -1L
+        val ok = verifySp(context)
+        if (!ok) {
+            recoverIfNeeded(context)
             return
         }
+
         maxNonce = sp?.getLong("max_nonce", 0L) ?: 0L
         val rawData = sp?.getString(KEY_DATA, null) ?: return
         val parts = rawData.split('|')
@@ -630,7 +662,7 @@ object HYSJTimeSecurityManager {
             secureNonce = 0L
             //防止重新触发首装30分钟豁免
             firstRunElapsedRealtime = -1L
-            sp?.edit()?.clear()?.apply()
+            sp?.edit()?.clear()?.commit()
         }
 
     }
@@ -673,15 +705,20 @@ object HYSJTimeSecurityManager {
 
         // 13️⃣ SP篡改检测
         if (!verifySp(context)) {
-            clear()
-            sendLog("sp被修改了")
-            return TimeSecurityStatus(
-                isValid = false,
-                reason =  TimeSecurityReason.SP_TAMPERED,
-                isNetworkAvailable = networkAvailable,
-                offlinePassedHours = offlinePassed,
-                offlineRemainMinutes = offlineRemain
-            )
+            // ✅【自动恢复触发】
+            recoverIfNeeded(context)
+            // ✅恢复后再校验一次
+            if (!verifySp(context)) {
+                sendLog("SP异常 → 恢复失败")
+                return TimeSecurityStatus(
+                    isValid = false,
+                    reason = TimeSecurityReason.SP_TAMPERED,
+                    isNetworkAvailable = networkAvailable,
+                    offlinePassedHours = offlinePassed,
+                    offlineRemainMinutes = offlineRemain
+                )
+            }
+            sendLog("SP异常 → 已自动恢复成功")
         }
         // 安装30分钟豁免
         if (isInstallGracePeriod()) {
@@ -689,6 +726,19 @@ object HYSJTimeSecurityManager {
             return TimeSecurityStatus(
                 isValid = true,
                 reason =  TimeSecurityReason.OK,
+                isNetworkAvailable = networkAvailable,
+                offlinePassedHours = offlinePassed,
+                offlineRemainMinutes = offlineRemain
+            )
+        }
+
+        // ✅恢复后的宽限（最多1次）
+        if (justRecovered) {
+            justRecovered = false
+            sendLog("自动恢复保护期")
+            return TimeSecurityStatus(
+                isValid = true,
+                reason = TimeSecurityReason.OK,
                 isNetworkAvailable = networkAvailable,
                 offlinePassedHours = offlinePassed,
                 offlineRemainMinutes = offlineRemain
