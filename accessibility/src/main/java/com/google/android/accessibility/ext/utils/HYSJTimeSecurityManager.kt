@@ -494,33 +494,42 @@ object HYSJTimeSecurityManager {
         firstRunElapsedRealtime = parts[6].toLongOrNull() ?: 0L
     }
 
-    private fun generateHmac(context: Context, data: String): String {
-        return try {
-            // 优先使用 Android 系统底层的 TEE 硬件 KeyStore 加密签名，防逆向、防提取
-            val keyStore = KeyStore.getInstance("AndroidKeyStore").apply { load(null) }
-            val alias = "hysj_hardware_hmac_alias"
-
-            val secretKey: SecretKey = if (keyStore.containsAlias(alias)) {
-                keyStore.getKey(alias, null) as SecretKey
-            } else {
-                val keyGenerator = KeyGenerator.getInstance(KeyProperties.KEY_ALGORITHM_HMAC_SHA256, "AndroidKeyStore")
-                keyGenerator.init(
-                    KeyGenParameterSpec.Builder(alias, KeyProperties.PURPOSE_SIGN).build()
-                )
-                keyGenerator.generateKey()
-            }
-            Log.e("sp怎么回事", "alias exist = ${keyStore.containsAlias(alias)}" )
-            val mac = Mac.getInstance("HmacSHA256")
-            mac.init(secretKey)
-            Base64.encodeToString(mac.doFinal(data.toByteArray()), Base64.NO_WRAP)
-        } catch (e: Exception) {
-            // 降级方案：如果设备不支持硬件加密，退回到原始的软加密方式
+    private fun generateHmac(context: Context, data: String,ruan: Boolean = true): String {
+        return if (ruan){
             val secret = getDeviceSecret(context)
             val mac = Mac.getInstance("HmacSHA256")
             val keySpec = SecretKeySpec(secret.toByteArray(Charsets.UTF_8), "HmacSHA256")
             mac.init(keySpec)
             Base64.encodeToString(mac.doFinal(data.toByteArray()), Base64.NO_WRAP)
+        }else{
+            try {
+                // 优先使用 Android 系统底层的 TEE 硬件 KeyStore 加密签名，防逆向、防提取
+                val keyStore = KeyStore.getInstance("AndroidKeyStore").apply { load(null) }
+                val alias = "hysj_hardware_hmac_alias"
+
+                val secretKey: SecretKey = if (keyStore.containsAlias(alias)) {
+                    keyStore.getKey(alias, null) as SecretKey
+                } else {
+                    val keyGenerator = KeyGenerator.getInstance(KeyProperties.KEY_ALGORITHM_HMAC_SHA256, "AndroidKeyStore")
+                    keyGenerator.init(
+                        KeyGenParameterSpec.Builder(alias, KeyProperties.PURPOSE_SIGN).build()
+                    )
+                    keyGenerator.generateKey()
+                }
+                Log.e("sp怎么回事", "alias exist = ${keyStore.containsAlias(alias)}" )
+                val mac = Mac.getInstance("HmacSHA256")
+                mac.init(secretKey)
+                Base64.encodeToString(mac.doFinal(data.toByteArray()), Base64.NO_WRAP)
+            } catch (e: Exception) {
+                // 降级方案：如果设备不支持硬件加密，退回到原始的软加密方式
+                val secret = getDeviceSecret(context)
+                val mac = Mac.getInstance("HmacSHA256")
+                val keySpec = SecretKeySpec(secret.toByteArray(Charsets.UTF_8), "HmacSHA256")
+                mac.init(keySpec)
+                Base64.encodeToString(mac.doFinal(data.toByteArray()), Base64.NO_WRAP)
+            }
         }
+
     }
 
     private fun getDeviceSecret(context: Context): String {
