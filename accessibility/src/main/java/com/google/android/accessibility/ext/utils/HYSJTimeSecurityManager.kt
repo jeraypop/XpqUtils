@@ -431,7 +431,7 @@ object HYSJTimeSecurityManager {
                 ?.putString(KEY_DATA, rawData)
                 ?.putString(KEY_SIGN, sign)
                 ?.putLong("max_nonce", maxNonce)
-                ?.apply()
+                ?.commit()
         }
 
     }
@@ -441,7 +441,7 @@ object HYSJTimeSecurityManager {
 
     private fun verifySp(context: Context): Boolean {
 
-        val rawData = sp?.getString(KEY_DATA, null) ?: return false
+        val rawData = sp?.getString(KEY_DATA, null) ?: return true
         if (rawData.isEmpty()) return false
 
         val savedSign = sp?.getString(KEY_SIGN, null) ?: return false
