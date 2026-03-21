@@ -90,8 +90,12 @@ object HYSJTimeSecurityManager {
     @Volatile private var maxNonce: Long = 0L
     // ✅【自动恢复】防止重复恢复（防抖）
     @Volatile private var recovering = false
-    // ✅恢复后的短暂保护期
-    @Volatile private var justRecovered = false
+
+    //给“会员状态”一个短暂缓存宽限
+    @Volatile private var recoverTimestamp: Long = 0L
+    private const val KEY_RECOVER_TS = "recover_ts"
+    @Volatile private var lastRecoverRealTime: Long = 0L
+    private const val RECOVER_COOLDOWN = 10 * 60 * 1000L // 10分钟
     private val stateLock = Any()// 写操作锁
 
     private var sp: android.content.SharedPreferences? = null
@@ -109,6 +113,7 @@ object HYSJTimeSecurityManager {
     fun init(context: Context = appContext) {
         sp = context.getSharedPreferences(SP_NAME, Context.MODE_PRIVATE)
         loadFromSp(context)
+        recoverTimestamp = sp?.getLong(KEY_RECOVER_TS, 0L) ?: 0L
         if (firstRunElapsedRealtime == 0L) {
             firstRunElapsedRealtime = SystemClock.elapsedRealtime()
             saveToSp(context)
@@ -414,6 +419,14 @@ object HYSJTimeSecurityManager {
     private fun recoverIfNeeded(context: Context) {
         synchronized(stateLock) {
 
+            val now = SystemClock.elapsedRealtime()
+            //限制恢复频率
+            if (now - lastRecoverRealTime < RECOVER_COOLDOWN) {
+                sendLog("恢复过于频繁，拒绝")
+                return
+            }
+            lastRecoverRealTime = now
+
             if (recovering) return
             recovering = true
             try {
@@ -430,12 +443,12 @@ object HYSJTimeSecurityManager {
 
                 // ❗防止重新进入首装豁免
                 firstRunElapsedRealtime = -1L
-
+                // ✅记录恢复时间（持久化）
+                recoverTimestamp = SystemClock.elapsedRealtime()
+                sp?.edit()?.putLong(KEY_RECOVER_TS, recoverTimestamp)?.commit()
                 // ✅ 写入干净状态
                 saveToSp(context)
 
-                // ✅ 标记“刚恢复”，供下一帧保护使用
-                justRecovered = true
 
             } finally {
                 recovering = false
@@ -732,18 +745,7 @@ object HYSJTimeSecurityManager {
             )
         }
 
-        // ✅恢复后的宽限（最多1次）
-        if (justRecovered) {
-            justRecovered = false
-            sendLog("自动恢复保护期")
-            return TimeSecurityStatus(
-                isValid = true,
-                reason = TimeSecurityReason.OK,
-                isNetworkAvailable = networkAvailable,
-                offlinePassedHours = offlinePassed,
-                offlineRemainMinutes = offlineRemain
-            )
-        }
+
 
         // 4️⃣ 设备重启
         if (isDeviceRebooted()) {
@@ -795,7 +797,27 @@ object HYSJTimeSecurityManager {
         //包含两种场景：
         //1 首次安装还没登录
          //2 SP被篡改导致数据清空
+
+        //恢复窗口逻辑（必须联网）
+        val now = SystemClock.elapsedRealtime()
         if (cachedExpireTimestamp <= 0L) {
+            if (recoverTimestamp > 0) {
+
+                val delta = now - recoverTimestamp
+
+                // ✅ 仅限5分钟 + 必须联网
+                if (delta < 5 * 60 * 1000L && networkAvailable) {
+                    sendLog("恢复窗口内，等待服务器同步")
+                    return TimeSecurityStatus(true, TimeSecurityReason.OK, networkAvailable, 0, "0")
+                }
+
+                // ✅超时清理
+                if (delta >= 5 * 60 * 1000L) {
+                    recoverTimestamp = 0L
+                    sp?.edit()?.putLong(KEY_RECOVER_TS, 0L)?.commit()
+                }
+            }
+
             sendLog("App当前是免费版(未更新)")
             return TimeSecurityStatus(
                 isValid = false,
