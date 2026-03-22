@@ -503,7 +503,8 @@ object JieSuoUtils {
     @JvmOverloads
     fun findDigitNode(
         digit: String = "1",
-        root: AccessibilityNodeInfo? = accessibilityService?.rootInActiveWindow
+        root: AccessibilityNodeInfo? = accessibilityService?.rootInActiveWindow,
+        exactMatch: Boolean = true
     ): AccessibilityNodeInfo? {
 
         if (root == null) return null
@@ -512,7 +513,7 @@ object JieSuoUtils {
         queue.add(root)
 
         var count = 0
-        val maxNodes = 1000  // 防止极端情况卡死
+        val maxNodes = 2000  // 防止极端情况卡死
 
         while (queue.isNotEmpty()) {
             val node = queue.removeFirst()
@@ -522,27 +523,28 @@ object JieSuoUtils {
             val text = node.text?.toString()?.trim()
             val desc = node.contentDescription?.toString()?.trim()
 
-            if (text == digit || desc == digit) {
+            if (match(text, digit, exactMatch) || match(desc, digit, exactMatch)) {
                 sendLog("命中数字: $digit  viewId=${node.viewIdResourceName}")
                 return node
             }
-
-            // ⭐ 子节点兜底（关键：适配不同机型结构）
+            // ⭐ 子节点
             for (i in 0 until node.childCount) {
                 val child = node.getChild(i) ?: continue
-
-                val cText = child.text?.toString()?.trim()
-                val cDesc = child.contentDescription?.toString()?.trim()
-
-                if (cText == digit || cDesc == digit) {
-                    return child
-                }
-
                 queue.add(child)
             }
         }
 
         return null
+    }
+
+    private fun match(text: String?, digit: String, exactMatch: Boolean): Boolean {
+        if (text.isNullOrEmpty()) return false
+
+        return if (exactMatch) {
+            text == digit
+        } else {
+            text.contains(digit)
+        }
     }
     @JvmStatic
     @JvmOverloads
