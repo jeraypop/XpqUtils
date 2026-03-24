@@ -206,6 +206,43 @@ object HYSJTimeSecurityManager {
     }
 
     /**
+     * 获取安全的HY过期时间
+     *
+     * 特点：
+     * - 只有在时间体系“安全”的情况下才返回
+     * - 否则返回 0（等同未同步）
+     *
+     */
+    @JvmStatic
+    @JvmOverloads
+    fun getHYExpireTimestampSafe(context: Context = appContext): Long {
+
+        val status = checkTimeSecurityStatus(context)
+
+        return if (status.isValid || status.reason == TimeSecurityReason.VIP_EXPIRED) {
+            cachedExpireTimestamp
+        } else {
+            0L
+        }
+    }
+
+    /**
+     * 是否已经同步过HY时间
+     */
+    @JvmStatic
+    fun isHYTimeSynced(): Boolean {
+        return cachedExpireTimestamp > 0L
+    }
+    //清空HY 时间
+    @JvmStatic
+    fun clearHYInfo(context: Context = appContext) {
+        synchronized(stateLock) {
+            cachedExpireTimestamp = 0L
+            saveToSp(context)
+        }
+    }
+
+    /**
      * 获取可信当前时间
      * 核心算法：网络基准时间 + 真实经过时间
      */
