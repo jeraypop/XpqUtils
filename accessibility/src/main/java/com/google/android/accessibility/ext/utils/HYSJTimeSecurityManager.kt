@@ -19,6 +19,7 @@ import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
 import java.util.TimeZone
+import java.util.concurrent.atomic.AtomicInteger
 import javax.crypto.KeyGenerator
 import kotlin.math.abs
 import javax.crypto.Mac
@@ -96,6 +97,8 @@ object HYSJTimeSecurityManager {
     private const val KEY_RECOVER_TS = "recover_ts"
     @Volatile private var lastRecoverRealTime: Long = 0L
     private const val RECOVER_COOLDOWN = 10 * 60 * 1000L // 10分钟
+    // ✅最后一次有效会员（用于熔断兜底）
+    @Volatile private var lastValidExpireTimestamp: Long = 0L
     private val stateLock = Any()// 写操作锁
 
     private var sp: android.content.SharedPreferences? = null
@@ -188,6 +191,10 @@ object HYSJTimeSecurityManager {
         }
         synchronized(stateLock) {
             cachedExpireTimestamp = finalExpireTime
+            // ✅只有合法时间才更新兜底
+            if (finalExpireTime > getTrustedNow(true)) {
+                lastValidExpireTimestamp = finalExpireTime
+            }
             saveToSp(context)
         }
     }
@@ -830,14 +837,16 @@ object HYSJTimeSecurityManager {
                 offlineRemainMinutes = offlineRemain
             )
         }
-        // 未同步会员时间 会员时间还没获取到
+        // 未同步会员时间 会员时间还没获取到 加入熔断兜底）
         //包含两种场景：
         //1 首次安装还没登录
          //2 SP被篡改导致数据清空
 
-        //恢复窗口逻辑（必须联网）
-        val now = SystemClock.elapsedRealtime()
+
+
         if (cachedExpireTimestamp <= 0L) {
+            //恢复窗口逻辑（必须联网）
+            val now = SystemClock.elapsedRealtime()
             if (recoverTimestamp > 0) {
 
                 val delta = now - recoverTimestamp
@@ -855,6 +864,29 @@ object HYSJTimeSecurityManager {
                 }
             }
 
+            // =============================
+            // ✅熔断兜底
+            // =============================
+            if (HyApiCircuitBreaker.isOpen()) {
+
+                val fallbackExpire = lastValidExpireTimestamp
+
+                if (fallbackExpire > getTrustedNow()) {
+                    sendLog("熔断中 → 使用历史会员兜底")
+
+                    return TimeSecurityStatus(
+                        isValid = true,
+                        reason = TimeSecurityReason.OK,
+                        isNetworkAvailable = networkAvailable,
+                        offlinePassedHours = offlinePassed,
+                        offlineRemainMinutes = offlineRemain
+                    )
+                }
+
+                sendLog("熔断中，但历史会员已过期")
+            }
+
+
             sendLog("App当前是免费版(未更新)")
             return TimeSecurityStatus(
                 isValid = false,
@@ -863,6 +895,25 @@ object HYSJTimeSecurityManager {
                 offlinePassedHours = offlinePassed,
                 offlineRemainMinutes = offlineRemain
             )
+        }
+
+        // =============================
+        // ✅【核心修改】缓存会员直接生效（支持熔断）
+        // =============================
+        val trustedNow = getTrustedNow()
+
+        if (cachedExpireTimestamp > 0L) {
+
+            if (cachedExpireTimestamp > trustedNow) {
+                sendLog("使用缓存会员（可能处于熔断状态）")
+                return TimeSecurityStatus(
+                    isValid = true,
+                    reason = TimeSecurityReason.OK,
+                    isNetworkAvailable = networkAvailable,
+                    offlinePassedHours = offlinePassed,
+                    offlineRemainMinutes = offlineRemain
+                )
+            }
         }
 
         // VIP过期   会员真的过期
@@ -954,4 +1005,167 @@ data class TimeSecurityStatus(
     // 剩余可离线小时分钟数
     val offlineRemainMinutes: String
 )
+
+// =============================
+// ✅会员接口熔断器
+// =============================
+object HyApiCircuitBreaker {
+
+    private const val SP_NAME = "hyhy_cb"
+    private const val KEY_STATE = "hyhystate"
+    private const val KEY_OPEN_TS = "hyhyopen_ts"
+
+    private const val MAX_FAIL = 3
+    private const val OPEN_DURATION = 10 * 60 * 1000L
+
+    private enum class State {
+        CLOSED, OPEN, HALF_OPEN
+    }
+
+    private val sp by lazy {
+        appContext.getSharedPreferences(SP_NAME, Context.MODE_PRIVATE)
+    }
+
+    // =========================
+    // 内存态（核心）
+    // =========================
+    private val failCount = AtomicInteger(0)
+    private val lock = Any()
+
+    @Volatile
+    private var currentState: State = State.CLOSED
+
+    @Volatile
+    private var openTimestamp: Long = 0L
+
+    @Volatile
+    private var halfOpenUsed = false
+
+    // =========================
+    // 初始化（进程恢复）
+    // =========================
+    init {
+        val savedState = sp.getString(KEY_STATE, State.CLOSED.name) ?: State.CLOSED.name
+        currentState = runCatching { State.valueOf(savedState) }.getOrDefault(State.CLOSED)
+        openTimestamp = sp.getLong(KEY_OPEN_TS, 0L)
+
+        // OPEN → 自动过期校正
+        if (currentState == State.OPEN) {
+            val now = System.currentTimeMillis()
+            if (now - openTimestamp >= OPEN_DURATION) {
+                currentState = State.HALF_OPEN
+                halfOpenUsed = false
+            }
+        }
+    }
+
+    // =========================
+    // 是否允许请求
+    // =========================
+    fun canRequest(): Boolean {
+        synchronized(lock) {
+            val now = System.currentTimeMillis()
+
+            return when (currentState) {
+
+                State.CLOSED -> true
+
+                State.OPEN -> {
+                    if (now - openTimestamp >= OPEN_DURATION) {
+                        // 冷却结束 → HALF_OPEN
+                        transitionTo(State.HALF_OPEN)
+                        halfOpenUsed = true // 当前请求占用探针
+                        true
+                    } else {
+                        false
+                    }
+                }
+
+                State.HALF_OPEN -> {
+                    if (!halfOpenUsed) {
+                        halfOpenUsed = true
+                        true
+                    } else {
+                        false
+                    }
+                }
+            }
+        }
+    }
+
+    // =========================
+    // 请求成功
+    // =========================
+    fun onSuccess() {
+        synchronized(lock) {
+            failCount.set(0)
+            if (currentState != State.CLOSED) {
+                transitionTo(State.CLOSED)
+            }
+        }
+    }
+
+    // =========================
+    // 请求失败
+    // =========================
+    fun onFail() {
+        synchronized(lock) {
+
+            // OPEN 状态忽略失败（避免刷新熔断时间）
+            if (currentState == State.OPEN) return
+
+            // HALF_OPEN 失败 → 立即熔断
+            if (currentState == State.HALF_OPEN) {
+                transitionTo(State.OPEN)
+                return
+            }
+
+            // CLOSED 累计失败
+            val fails = failCount.incrementAndGet()
+            if (fails >= MAX_FAIL) {
+                transitionTo(State.OPEN)
+            }
+        }
+    }
+
+    // =========================
+    // 是否处于“有效熔断中”
+    // =========================
+    fun isOpen(): Boolean {
+        synchronized(lock) {
+            if (currentState != State.OPEN) return false
+
+            val now = System.currentTimeMillis()
+            return now - openTimestamp < OPEN_DURATION
+        }
+    }
+
+    // =========================
+    // 状态切换
+    // =========================
+    private fun transitionTo(newState: State) {
+        currentState = newState
+
+        val editor = sp.edit()
+            .putString(KEY_STATE, newState.name)
+
+        when (newState) {
+
+            State.OPEN -> {
+                openTimestamp = System.currentTimeMillis()
+                editor.putLong(KEY_OPEN_TS, openTimestamp)
+            }
+
+            State.HALF_OPEN -> {
+                halfOpenUsed = false
+            }
+
+            State.CLOSED -> {
+                failCount.set(0)
+            }
+        }
+
+        editor.apply()
+    }
+}
 
