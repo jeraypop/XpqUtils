@@ -499,8 +499,9 @@ object HYSJTimeSecurityManager {
         val systemNow = System.currentTimeMillis()
 
         // 可信时间不能倒退
+        AliveUtils.toast(msg = "222"+(trustedNow - lastTrustedNow))
         if (lastTrustedNow > 0 && trustedNow < lastTrustedNow) {
-            AliveUtils.toast(msg = "222")
+
             sendLog("可信时间倒退")
             return false
         }
