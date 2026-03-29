@@ -203,7 +203,7 @@ object HYSJTimeSecurityManager {
                 currentBoot == savedBootCount
                 // “最后一次同步时间，必须发生在检测到重启之后
         //其实说白了,如果是先同步时间,那么后续也检测不出重启了,自然是认为重启后恢复了
-                && lastSyncElapsedRealtime > rebootDetectedRealtime
+                && lastSyncElapsedRealtime + rollbackTolerance >= rebootDetectedRealtime
     }
 
     // 检测设备是否发生过重启 （状态判断）
