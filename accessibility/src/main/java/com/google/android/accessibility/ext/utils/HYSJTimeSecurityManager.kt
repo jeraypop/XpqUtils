@@ -491,6 +491,7 @@ object HYSJTimeSecurityManager {
         //只允许安装30分钟内运行
         //否则必须联网同步时间
         if (trustedNetworkTime == 0L) {
+            AliveUtils.toast(msg = "111")
             return false // 如果返回true 不在这里判,交给NETWORK_NOT_SYNCED
         }
 
@@ -499,6 +500,7 @@ object HYSJTimeSecurityManager {
 
         // 可信时间不能倒退
         if (lastTrustedNow > 0 && trustedNow < lastTrustedNow) {
+            AliveUtils.toast(msg = "222")
             sendLog("可信时间倒退")
             return false
         }
