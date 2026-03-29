@@ -111,6 +111,8 @@ object HYSJTimeSecurityManager {
     private const val KEY_RECOVER_DAY = "recover_day"
     // 记录“最后一次同步时的可信时间（网络时间）”
     @Volatile private var lastSyncTrustedTime: Long = 0L
+    //容忍5秒   部分设备单调递增不稳
+    val rollbackTolerance = 5_000L
 
     private val stateLock = Any()// 写操作锁
 
@@ -183,7 +185,7 @@ object HYSJTimeSecurityManager {
         val nowElapsed = SystemClock.elapsedRealtime()
         val passed = nowElapsed - baseElapsedRealtime
         // ❗ 防御：elapsed异常（极小概率）
-        if (passed < 0) {
+        if (passed + rollbackTolerance < 0) {
             sendLog("elapsedRealtime异常,大概率重启了")
             return 0L
         }
@@ -200,7 +202,7 @@ object HYSJTimeSecurityManager {
                 currentBoot > 0 &&
                 currentBoot == savedBootCount
                 // “最后一次同步时间，必须发生在检测到重启之后
-        //其实说白了,如果是先同步时间,那么后续也检测不出重启了
+        //其实说白了,如果是先同步时间,那么后续也检测不出重启了,自然是认为重启后恢复了
                 && lastSyncElapsedRealtime > rebootDetectedRealtime
     }
 
@@ -219,7 +221,7 @@ object HYSJTimeSecurityManager {
             //就是说 联网后  nowElapsed 应该一直大于 baseElapsedRealtime
             val nowElapsed = SystemClock.elapsedRealtime()
             //只要设备开机运行时间超过“上次记录值”，这是个临界点也是个漏洞
-            if (baseElapsedRealtime > 0L && nowElapsed +5_000L < baseElapsedRealtime) {
+            if (baseElapsedRealtime > 0L && nowElapsed  + rollbackTolerance < baseElapsedRealtime) {
                 sendLog("elapsedRealtime 回退 → 判定设备重启")
                 return true
             }
@@ -482,6 +484,7 @@ object HYSJTimeSecurityManager {
      * = 用户修改了系统时间
      */
     @Volatile private var lastTrustedNow: Long = 0L
+
     @JvmStatic
     @JvmOverloads
     fun isSystemTimeValid(context: Context = appContext): Boolean {
@@ -491,7 +494,7 @@ object HYSJTimeSecurityManager {
         //只允许安装30分钟内运行
         //否则必须联网同步时间
         if (trustedNetworkTime == 0L) {
-            AliveUtils.toast(msg = "111")
+            Log.e("isSystemTimeValid", "trustedNetworkTime==0" )
             return false // 如果返回true 不在这里判,交给NETWORK_NOT_SYNCED
         }
 
@@ -499,9 +502,9 @@ object HYSJTimeSecurityManager {
         val systemNow = System.currentTimeMillis()
 
         // 可信时间不能倒退
-        AliveUtils.toast(msg = "222"+(trustedNow - lastTrustedNow))
-        if (lastTrustedNow > 0 && trustedNow < lastTrustedNow) {
 
+        if (lastTrustedNow > 0 && trustedNow + rollbackTolerance < lastTrustedNow) {
+            Log.e("isSystemTimeValid", "可信时间倒退"+(trustedNow + rollbackTolerance - lastTrustedNow) )
             sendLog("可信时间倒退")
             return false
         }
@@ -529,7 +532,7 @@ object HYSJTimeSecurityManager {
         //有种情况下,重启  nowElapsed 会很小  lastSync 会很大  offlineMillis为负数
         val nowElapsed = SystemClock.elapsedRealtime()
         val offlineMillis = nowElapsed - lastSync
-        if (offlineMillis < 0) {
+        if (offlineMillis + rollbackTolerance < 0) {
             sendLog("offlineMillis异常（负数）")
             return true
         }
@@ -552,7 +555,7 @@ object HYSJTimeSecurityManager {
         val nowElapsed = SystemClock.elapsedRealtime()
         val offlineMillis = nowElapsed - lastSyncElapsedRealtime
 
-        return if (offlineMillis < 0) Long.MAX_VALUE else offlineMillis
+        return if (offlineMillis + rollbackTolerance < 0) Long.MAX_VALUE else maxOf(0L, offlineMillis)
     }
 
 
@@ -575,7 +578,7 @@ object HYSJTimeSecurityManager {
         val nowElapsed = SystemClock.elapsedRealtime()
         val offlineMillis = nowElapsed - lastSyncElapsedRealtime
 
-        if (offlineMillis <= 0) return Long.MAX_VALUE
+        if (offlineMillis + rollbackTolerance <= 0) return Long.MAX_VALUE
 
         return offlineMillis / (60 * 60 * 1000L)
     }
@@ -606,7 +609,7 @@ object HYSJTimeSecurityManager {
         val limitMillis = limitHours * 60 * 60 * 1000L
         val remainMillis = limitMillis - passedMillis
 
-        if (remainMillis <= 0) return 0L
+        if (remainMillis + rollbackTolerance <= 0) return 0L
 
         return remainMillis / (60 * 1000L)
     }
