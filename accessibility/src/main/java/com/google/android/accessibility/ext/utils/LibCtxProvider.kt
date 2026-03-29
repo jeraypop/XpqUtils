@@ -122,11 +122,7 @@ class LibCtxProvider : ContentProvider() {
         //TimeReportScheduler.schedule(appContext)
 
         try {
-            NetworkHelperFullSmart.registerNetworkListener(appContext)
-            //初始化 本地和网络可信时间
-            HYSJTimeSecurityManager.init(appContext)
-            // 启动立即同步一次
-            NetworkHelperFullSmart.updateMyTime()
+            SdkInitManager.initIfNeeded(appContext)
         } catch (e: Exception) { }
 
 

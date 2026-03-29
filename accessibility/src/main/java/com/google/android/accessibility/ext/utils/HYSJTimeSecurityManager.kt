@@ -8,17 +8,14 @@ import android.os.SystemClock
 import android.provider.Settings
 import android.security.keystore.KeyGenParameterSpec
 import android.security.keystore.KeyProperties
-import android.text.TextUtils
 import android.util.Base64
 import android.util.Log
 import com.google.android.accessibility.ext.utils.KeyguardUnLock.sendLog
 import com.google.android.accessibility.ext.utils.LibCtxProvider.Companion.appContext
-import org.intellij.lang.annotations.Pattern
 import java.security.KeyStore
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
-import java.util.TimeZone
 import java.util.concurrent.atomic.AtomicInteger
 import javax.crypto.KeyGenerator
 import kotlin.math.abs
@@ -67,7 +64,9 @@ object HYSJTimeSecurityManager {
     private const val SP_NAME = "hysj_time_secure"
     private const val KEY_DATA = "secure_data"
     private const val KEY_SIGN = "secure_sign"
-    private const val BOOT_TIME_TOLERANCE = 15000L
+    private const val BOOT_TIME_TOLERANCE = 2 * 60 * 1000L // 建议2分钟
+    //熔断最大时间
+    val MAX_FALLBACK_TIME = 30 * 24 * 60 * 60 * 1000L // 1个月
 
     // 允许本地时间和可信时间最大误差 30 分钟
     private const val MAX_TIME_DRIFT = 30 * 60 * 1000L
@@ -78,10 +77,12 @@ object HYSJTimeSecurityManager {
     //本地运行时间
     @Volatile private var baseElapsedRealtime: Long = 0L
     @Volatile private var lastSyncElapsedRealtime: Long = 0L
-    // 会员过期时间（服务器下发）
-    @Volatile private var cachedExpireTimestamp: Long = 0L
-    // （保存开机时间）用于检测设备重启
-    @Volatile private var savedBootTime: Long = 0L
+
+    // 正式会员（服务器）
+    @Volatile private var serverExpireTimestamp: Long = 0L
+    // 广告会员（本地）
+    @Volatile private var adExpireTimestamp: Long = 0L
+
     // 防SP回滚
     @Volatile private var secureNonce: Long = 0L
     // 首次运行elapsed时间
@@ -99,6 +100,18 @@ object HYSJTimeSecurityManager {
     private const val RECOVER_COOLDOWN = 10 * 60 * 1000L // 10分钟
     // ✅最后一次有效会员（用于熔断兜底）
     @Volatile private var lastValidExpireTimestamp: Long = 0L
+
+    // BOOT_COUNT 重启检测
+    @Volatile private var savedBootCount: Int = 0
+    @Volatile private var lastSyncBootCount: Int = 0
+    //记录“检测到重启的时间”
+    @Volatile private var rebootDetectedRealtime: Long = 0L
+
+    private const val KEY_RECOVER_COUNT = "recover_count"
+    private const val KEY_RECOVER_DAY = "recover_day"
+    // 记录“最后一次同步时的可信时间（网络时间）”
+    @Volatile private var lastSyncTrustedTime: Long = 0L
+
     private val stateLock = Any()// 写操作锁
 
     private var sp: android.content.SharedPreferences? = null
@@ -115,12 +128,15 @@ object HYSJTimeSecurityManager {
     @JvmOverloads
     fun init(context: Context = appContext) {
         sp = context.getSharedPreferences(SP_NAME, Context.MODE_PRIVATE)
-        loadFromSp(context)
+        loadFromSp(context)//savedBootCount 会读取保存的值
+
         recoverTimestamp = sp?.getLong(KEY_RECOVER_TS, 0L) ?: 0L
         if (firstRunElapsedRealtime == 0L) {
             firstRunElapsedRealtime = SystemClock.elapsedRealtime()
             saveToSp(context)
         }
+
+
     }
 
     /**
@@ -139,37 +155,142 @@ object HYSJTimeSecurityManager {
     @JvmOverloads
     fun updateTrustedTime(context: Context = appContext, networkTimestamp: Long) {
         synchronized(stateLock) {
+
             trustedNetworkTime = networkTimestamp
             baseElapsedRealtime = SystemClock.elapsedRealtime()
             lastSyncElapsedRealtime = baseElapsedRealtime
-            // 保存当前设备开机时间
-            savedBootTime = getCurrentBootTime()
+            //记录可信时间基准（统一时间体系核心）
+            lastSyncTrustedTime = networkTimestamp
+            //记录BOOT_COUNT
+            val boot  = getBootCount()
+            lastSyncBootCount = boot
+            savedBootCount = boot
             saveToSp(context)
         }
     }
-    //  获取当前设备开机时间
-    //虽然真实时间可被篡改，但你后续已经有 isSystemTimeValid 来防御时间篡改了，所以这里是安全的
-    fun getCurrentBootTime(): Long {
-        //return SystemClock.elapsedRealtime() - SystemClock.uptimeMillis()
-        // 逻辑：当前真实时间戳 - 开机到现在流逝的时间 = 固定的设备开机时间戳
-        return System.currentTimeMillis() - SystemClock.elapsedRealtime()
+
+    /**
+     * 获取可信当前时间
+     * 核心算法：网络基准时间 + 真实经过时间
+     */
+    @JvmStatic
+    @JvmOverloads
+    fun getTrustedNow(): Long {
+        // ❗ 没有可信时间
+        if (trustedNetworkTime == 0L) {
+            return  0L
+        }
+        val nowElapsed = SystemClock.elapsedRealtime()
+        val passed = nowElapsed - baseElapsedRealtime
+        // ❗ 防御：elapsed异常（极小概率）
+        if (passed < 0) {
+            sendLog("elapsedRealtime异常,大概率重启了")
+            return 0L
+        }
+        return trustedNetworkTime + passed
     }
 
-    // 检测设备是否重启
-    fun isDeviceRebooted(): Boolean {
+    // 检测“重启后是否已恢复可信时间”（恢复判断）
+    fun isResyncedAfterReboot(context: Context = appContext): Boolean {
+        // 🔥① 主判定：BOOT_COUNT
+        val currentBoot = getBootCount()
 
-        if (savedBootTime == 0L) return false
-        //底层流逝时间回退检测。如果当前流逝时间比基准时间还小，绝对是发生了重启。
-        if (baseElapsedRealtime > 0L && SystemClock.elapsedRealtime() < baseElapsedRealtime) {
+        return trustedNetworkTime > 0 &&
+                savedBootCount > 0 &&
+                currentBoot > 0 &&
+                currentBoot == savedBootCount
+                // “最后一次同步时间，必须发生在检测到重启之后
+        //其实说白了,如果是先同步时间,那么后续也检测不出重启了
+                && lastSyncElapsedRealtime > rebootDetectedRealtime
+    }
+
+    // 检测设备是否发生过重启 （状态判断）
+    fun isDeviceRebooted(): Boolean {
+        // 🔥① 主判定：BOOT_COUNT
+        val currentBoot = getBootCount()
+        if (savedBootCount > 0 && currentBoot >0 && currentBoot != savedBootCount) {
+            sendLog("BOOT_COUNT变化 ($currentBoot) → 判定设备重启")
             return true
         }
 
-        val currentBoot = getCurrentBootTime()
+        if (savedBootCount <= 0 || currentBoot <= 0) {
+            // 🔥② 兜底：elapsedRealtime 回退
+            //baseElapsedRealtime在更新网络基准时间时也会随着更新
+            //就是说 联网后  nowElapsed 应该一直大于 baseElapsedRealtime
+            val nowElapsed = SystemClock.elapsedRealtime()
+            //只要设备开机运行时间超过“上次记录值”，这是个临界点也是个漏洞
+            if (baseElapsedRealtime > 0L && nowElapsed +5_000L < baseElapsedRealtime) {
+                sendLog("elapsedRealtime 回退 → 判定设备重启")
+                return true
+            }
+        }
 
-        return abs(currentBoot - savedBootTime) > BOOT_TIME_TOLERANCE
+
+
+        return false
     }
+    // 获取系统开机次数
+    @JvmStatic
+    @JvmOverloads
+    fun getBootCount(context: Context = appContext): Int {
+        return try {
+            Settings.Global.getInt(
+                context.contentResolver,
+                Settings.Global.BOOT_COUNT
+            )
+        } catch (e: Exception) {
+            0
+        }
+    }
+
     // =============================
-    // 3️⃣ 更新会员时间（自己服务器）
+    // ✅统一会员更新入口（核心）
+    // =============================
+    @JvmStatic
+    @JvmOverloads
+    fun updateMyHYExpire(
+        context: Context = appContext,
+        newExpire: Long,
+        source: VipSource
+    ) {
+        synchronized(stateLock) {
+
+            val now = getTrustedNow()
+
+            // ❗必须有可信时间
+            if (now <= 0L) {
+                sendLog("未同步可信时间，拒绝更新会员 [$source]")
+                return
+            }
+            val MAX_VALID_EXPIRE = 20L * 365 * 24 * 60 * 60 * 1000 // 20年
+            val safeExpire = minOf(newExpire, now + MAX_VALID_EXPIRE)
+            when (source) {
+
+                VipSource.SERVER -> {
+                    serverExpireTimestamp = maxOf(serverExpireTimestamp, safeExpire)
+                }
+
+                VipSource.LOCAL_AD -> {
+                    adExpireTimestamp = maxOf(adExpireTimestamp, safeExpire)
+                }
+            }
+
+
+            val currentExpire = getCurrentExpire()
+            // ✅ 更新兜底（熔断用）
+            if (currentExpire > now) {
+                lastValidExpireTimestamp = currentExpire
+            }
+
+
+            sendLog("会员更新 [$source] -> ${parseMillisToTimeString(currentExpire)}")
+
+            saveToSp(context)
+        }
+    }
+
+    // =============================
+    // 3️⃣ 服务器会员时间 发放（自己服务器）
     // =============================
 
     @JvmStatic
@@ -189,14 +310,84 @@ object HYSJTimeSecurityManager {
 
             else -> 0L
         }
+
+        if (finalExpireTime <= 0L) return
+        // ✅统一入口
+        updateMyHYExpire(context, finalExpireTime, VipSource.SERVER)
+
+    }
+
+    // =============================
+    // ✅广告会员时间 发放
+    // =============================
+    @JvmStatic
+    @JvmOverloads
+    fun updateADHuiYuanTime(
+        context: Context = appContext,
+        durationMillis: Long = 24 * 60 * 60 * 1000L // 默认1天
+    ) {
         synchronized(stateLock) {
-            cachedExpireTimestamp = finalExpireTime
-            // ✅只有合法时间才更新兜底
-            if (finalExpireTime > getTrustedNow(true)) {
-                lastValidExpireTimestamp = finalExpireTime
+
+            val now = getTrustedNow()
+
+            // ❗必须有可信时间
+            if (now <= 0L) {
+                sendLog("广告会员发放失败：未同步网络时间")
+                return
             }
-            saveToSp(context)
+
+            // ❗必须联网（防离线刷）
+            if (!isNetworkAvailable(context)) {
+                sendLog("广告会员发放失败：当前无有效网络")
+                return
+            }
+
+            // ❗离线过久禁止发放
+            if (isOfflineExpired()) {
+                sendLog("广告会员发放失败：离线超时")
+                return
+            }
+
+            // ❗每日限制（防刷）
+            if (!canGrantAdHYToday(context)) {
+                sendLog("广告会员发放失败：今日已达上限")
+                return
+            }
+
+            val base = maxOf(now, adExpireTimestamp)
+            val newExpire = base + durationMillis
+
+            // ✅统一入口
+            updateMyHYExpire(context, newExpire, VipSource.LOCAL_AD)
+
+            recordAdHYGrant(context)
         }
+    }
+
+    // =============================
+    // ✅广告会员每日限制
+    // =============================
+    private fun getTodayKey(): String {
+        val sdf = SimpleDateFormat("yyyyMMdd", Locale.ROOT)
+        return sdf.format(Date())
+    }
+   //当天是否还能领ad会员
+    private fun canGrantAdHYToday(context: Context): Boolean {
+        val today = getTodayKey()
+        val count = sp?.getInt("ad_vip_$today", 0) ?: 0
+        return count < 100 // 每天最多100次
+    }
+   //记录一天的ad会员领取次数
+    private fun recordAdHYGrant(context: Context) {
+
+       synchronized(stateLock) {
+           val today = getTodayKey()
+           val count = sp?.getInt("ad_vip_$today", 0) ?: 0
+
+           sp?.edit()
+               ?.putInt("ad_vip_$today", count + 1)
+               ?.commit()
+       }
     }
 
     /**
@@ -227,7 +418,7 @@ object HYSJTimeSecurityManager {
         val status = checkTimeSecurityStatus(context)
 
         return if (status.isValid || status.reason == TimeSecurityReason.VIP_EXPIRED) {
-            cachedExpireTimestamp
+            getCurrentExpire()
         } else {
             0L
         }
@@ -238,38 +429,20 @@ object HYSJTimeSecurityManager {
      */
     @JvmStatic
     fun isHYTimeSynced(): Boolean {
-        return cachedExpireTimestamp > 0L
+        return getCurrentExpire() > 0L
     }
     //清空HY 时间
     @JvmStatic
     fun clearHYInfo(context: Context = appContext) {
         synchronized(stateLock) {
-            cachedExpireTimestamp = 0L
+            serverExpireTimestamp = 0L
+            adExpireTimestamp = 0L
+            lastValidExpireTimestamp = 0L
             saveToSp(context)
         }
     }
 
-    /**
-     * 获取可信当前时间
-     * 核心算法：网络基准时间 + 真实经过时间
-     */
-    @JvmStatic
-    @JvmOverloads
-    fun getTrustedNow(isSystem: Boolean = false): Long {
 
-        if (trustedNetworkTime == 0L) {
-            return  if (isSystem) {
-                System.currentTimeMillis()
-            }else{
-                0L
-            }
-        }
-
-        val nowElapsed = SystemClock.elapsedRealtime()
-        val passed = maxOf(0L, nowElapsed - baseElapsedRealtime)
-
-        return trustedNetworkTime + passed
-    }
 
 
     private val installTimeCache: Long by lazy {
@@ -278,29 +451,20 @@ object HYSJTimeSecurityManager {
             .firstInstallTime
     }
     //首次安装30分钟豁免
+
     fun isInstallGracePeriod(): Boolean {
 
         if (firstRunElapsedRealtime <= 0L) return false
 
         val nowElapsed = SystemClock.elapsedRealtime()
-        // 如果当前流逝时间小于首次运行记录的流逝时间，说明设备绝对重启过
-        if (nowElapsed < firstRunElapsedRealtime) return false
-        // 30分钟豁免
-        val inGrace = nowElapsed - firstRunElapsedRealtime <= MAX_TIME_DRIFT
-
-        if (!inGrace) return false
-        // 检测是否修改系统时间骗豁免
-        val installTime = installTimeCache
-
-        val systemNow = System.currentTimeMillis()
-        if (systemNow < installTime) return false
-
-        // 如果系统时间距离安装时间非常久，却还在30分钟豁免
-        if (abs(systemNow - installTime) > 7 * 24 * 60 * 60 * 1000L) {
+        // 设备重启（elapsed 回退）→ 直接失效
+        if (nowElapsed < firstRunElapsedRealtime) {
+            //sendLog("试用失效：检测到设备重启")
             return false
         }
-
-        return true
+        val passed = nowElapsed - firstRunElapsedRealtime
+        // 严格30分钟窗口（只基于 elapsedRealtime）
+        return passed <= MAX_TIME_DRIFT
 
     }
 
@@ -317,6 +481,7 @@ object HYSJTimeSecurityManager {
      *
      * = 用户修改了系统时间
      */
+    @Volatile private var lastTrustedNow: Long = 0L
     @JvmStatic
     @JvmOverloads
     fun isSystemTimeValid(context: Context = appContext): Boolean {
@@ -326,12 +491,19 @@ object HYSJTimeSecurityManager {
         //只允许安装30分钟内运行
         //否则必须联网同步时间
         if (trustedNetworkTime == 0L) {
-            return isInstallGracePeriod()
+            return false // 如果返回true 不在这里判,交给NETWORK_NOT_SYNCED
         }
 
         val trustedNow = getTrustedNow()
         val systemNow = System.currentTimeMillis()
 
+        // 可信时间不能倒退
+        if (lastTrustedNow > 0 && trustedNow < lastTrustedNow) {
+            sendLog("可信时间倒退")
+            return false
+        }
+
+        lastTrustedNow = trustedNow
         val drift = abs(trustedNow - systemNow)
 
         return drift <= MAX_TIME_DRIFT
@@ -339,7 +511,7 @@ object HYSJTimeSecurityManager {
 
     /** 离线时间控制
      * 是否超过允许的离线时间
-     *
+     * Expired 意思 过期的
      * @param allowOfflineHours 允许离线小时数
      */
     @JvmStatic
@@ -347,17 +519,20 @@ object HYSJTimeSecurityManager {
     fun isOfflineExpired(
         allowOfflineHours: Long = DEFAULT_OFFLINE_HOURS
     ): Boolean {
-        if (isDeviceRebooted()) return true
-        if (trustedNetworkTime == 0L) {
-            // 从未同步过时间，直接视为超时
+        //重启算过期
+        if (isDeviceRebooted()) return true //
+        val lastSync = lastSyncElapsedRealtime
+        if (lastSync <= 0L || allowOfflineHours <= 0) return false
+        //有种情况下,重启  nowElapsed 会很小  lastSync 会很大  offlineMillis为负数
+        val nowElapsed = SystemClock.elapsedRealtime()
+        val offlineMillis = nowElapsed - lastSync
+        if (offlineMillis < 0) {
+            sendLog("offlineMillis异常（负数）")
             return true
         }
-
-        val nowElapsed = SystemClock.elapsedRealtime()
         val offlineLimit = allowOfflineHours * 60 * 60 * 1000L
-        val offlineTime = nowElapsed - lastSyncElapsedRealtime
 
-        return offlineTime > offlineLimit
+        return offlineMillis > offlineLimit
     }
 
     /**
@@ -374,7 +549,7 @@ object HYSJTimeSecurityManager {
         val nowElapsed = SystemClock.elapsedRealtime()
         val offlineMillis = nowElapsed - lastSyncElapsedRealtime
 
-        return if (offlineMillis < 0) 0L else offlineMillis
+        return if (offlineMillis < 0) Long.MAX_VALUE else offlineMillis
     }
 
 
@@ -397,7 +572,7 @@ object HYSJTimeSecurityManager {
         val nowElapsed = SystemClock.elapsedRealtime()
         val offlineMillis = nowElapsed - lastSyncElapsedRealtime
 
-        if (offlineMillis <= 0) return 0L
+        if (offlineMillis <= 0) return Long.MAX_VALUE
 
         return offlineMillis / (60 * 60 * 1000L)
     }
@@ -438,7 +613,6 @@ object HYSJTimeSecurityManager {
     fun getOfflineRemainTimeText(limitHours: Long = DEFAULT_OFFLINE_HOURS): String {
         // 设备重启直接返回0
         if (isDeviceRebooted()) return "0分钟"
-        if (trustedNetworkTime == 0L) return "App未联网"
         val lastSync = lastSyncElapsedRealtime
         if (lastSync == 0L || limitHours <= 0) return "0分钟"
 
@@ -458,13 +632,38 @@ object HYSJTimeSecurityManager {
         }
     }
 
-    // ✅【自动恢复核心】
-// ✅【修改】增加锁
-    private fun recoverIfNeeded(context: Context) {
-        synchronized(stateLock) {
+    private fun canUseRecover(context: Context): Boolean {
+        val today = getTodayKey()
 
+        val lastDay = sp?.getString(KEY_RECOVER_DAY, "") ?: ""
+        val count = sp?.getInt(KEY_RECOVER_COUNT, 0) ?: 0
+
+        if (today != lastDay) {
+            sp?.edit()
+                ?.putString(KEY_RECOVER_DAY, today)
+                ?.putInt(KEY_RECOVER_COUNT, 0)
+                ?.commit()
+            return true
+        }
+
+        return count < 10 // ✅ 每天最多10次
+    }
+
+    // ✅【自动恢复核心】
+    /* 触发条件只有一个：👉 SP 校验失败（被篡改 / 回滚 / 签名不一致）
+    恢复后的系统状态：相当于  一个“刚安装但没有30分钟豁免”的App
+    *
+    *
+    * */
+    private fun recoverIfNeeded(context: Context, preserveFirstRun: Boolean = false) {
+        synchronized(stateLock) {
+            //每日恢复次数限制
+            if (!canUseRecover(context)) {
+                sendLog("恢复次数超限")
+                return
+            }
             val now = SystemClock.elapsedRealtime()
-            //限制恢复频率
+            //限制恢复频率 （时间防抖）
             if (now - lastRecoverRealTime < RECOVER_COOLDOWN) {
                 sendLog("恢复过于频繁，拒绝")
                 return
@@ -479,18 +678,29 @@ object HYSJTimeSecurityManager {
                 trustedNetworkTime = 0L
                 baseElapsedRealtime = 0L
                 lastSyncElapsedRealtime = 0L
-                cachedExpireTimestamp = 0L
-                savedBootTime = 0L
-
+                lastValidExpireTimestamp = 0L
+                lastSyncBootCount = 0
+                lastSyncTrustedTime = 0L
+                serverExpireTimestamp = 0L
+                adExpireTimestamp = 0L
                 secureNonce = 0L
                 maxNonce = 0L
 
-                // ❗防止重新进入首装豁免
-                firstRunElapsedRealtime = -1L
-                // ✅记录恢复时间（持久化）
+                if (!preserveFirstRun) {
+                    // 防止重新进入首装豁免
+                    firstRunElapsedRealtime = -1L
+                }
+                //记录恢复时间（持久化）
                 recoverTimestamp = SystemClock.elapsedRealtime()
                 sp?.edit()?.putLong(KEY_RECOVER_TS, recoverTimestamp)?.commit()
-                // ✅ 写入干净状态
+                //记录恢复次数
+                val today = getTodayKey()
+                val count = sp?.getInt(KEY_RECOVER_COUNT, 0) ?: 0
+                sp?.edit()
+                    ?.putInt(KEY_RECOVER_COUNT, count + 1)
+                    ?.putString(KEY_RECOVER_DAY, today)
+                    ?.commit()
+                //写入干净状态
                 saveToSp(context)
 
 
@@ -513,10 +723,14 @@ object HYSJTimeSecurityManager {
                 "$trustedNetworkTime|" +
                         "$baseElapsedRealtime|" +
                         "$lastSyncElapsedRealtime|" +
-                        "$cachedExpireTimestamp|"+
-                        "$savedBootTime|" +
+                        "$savedBootCount|" +
                         "$secureNonce|" +
-                        "$firstRunElapsedRealtime"
+                        "$firstRunElapsedRealtime|"+
+                        "$lastValidExpireTimestamp|" +
+                        "$serverExpireTimestamp|" +
+                        "$adExpireTimestamp|" +
+                        "$lastSyncBootCount|" +
+                        "$lastSyncTrustedTime"
 
             val sign = generateHmac(context, rawData)
 
@@ -533,33 +747,47 @@ object HYSJTimeSecurityManager {
     // =============================
 
     private fun verifySp(context: Context): Boolean {
+        synchronized(stateLock) {
+            val hasOldData = sp?.contains(KEY_DATA) == true
+            val rawData = sp?.getString(KEY_DATA, null)
+            if (rawData.isNullOrEmpty()) {
 
-        val rawData = sp?.getString(KEY_DATA, null) ?: return true
-        if (rawData.isEmpty()) return true
+                return if (!hasOldData) {
+                    // ✅ 真正首次启动
+                    true
+                } else {
+                    // ❌ 被删除 → 攻击
+                    false
+                }
+            }
 
-        val savedSign = sp?.getString(KEY_SIGN, null) ?: return false
-        val realSign = generateHmac(context, rawData)
 
-        if (realSign != savedSign) {
-            return false
+
+            val savedSign = sp?.getString(KEY_SIGN, null) ?: return false
+            val realSign = generateHmac(context, rawData)
+
+            if (realSign != savedSign) {
+                return false
+            }
+
+            // 防 SP 回滚攻击
+            val parts = rawData.split('|')
+            if (parts.size < 11) return false
+
+            val nonce = parts[4].toLongOrNull() ?: return false
+
+            val savedMaxNonce = sp?.getLong("max_nonce", 0L) ?: 0L
+
+            if (nonce < savedMaxNonce) {
+                return false
+            }
+
+            secureNonce = nonce
+            maxNonce = savedMaxNonce
+
+            return true
         }
 
-        // 防 SP 回滚攻击
-        val parts = rawData.split('|')
-        if (parts.size < 7) return false
-
-        val nonce = parts[5].toLongOrNull() ?: return false
-
-        val savedMaxNonce = sp?.getLong("max_nonce", 0L) ?: 0L
-
-        if (nonce < savedMaxNonce) {
-            return false
-        }
-
-        secureNonce = nonce
-        maxNonce = savedMaxNonce
-
-        return true
     }
 
     private fun loadFromSp(context: Context) {
@@ -572,17 +800,25 @@ object HYSJTimeSecurityManager {
         maxNonce = sp?.getLong("max_nonce", 0L) ?: 0L
         val rawData = sp?.getString(KEY_DATA, null) ?: return
         val parts = rawData.split('|')
-        if (parts.size < 7) return
+        if (parts.size < 11) return
 
         trustedNetworkTime = parts[0].toLongOrNull() ?: 0L
         baseElapsedRealtime = parts[1].toLongOrNull() ?: 0L
         lastSyncElapsedRealtime = parts[2].toLongOrNull() ?: 0L
-        cachedExpireTimestamp = parts[3].toLongOrNull() ?: 0L
-        savedBootTime = parts[4].toLongOrNull() ?: 0L
-        secureNonce = parts[5].toLongOrNull() ?: 0L
-        firstRunElapsedRealtime = parts[6].toLongOrNull() ?: 0L
+        savedBootCount = parts[3].toIntOrNull() ?: 0
+        secureNonce = parts[4].toLongOrNull() ?: 0L
+        firstRunElapsedRealtime = parts[5].toLongOrNull() ?: 0L
+        lastValidExpireTimestamp = parts[6].toLongOrNull() ?: 0L
+        serverExpireTimestamp = parts[7].toLongOrNull() ?: 0L
+        adExpireTimestamp = parts[8].toLongOrNull() ?: 0L
+        lastSyncBootCount  = parts[9].toIntOrNull() ?: 0
+        lastSyncTrustedTime = parts[10].toLongOrNull() ?: 0L
+
     }
 
+    fun getCurrentExpire(): Long {
+        return maxOf(serverExpireTimestamp, adExpireTimestamp)
+    }
     private fun generateHmac(context: Context, data: String,ruan: Boolean = true): String {
         return if (ruan){
             val secret = getDeviceSecret(context)
@@ -605,7 +841,7 @@ object HYSJTimeSecurityManager {
                     )
                     keyGenerator.generateKey()
                 }
-                Log.e("sp怎么回事", "alias exist = ${keyStore.containsAlias(alias)}" )
+                //Log.e("sp怎么回事", "alias exist = ${keyStore.containsAlias(alias)}" )
                 val mac = Mac.getInstance("HmacSHA256")
                 mac.init(secretKey)
                 Base64.encodeToString(mac.doFinal(data.toByteArray()), Base64.NO_WRAP)
@@ -622,15 +858,16 @@ object HYSJTimeSecurityManager {
     }
 
     private fun getDeviceSecret(context: Context): String {
+        val sp = context.getSharedPreferences("hysj_time_secure", Context.MODE_PRIVATE)
 
-        val androidId = Settings.Secure.getString(
-            context.contentResolver,
-            Settings.Secure.ANDROID_ID
-        ) ?: "unknown"
+        var id = sp.getString("device_secret_id", null)
 
-        val model = Build.MODEL ?: "unknown"
+        if (id == null) {
+            id = java.util.UUID.randomUUID().toString()
+            sp.edit().putString("device_secret_id", id).commit()
+        }
 
-        return "VIP_SECRET_${androidId}_${model}_2025"
+        return "VIP_SECRET_$id"
     }
 
     // Hook/Xposed检测
@@ -714,8 +951,7 @@ object HYSJTimeSecurityManager {
             trustedNetworkTime = 0L
             baseElapsedRealtime = 0L
             lastSyncElapsedRealtime = 0L
-            cachedExpireTimestamp = 0L
-            savedBootTime = 0L
+
             secureNonce = 0L
             //防止重新触发首装30分钟豁免
             firstRunElapsedRealtime = -1L
@@ -732,31 +968,29 @@ object HYSJTimeSecurityManager {
         context: Context = appContext,
         allowOfflineHours: Long = DEFAULT_OFFLINE_HOURS
     ): TimeSecurityStatus {
+
         val networkAvailable = isNetworkAvailable(context)
         val offlinePassed = getOfflinePassedHours()  //保持 Long.MAX_VALUE 在设备重启或未同步时
         val offlineRemain = getOfflineRemainTimeText(allowOfflineHours)
-        //  1️⃣ Hook检测
-        if (isHookEnvironment) {
-            sendLog("App被hook")
+        fun timeSS(isValid: Boolean = true,reason: TimeSecurityReason = TimeSecurityReason.OK): TimeSecurityStatus {
             return TimeSecurityStatus(
-                isValid = false,
-                reason =  TimeSecurityReason.HOOK_DETECTED,
+                isValid = isValid,
+                reason =  reason,
                 isNetworkAvailable = networkAvailable,
                 offlinePassedHours = offlinePassed,
                 offlineRemainMinutes = offlineRemain
             )
         }
+        //  1️⃣ Hook检测
+        if (isHookEnvironment) {
+            sendLog("App被hook")
+            return timeSS(false,TimeSecurityReason.HOOK_DETECTED)
+        }
 
         //  2️⃣ Debug检测
         if (isDebuggerAttached()) {
             sendLog("App被debug")
-            return TimeSecurityStatus(
-                isValid = false,
-                reason =  TimeSecurityReason.DEBUGGER_DETECTED,
-                isNetworkAvailable = networkAvailable,
-                offlinePassedHours = offlinePassed,
-                offlineRemainMinutes = offlineRemain
-            )
+            return timeSS(false,TimeSecurityReason.DEBUGGER_DETECTED)
         }
 
 
@@ -767,176 +1001,73 @@ object HYSJTimeSecurityManager {
             // ✅恢复后再校验一次
             if (!verifySp(context)) {
                 sendLog("SP异常 → 恢复失败")
-                return TimeSecurityStatus(
-                    isValid = false,
-                    reason = TimeSecurityReason.SP_TAMPERED,
-                    isNetworkAvailable = networkAvailable,
-                    offlinePassedHours = offlinePassed,
-                    offlineRemainMinutes = offlineRemain
-                )
+                return timeSS(false,TimeSecurityReason.SP_TAMPERED)
             }
             sendLog("SP异常 → 已自动恢复成功")
         }
         // 安装30分钟豁免
         if (isInstallGracePeriod()) {
             sendLog("首次安装的30分钟内")
-            return TimeSecurityStatus(
-                isValid = true,
-                reason =  TimeSecurityReason.OK,
-                isNetworkAvailable = networkAvailable,
-                offlinePassedHours = offlinePassed,
-                offlineRemainMinutes = offlineRemain
-            )
+            return timeSS()
         }
-
-
 
         // 4️⃣ 设备重启
         if (isDeviceRebooted()) {
-            sendLog("设备重启了,待联网后恢复")
-            return TimeSecurityStatus(
-                isValid = false,
-                reason =  TimeSecurityReason.DEVICE_REBOOTED,
-                isNetworkAvailable = networkAvailable,
-                offlinePassedHours = offlinePassed,
-                offlineRemainMinutes = offlineRemain
-            )
+           //只有进程重启（App 或设备），才会执行一次
+            if (rebootDetectedRealtime == 0L) {
+                rebootDetectedRealtime = SystemClock.elapsedRealtime()
+            }
+            // ⭐ 超过5秒 → 再判断是否恢复
+            //很明显 第一次执行时间隔太短,进不来,第二次才能进来
+            val delta = SystemClock.elapsedRealtime() - rebootDetectedRealtime
+            if (delta > 5_000L) {
+                if (!isResyncedAfterReboot()) {
+                    sendLog("设备重启了,待联网后恢复")
+                    return timeSS(false,TimeSecurityReason.DEVICE_REBOOTED)
+                }
+            }
+
         }
 
-        // 未同步网络时间
-        if (trustedNetworkTime == 0L) {
-            sendLog("App还未联网")
-            return TimeSecurityStatus(
-                isValid = false,
-                reason =  TimeSecurityReason.NETWORK_NOT_SYNCED,
-                isNetworkAvailable = networkAvailable,
-                offlinePassedHours = offlinePassed,
-                offlineRemainMinutes = offlineRemain
-            )
+        // 未同步网络可信时间
+        val trustedNow = getTrustedNow()//获取当前可信时间
+        if (trustedNow <= 0L) {
+            sendLog("App还未联网,当前可信时间为（0）,请联网修正")
+            return timeSS(false,TimeSecurityReason.NETWORK_NOT_SYNCED)
         }
-        
+        //  系统时间被修改（防回拨）
+        if (!isSystemTimeValid()) { //基于网络可信时间,故该判断放在后面
+            sendLog("设备时间被修改了")
+            return timeSS(false,TimeSecurityReason.SYSTEM_TIME_INVALID)
+        }
+
         // 离线时间过长
         if (isOfflineExpired(allowOfflineHours)){
             sendLog("App离线时间过长")
-            return TimeSecurityStatus(
-                isValid = false,
-                reason =  TimeSecurityReason.OFFLINE_EXPIRED,
-                isNetworkAvailable = networkAvailable,
-                offlinePassedHours = offlinePassed,
-                offlineRemainMinutes = offlineRemain
-            )
+            return timeSS(false,TimeSecurityReason.OFFLINE_EXPIRED)
         }
-        //  系统时间被修改（防回拨）
-        if (!isSystemTimeValid()) {
-            sendLog("设备时间被修改了")
-            return TimeSecurityStatus(
-                isValid = false,
-                reason =  TimeSecurityReason.SYSTEM_TIME_INVALID,
-                isNetworkAvailable = networkAvailable,
-                offlinePassedHours = offlinePassed,
-                offlineRemainMinutes = offlineRemain
-            )
-        }
-        // 未同步会员时间 会员时间还没获取到 加入熔断兜底）
+
+        // 未同步会员时间 会员时间还没获取到
         //包含两种场景：
         //1 首次安装还没登录
          //2 SP被篡改导致数据清空
-
-
-
-        if (cachedExpireTimestamp <= 0L) {
-            //恢复窗口逻辑（必须联网）
-            val now = SystemClock.elapsedRealtime()
-            if (recoverTimestamp > 0) {
-
-                val delta = now - recoverTimestamp
-
-                // ✅ 仅限5分钟 + 必须联网
-                if (delta < 5 * 60 * 1000L && networkAvailable) {
-                    sendLog("恢复窗口内，等待服务器同步")
-                    return TimeSecurityStatus(true, TimeSecurityReason.OK, networkAvailable, 0, "0")
-                }
-
-                // ✅超时清理
-                if (delta >= 5 * 60 * 1000L) {
-                    recoverTimestamp = 0L
-                    sp?.edit()?.putLong(KEY_RECOVER_TS, 0L)?.commit()
-                }
-            }
-
-            // =============================
-            // ✅熔断兜底
-            // =============================
-            if (HyApiCircuitBreaker.isOpen()) {
-
-                val fallbackExpire = lastValidExpireTimestamp
-
-                if (fallbackExpire > getTrustedNow()) {
-                    sendLog("熔断中 → 使用历史会员兜底")
-
-                    return TimeSecurityStatus(
-                        isValid = true,
-                        reason = TimeSecurityReason.OK,
-                        isNetworkAvailable = networkAvailable,
-                        offlinePassedHours = offlinePassed,
-                        offlineRemainMinutes = offlineRemain
-                    )
-                }
-
-                sendLog("熔断中，但历史会员已过期")
-            }
-
-
-            sendLog("App当前是免费版(未更新)")
-            return TimeSecurityStatus(
-                isValid = false,
-                reason = TimeSecurityReason.VIP_TIME_NOT_SYNCED,
-                isNetworkAvailable = networkAvailable,
-                offlinePassedHours = offlinePassed,
-                offlineRemainMinutes = offlineRemain
-            )
+        val expire = getCurrentExpire() //获取当前会员时间
+        //会员时间<0 未开通过会员
+        if (expire <= 0L) {
+            sendLog("App当前是免费版(未开通过)")
+            return timeSS(false,TimeSecurityReason.VIP_TIME_NOT_SYNCED)
         }
 
         // =============================
-        // ✅【核心修改】缓存会员直接生效（支持熔断）
-        // =============================
-        val trustedNow = getTrustedNow()
-
-        if (cachedExpireTimestamp > 0L) {
-
-            if (cachedExpireTimestamp > trustedNow) {
-                sendLog("使用缓存会员（可能处于熔断状态）")
-                return TimeSecurityStatus(
-                    isValid = true,
-                    reason = TimeSecurityReason.OK,
-                    isNetworkAvailable = networkAvailable,
-                    offlinePassedHours = offlinePassed,
-                    offlineRemainMinutes = offlineRemain
-                )
-            }
-        }
-
-        // VIP过期   会员真的过期
-        if (cachedExpireTimestamp <= getTrustedNow()) {
+        // 会员时间<当前可信时间  VIP过期   会员真的过期
+        if (expire <= trustedNow) {
             sendLog("App当前是免费版(已过期)")
-            return TimeSecurityStatus(
-                isValid = false,
-                reason =  TimeSecurityReason.VIP_EXPIRED,
-                isNetworkAvailable = networkAvailable,
-                offlinePassedHours = offlinePassed,
-                offlineRemainMinutes = offlineRemain
-            )
+            return timeSS(false,TimeSecurityReason.VIP_EXPIRED)
         }
 
 
         // 正常
-        return TimeSecurityStatus(
-            isValid = true,
-            reason =  TimeSecurityReason.OK,
-            isNetworkAvailable = networkAvailable,
-            offlinePassedHours = offlinePassed,
-            offlineRemainMinutes = offlineRemain
-        )
+        return timeSS()
 
     }
     //配合前面的 formatterMap，添加同步锁，保证线程安全
@@ -958,6 +1089,14 @@ object HYSJTimeSecurityManager {
     fun parseMillisToTimeString(timeMillis: Long, patt: String = "yyyy-MM-dd HH:mm:ss"): String =
         runCatching { getFormatter(patt).format(Date(timeMillis)) }.getOrDefault("")
 
+}
+
+// =============================
+// 会员来源（统一体系关键）
+// =============================
+enum class VipSource {
+    SERVER,
+    LOCAL_AD
 }
 
 // 失败原因枚举
@@ -1006,166 +1145,5 @@ data class TimeSecurityStatus(
     val offlineRemainMinutes: String
 )
 
-// =============================
-// ✅会员接口熔断器
-// =============================
-object HyApiCircuitBreaker {
 
-    private const val SP_NAME = "hyhy_cb"
-    private const val KEY_STATE = "hyhystate"
-    private const val KEY_OPEN_TS = "hyhyopen_ts"
-
-    private const val MAX_FAIL = 3
-    private const val OPEN_DURATION = 10 * 60 * 1000L
-
-    private enum class State {
-        CLOSED, OPEN, HALF_OPEN
-    }
-
-    private val sp by lazy {
-        appContext.getSharedPreferences(SP_NAME, Context.MODE_PRIVATE)
-    }
-
-    // =========================
-    // 内存态（核心）
-    // =========================
-    private val failCount = AtomicInteger(0)
-    private val lock = Any()
-
-    @Volatile
-    private var currentState: State = State.CLOSED
-
-    @Volatile
-    private var openTimestamp: Long = 0L
-
-    @Volatile
-    private var halfOpenUsed = false
-
-    // =========================
-    // 初始化（进程恢复）
-    // =========================
-    init {
-        val savedState = sp.getString(KEY_STATE, State.CLOSED.name) ?: State.CLOSED.name
-        currentState = runCatching { State.valueOf(savedState) }.getOrDefault(State.CLOSED)
-        openTimestamp = sp.getLong(KEY_OPEN_TS, 0L)
-
-        // OPEN → 自动过期校正
-        if (currentState == State.OPEN) {
-            val now = System.currentTimeMillis()
-            if (now - openTimestamp >= OPEN_DURATION) {
-                currentState = State.HALF_OPEN
-                halfOpenUsed = false
-            }
-        }
-    }
-
-    // =========================
-    // 是否允许请求
-    // =========================
-    fun canRequest(): Boolean {
-        synchronized(lock) {
-            val now = System.currentTimeMillis()
-
-            return when (currentState) {
-
-                State.CLOSED -> true
-
-                State.OPEN -> {
-                    if (now - openTimestamp >= OPEN_DURATION) {
-                        // 冷却结束 → HALF_OPEN
-                        transitionTo(State.HALF_OPEN)
-                        halfOpenUsed = true // 当前请求占用探针
-                        true
-                    } else {
-                        false
-                    }
-                }
-
-                State.HALF_OPEN -> {
-                    if (!halfOpenUsed) {
-                        halfOpenUsed = true
-                        true
-                    } else {
-                        false
-                    }
-                }
-            }
-        }
-    }
-
-    // =========================
-    // 请求成功
-    // =========================
-    fun onSuccess() {
-        synchronized(lock) {
-            failCount.set(0)
-            if (currentState != State.CLOSED) {
-                transitionTo(State.CLOSED)
-            }
-        }
-    }
-
-    // =========================
-    // 请求失败
-    // =========================
-    fun onFail() {
-        synchronized(lock) {
-
-            // OPEN 状态忽略失败（避免刷新熔断时间）
-            if (currentState == State.OPEN) return
-
-            // HALF_OPEN 失败 → 立即熔断
-            if (currentState == State.HALF_OPEN) {
-                transitionTo(State.OPEN)
-                return
-            }
-
-            // CLOSED 累计失败
-            val fails = failCount.incrementAndGet()
-            if (fails >= MAX_FAIL) {
-                transitionTo(State.OPEN)
-            }
-        }
-    }
-
-    // =========================
-    // 是否处于“有效熔断中”
-    // =========================
-    fun isOpen(): Boolean {
-        synchronized(lock) {
-            if (currentState != State.OPEN) return false
-
-            val now = System.currentTimeMillis()
-            return now - openTimestamp < OPEN_DURATION
-        }
-    }
-
-    // =========================
-    // 状态切换
-    // =========================
-    private fun transitionTo(newState: State) {
-        currentState = newState
-
-        val editor = sp.edit()
-            .putString(KEY_STATE, newState.name)
-
-        when (newState) {
-
-            State.OPEN -> {
-                openTimestamp = System.currentTimeMillis()
-                editor.putLong(KEY_OPEN_TS, openTimestamp)
-            }
-
-            State.HALF_OPEN -> {
-                halfOpenUsed = false
-            }
-
-            State.CLOSED -> {
-                failCount.set(0)
-            }
-        }
-
-        editor.apply()
-    }
-}
 

@@ -5,6 +5,7 @@ import android.content.Context
 import android.content.Intent
 import com.google.android.accessibility.baoshi.TimeReportScheduler
 import com.google.android.accessibility.ext.utils.AliveUtils
+import com.google.android.accessibility.ext.utils.SdkInitManager
 
 /**
  * Company    :
@@ -36,7 +37,7 @@ class XpqBootReceiver : BroadcastReceiver() {
             Intent.ACTION_BOOT_COMPLETED,
             Intent.ACTION_LOCKED_BOOT_COMPLETED -> {
                 // 开机启动服务
-
+                SdkInitManager.initIfNeeded(context)
                 if (AliveUtils.getKeepAliveByNotification()){
                     AliveUtils.startFGAlive(enable = true)
                 }

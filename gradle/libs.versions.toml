@@ -71,6 +71,7 @@ paging = "2.1.1"
 blankj ="1.31.1"
 pinyin4j = "2.5.1"
 lifecycleProcess = "2.9.4"
+workRuntimeKtx = "2.11.1"
 
 #===============================new add
 
@@ -258,6 +259,7 @@ kotlinx-serialization-runtime = "org.jetbrains.kotlinx:kotlinx-serialization-run
 
 bga-banner = { group = "cn.bingoogolapple", name = "bga-banner", version = "3.0.0" }
 androidx-lifecycle-process = { group = "androidx.lifecycle", name = "lifecycle-process", version.ref = "lifecycleProcess" }
+androidx-work-runtime-ktx = { group = "androidx.work", name = "work-runtime-ktx", version.ref = "workRuntimeKtx" }
 
 
 
