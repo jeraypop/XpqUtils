@@ -253,8 +253,8 @@ object HYSJTimeSecurityManager {
 
                 if (nowElapsed > baseElapsedRealtime && !justSyncedFlag) {
                     //设备开机运行时间超过“上次记录值”，但一直未联网
-                    sendLog("设备开机运行时间超过“上次记录值”，但一直未联网,判定设备重启")
-                    return true
+                    //sendLog("设备开机运行时间超过“上次记录值”，但一直未联网,判定设备重启")
+                    //return true
                 }
             }
 
@@ -1065,31 +1065,33 @@ object HYSJTimeSecurityManager {
         //既然走到这里,就说明从安装到现在是成功联网过的
         //但现在又没联网 2种情况:App重启或设备重启
         // ✅ 使用 repeat 循环等待 justSyncedFlag 变为 true
-        if (!justSyncedFlag && networkAvailable) {
-            sendLog("开始等待网络时间同步...")
-            var synced = false
-            repeat(maxRetryCount) { index ->
-                if (justSyncedFlag) {
-                    synced = true
-                    sendLog("网络时间同步成功 (第${index + 1}次检查)")
-                    Log.e("网络时间同步", "成功 (第${index + 1}次检查)")
-                    return@repeat
+        if (!justSyncedFlag) {
+            if (isDeviceRebooted()){
+               //设备重启
+                sendLog("开始等待网络时间同步...")
+                var synced = false
+                repeat(maxRetryCount) { index ->
+                    if (justSyncedFlag) {
+                        synced = true
+                        sendLog("网络时间同步成功 (第${index + 1}次检查)")
+                        Log.e("网络时间同步", "成功 (第${index + 1}次检查)")
+                        return@repeat
+                    }
+                    // 每次间隔 300ms
+                    SystemClock.sleep(300L)
                 }
-                // 每次间隔 300ms
-                SystemClock.sleep(300L)
+
+                if (!synced) {
+                    sendLog("网络时间同步超时 (重试$maxRetryCount 次)")
+                    Log.e("网络时间同步", "超时 (重试$maxRetryCount 次)")
+                    return timeSS(false, TimeSecurityReason.NETWORK_NOT_SYNCED)
+                }
+            }else{
+                //app重启
             }
 
-            if (!synced) {
-                sendLog("网络时间同步超时 (重试$maxRetryCount 次)")
-                Log.e("网络时间同步", "超时 (重试$maxRetryCount 次)")
-                return timeSS(false, TimeSecurityReason.NETWORK_NOT_SYNCED)
-            }
         }
-        if (!justSyncedFlag){
-            // 软件或者设备重启后，未成功联网
-            sendLog("App 未联网")
-            return timeSS(false,TimeSecurityReason.NETWORK_NOT_SYNCED)
-        }
+
 
         // 4️⃣ 设备重启
         /*if (isDeviceRebooted()) {
