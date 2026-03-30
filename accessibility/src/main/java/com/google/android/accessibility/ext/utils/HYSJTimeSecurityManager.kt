@@ -294,6 +294,7 @@ object HYSJTimeSecurityManager {
 
             // ❗必须有可信时间
             if (now <= 0L) {
+                AliveUtils.toast(msg = "请先联网,再更新会员时间")
                 sendLog("未同步可信时间，拒绝更新会员 [$source]")
                 return
             }
@@ -311,14 +312,8 @@ object HYSJTimeSecurityManager {
             }
 
 
-            val currentExpire = getCurrentExpire()
-            // ✅ 更新兜底（熔断用）
-            if (currentExpire > now) {
-                lastValidExpireTimestamp = currentExpire
-            }
-
-
-            sendLog("会员更新 [$source] -> ${parseMillisToTimeString(currentExpire)}")
+            //val currentExpire = getCurrentExpire()
+            //sendLog("会员更新 [$source] -> ${parseMillisToTimeString(currentExpire)}")
 
             saveToSp(context)
         }
@@ -363,13 +358,7 @@ object HYSJTimeSecurityManager {
     ) {
         synchronized(stateLock) {
 
-            val now = getTrustedNow()
-
-            // ❗必须有可信时间
-            if (now <= 0L) {
-                sendLog("广告会员发放失败：未同步网络时间")
-                return
-            }
+            val now = getTrustedNow() //有可能是0
 
             // ❗必须联网（防离线刷）
             if (!isNetworkAvailable(context)) {
@@ -377,11 +366,6 @@ object HYSJTimeSecurityManager {
                 return
             }
 
-            // ❗离线过久禁止发放
-            if (isOfflineExpired()) {
-                sendLog("广告会员发放失败：离线超时")
-                return
-            }
 
             // ❗每日限制（防刷）
             if (!canGrantAdHYToday(context)) {
