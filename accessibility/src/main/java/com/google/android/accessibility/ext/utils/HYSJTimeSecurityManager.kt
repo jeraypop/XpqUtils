@@ -114,6 +114,10 @@ object HYSJTimeSecurityManager {
     //容忍5秒   部分设备单调递增不稳
     val rollbackTolerance = 5_000L
 
+    // 同步判定窗口（5分钟内算“刚同步”）
+    private const val JUST_SYNC_WINDOW = 5 * 60 * 1000L
+    @Volatile private var justSyncedFlag = false
+
     private val stateLock = Any()// 写操作锁
 
     private var sp: android.content.SharedPreferences? = null
@@ -163,6 +167,7 @@ object HYSJTimeSecurityManager {
             lastSyncElapsedRealtime = baseElapsedRealtime
             //记录可信时间基准（统一时间体系核心）
             lastSyncTrustedTime = networkTimestamp
+            justSyncedFlag = true
             //记录BOOT_COUNT
             val boot  = getBootCount()
             lastSyncBootCount = boot
@@ -192,6 +197,24 @@ object HYSJTimeSecurityManager {
         return trustedNetworkTime + passed
     }
 
+    // =============================
+    // ✅ 是否“刚刚同步过时间”
+    // =============================
+    @JvmStatic
+    fun isJustSynced(withinMillis: Long = JUST_SYNC_WINDOW): Boolean {
+
+        val last = lastSyncElapsedRealtime
+        if (last <= 0L) return false
+
+        val now = SystemClock.elapsedRealtime()
+        val delta = now - last
+
+        // 防御 elapsed 异常（重启 / 回退）
+        if (delta + rollbackTolerance < 0) return false
+
+        return delta in 0..withinMillis
+    }
+
     // 检测“重启后是否已恢复可信时间”（恢复判断）
     fun isResyncedAfterReboot(context: Context = appContext): Boolean {
         // 🔥① 主判定：BOOT_COUNT
@@ -217,14 +240,24 @@ object HYSJTimeSecurityManager {
 
         if (savedBootCount <= 0 || currentBoot <= 0) {
             // 🔥② 兜底：elapsedRealtime 回退
-            //baseElapsedRealtime在更新网络基准时间时也会随着更新
-            //就是说 联网后  nowElapsed 应该一直大于 baseElapsedRealtime
             val nowElapsed = SystemClock.elapsedRealtime()
-            //只要设备开机运行时间超过“上次记录值”，这是个临界点也是个漏洞
-            if (baseElapsedRealtime > 0L && nowElapsed  + rollbackTolerance < baseElapsedRealtime) {
-                sendLog("elapsedRealtime 回退 → 判定设备重启")
-                return true
+            //baseElapsedRealtime在更新网络基准时间时也会随着更新
+            //就是说 成功联网后  nowElapsed 应该一直大于 baseElapsedRealtime
+            //故一旦发现是小于,可认定重启且未联网
+            //但是呢 只要设备开机运行时间超过“上次记录值”，就算未联网,也是大于  这是个临界点也是个漏洞
+            if (baseElapsedRealtime > 0L ){
+                if (nowElapsed  + rollbackTolerance < baseElapsedRealtime) {
+                    sendLog("elapsedRealtime 回退 → 判定设备重启")
+                    return true
+                }
+
+                if (nowElapsed > baseElapsedRealtime && !justSyncedFlag) {
+                    //设备开机运行时间超过“上次记录值”，但一直未联网
+                    sendLog("设备开机运行时间超过“上次记录值”，但一直未联网,判定设备重启")
+                    return true
+                }
             }
+
         }
 
 
@@ -972,19 +1005,22 @@ object HYSJTimeSecurityManager {
     @JvmOverloads
     fun checkTimeSecurityStatus(
         context: Context = appContext,
-        allowOfflineHours: Long = DEFAULT_OFFLINE_HOURS
+        allowOfflineHours: Long = DEFAULT_OFFLINE_HOURS ,
+        maxRetryCount: Int = 10
     ): TimeSecurityStatus {
 
         val networkAvailable = isNetworkAvailable(context)
         val offlinePassed = getOfflinePassedHours()  //保持 Long.MAX_VALUE 在设备重启或未同步时
         val offlineRemain = getOfflineRemainTimeText(allowOfflineHours)
+        //val justSynced = isJustSynced()
         fun timeSS(isValid: Boolean = true,reason: TimeSecurityReason = TimeSecurityReason.OK): TimeSecurityStatus {
             return TimeSecurityStatus(
                 isValid = isValid,
                 reason =  reason,
                 isNetworkAvailable = networkAvailable,
                 offlinePassedHours = offlinePassed,
-                offlineRemainMinutes = offlineRemain
+                offlineRemainMinutes = offlineRemain,
+                justSynced = justSyncedFlag
             )
         }
         //  1️⃣ Hook检测
@@ -1017,9 +1053,47 @@ object HYSJTimeSecurityManager {
             return timeSS()
         }
 
+
+
+        // 获取网络可信时间
+        val trustedNow = getTrustedNow()//获取当前可信时间
+        if (trustedNow <= 0L) {
+            //从安装到现在从未成功联网
+            sendLog("App从未联过网,当前可信时间为（0）,请授予联网权限")
+            return timeSS(false,TimeSecurityReason.NETWORK_NOT_SYNCED)
+        }
+        //既然走到这里,就说明从安装到现在是成功联网过的
+        //但现在又没联网 2种情况:App重启或设备重启
+        // ✅ 使用 repeat 循环等待 justSyncedFlag 变为 true
+        if (!justSyncedFlag && networkAvailable) {
+            sendLog("开始等待网络时间同步...")
+            var synced = false
+            repeat(maxRetryCount) { index ->
+                if (justSyncedFlag) {
+                    synced = true
+                    sendLog("网络时间同步成功 (第${index + 1}次检查)")
+                    Log.e("网络时间同步", "成功 (第${index + 1}次检查)")
+                    return@repeat
+                }
+                // 每次间隔 300ms
+                SystemClock.sleep(300L)
+            }
+
+            if (!synced) {
+                sendLog("网络时间同步超时 (重试$maxRetryCount 次)")
+                Log.e("网络时间同步", "超时 (重试$maxRetryCount 次)")
+                return timeSS(false, TimeSecurityReason.NETWORK_NOT_SYNCED)
+            }
+        }
+        if (!justSyncedFlag){
+            // 软件或者设备重启后，未成功联网
+            sendLog("App 未联网")
+            return timeSS(false,TimeSecurityReason.NETWORK_NOT_SYNCED)
+        }
+
         // 4️⃣ 设备重启
-        if (isDeviceRebooted()) {
-           //只有进程重启（App 或设备），才会执行一次
+        /*if (isDeviceRebooted()) {
+            //只有进程重启（App 或设备），才会执行一次
             if (rebootDetectedRealtime == 0L) {
                 rebootDetectedRealtime = SystemClock.elapsedRealtime()
             }
@@ -1033,14 +1107,9 @@ object HYSJTimeSecurityManager {
                 }
             }
 
-        }
+        }*/
 
-        // 未同步网络可信时间
-        val trustedNow = getTrustedNow()//获取当前可信时间
-        if (trustedNow <= 0L) {
-            sendLog("App还未联网,当前可信时间为（0）,请联网修正")
-            return timeSS(false,TimeSecurityReason.NETWORK_NOT_SYNCED)
-        }
+
         //  系统时间被修改（防回拨）
         if (!isSystemTimeValid()) { //基于网络可信时间,故该判断放在后面
             sendLog("设备时间被修改了")
@@ -1148,7 +1217,9 @@ data class TimeSecurityStatus(
     val offlinePassedHours: Long,
 
     // 剩余可离线小时分钟数
-    val offlineRemainMinutes: String
+    val offlineRemainMinutes: String,
+    // 是否刚同步过时间
+    val justSynced: Boolean
 )
 
 
