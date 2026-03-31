@@ -98,7 +98,7 @@ object HYSJTimeSecurityManager {
     private const val KEY_RECOVER_TS = "recover_ts"
     @Volatile private var lastRecoverRealTime: Long = 0L
     private const val RECOVER_COOLDOWN = 10 * 60 * 1000L // 10分钟
-    // ✅最后一次有效会员（用于熔断兜底）
+    // ✅最后一次有效会员（暂未使用）
     @Volatile private var lastValidExpireTimestamp: Long = 0L
 
     // BOOT_COUNT 重启检测
@@ -246,21 +246,26 @@ object HYSJTimeSecurityManager {
             //故一旦发现是小于,可认定重启且未联网
             //但是呢 只要设备开机运行时间超过“上次记录值”，就算未联网,也是大于  这是个临界点也是个漏洞
             if (baseElapsedRealtime > 0L ){
+                //有漏洞  设备开机运行时间超过“上次记录值”，但一直未联网
                 if (nowElapsed  + rollbackTolerance < baseElapsedRealtime) {
                     sendLog("elapsedRealtime 回退 → 判定设备重启")
                     return true
                 }
-
-                if (nowElapsed > baseElapsedRealtime && !justSyncedFlag) {
-                    //设备开机运行时间超过“上次记录值”，但一直未联网
-                    //sendLog("设备开机运行时间超过“上次记录值”，但一直未联网,判定设备重启")
-                    //return true
-                }
             }
 
+            // ③ trusted 时间断裂（必须有前置条件）
+            val trustedNow = getTrustedNow()
+            if (trustedNow > 0 && lastSyncTrustedTime > 0) {
+                val deltaTrusted = trustedNow - lastSyncTrustedTime
+
+                if (deltaTrusted + rollbackTolerance < 0) {
+                    sendLog("trusted 时间倒退 → 判定设备重启")
+                    return true
+                }
+            }
+            //②和③对 长时间未联网的重启 都检测不出来,没办法
+
         }
-
-
 
         return false
     }
@@ -329,7 +334,9 @@ object HYSJTimeSecurityManager {
         context: Context = appContext,
         expireTimestamp: Long = 0L,
         expireTimeString: String = "",
-        pattern: String = "yyyy-MM-dd HH:mm:ss"
+        pattern: String = "yyyy-MM-dd HH:mm:ss",
+        action: HYAction = HYAction.UPDATE,
+        clearPolicy: HYClearPolicy = HYClearPolicy.SERVER_ONLY
     ) {
 
         val finalExpireTime = when {
@@ -341,9 +348,21 @@ object HYSJTimeSecurityManager {
             else -> 0L
         }
 
-        if (finalExpireTime <= 0L) return
-        // ✅统一入口
-        updateMyHYExpire(context, finalExpireTime, VipSource.SERVER)
+        when (action) {
+            HYAction.CLEAR -> {
+                clearHYInfo(policy = clearPolicy)
+                return
+            }
+            HYAction.IGNORE -> return
+            HYAction.UPDATE -> {
+                if (finalExpireTime <= 0L) return
+                // ✅统一入口
+                updateMyHYExpire(context, finalExpireTime, VipSource.SERVER)
+            }
+        }
+
+
+
 
     }
 
@@ -452,11 +471,24 @@ object HYSJTimeSecurityManager {
     }
     //清空HY 时间
     @JvmStatic
-    fun clearHYInfo(context: Context = appContext) {
+    fun clearHYInfo(context: Context = appContext,   policy: HYClearPolicy = HYClearPolicy.SERVER_ONLY) {
         synchronized(stateLock) {
-            serverExpireTimestamp = 0L
-            adExpireTimestamp = 0L
-            lastValidExpireTimestamp = 0L
+
+            when (policy) {
+
+                HYClearPolicy.SERVER_ONLY -> {
+                    serverExpireTimestamp = 0L
+                }
+
+                HYClearPolicy.AD_ONLY -> {
+                    adExpireTimestamp = 0L
+                }
+
+                HYClearPolicy.ALL -> {
+                    serverExpireTimestamp = 0L
+                    adExpireTimestamp = 0L
+                }
+            }
             saveToSp(context)
         }
     }
@@ -701,7 +733,6 @@ object HYSJTimeSecurityManager {
                 trustedNetworkTime = 0L
                 baseElapsedRealtime = 0L
                 lastSyncElapsedRealtime = 0L
-                lastValidExpireTimestamp = 0L
                 lastSyncBootCount = 0
                 lastSyncTrustedTime = 0L
                 serverExpireTimestamp = 0L
@@ -1155,11 +1186,13 @@ object HYSJTimeSecurityManager {
 // =============================
 // 会员来源（统一体系关键）
 // =============================
-enum class VipSource {
-    SERVER,
-    LOCAL_AD
+enum class VipSource { SERVER, LOCAL_AD }
+enum class HYClearPolicy {
+    SERVER_ONLY,   // 只清服务器会员
+    AD_ONLY,       // 只清广告会员
+    ALL            // 全部清
 }
-
+enum class HYAction { UPDATE, CLEAR, IGNORE }
 // 失败原因枚举
 enum class TimeSecurityReason {
    // 正常
