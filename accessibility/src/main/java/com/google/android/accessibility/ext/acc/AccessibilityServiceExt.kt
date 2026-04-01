@@ -200,11 +200,12 @@ fun AccessibilityService?.clickByText(
  */
 fun AccessibilityService.clickByTextOrDesc(
     keyword: String,
-    useGesture: Boolean = true
+    useGesture: Boolean = true,
+    mode: MatchMode = MatchMode.EXACT
 ): Boolean {
     val root = rootInActiveWindow ?: return false
 
-    val node = root.findNodeByTextOrDesc(keyword) ?: return false
+    val node = root.findNodeByTextOrDesc(keyword,mode) ?: return false
 
     return KeyguardUnLock.xpqclickNode(nodeInfo = node,isMoNi = useGesture,noParent = false)
 
@@ -225,30 +226,52 @@ fun AccessibilityService.clickByTextOrDesc(
 *
 * */
 private fun AccessibilityNodeInfo.findNodeByTextOrDesc(
-    keyword: String
+    keyword: String,
+    mode: MatchMode = MatchMode.EXACT
 ): AccessibilityNodeInfo? {
 
     val text = this.text?.toString()
     val desc = this.contentDescription?.toString()
-    if (!TextUtils.equals(desc,null)){
-        Log.e("查找发送按钮", "desc=: "+desc)
+
+    fun match(value: String?): Boolean {
+        if (value == null) return false
+
+        return when (mode) {
+            MatchMode.EXACT -> {
+                value == keyword
+            }
+            MatchMode.PREFIX -> {
+                value.startsWith(keyword)
+            }
+            MatchMode.CONTAINS -> {
+                value.contains(keyword)
+            }
+            MatchMode.SEND_WITH_COUNT -> {
+                val pattern = Regex("^${Regex.escape(keyword)}(\\(\\d+\\))?$")
+                value.matches(pattern)
+            }
+        }
     }
 
-    if (
-        text?.equals(keyword) == true ||
-        desc?.equals(keyword) == true
-    ) {
-        Log.e("查找发送按钮111", "desc=: "+desc)
+    if (match(text) || match(desc)) {
         return if (isClickable) this else findClickableParent()
     }
 
     for (i in 0 until childCount) {
         val child = getChild(i) ?: continue
-        val result = child.findNodeByTextOrDesc(keyword)
+        val result = child.findNodeByTextOrDesc(keyword, mode)
         if (result != null) return result
     }
 
     return null
+}
+
+enum class MatchMode {
+    EXACT,         // 完全匹配：发送
+    PREFIX,        // 前缀匹配：发送xxx
+
+    CONTAINS,      // 包含：发送
+    SEND_WITH_COUNT // 发送 / 发送(数字)
 }
 
 
