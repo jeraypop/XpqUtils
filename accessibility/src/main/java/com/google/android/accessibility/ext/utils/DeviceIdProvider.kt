@@ -35,6 +35,12 @@ object DeviceIdProvider {
      * - 获取稳定ID
      * - 判断是否变化
      * - 可选是否同步更新
+     *
+     * 必须先调用
+     * 初始化
+     * 检测
+     * 返回稳定ID
+     * 给出状态
      */
     @JvmStatic
     @JvmOverloads
@@ -96,13 +102,14 @@ object DeviceIdProvider {
      */
     @JvmStatic
     @JvmOverloads
-    fun isChanged(context: Context = appContext): Boolean {
-        val cached = cachedId
-            ?: context.getSharedPreferences(SP_NAME, Context.MODE_PRIVATE)
-                .getString(KEY_ANDROID_ID, null)
-            ?: return false
+    fun isChanged(context: Context): Boolean {
+        val sp = context.getSharedPreferences(SP_NAME, Context.MODE_PRIVATE)
+        val saved = sp.getString(KEY_ANDROID_ID, null) ?: return false
 
-        return checkChanged(context, cached) == IdStatus.CHANGED
+        val current = normalizeId(getRawSystemAndroidId(context), allowEmpty = true)
+        if (current.isEmpty()) return false
+
+        return saved != current
     }
 
     // -------------------------
