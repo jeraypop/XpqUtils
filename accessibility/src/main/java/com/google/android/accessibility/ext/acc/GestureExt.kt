@@ -49,6 +49,52 @@ fun AccessibilityService?.gestureClick(node: AccessibilityNodeInfo): Boolean {
     )
 }
 
+data class ClickResult(
+    val success: Boolean,
+    val x: Float = 0f,
+    val y: Float = 0f,
+    val reason: String? = null
+)
+//带返回坐标信息
+fun AccessibilityService?.gestureClickResult(
+    node: AccessibilityNodeInfo?
+): ClickResult {
+
+    this ?: return ClickResult(false, reason = "service_null")
+    node ?: return ClickResult(false, reason = "node_null")
+
+    val bounds = Rect().apply { node.getBoundsInScreen(this) }
+
+    val x = maxOf(0, bounds.centerX()).toFloat()
+    val y = maxOf(0, bounds.centerY()).toFloat()
+
+    // 可视化点击点
+    if (KeyguardUnLock.getShowClickIndicator()) {
+        KeyguardUnLock.showClickIndicator(this, x.toInt(), y.toInt())
+    }
+
+    val success = dispatchGesture(
+        GestureDescription.Builder().apply {
+            addStroke(
+                GestureDescription.StrokeDescription(
+                    Path().apply { moveTo(x, y) },
+                    0L,
+                    200L
+                )
+            )
+        }.build(),
+        null,
+        null
+    )
+
+    return ClickResult(
+        success = success,
+        x = x,
+        y = y,
+        reason = if (success) null else "dispatch_failed"
+    )
+}
+
 /**
  * 向上滚动
  */

@@ -155,6 +155,32 @@ fun AccessibilityService?.clickById(
     }
 }
 
+fun AccessibilityService?.clickById_XY(
+    id: String
+): ClickResult {
+
+    this ?: return ClickResult(false, reason = "service_null")
+
+    val raw = rootInActiveWindow
+        ?.findNodesById(id)
+        ?.firstOrNull()
+        ?: return ClickResult(false, reason = "node_not_found")
+
+    val node = copyNodeCompat(raw)
+    recycleCompat(raw)
+
+    node ?: return ClickResult(false, reason = "node_copy_failed")
+    val result = try {
+        gestureClickResult(node)
+    } finally {
+        recycleCompat(node) // ✅ 必须回收
+    }
+    //val result = gestureClickResult(node)
+    return result
+
+
+}
+
 
 
 //fun AccessibilityService?.clickByText(text: String, gestureClick: Boolean = true): Boolean {
@@ -205,16 +231,41 @@ fun AccessibilityService.clickByTextOrDesc(
 ): Boolean {
     val root = rootInActiveWindow ?: return false
 
-    val node = root.findNodeByTextOrDesc(keyword,mode) ?: return false
+    val raw = root.findNodeByTextOrDesc(keyword,mode) ?: return false
+    val node = copyNodeCompat(raw)
+    recycleCompat(raw)
 
-    return KeyguardUnLock.xpqclickNode(nodeInfo = node,isMoNi = useGesture,noParent = false)
+    return try {
+        KeyguardUnLock.xpqclickNode(
+            nodeInfo = node,
+            isMoNi = useGesture,
+            noParent = false
+        )
+    } finally {
+        recycleCompat(node) // ✅ 必须回收
+    }
+}
 
-//    return if (useGesture && Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {
-//        clickByGesture(node)
-//    } else {
-//        node.performAction(AccessibilityNodeInfo.ACTION_CLICK)
-//    }
+fun AccessibilityService.clickByTextOrDesc_XY(
+    keyword: String,
+    mode: MatchMode = MatchMode.EXACT
+): ClickResult {
+    val root = rootInActiveWindow ?: return ClickResult(false, reason = "root_null")
 
+    val raw = root.findNodeByTextOrDesc(keyword,mode) ?: return ClickResult(false, reason = "node_null")
+
+    val node = copyNodeCompat(raw)
+    recycleCompat(raw)
+
+    node ?: return ClickResult(false, reason = "node_copy_failed")
+
+    val result = try {
+        gestureClickResult(node)
+    } finally {
+        recycleCompat(node) // ✅ 必须回收
+    }
+
+    return result
 }
 
 /*
