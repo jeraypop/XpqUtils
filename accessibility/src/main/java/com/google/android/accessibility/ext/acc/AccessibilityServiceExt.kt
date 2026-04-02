@@ -473,26 +473,65 @@ fun AccessibilityService?.clickByIdAndText(
 fun AccessibilityService?.clickByIdAndDesc(
     id: String,
     regex: String,
-    gestureClick: Boolean = true
+    gestureClick: Boolean = true,
+    fastLimit: Int = 50,   // 第一阶段：快速扫描
+    fullLimit: Int = 500    // 第二阶段：扩大扫描
 ): Boolean {
+
     this ?: return false
+    val root = rootInActiveWindow ?: return false
 
-    val pattern = regex.toRegex()
+    val nodes = root.findNodesById(id)
+    if (nodes.isEmpty()) return false
 
-    val raw = rootInActiveWindow
-        ?.findNodesById(id)
-        ?.firstOrNull { it.contentDescription.default().matches(pattern) }
-        ?: return false
+    val pattern = Regex(regex)
+
+    var raw: AccessibilityNodeInfo? = null
+    var index = 0
+
+    // ---------- 单次遍历 + 分级策略 ----------
+    for (node in nodes) {
+        val desc = node.contentDescription?.toString()
+        if (desc != null && pattern.matches(desc)) {
+            raw = node
+            break
+        }
+
+        index++
+
+        // 第一阶段：只扫 fastLimit
+        if (index == fastLimit) {
+            break
+        }
+    }
+
+    // ---------- 第二阶段：继续扫到 fullLimit ----------
+    if (raw == null && index < nodes.size) {
+        for (i in index until minOf(fullLimit, nodes.size)) {
+            val node = nodes[i]
+            val desc = node.contentDescription?.toString()
+            if (desc != null && pattern.matches(desc)) {
+                raw = node
+                break
+            }
+        }
+    }
+
+    raw ?: return false
 
     val node = copyNodeCompat(raw)
     recycleCompat(raw)
     node ?: return false
 
+    val target = when {
+        gestureClick -> node.findClickableParent() ?: node
+        else -> if (node.isClickable) node else node.findClickableParent() ?: node
+    }
     return try {
         if (gestureClick) {
-            gestureClick(node).takeIf { it } ?: node.click()
+            gestureClick(target) || target.click()
         } else {
-            node.click().takeIf { it } ?: gestureClick(node)
+            target.click() || gestureClick(target)
         }
     } finally {
         recycleCompat(node)
