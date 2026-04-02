@@ -24,12 +24,10 @@ import android.text.TextUtils
 import android.util.Log
 import android.view.accessibility.AccessibilityNodeInfo
 import android.widget.Toast
-import androidx.annotation.RequiresApi
 import androidx.core.app.ActivityCompat
 import androidx.core.app.NotificationCompat
 import androidx.core.app.NotificationManagerCompat
 import com.android.accessibility.ext.R
-import com.google.android.accessibility.ext.acc.inputText
 import com.google.android.accessibility.ext.acc.inputTextPaste
 import com.google.android.accessibility.ext.utils.LibCtxProvider.Companion.appContext
 import com.google.android.accessibility.notification.ClearNotificationListenerServiceImp
@@ -501,26 +499,61 @@ object NotificationUtilXpq {
             .joinToString("")
     }
 
+    const val XPQ_OTP_ID = 2000
+    const val XPQ_MESSAGE_ID = 2001
+    const val XPQ_SYSTEM_ID = 2002
+    const val XPQ_OTP = "xpq_channel_otp"
+    const val XPQ_MESSAGE = "xpq_channel_message"
+    const val XPQ_SYSTEM = "xpq_channel_system"
+
    //创建通知渠道（只需一次）
    const val YANZHENGMA_CHANNEL_ID = "debug_xpq_code_channel"
 
     @JvmOverloads
     @JvmStatic
     fun ensureNotificationChannel(context: Context = appContext) {
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.O) return
             val manager =
                 context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
 
-            val channel = NotificationChannel(
-                YANZHENGMA_CHANNEL_ID,
-                "验证码通知",
+        val channels = listOf(
+
+            NotificationChannel(
+                XPQ_OTP,
+                "模拟验证码通知",
                 NotificationManager.IMPORTANCE_HIGH
             ).apply {
-                description = "用于模拟验证码"
-            }
+                description = "模拟登录验证码等提醒"
+                enableVibration(true)
+                enableLights(true)
+            },
 
-            manager.createNotificationChannel(channel)
-        }
+            NotificationChannel(
+                XPQ_MESSAGE,
+                "消息通知",
+                NotificationManager.IMPORTANCE_DEFAULT
+            ).apply {
+                description = "普通消息提醒"
+            },
+
+            NotificationChannel(
+                XPQ_SYSTEM,
+                "系统通知",
+                NotificationManager.IMPORTANCE_LOW
+            ).apply {
+                description = "后台运行或状态通知"
+            }
+        )
+
+        manager.createNotificationChannels(channels)
+
+
+    }
+
+    enum class NotifyType {
+        OTP,
+        MESSAGE,
+        SYSTEM
     }
     @JvmOverloads
     @JvmStatic
@@ -529,12 +562,18 @@ object NotificationUtilXpq {
                          title: String = "通知验证码",
                          content: String = "你的登录验证码是：$code\n5 分钟内有效",
                          canCancel: Boolean = true,
-                         pendingIntent: PendingIntent? = null
+                         pendingIntent: PendingIntent? = null ,
+                         type: NotifyType = NotifyType.OTP
                          ) {
 
         ensureNotificationChannel(context)
+        val channelId = when (type) {
+            NotifyType.OTP -> XPQ_OTP
+            NotifyType.MESSAGE -> XPQ_MESSAGE
+            NotifyType.SYSTEM -> XPQ_SYSTEM
+        }
 
-        val notification = NotificationCompat.Builder(context, YANZHENGMA_CHANNEL_ID)
+        val builder = NotificationCompat.Builder(context, channelId)
             .setSmallIcon(getHostAppIcon())
             .setContentTitle(title)
             .setContentText(content)
@@ -543,26 +582,49 @@ object NotificationUtilXpq {
                     .bigText(content)
             )
             .setAutoCancel(canCancel)
-            .setPriority(NotificationCompat.PRIORITY_HIGH)
-        if (pendingIntent != null) {
-            notification.setContentIntent(pendingIntent)
+
+
+        // 不同类型差异化配置 👇
+        when (type) {
+            NotifyType.OTP -> {
+                builder.setPriority(NotificationCompat.PRIORITY_HIGH)
+            }
+
+            NotifyType.MESSAGE -> {
+                builder.setPriority(NotificationCompat.PRIORITY_DEFAULT)
+            }
+
+            NotifyType.SYSTEM -> {
+                builder.setPriority(NotificationCompat.PRIORITY_LOW)
+            }
         }
-        if (ActivityCompat.checkSelfPermission(
-                context,
-                Manifest.permission.POST_NOTIFICATIONS
-            ) != PackageManager.PERMISSION_GRANTED
-        ) {
-            // TODO: Consider calling
-            //    ActivityCompat#requestPermissions
-            // here to request the missing permissions, and then overriding
-            //   public void onRequestPermissionsResult(int requestCode, String[] permissions,
-            //                                          int[] grantResults)
-            // to handle the case where the user grants the permission. See the documentation
-            // for ActivityCompat#requestPermissions for more details.
-            return
+
+        pendingIntent?.let {
+            builder.setContentIntent(it)
+        }
+        // ✅ 只在 Android 13+ 检查权限
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            if (ActivityCompat.checkSelfPermission(
+                    context,
+                    Manifest.permission.POST_NOTIFICATIONS
+                ) != PackageManager.PERMISSION_GRANTED
+            ) {
+                return
+            }
+        }
+        val notifyId = when (type) {
+            NotifyType.OTP -> XPQ_OTP_ID
+            NotifyType.MESSAGE -> XPQ_MESSAGE_ID
+            NotifyType.SYSTEM -> XPQ_SYSTEM_ID
         }
         NotificationManagerCompat.from(context)
-            .notify(code.hashCode(), notification.build())
+            .notify(notifyId, builder.build())
+    }
+    @JvmOverloads
+    @JvmStatic
+    fun cancelNotification(context: Context = appContext,notifyId: Int = XPQ_OTP_ID) {
+        NotificationManagerCompat.from(context)
+            .cancel(notifyId)
     }
 
     @JvmOverloads
