@@ -95,7 +95,7 @@ class LibCtxProvider : ContentProvider() {
         contentProviderAuthority = "content://" + appContext.packageName+".xpqutilsProvider"
         //初始化SharedPreferences
         SPUtils.init(appContext)
-
+        T3Sdk.init(appContext)
         // 1. 版本信息（系统可拿）
         val pm = appContext.packageManager
         val info = pm.getPackageInfo(appContext.packageName, 0)
