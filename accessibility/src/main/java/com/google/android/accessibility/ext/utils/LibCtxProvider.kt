@@ -23,6 +23,7 @@ import com.google.android.accessibility.ext.utils.MMKVConst.KEEP_ALIVE_BY_NOTIFI
 import com.google.android.accessibility.ext.utils.MMKVConst.TASKHIDE_LIST
 import com.google.android.accessibility.ext.utils.MMKVConst.UPDATE_SCOPE
 import com.google.android.accessibility.ext.utils.MMKVConst.UPDATE_VALUE
+import com.google.android.accessibility.ext.utils.SdkInitManager.isMainProcess
 import com.google.android.accessibility.selecttospeak.SelectToSpeakServiceAbstract
 import org.json.JSONArray
 import java.util.Objects
@@ -125,6 +126,10 @@ class LibCtxProvider : ContentProvider() {
             SdkInitManager.initIfNeeded(appContext)
         } catch (e: Exception) { }
 
+        if (isMainProcess(appContext)) {
+            val app = context?.applicationContext as? Application ?: return true
+            RuntimeTracker.init(app)
+        }
 
         return true
     }

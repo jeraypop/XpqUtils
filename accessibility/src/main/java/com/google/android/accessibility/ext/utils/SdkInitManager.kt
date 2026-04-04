@@ -43,7 +43,7 @@ object SdkInitManager {
         }, 1500)
     }
 
-    private fun isMainProcess(context: Context): Boolean {
+    fun isMainProcess(context: Context): Boolean {
         val pid = android.os.Process.myPid()
         val am = context.getSystemService(Context.ACTIVITY_SERVICE) as android.app.ActivityManager
         val processName = am.runningAppProcesses?.firstOrNull { it.pid == pid }?.processName
