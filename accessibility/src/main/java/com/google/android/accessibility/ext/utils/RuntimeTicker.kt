@@ -40,7 +40,7 @@ class RuntimeTicker(
                     Type.BACKGROUND -> RuntimeTracker.getBackgroundTime(context)
                 }
 
-                textView.text = formatDurationWithSeconds(time)
+                textView.text = "本App已运行: "+formatDurationWithSeconds(time)
 
                 delay(1000)
             }
