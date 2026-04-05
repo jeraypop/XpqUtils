@@ -103,13 +103,14 @@ object NumberInputSDK {
             val max = 24*60
 
             if (number == null || number !in min..max) {
-                editText.error = "请输入 $min ~ $max 之间的数字"
+                editText.error = "请输入 $min ~ $max 之间的数字,6 左右即可"
                 return@setOnClickListener
             }
 
             prefs.edit().putInt(KEY_NUMBER, number).apply()
             onNumberSaved?.invoke(number)
             dialog.dismiss()
+            AliveUtils.toast(msg = ""+getSavedNumber()+" 保存成功,建议6左右即可")
         }
     }
 
