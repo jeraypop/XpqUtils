@@ -25,6 +25,7 @@ import com.google.android.accessibility.ext.utils.JieSuoUtils
 import com.google.android.accessibility.ext.utils.LibCtxProvider.Companion.appBuildTime
 import com.google.android.accessibility.ext.utils.NetworkHelperFullSmart
 import com.google.android.accessibility.ext.utils.NetworkHelperFullSmart.intervalIsDuan
+import com.google.android.accessibility.ext.utils.NumberInputSDK
 import com.google.android.accessibility.ext.utils.NumberPickerDialog
 import com.google.android.accessibility.ext.utils.broadcastutil.ScreenStateCallback
 import com.google.android.accessibility.ext.view.FabMenuItem
@@ -223,6 +224,10 @@ class MainActivity : XpqBaseActivity<ActivityMainBinding>(
                 },
                 FabMenuItem("解锁方案", com.android.accessibility.ext.R.drawable.move_xpq) {
                     NumberPickerDialog.showDefault(context = this@MainActivity)
+                },
+                FabMenuItem("输入数字", com.android.accessibility.ext.R.drawable.move_xpq) {
+                   
+                    NumberInputSDK.showNumberInputDialog(context = this@MainActivity)
                 },
                 FabMenuItem("网络测试", com.android.accessibility.ext.R.drawable.move_xpq) {
                     CoroutineScope(Dispatchers.Main).launch {
