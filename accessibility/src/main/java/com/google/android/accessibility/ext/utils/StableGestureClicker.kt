@@ -68,12 +68,20 @@ object StableGestureClicker {
         service: AccessibilityService,
         x: Int,
         y: Int,
-        duration: Long
+        duration: Long,
+        offset: Int = 5 // 最大偏移像素（±offset）
     ) {
         if (Build.VERSION.SDK_INT < Build.VERSION_CODES.N) return
 
+        // 生成随机偏移
+        val dx = (-offset..offset).random()
+        val dy = (-offset..offset).random()
+
+        val finalX = (x + dx).coerceAtLeast(0)
+        val finalY = (y + dy).coerceAtLeast(0)
+
         val path = Path().apply {
-            moveTo(x.toFloat(), y.toFloat())
+            moveTo(finalX.toFloat(), finalY.toFloat())
         }
 
         val gesture = GestureDescription.Builder()

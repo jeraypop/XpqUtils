@@ -62,6 +62,7 @@
     <string name ="nimbleisopen">开启</string>
     <string name ="nimbleisclose">关闭</string>
     <string name="cancel">取消</string>
+    <string name="vedioguide">vedio guide</string>
     <string name="sxzxpq">Restricted?</string>
     <string name="qxykqxpq">Permission has been granted</string>
     <string name="accessxpq">Accessibility</string>

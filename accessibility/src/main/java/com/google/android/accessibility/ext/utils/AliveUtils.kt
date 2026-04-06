@@ -1285,6 +1285,33 @@ object AliveUtils {
         val drawableYes = ContextCompat.getDrawable(appContext, ic_open)
         val drawableNo = ContextCompat.getDrawable(appContext, ic_close)
 
+        val cancelStr = when (btnValue) {
+            BTN_RECENT_HIDE  -> {
+                //多任务隐藏
+                activity.getString(R.string.cancel)
+            }
+            BTN_RECENT_HIDE_PLUS  -> {
+                //多任务隐藏 PLUS
+                activity.getString(R.string.cancel)
+            }
+            BTN_AUTOSTART  -> {
+                //自启动管理界面
+                activity.getString(R.string.vedioguide)
+            }
+            BTN_RECENTS  ->{
+                //打开最近任务列表
+                activity.getString(R.string.vedioguide)
+            }
+
+            BTN_PERMISSION  ->{
+                activity.getString(R.string.vedioguide)
+            }
+
+            else -> {
+                activity.getString(R.string.cancel)
+            }
+        }
+
         // 创建AlertDialog Builder
         val builder = AlertDialog.Builder(activity)
         builder.setView(view)
@@ -1352,7 +1379,7 @@ object AliveUtils {
                  }
             }
             .setNegativeButton(
-                activity.getString(R.string.cancel)
+                cancelStr
             ) { dialog, which ->
                 dialog.dismiss()
                 when (btnValue) {
@@ -1388,6 +1415,21 @@ object AliveUtils {
                             myImageView?.setImageDrawable(drawableNo)
                         }
                         AliveUtils.sendLibBroadcastPlus()
+                    }
+                    BTN_AUTOSTART  -> {
+                        //自启动管理界面
+                        val url = "https://v.kuaishou.com/JLaaLVU2"
+                        ActivityUtils.showWebViewDialog(activity = activity,url)
+                    }
+                    BTN_RECENTS  ->{
+                        //打开最近任务列表
+                        val url = "https://v.kuaishou.com/JM6WjI9Y"
+                        ActivityUtils.showWebViewDialog(activity = activity,url)
+                    }
+
+                    BTN_PERMISSION  ->{
+                        val url = "https://v.kuaishou.com/Jhwpquv1"
+                        ActivityUtils.showWebViewDialog(activity = activity,url)
                     }
                 }
 
