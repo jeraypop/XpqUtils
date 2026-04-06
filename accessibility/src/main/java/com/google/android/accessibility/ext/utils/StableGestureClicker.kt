@@ -4,6 +4,7 @@ import android.accessibilityservice.AccessibilityService
 import android.accessibilityservice.GestureDescription
 import android.graphics.Path
 import android.os.Build
+import com.google.android.accessibility.ext.utils.KeyguardUnLock.sendLog
 import com.google.android.accessibility.ext.utils.KeyguardUnLock.showClickIndicator
 import com.google.android.accessibility.selecttospeak.accessibilityService
 import kotlinx.coroutines.CoroutineScope
@@ -76,7 +77,7 @@ object StableGestureClicker {
         // 生成随机偏移
         val dx = (-offset..offset).random()
         val dy = (-offset..offset).random()
-
+        sendLog("点击位置偏移: ($x, $y, $duration)")
         val finalX = (x + dx).coerceAtLeast(0)
         val finalY = (y + dy).coerceAtLeast(0)
 
