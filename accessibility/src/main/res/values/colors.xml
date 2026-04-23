@@ -26,6 +26,8 @@
     <color name="common_dark">#424242</color>
     <color name="common_dark_grey_60">#99616161</color>
     <color name="transparent">#00000000</color>
+     <!--半透明黑色-->
+    <color name="halfBlack">#4D000000</color>
 
 
 </resources>

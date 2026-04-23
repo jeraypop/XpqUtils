@@ -10,8 +10,11 @@ import android.net.Uri
 import android.os.Build
 import android.os.Bundle
 import android.os.PowerManager
+import android.provider.Settings
 import android.service.notification.NotificationListenerService
+import android.util.Log
 import android.view.View
+import android.view.inputmethod.InputMethodManager
 import android.widget.TableRow
 import androidx.annotation.RequiresApi
 import androidx.appcompat.app.AlertDialog
@@ -28,6 +31,8 @@ import com.google.android.accessibility.ext.utils.LibCtxProvider.Companion.appCo
 import com.google.android.accessibility.ext.utils.MMKVConst
 import com.google.android.accessibility.ext.utils.NotificationUtilXpq
 import com.google.android.accessibility.ext.utils.NotificationUtilXpq.isNotificationListenerEnabled
+import com.google.android.accessibility.inputmethod.KeepAliveInputMethod
+import com.google.android.accessibility.inputmethod.KeepAliveInputMethod.Companion.ensureImeEnabledAndDefault
 import com.google.android.accessibility.notification.ClearNotificationListenerServiceImp
 import com.google.android.accessibility.selecttospeak.accessibilityService
 import com.hjq.permissions.permission.PermissionLists
@@ -378,6 +383,16 @@ class AliveActivity : XpqBaseActivity<ActivityAliveXpqBinding>(
             //===
         }
 
+        //输入法
+        binding.buttonInputPermission.setOnClickListener {
+            closeTaskHidePlus(binding.imageRecentTaskHidePermissionPlus)
+            // 引导用户去设置默认输入法
+            ensureImeEnabledAndDefault(this@AliveActivity)
+            updateUI()
+
+            //===
+        }
+
         //0像素
         binding.button0xiangsuPermission.setOnClickListener {
             closeTaskHidePlus(binding.imageRecentTaskHidePermissionPlus)
@@ -502,6 +517,12 @@ class AliveActivity : XpqBaseActivity<ActivityAliveXpqBinding>(
             binding.imageFloatPermission.setImageDrawable(drawableNo)
         }
 
+        //输入法
+        if (KeepAliveInputMethod.isDefaultIme()) {
+            binding.imageInputPermission.setImageDrawable(drawableYes)
+        } else {
+            binding.imageInputPermission.setImageDrawable(drawableNo)
+        }
 
     }
 

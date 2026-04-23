@@ -18,7 +18,12 @@
 
     </style>
 
-
+    <style name="XPQTheme.Transparent" parent="Theme.Material3.DayNight.NoActionBar">
+        <item name="android:windowIsTranslucent">true</item>
+        <item name="android:windowBackground">@android:color/transparent</item>
+        <item name="android:windowNoTitle">true</item>
+        <item name="android:backgroundDimEnabled">false</item>
+    </style>
 
 
     <style name="PayTheme" parent="Theme.AppCompat.Light.NoActionBar">

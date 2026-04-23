@@ -12,6 +12,7 @@
     <string name ="quanxianauto">auto:</string>
     <string name ="quanxian3">3.Device administrator</string>
     <string name ="quanxian4">4.Floating window</string>
+    <string name="quanxianinput">inputmethod keep alive</string>
     <string name ="quanxian5">5.Zero pixel keep alive</string>
     <string name ="quanxian6">6.Self starting</string>
     <string name ="quanxian7">7.Backend lock</string>

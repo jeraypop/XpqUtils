@@ -10,6 +10,7 @@
     <string name ="quanxianauto">自动开启:</string>
     <string name ="quanxian3">3.设备管理员</string>
     <string name ="quanxian4">4.悬浮窗</string>
+    <string name="quanxianinput">输入法保活</string>
     <string name ="quanxian5">5.零像素保活</string>
     <string name ="quanxian6">6.允许自启动</string>
     <string name ="quanxian7">7.后台免清理</string>

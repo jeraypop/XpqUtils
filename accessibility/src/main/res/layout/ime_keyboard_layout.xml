@@ -1,0 +1,138 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:id="@+id/ime_root"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:orientation="vertical"
+    android:background="@color/halfBlack"
+    android:padding="8dp">
+    <!--  #EEEEEE    -->
+
+
+    <!-- 输入提示 -->
+    <TextView
+        android:id="@+id/tv_input_hint"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="请输入内容"
+        android:textSize="16sp"
+        android:gravity="center"
+        android:padding="4dp"
+        android:textColor="#333333" />
+
+    <!-- 字母键 -->
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="horizontal"
+        android:gravity="center"
+        android:visibility="gone"
+        android:layout_marginTop="8dp">
+
+        <Button android:id="@+id/btn_a" android:layout_width="0dp" android:layout_weight="1" android:layout_height="48dp" android:text="A" />
+        <Button android:id="@+id/btn_b" android:layout_width="0dp" android:layout_weight="1" android:layout_height="48dp" android:text="B" />
+        <Button android:id="@+id/btn_c" android:layout_width="0dp" android:layout_weight="1" android:layout_height="48dp" android:text="C" />
+    </LinearLayout>
+
+    <!-- 数字键 -->
+    <LinearLayout
+        android:id="@+id/row_number_buttons"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="horizontal"
+        android:gravity="center"
+        android:layout_marginTop="8dp">
+        
+
+
+     <!--   <androidx.appcompat.widget.AppCompatImageButton
+            android:id="@+id/btn_00"
+            android:layout_width="0dp"
+            android:layout_weight="1"
+            android:layout_height="48dp"
+            android:src="@drawable/ic_settings_xpq"
+            android:scaleType="centerInside"
+            android:background="?attr/selectableItemBackgroundBorderless"
+            android:contentDescription="设置" />-->
+
+        <Button android:id="@+id/btn_0"
+            android:layout_width="0dp" android:layout_weight="1" android:layout_height="48dp" android:text="0" />
+        <Button android:id="@+id/btn_1"
+            android:layout_width="0dp" android:layout_weight="1" android:layout_height="48dp" android:text="1" />
+        <Button android:id="@+id/btn_2"
+            android:layout_width="0dp" android:layout_weight="1" android:layout_height="48dp" android:text="2" />
+        <Button android:id="@+id/btn_3"
+            android:layout_width="0dp" android:layout_weight="1" android:layout_height="48dp" android:text="3" />
+        <Button android:id="@+id/btn_4"
+            android:layout_width="0dp" android:layout_weight="1" android:layout_height="48dp" android:text="4" />
+        <Button android:id="@+id/btn_5"
+            android:layout_width="0dp" android:layout_weight="1" android:layout_height="48dp" android:text="5" />
+        <Button android:id="@+id/btn_6"
+            android:layout_width="0dp" android:layout_weight="1" android:layout_height="48dp" android:text="6" />
+        <Button android:id="@+id/btn_7"
+            android:layout_width="0dp" android:layout_weight="1" android:layout_height="48dp" android:text="7" />
+        <Button android:id="@+id/btn_8"
+            android:layout_width="0dp" android:layout_weight="1" android:layout_height="48dp" android:text="8" />
+        <Button android:id="@+id/btn_9"   
+            android:layout_width="0dp" android:layout_weight="1" android:layout_height="48dp" android:text="9" />
+    </LinearLayout>
+
+    <!-- 回车和删除 -->
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="horizontal"
+        android:gravity="center"
+        android:layout_marginTop="8dp">
+        <!-- 切换输入法 -->
+        <Button
+            android:id="@+id/btn_switch_ime"
+            android:layout_width="0dp"
+            android:layout_weight="1"
+            android:layout_height="48dp"
+            android:text="切换输入法"
+
+          />
+
+        <!-- 触发短语选择 -->
+        <Button
+            android:id="@+id/btn_phrase"
+            android:layout_width="0dp"
+            android:layout_weight="1"
+            android:layout_height="48dp"
+            android:text="常用短语"
+            />
+
+        <Button
+            android:id="@+id/btn_enter"
+            android:layout_width="0dp"
+            android:layout_weight="1"
+            android:layout_height="48dp"
+            android:text="Enter"
+
+            />
+
+        <Button
+            android:id="@+id/btn_del"
+            android:layout_width="0dp"
+            android:layout_weight="1"
+            android:layout_height="48dp"
+            android:text="Del"
+
+           
+            />
+    </LinearLayout>
+
+    <!-- 短语列表 水平流式布局 + 自动换行，默认隐藏 -->
+    <com.google.android.flexbox.FlexboxLayout
+        android:id="@+id/flex_phrases"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:visibility="gone"
+        android:background="#DDFFFFFF"
+        android:padding="4dp"
+        app:flexWrap="wrap"
+        app:justifyContent="flex_start">
+    </com.google.android.flexbox.FlexboxLayout>
+</LinearLayout>

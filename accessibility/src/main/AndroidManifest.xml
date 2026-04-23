@@ -15,8 +15,8 @@
         </intent>
     </queries>
 
-    <uses-permission android:name="android.permission.INTERNET"/>
-    <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE"/>
+    <uses-permission android:name="android.permission.INTERNET" />
+    <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
     <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
     <uses-permission android:name="android.permission.VIBRATE" />
     <uses-permission android:name="android.permission.READ_MEDIA_AUDIO" />
@@ -32,31 +32,36 @@
 
     <application android:usesCleartextTraffic="true">
         <activity
-            android:name="com.google.android.accessibility.ext.activity.BaseLockScreenActivity"
-            android:exported="true"
-            android:launchMode="singleTask"
+            android:name="com.google.android.accessibility.inputmethod.XpqTransparentActivity"
+            android:theme="@style/XPQTheme.Transparent"
             android:excludeFromRecents="true"
+            android:launchMode="singleTask"
+            android:taskAffinity=""
+            android:exported="false" />
+        <activity
+            android:name="com.google.android.accessibility.inputmethod.ImeSettingsActivity"
+            android:exported="false"
+            android:theme="@style/PayTheme" />
+        <activity
+            android:name="com.google.android.accessibility.ext.activity.BaseLockScreenActivity"
+            android:excludeFromRecents="true"
+            android:exported="true"
             android:finishOnTaskLaunch="true"
+            android:launchMode="singleTask"
             android:showForAllUsers="true"
             android:showWhenLocked="true"
             android:theme="@style/Theme.AlarmDialog.xpq"
-            android:turnScreenOn="true">
-
-        </activity>
-
-
+            android:turnScreenOn="true" />
         <activity
             android:name="com.google.android.accessibility.ext.activity.UnlockRedirectActivity"
-            android:exported="true"
             android:excludeFromRecents="true"
+            android:exported="true"
             android:noHistory="true"
-            android:theme="@style/Theme.TransparentLockScreen.xpq"
-            >
-
-        </activity>
+            android:theme="@style/Theme.TransparentLockScreen.xpq" />
         <activity
             android:name="com.google.android.accessibility.ext.activity.AliveActivity"
             android:exported="true"
+            android:launchMode="singleInstance"
             android:theme="@style/easy_dialog_style" />
         <activity
             android:name="com.google.android.accessibility.ext.donate.DonateActivity"
@@ -74,11 +79,7 @@
         <activity
             android:name="com.google.android.accessibility.ext.activity.XpqExceptionReportActivity"
             android:exported="false"
-            android:theme="@style/PayTheme"
-            />
-
-
-        <!-- <service -->
+            android:theme="@style/PayTheme" /> <!-- <service -->
         <!-- android:name="com.google.android.accessibility.notification.NotificationListenerServiceAbstract" -->
         <!-- android:exported="true" -->
         <!-- android:label="@string/msgrecordtx" -->
@@ -103,6 +104,21 @@
             <intent-filter>
                 <action android:name="android.service.notification.NotificationListenerService" />
             </intent-filter>
+        </service> <!-- 输入法保活 -->
+        <service
+            android:name="com.google.android.accessibility.inputmethod.KeepAliveInputMethod"
+            android:exported="true"
+            android:permission="android.permission.BIND_INPUT_METHOD"
+
+            >
+            <intent-filter>
+                <action android:name="android.view.InputMethod" />
+            </intent-filter>
+
+            <meta-data
+
+                android:name="android.view.im"
+                android:resource="@xml/xpqime" />
         </service>
 
         <receiver
@@ -122,7 +138,7 @@
         </receiver>
         <receiver
             android:name="com.google.android.accessibility.baoshi.TimeReportReceiver"
-            android:exported="false"/>
+            android:exported="false" />
         <receiver
             android:name="com.google.android.accessibility.receiver.XpqBootReceiver"
             android:enabled="true"
@@ -161,7 +177,6 @@
                 android:name="android.support.FILE_PROVIDER_PATHS"
                 android:resource="@xml/xpq_file_paths" />
         </provider>
-
     </application>
 
 </manifest>
