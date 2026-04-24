@@ -228,9 +228,9 @@ class KeepAliveInputMethod : InputMethodService() {
             if (!isEnabled) {
                 // 未启用，提示并打开系统设置让用户启用
                 AlertDialog.Builder(context)
-                    .setTitle("输入法保活")
+                    .setTitle("输入法保活（可选）")
                     .setMessage("原理:系统一般不会清理当前使用的输入法,故,引入了此项设置," +
-                            "\n其它保活措施到位的话此项设置可 不开启")
+                            "\nPS: 其它保活措施到位的话此项设置可 不开启")
                     .setPositiveButton("去启用") { _, _ ->
                         val intent = Intent(Settings.ACTION_INPUT_METHOD_SETTINGS)
                         intent.flags = Intent.FLAG_ACTIVITY_NEW_TASK
@@ -245,11 +245,20 @@ class KeepAliveInputMethod : InputMethodService() {
             val isDefault = isDefaultIme(context,imeId)
 
             if (!isDefault) {
+                AlertDialog.Builder(context)
+                    .setTitle("输入法保活(可选)")
+                    .setMessage("原理:系统一般不会清理当前使用的输入法,故,引入了此项设置," +
+                            "\nPS: 其它保活措施到位的话此项设置可 忽略")
+                    .setPositiveButton("选择输入法") { _, _ ->
+                        // 已启用但不是默认，弹出输入法选择器让用户切换
+                        val imm = context.getSystemService(Context.INPUT_METHOD_SERVICE) as InputMethodManager
+                        imm.showInputMethodPicker()
+                        AliveUtils.toast(msg = "请选择 $appName 作为默认输入法")
+                    }
+                    .setNegativeButton("算了", null)
+                    .show()
 
-                // 已启用但不是默认，弹出输入法选择器让用户切换
-                val imm = context.getSystemService(Context.INPUT_METHOD_SERVICE) as InputMethodManager
-                imm.showInputMethodPicker()
-                AliveUtils.toast(msg = "请选择 $appName 作为默认输入法")
+
                 return
             }
             // 3️⃣ 已启用且为默认
