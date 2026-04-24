@@ -4,6 +4,7 @@ import android.content.Context
 import android.os.Handler
 import android.os.Looper
 import android.widget.Toast
+import com.google.android.accessibility.ext.utils.FloatToastManager.showFloatToast
 import com.google.android.accessibility.ext.utils.LibCtxProvider.Companion.appContext
 import java.util.concurrent.ConcurrentHashMap
 
@@ -25,15 +26,15 @@ object ToastManager {
      * 显示 Toast，默认 1 秒频率控制
      */
     @JvmStatic
-    fun showToast(trigger: Any, content: String) {
-        showToast(trigger, content, DEFAULT_THROTTLE_MS)
+    fun showToast(trigger: Any, content: String,packageName: String? = null) {
+        showToast(trigger, content, packageName, DEFAULT_THROTTLE_MS)
     }
 
     /**
      * 显示 Toast，自定义频率，自动清理缓存
      */
     @JvmStatic
-    fun showToast(trigger: Any, content: String, throttleMs: Long) {
+    fun showToast(trigger: Any, content: String,packageName: String? = null, throttleMs: Long) {
         if (content.isEmpty()) return
 
         val now = System.currentTimeMillis()
@@ -43,7 +44,9 @@ object ToastManager {
         lastTriggerMap[trigger] = now
 
         handler.post {
-            Toast.makeText(appContext, content, Toast.LENGTH_SHORT).show()
+            //Log.e("检测弹出", "333333")
+            //Toast.makeText(appContext, content, Toast.LENGTH_SHORT).show()
+            showFloatToast(message = content, packageName = packageName)
             // 累加跳过次数
             val tgcishu = sp.getLong("tiaoguocishu", 0)
             sp.edit().putLong("tiaoguocishu", tgcishu + 1).apply()

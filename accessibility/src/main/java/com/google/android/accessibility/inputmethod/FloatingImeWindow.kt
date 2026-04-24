@@ -7,17 +7,19 @@ import android.content.SharedPreferences
 import android.graphics.PixelFormat
 import android.net.Uri
 import android.os.Build
+import android.os.Handler
+import android.os.Looper
 import android.provider.Settings
 import android.util.Log
 import android.view.Gravity
 import android.view.MotionEvent
 import android.view.View
 import android.view.WindowManager
-import android.widget.Button
 import android.view.WindowManager.LayoutParams
-import android.widget.Toast
+import android.widget.Button
 import com.google.android.accessibility.ext.utils.AliveUtils
 import com.google.android.accessibility.ext.utils.LibCtxProvider.Companion.appContext
+import kotlin.math.abs
 
 class FloatingImeWindow(private val context: Context = appContext) {
 
@@ -25,30 +27,30 @@ class FloatingImeWindow(private val context: Context = appContext) {
         var floatingWindow: FloatingImeWindow? = null
         private var windowManager: WindowManager? = null
         private var floatingView: View? = null
-
         private var layoutParams: WindowManager.LayoutParams? = null
-        private val prefs: SharedPreferences by lazy { appContext.getSharedPreferences("floating_ime", Context.MODE_PRIVATE) }
+        private val prefs: SharedPreferences by lazy {
+            appContext.getSharedPreferences("floating_ime", Context.MODE_PRIVATE)
+        }
     }
 
-    fun show(accessibilityService: AccessibilityService? = com.google.android.accessibility.selecttospeak.accessibilityService) {
-        if (floatingView != null) return // 已显示
+    private val handler = Handler(Looper.getMainLooper())
 
-        val wmContext: Context = accessibilityService?.applicationContext ?: context
+    fun show(accessibilityService: AccessibilityService? = null) {
+        if (floatingView != null) return
+
+        val wmContext: Context = accessibilityService ?: appContext
         windowManager = wmContext.getSystemService(Context.WINDOW_SERVICE) as WindowManager
 
-        // 创建悬浮窗 View
         floatingView = Button(wmContext).apply {
             text = "切换回输入法"
-            setBackgroundColor(0x88FF9800.toInt()) //半透明橙色
+            setBackgroundColor(0x88FF9800.toInt())
             setTextColor(0xFFFFFFFF.toInt())
             setOnClickListener {
                 AliveUtils.toast(msg = "请选择输入法")
                 AliveUtils.openAliveActivity()
             }
-
         }
 
-        // 确定 Window 类型
         val windowType = when {
             accessibilityService != null -> {
                 if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O)
@@ -67,8 +69,30 @@ class FloatingImeWindow(private val context: Context = appContext) {
             else -> LayoutParams.TYPE_PHONE
         }
 
-        val startX = prefs.getInt("x", 0)
-        val startY = prefs.getInt("y", 0)
+        val displayMetrics = context.resources.displayMetrics
+        val screenWidth = displayMetrics.widthPixels
+        val screenHeight = displayMetrics.heightPixels
+
+        val savedX = prefs.getInt("x", -1)
+        val savedY = prefs.getInt("y", -1)
+
+        // 第一次显示，默认右侧中间
+        val startX: Int
+        val startY: Int
+        if (savedX == -1 || savedY == -1) {
+            floatingView?.measure(
+                View.MeasureSpec.UNSPECIFIED,
+                View.MeasureSpec.UNSPECIFIED
+            )
+            val viewWidth = floatingView?.measuredWidth ?: 100
+            val viewHeight = floatingView?.measuredHeight ?: 100
+
+            startX = screenWidth - viewWidth
+            startY = (screenHeight - viewHeight) / 2
+        } else {
+            startX = savedX
+            startY = savedY
+        }
 
         layoutParams = LayoutParams(
             LayoutParams.WRAP_CONTENT,
@@ -77,70 +101,59 @@ class FloatingImeWindow(private val context: Context = appContext) {
             LayoutParams.FLAG_NOT_FOCUSABLE or LayoutParams.FLAG_LAYOUT_IN_SCREEN,
             PixelFormat.TRANSLUCENT
         ).apply {
-            gravity = Gravity.END or Gravity.CENTER_VERTICAL
+            gravity = Gravity.TOP or Gravity.START
             x = startX
             y = startY
         }
 
         floatingView?.setOnTouchListener(object : View.OnTouchListener {
-            private var lastX = 0f
-            private var lastY = 0f
-            private var initialX = 0
-            private var initialY = 0
+            private var lastRawX = 0f
+            private var lastRawY = 0f
             private var isDragging = false
-            private val touchSlop = 10 // 最小拖动距离，px
+            private val touchSlop = 10
 
             override fun onTouch(v: View, event: MotionEvent): Boolean {
-                val displayMetrics = context.resources.displayMetrics
-                val screenWidth = displayMetrics.widthPixels
-                val screenHeight = displayMetrics.heightPixels
-
-                when (event.action) {
-                    MotionEvent.ACTION_DOWN -> {
-                        lastX = event.rawX
-                        lastY = event.rawY
-                        layoutParams?.let {
-                            initialX = it.x
-                            initialY = it.y
+                layoutParams?.let { params ->
+                    when (event.action) {
+                        MotionEvent.ACTION_DOWN -> {
+                            lastRawX = event.rawX
+                            lastRawY = event.rawY
+                            isDragging = false
+                            return true
                         }
-                        isDragging = false
-                        return true
-                    }
-                    MotionEvent.ACTION_MOVE -> {
-                        val dx = (event.rawX - lastX).toInt()
-                        val dy = (event.rawY - lastY).toInt()
+                        MotionEvent.ACTION_MOVE -> {
+                            val dx = event.rawX - lastRawX
+                            val dy = event.rawY - lastRawY
 
-                        // 只有超过 touchSlop 才算拖动
-                        if (!isDragging && (Math.abs(dx) > touchSlop || Math.abs(dy) > touchSlop)) {
-                            isDragging = true
-                        }
-
-                        if (isDragging) {
-                            layoutParams?.let {
-                                val newX = initialX + dx
-                                val newY = initialY + dy
-
-                                // 限制边界
-                                it.x = newX.coerceIn(0, screenWidth - v.width)
-                                it.y = newY.coerceIn(0, screenHeight - v.height)
-
-                                // 更新布局，不闪烁
-                                windowManager?.updateViewLayout(v, it)
+                            if (!isDragging && (abs(dx) > touchSlop || abs(dy) > touchSlop)) {
+                                isDragging = true
                             }
-                        }
-                        return true
-                    }
-                    MotionEvent.ACTION_UP, MotionEvent.ACTION_CANCEL -> {
-                        // 拖动结束保存位置
-                        if (isDragging) {
-                            layoutParams?.let {
-                                prefs.edit().putInt("x", it.x).putInt("y", it.y).apply()
+
+                            if (isDragging) {
+                                params.x = (params.x + dx).toInt()
+                                    .coerceIn(0, screenWidth - v.width)
+                                params.y = (params.y + dy).toInt()
+                                    .coerceIn(0, screenHeight - v.height)
+                                windowManager?.updateViewLayout(v, params)
+                                lastRawX = event.rawX
+                                lastRawY = event.rawY
                             }
                             return true
                         }
-                        // 如果没拖动就当点击处理
-                        v.performClick()
-                        return true
+                        MotionEvent.ACTION_UP, MotionEvent.ACTION_CANCEL -> {
+                            if (isDragging) {
+                                // 吸边动画
+                                val targetX = if (params.x + v.width / 2 < screenWidth / 2) {
+                                    0
+                                } else {
+                                    screenWidth - v.width
+                                }
+                                animateToX(params, v, targetX)
+                                return true
+                            }
+                            v.performClick()
+                            return true
+                        }
                     }
                 }
                 return false
@@ -154,6 +167,31 @@ class FloatingImeWindow(private val context: Context = appContext) {
             Log.e("FloatingImeWindow", "显示悬浮窗失败: ${e.message}")
             AliveUtils.toast(msg = "悬浮窗权限不足，请允许悬浮窗权限")
         }
+    }
+
+    private fun animateToX(params: LayoutParams, v: View, targetX: Int) {
+        val duration = 200L
+        val frameRate = 16L
+        val startX = params.x
+        val distance = targetX - startX
+        val steps = (duration / frameRate).toInt()
+        var currentStep = 0
+
+        handler.post(object : Runnable {
+            override fun run() {
+                if (currentStep < steps) {
+                    val fraction = (currentStep + 1).toFloat() / steps
+                    params.x = startX + (distance * fraction).toInt()
+                    windowManager?.updateViewLayout(v, params)
+                    currentStep++
+                    handler.postDelayed(this, frameRate)
+                } else {
+                    params.x = targetX
+                    windowManager?.updateViewLayout(v, params)
+                    prefs.edit().putInt("x", params.x).putInt("y", params.y).apply()
+                }
+            }
+        })
     }
 
     fun hide() {
