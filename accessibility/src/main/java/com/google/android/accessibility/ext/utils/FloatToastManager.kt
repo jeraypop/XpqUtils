@@ -59,12 +59,23 @@ object FloatToastManager {
             floatLayout = LinearLayout(context).apply {
                 orientation = LinearLayout.HORIZONTAL
                 gravity = Gravity.CENTER_VERTICAL
-                setPadding(dpToPx(context,8), dpToPx(context,8), dpToPx(context,8), dpToPx(context,8))
+                setPadding(dpToPx(context, 8), dpToPx(context, 8), dpToPx(context, 8), dpToPx(context, 8))
                 background = GradientDrawable().apply {
+                    shape = GradientDrawable.RECTANGLE
                     setColor(0x88000000.toInt())
-                    cornerRadius = 25f
+                    // cornerRadius 先设置0，之后动态更新
+                    cornerRadius = 0f
                 }
                 visibility = View.GONE
+            }
+
+            // 延迟设置 cornerRadius 为高度的一半，使左右圆角为椭圆
+            floatLayout?.let { layout ->
+                layout.post {
+                    (layout.background as? GradientDrawable)?.let { bg ->
+                        bg.cornerRadius = layout.height / 2f
+                    }
+                }
             }
 
             // 设置固定尺寸，防止测量为0

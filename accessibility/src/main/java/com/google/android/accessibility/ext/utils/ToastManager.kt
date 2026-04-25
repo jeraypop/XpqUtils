@@ -5,6 +5,7 @@ import android.os.Handler
 import android.os.Looper
 import android.widget.Toast
 import com.google.android.accessibility.ext.utils.FloatToastManager.showFloatToast
+import com.google.android.accessibility.ext.utils.KeyguardUnLock.getShowClickIndicator
 import com.google.android.accessibility.ext.utils.LibCtxProvider.Companion.appContext
 import java.util.concurrent.ConcurrentHashMap
 
@@ -44,9 +45,11 @@ object ToastManager {
         lastTriggerMap[trigger] = now
 
         handler.post {
-            //Log.e("检测弹出", "333333")
-            //Toast.makeText(appContext, content, Toast.LENGTH_SHORT).show()
-            showFloatToast(message = content, packageName = packageName)
+            if (getShowClickIndicator()){
+                showFloatToast(message = content, packageName = packageName)
+            }else{
+                Toast.makeText(appContext, content, Toast.LENGTH_SHORT).show()
+            }
             // 累加跳过次数
             val tgcishu = sp.getLong("tiaoguocishu", 0)
             sp.edit().putLong("tiaoguocishu", tgcishu + 1).apply()
