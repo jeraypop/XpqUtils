@@ -1,5 +1,7 @@
 package com.google.android.accessibility.ext.utils
 
+import android.graphics.Rect
+import android.view.accessibility.AccessibilityNodeInfo
 import android.widget.Toast
 import com.google.android.accessibility.ext.utils.FloatToastManager.showFloatToast
 import com.google.android.accessibility.ext.utils.KeyguardUnLock.getShowClickIndicator
@@ -39,4 +41,41 @@ object ActivityToastHelper {
             }
         }
     }
+
+    @JvmStatic
+    @JvmOverloads
+    fun getNodeRightMarginDp(
+        node: AccessibilityNodeInfo?,
+        marginDp: Int = 25
+    ): Pair<Int, Int>? {
+        if (node == null) return null
+
+        val rect = Rect()
+        node.getBoundsInScreen(rect)
+        if (rect.isEmpty) return null
+
+        // dp 转 px
+        val density = appContext.resources.displayMetrics.density
+        val marginPx = (marginDp * density).toInt()
+
+        val x = rect.right - marginPx
+        val y = rect.centerY()
+
+        return Pair(x, y)
+    }
+
+
+    /**
+     * 提取字符串中所有数字并拼接成一个整数
+     * 没有数字时返回 defaultValue
+     */
+    @JvmStatic
+    @JvmOverloads
+    fun extractAllNumbers(str: String?, defaultValue: Int = 25): Int {
+        if (str.isNullOrEmpty()) return defaultValue
+
+        val numberStr = str.filter { it.isDigit() }
+        return numberStr.toIntOrNull() ?: defaultValue
+    }
+
 }
