@@ -1,6 +1,7 @@
 package com.google.android.accessibility.ext.utils
 
 import android.graphics.Rect
+import android.util.DisplayMetrics
 import android.view.accessibility.AccessibilityNodeInfo
 import android.widget.Toast
 import com.google.android.accessibility.ext.utils.FloatToastManager.showFloatToast
@@ -46,19 +47,24 @@ object ActivityToastHelper {
     @JvmOverloads
     fun getNodeRightMarginDp(
         node: AccessibilityNodeInfo?,
-        marginDp: Int = 25
+        marginDp: Int = 25,
+        isRight: Boolean = true // true -> 右侧, false -> 左侧
     ): Pair<Int, Int>? {
-        if (node == null) return null
+        node ?: return null
 
         val rect = Rect()
         node.getBoundsInScreen(rect)
         if (rect.isEmpty) return null
 
-        // dp 转 px
         val density = appContext.resources.displayMetrics.density
         val marginPx = (marginDp * density).toInt()
 
-        val x = rect.right - marginPx
+        val x = if (isRight) {
+            rect.right - marginPx
+        } else {
+            rect.left + marginPx
+        }
+
         val y = rect.centerY()
 
         return Pair(x, y)
@@ -77,5 +83,60 @@ object ActivityToastHelper {
         val numberStr = str.filter { it.isDigit() }
         return numberStr.toIntOrNull() ?: defaultValue
     }
+    @JvmStatic
+    @JvmOverloads
+    fun getNodePosition(
+        node: AccessibilityNodeInfo?,
+        position: NodePosition = NodePosition.RIGHT,
+        horizontalMarginDp: Int = 25,
+        verticalMarginDp: Int = 0
+    ): Pair<Int, Int>? {
+        node ?: return null
 
+        val rect = Rect()
+        node.getBoundsInScreen(rect)
+        if (rect.isEmpty) return null
+
+        val density = appContext.resources.displayMetrics.density
+        val hMarginPx = (horizontalMarginDp * density).toInt()
+        val vMarginPx = (verticalMarginDp * density).toInt()
+
+        // 获取屏幕尺寸
+        val metrics: DisplayMetrics = appContext.resources.displayMetrics
+        val screenWidth = metrics.widthPixels
+        val screenHeight = metrics.heightPixels
+
+        val x: Int = when (position) {
+            NodePosition.CENTER -> rect.centerX()
+            NodePosition.LEFT -> rect.left + hMarginPx
+            NodePosition.RIGHT -> rect.right - hMarginPx
+            NodePosition.TOP_LEFT, NodePosition.BOTTOM_LEFT -> rect.left + hMarginPx
+            NodePosition.TOP_RIGHT, NodePosition.BOTTOM_RIGHT -> rect.right - hMarginPx
+            NodePosition.TOP, NodePosition.BOTTOM -> rect.centerX()
+        }
+
+        val y: Int = when (position) {
+            NodePosition.CENTER -> rect.centerY()
+            NodePosition.TOP -> rect.top + vMarginPx
+            NodePosition.BOTTOM -> rect.bottom - vMarginPx
+            NodePosition.TOP_LEFT, NodePosition.TOP_RIGHT -> rect.top + vMarginPx
+            NodePosition.BOTTOM_LEFT, NodePosition.BOTTOM_RIGHT -> rect.bottom - vMarginPx
+            NodePosition.LEFT, NodePosition.RIGHT -> rect.centerY()
+        }
+
+        // 限制在屏幕内
+        val finalX = x.coerceIn(0, screenWidth)
+        val finalY = y.coerceIn(0, screenHeight)
+
+        return Pair(finalX, finalY)
+    }
+
+}
+
+enum class NodePosition {
+    CENTER,
+    LEFT, RIGHT,
+    TOP, BOTTOM,
+    TOP_LEFT, TOP_RIGHT,
+    BOTTOM_LEFT, BOTTOM_RIGHT
 }
