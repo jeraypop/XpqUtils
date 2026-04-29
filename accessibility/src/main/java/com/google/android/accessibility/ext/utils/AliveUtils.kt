@@ -85,6 +85,10 @@ import com.hjq.permissions.XXPermissions
 import com.hjq.permissions.permission.PermissionLists
 import com.hjq.permissions.permission.base.IPermission
 import com.hjq.permissions.tools.PermissionUtils
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.launch
 import org.json.JSONArray
 import java.util.Locale
 import kotlin.math.max
@@ -1489,85 +1493,134 @@ object AliveUtils {
             .show()
     }
 
+
+    private var excludeJob: Job? = null
     @JvmOverloads
     @JvmStatic
     fun setExcludeFromRecents(
         exclude: Boolean,
         list: Collection<String> = emptyList()
     ) {
-        appContext?: return
+        val context = appContext ?: return
         if (Build.VERSION.SDK_INT < Build.VERSION_CODES.N) return
 
+        // 取消之前未完成的任务
+        excludeJob?.cancel()
 
-        val activityManager = appContext.getSystemService(ActivityManager::class.java) ?: return
+        excludeJob = CoroutineScope(Dispatchers.IO).launch {
+            try {
+                val activityManager = context.getSystemService(ActivityManager::class.java) ?: return@launch
+                val appTasks = activityManager.appTasks ?: return@launch
 
-        val appTasks = activityManager.appTasks
-        appTasks?.forEach { task ->
-            if (!exclude) {
-                val taskInfo = task.taskInfo
-                val base = taskInfo?.baseActivity?.className
-                val top = taskInfo?.topActivity?.className
-                if (TextUtils.isEmpty(base) || TextUtils.isEmpty(top)) {
-                    //activity名字为空,不代表该任务已不存在了
-                    task.setExcludeFromRecents(true)
-                } else if (base in list || top in list) {
-                    task.setExcludeFromRecents(true)
-                }else if (list.isNullOrEmpty()){
-                    if (base?.contains(".LaunchActivity") == true || base?.contains(".SplashADActivity") == true ||
-                        top?.contains(".LaunchActivity") == true || top?.contains(".SplashADActivity") == true
-                    ){
-                        task.setExcludeFromRecents(true)
+                for (task in appTasks) {
+                    runCatching {
+                        val taskInfo = task.taskInfo
+                        val base = taskInfo?.baseActivity?.className
+                        val top = taskInfo?.topActivity?.className
+
+                        if (!exclude) {
+                            when {
+                                TextUtils.isEmpty(base) || TextUtils.isEmpty(top) -> {
+                                    task.setExcludeFromRecents(true)
+                                }
+                                base in list || top in list -> {
+                                    task.setExcludeFromRecents(true)
+                                }
+                                list.isEmpty() -> {
+                                    if (base?.contains(".LaunchActivity") == true ||
+                                        base?.contains(".SplashADActivity") == true ||
+                                        top?.contains(".LaunchActivity") == true ||
+                                        top?.contains(".SplashADActivity") == true
+                                    ) {
+                                        task.setExcludeFromRecents(true)
+                                    } else {
+                                        task.setExcludeFromRecents(exclude)
+                                    }
+                                }
+                                else -> {
+                                    task.setExcludeFromRecents(exclude)
+                                }
+                            }
+                        } else {
+                            task.setExcludeFromRecents(exclude)
+                        }
+                    }.onFailure { e ->
+                        if (e is IllegalArgumentException) {
+                            Log.w("AliveUtils", "任务已不存在，无法排除最近任务", e)
+                        } else {
+                            Log.e("AliveUtils", "排除最近任务出错", e)
+                        }
                     }
-                } else {
-                    task.setExcludeFromRecents(exclude)
                 }
-            } else {
-                task.setExcludeFromRecents(exclude)
+
+            } catch (e: Exception) {
+                Log.e("AliveUtils", "获取 AppTask 列表失败", e)
             }
-
         }
-
     }
-
+    private var excludePlusJob: Job? = null
     @JvmOverloads
     @JvmStatic
     fun setExcludeFromRecentsPlus(
         exclude: Boolean,
         list: Collection<String> = emptyList()
     ) {
-        appContext?: return
-        //if (Build.VERSION.SDK_INT < Build.VERSION_CODES.N) return
+        val context = appContext ?: return
 
+        // 取消上一次未完成的任务
+        excludePlusJob?.cancel()
 
-        val activityManager = appContext.getSystemService(ActivityManager::class.java) ?: return
+        excludePlusJob = CoroutineScope(Dispatchers.IO).launch {
+            try {
+                val activityManager = context.getSystemService(ActivityManager::class.java) ?: return@launch
+                val appTasks = activityManager.appTasks ?: return@launch
 
-        val appTasks = activityManager.appTasks
-        appTasks?.forEach { task ->
-            if (!exclude) {
-                val taskInfo = task.taskInfo
-                val base = taskInfo?.baseActivity?.className
-                val top = taskInfo?.topActivity?.className
-                if (TextUtils.isEmpty(base) || TextUtils.isEmpty(top)) {
-                    //activity名字为空,不代表该任务已不存在了
-                    task.finishAndRemoveTask()
-                } else if (base in list || top in list) {
-                    task.finishAndRemoveTask()
-                }else if (list.isNullOrEmpty()){
-                    if (base?.contains(".LaunchActivity") == true || base?.contains(".SplashADActivity") == true ||
-                        top?.contains(".LaunchActivity") == true || top?.contains(".SplashADActivity") == true
-                    ){
-                        task.finishAndRemoveTask()
+                for (task in appTasks) {
+                    runCatching {
+                        val taskInfo = task.taskInfo
+                        val base = taskInfo?.baseActivity?.className
+                        val top = taskInfo?.topActivity?.className
+
+                        if (!exclude) {
+                            when {
+                                TextUtils.isEmpty(base) || TextUtils.isEmpty(top) -> {
+                                    // activity 名为空，不代表任务已不存在
+                                    task.finishAndRemoveTask()
+                                }
+                                base in list || top in list -> {
+                                    task.finishAndRemoveTask()
+                                }
+                                list.isEmpty() -> {
+                                    if (base?.contains(".LaunchActivity") == true ||
+                                        base?.contains(".SplashADActivity") == true ||
+                                        top?.contains(".LaunchActivity") == true ||
+                                        top?.contains(".SplashADActivity") == true
+                                    ) {
+                                        task.finishAndRemoveTask()
+                                    }
+                                }
+                                else -> {
+                                    // 不处理，保留任务
+                                }
+                            }
+                        } else {
+                            task.finishAndRemoveTask()
+                        }
+
+                    }.onFailure { e ->
+                        if (e is IllegalArgumentException) {
+                            // 任务已不存在，安全忽略
+                            Log.w("AliveUtils", "任务已不存在，无法移除", e)
+                        } else {
+                            Log.e("AliveUtils", "移除任务出错", e)
+                        }
                     }
                 }
-                else {
 
-                }
-            } else {
-                task.finishAndRemoveTask()
+            } catch (e: Exception) {
+                Log.e("AliveUtils", "获取 AppTask 列表失败", e)
             }
-
         }
-
     }
 
 
