@@ -78,9 +78,14 @@ object AppExecutors {
     val executors2: ExecutorService =
         Executors.newSingleThreadExecutor(daemonThreadFactory("notif-exec-2"))
 
-    // ✅ 新增：单线程守护执行器 3
+    // ✅ 单线程守护执行器 3
     val executors3: ExecutorService =
         Executors.newSingleThreadExecutor(daemonThreadFactory("notif-exec-3"))
+
+    // ✅ 单线程守护执行器 4
+    val executors4: ExecutorService =
+        Executors.newSingleThreadExecutor(daemonThreadFactory("notif-exec-4"))
+
 }
 
 abstract class NotificationListenerServiceAbstract : NotificationListenerService(),

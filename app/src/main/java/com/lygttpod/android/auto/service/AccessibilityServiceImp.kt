@@ -15,6 +15,7 @@ import androidx.annotation.RequiresApi
 import com.google.android.accessibility.ext.utils.AliveUtils
 import com.google.android.accessibility.ext.utils.AliveUtils.toast
 import com.google.android.accessibility.notification.AccessibilityNInfo
+import com.google.android.accessibility.selecttospeak.XPQEventData
 
 /**
  * 第二次继承
@@ -80,21 +81,11 @@ open class AccessibilityServiceImp : FirstAccessibility() {
      * 这里不接管任何 node，返回后父类会回收 node。
      */
     override fun asyncHandle_WINDOW_STATE_CHANGED(
-        root: AccessibilityNodeInfo,
-        nodeInfoSet: MutableSet<AccessibilityNodeInfo>,
-        pkgName: String,
-        className: String
+        eventData: XPQEventData
     ) {
         // run in executor thread (already on executor)
         try {
-            for (node in nodeInfoSet) {
-                // 读取必要字段（建议短小快）
-                val id = node.viewIdResourceName
-                val cls = node.className?.toString()
-                val txt = node.text?.toString()?.take(200) // 限制长度
-                Log.d("SyncWindowHandler", "node id=$id cls=$cls text=${txt ?: "null"}")
-                // 例如：把结果存入 DB 或发事件（尽量短耗时）
-            }
+           eventData.pkgName
         } catch (t: Throwable) {
             Log.w("SyncWindowHandler", "handle error", t)
         }

@@ -57,26 +57,19 @@ abstract class SelectToSpeakServiceAbstract : AccessibilityService() {
     // 如果你只对特定包感兴趣，可以在这里维护白名单/黑名单
     private val packageNamesFilter: Set<String>? = null // e.g. setOf("com.whatsapp", "com.tencent.mm")
 
-    // 已转移所有权的副本映射（identityHash -> node 副本）
-    private val ownershipMap = ConcurrentHashMap<Int, AccessibilityNodeInfo>()
-
-    // 🔴【改动点 3】Node 接管超时兜底
-    private val NODE_MAX_HOLD_TIME = 3_000L
-    private val nodeHoldTimeMap = ConcurrentHashMap<Int, Long>()
 
 
     abstract fun targetPackageName(): String
 
-    abstract fun asyncHandleAccessibilityEvent(event: AccessibilityEvent)
-    open fun asyncHandleAccessibilityNotification(notification: Notification, title: String, content: String, a_n_Info: AccessibilityNInfo){}
-    /**
-     * 默认：传入的是副本集合（父类在调用后会回收这些副本）。
-     * 如果子类想接管某个副本以跨线程或长期持有，请使用 submitNodeForChild(originalNode) 机制。
-     */
-    open fun asyncHandle_WINDOW_STATE_CHANGED(root: AccessibilityNodeInfo,nodeInfoSet: MutableSet<AccessibilityNodeInfo>,pkgName: String, className: String){}
-    open fun asyncHandle_WINDOW_CONTENT_CHANGED(root: AccessibilityNodeInfo,nodeInfoSet: Set<AccessibilityNodeInfo>,pkgName: String){}
 
-    open fun asyncHandle_VIEW_SCROLLED(event: AccessibilityEvent){}
+    open fun asyncHandleAccessibilityNotification(notification: Notification, title: String, content: String, a_n_Info: AccessibilityNInfo){}
+    open fun asyncHandleAccessibilityEvent(event: AccessibilityEvent){}
+    open fun asyncHandle_WINDOW_STATE_CHANGED_FAST(data: XPQEventData){}
+    open fun asyncHandle_WINDOW_STATE_CHANGED(data: XPQEventData){}
+    open fun asyncHandle_WINDOW_CONTENT_CHANGED(data: XPQEventData){}
+
+    open fun asyncHandle_VIEW_SCROLLED(data: XPQEventData){}
+    open fun asyncHandle_WINDOWS_CHANGED(event: AccessibilityEvent){}
 
 
     override fun onServiceConnected() {
@@ -112,7 +105,7 @@ abstract class SelectToSpeakServiceAbstract : AccessibilityService() {
             packageNames = packageNamesFilter?.toTypedArray()
         }
            //默认关闭
-//        serviceInfo = info
+        //serviceInfo = info
 
         if (AliveUtils.getKeepAliveByNotification()){
             //前台保活服务   如果放在子类中 可传入 class了
@@ -163,11 +156,9 @@ abstract class SelectToSpeakServiceAbstract : AccessibilityService() {
     override fun onAccessibilityEvent(event: AccessibilityEvent?) {
         event ?: return
         instance = this
-        // 把事件丢给单线程 executor 处理（保证有序）
-        AppExecutors.executors3.execute {
-            cleanupExpiredNodes()
+        dealEvent(event)
+        AppExecutors.executors4.execute {
             asyncHandleAccessibilityEvent(event)
-            dealEvent(event)
         }
         runCatching { listeners.forEach { it.onAccessibilityEvent(event) } }
     }
@@ -199,8 +190,6 @@ abstract class SelectToSpeakServiceAbstract : AccessibilityService() {
             AliveUtils.keepAliveByNotification_CLS(this,false,null)
         }
         AliveUtils.keepAliveByFloatingWindow(this,false)
-        // 清理 ownershipMap 中可能未释放的副本，避免泄露
-        cleanupOwnershipMap()
         //释放 clickScope
         KeyguardUnLock.release()
         try {
@@ -352,21 +341,22 @@ abstract class SelectToSpeakServiceAbstract : AccessibilityService() {
         )
     }
 
+
     private fun dealEvent(event: AccessibilityEvent) {
         when (event.eventType) {
             //通知改变
             AccessibilityEvent.TYPE_NOTIFICATION_STATE_CHANGED -> {
-                val eventTime = event.eventTime
-                if (!shouldHandle(eventTime)) return
-                val pkgName = event.packageName?.toString() ?: "UnKnown"
-                // 方式一：直接从 event.text 获取（简单但可能不完整）
-                val eventText = event.text?.joinToString(separator = " ")?.takeIf { it.isNotBlank() } ?: "（event.text 为空或不完整）"
-                // 方式二：从 parcelableData 获取 Notification（更完整）
-                val notification = event.parcelableData as? Notification ?: return
-                val a_n_Info =
-                    buildAccessibilityNInfo(notification, pkgName, eventTime,eventText)
-                asyncHandleAccessibilityNotification(notification,a_n_Info.title,a_n_Info.content,a_n_Info)
-
+                AppExecutors.executors4.execute {
+                    val eventTime = event.eventTime
+                    if (!shouldHandle(eventTime)) return@execute
+                    val pkgName = event.packageName?.toString() ?: "UnKnown"
+                    // 方式一：直接从 event.text 获取（简单但可能不完整）
+                    val eventText = event.text?.joinToString(separator = " ")?.takeIf { it.isNotBlank() } ?: "（event.text 为空或不完整）"
+                    // 方式二：从 parcelableData 获取 Notification（更完整）
+                    val notification = event.parcelableData as? Notification ?: return@execute
+                    val a_n_Info = buildAccessibilityNInfo(notification, pkgName, eventTime,eventText)
+                    asyncHandleAccessibilityNotification(notification,a_n_Info.title,a_n_Info.content,a_n_Info)
+                }
             }
             //状态改变
             AccessibilityEvent.TYPE_WINDOW_STATE_CHANGED -> {
@@ -376,31 +366,59 @@ abstract class SelectToSpeakServiceAbstract : AccessibilityService() {
                 val pkg = originalRoot.packageName?.toString()?:return
                 val ev_pkg = event.packageName?.toString() ?: ""
                 val className = event.className?.toString() ?: ""
+                //屏蔽掉无关的干扰包,com.android.systemui  输入法等
                 if (!TextUtils.equals(pkg, ev_pkg)) return
                 cur_PkgName = pkg
-                val nodeInfoSet: MutableSet<AccessibilityNodeInfo> = mutableSetOf()
                 // 创建节点副本 复制 active root
                 val rootCopy = copyNodeCompat(originalRoot)
-                rootCopy?.let { nodeInfoSet.add(it) }
+                rootCopy ?: return
+                val eventData = XPQEventData(
+                    service = this@SelectToSpeakServiceAbstract,
+                    event = event,
+                    rootNode = rootCopy,
+                    nodeInfoList = listOf(rootCopy),
+                    pkgName = pkg,
+                    className = className
+                )
+                AppExecutors.executors3.execute {
+                    try {
+                        asyncHandle_WINDOW_STATE_CHANGED_FAST(eventData)
+                    } catch (t: Throwable) {
 
-                // 复制 windows roots（兼容性安全调用）
-                val windows = try { getWindows() } catch (_: Throwable) { null }
-                windows?.forEach { win ->
-                    val winRoot = try { win?.root } catch (_: Throwable) { null }
-                    val winCopy = copyNodeCompat(winRoot)
-                    winCopy?.let { nodeInfoSet.add(it) }
-                }
-                if (nodeInfoSet.isEmpty()) return
-                // 调用子类处理 —— 默认父类会在此之后回收这些副本
-                try {
-                    Log.e("当前应用包名", "pkg="+pkg )
-                    rootCopy?.let { asyncHandle_WINDOW_STATE_CHANGED(it, nodeInfoSet, pkg, className) }
-                } catch (t: Throwable) {
+                    } finally {
 
-                } finally {
-                    // 回收副本（仅副本，父类负责；若子类要接管，请使用 submitNodeForChild）
-                    nodeInfoSet.forEach { recycleCompat(it) }
+                    }
                 }
+
+                AppExecutors.executors4.execute {
+                    val nodeInfoList: MutableList<AccessibilityNodeInfo> = mutableListOf()
+                    nodeInfoList.add(rootCopy)
+                    // 复制 windows roots（兼容性安全调用）
+                    val windows = try { getWindows() } catch (_: Throwable) { null }
+                    windows?.forEach { win ->
+                        val winRoot = try { win?.root } catch (_: Throwable) { null }
+                        val winCopy = copyNodeCompat(winRoot)
+                        winCopy?.let { nodeInfoList.add(it) }
+                    }
+                    if (nodeInfoList.isEmpty()) return@execute
+                    //
+                    try {
+                        val eventData = XPQEventData(
+                            service = this@SelectToSpeakServiceAbstract,
+                            event = event,
+                            rootNode = rootCopy,
+                            nodeInfoList = nodeInfoList,
+                            pkgName = pkg,
+                            className = className
+                        )
+                        asyncHandle_WINDOW_STATE_CHANGED(eventData)
+                    } catch (t: Throwable) {
+
+                    } finally {
+
+                    }
+                }
+
                 //定期更新标准的北京时间
                 NetworkHelperFullSmart.updateMyTime()
 
@@ -420,24 +438,66 @@ abstract class SelectToSpeakServiceAbstract : AccessibilityService() {
                 sourceOriginal ?: return
 
                 val sourceCopy = copyNodeCompat(sourceOriginal)
-                if (sourceCopy == null) {
-                    // 复制失败，不要传原始 node 出去
-                    return
-                }
-                try {
-                    asyncHandle_WINDOW_CONTENT_CHANGED(sourceCopy, setOf(sourceCopy), pkg)
-                } catch (t: Throwable) {
+                sourceCopy ?: return
+                val eventData = XPQEventData(
+                    service = this@SelectToSpeakServiceAbstract,
+                    event = event,
+                    rootNode = sourceCopy,
+                    nodeInfoList = listOf(sourceCopy),
+                    pkgName = pkg,
+                    className = ""
+                )
+                AppExecutors.executors3.execute {
+                    try {
+                        asyncHandle_WINDOW_CONTENT_CHANGED(eventData)
+                    } catch (t: Throwable) {
 
-                } finally {
-                    // 默认回收副本；若子类接管，请使用 submitNodeForChild
-                    recycleCompat(sourceCopy)
+                    } finally {
+
+                    }
                 }
+
 
             }
             //滑动改变
             AccessibilityEvent.TYPE_VIEW_SCROLLED -> {
-                asyncHandle_VIEW_SCROLLED(event)
+                val pkg = event.packageName?.toString() ?: return
+                val sourceOriginal = try { event.source } catch (_: Throwable) { null }
+                sourceOriginal ?: return
+                val sourceCopy = copyNodeCompat(sourceOriginal)
+                sourceCopy ?: return
+                val fromIndex = event.fromIndex
+                val toIndex = event.toIndex
+                val scrollx = event.scrollX
+                val scrolly = event.scrollY
+                val eventData = XPQEventData(
+                    service = this@SelectToSpeakServiceAbstract,
+                    event = event,
+                    rootNode = sourceCopy,
+                    nodeInfoList = listOf(sourceCopy),
+                    pkgName = pkg,
+                    className = "",
+                    fromIndex = fromIndex,
+                    toIndex = toIndex,
+                    scrollx = scrollx,
+                    scrolly = scrolly
+                )
+                AppExecutors.executors3.execute {
+                    try {
+                        asyncHandle_VIEW_SCROLLED(eventData)
+                    } catch (t: Throwable) {
+
+                    } finally {
+
+                    }
+                }
+
             }
+            AccessibilityEvent.TYPE_WINDOWS_CHANGED -> {
+                AppExecutors.executors3.execute {
+                    asyncHandle_WINDOWS_CHANGED(event)
+                }
+             }
 
             else -> {
                 // 其他事件忽略
@@ -458,126 +518,6 @@ abstract class SelectToSpeakServiceAbstract : AccessibilityService() {
         }
     }
 
-    // ---------- 子类接管/释放机制（用于异步/长期持有副本） ----------
-    /**
-     * 把 system node 的副本交给子类处理（在当前 executor 中同步调用 childHandle）。
-     * childHandle 返回 true 表示子类接管副本，必须在完成时调用 releaseNode(copy)。
-     * 返回 false 表示不接管，父类会回收副本。
-     *
-     * 注意：此方法期望在 executor 的线程上下文中被调用（dealEvent 已在 executor 中）。
-     */
-    fun submitNodeForChild(node: AccessibilityNodeInfo?, childHandle: (AccessibilityNodeInfo) -> Boolean) {
-        if (node == null) return
-        val copy = copyNodeCompat(node) ?: return
-        var takenByChild = false
-        try {
-            takenByChild = try {
-                childHandle(copy)
-            } catch (t: Throwable) {
-                Log.w(TAG, "childHandle error", t)
-                false
-            }
-        } finally {
-            if (!takenByChild) {
-                // 父类负责回收
-                recycleCompat(copy)
-            } else {
-                // 子类接管：记录，等待子类 later 调用 releaseNode(copy)
-                ownershipMap[System.identityHashCode(copy)] = copy
-                // 🔴【改动点 4】记录接管时间
-                nodeHoldTimeMap[System.identityHashCode(copy)] = System.currentTimeMillis()
-            }
-        }
-    }
-
-    /**
-     * 子类在异步处理完成后必须调用此方法释放先前接管的 node（由 submitNodeForChild 标记）。
-     */
-    fun releaseNode(node: AccessibilityNodeInfo?) {
-        if (node == null) return
-        val key = System.identityHashCode(node)
-        val removed = ownershipMap.remove(key)
-        if (removed != null) {
-            // 🔴【改动点 5】清理时间记录
-            nodeHoldTimeMap.remove(key)
-            recycleCompat(removed)
-        } else {
-            Log.w(TAG, "releaseNode: node not found in ownershipMap")
-        }
-    }
-
-    // 🔴【改动点 6】超时 Node 自动回收
-    private fun cleanupExpiredNodes() {
-        val now = System.currentTimeMillis()
-        nodeHoldTimeMap.forEach { (key, time) ->
-            if (now - time > NODE_MAX_HOLD_TIME) {
-                ownershipMap.remove(key)?.let { recycleCompat(it) }
-                nodeHoldTimeMap.remove(key)
-                Log.w(TAG, "Force recycle expired AccessibilityNodeInfo")
-            }
-        }
-    }
-
-
-    private fun cleanupOwnershipMap() {
-        for ((_, node) in ownershipMap) {
-            try { recycleCompat(node) } catch (_: Throwable) { }
-        }
-        ownershipMap.clear()
-    }
-
-    /**
-     * 直接把一个已经是副本的 node（父类传入的 copy，或通过 copyNodeCompat 得到的副本）
-     * 标记为“已被子类接管”，以便父类不再回收它。
-     * 子类必须在完成后调用 releaseNode(node) 释放（回收）。
-     *
-     * 返回 true 表示登记成功（以后父类不会自动回收该 node）。
-     *
-     * 注意：务必保证传入 node 是安全的副本（父类在调用时传给你的那些副本，
-     * 或你自己用 copyNodeCompat 创建的）。
-     * 千万不要把 getRootInActiveWindow()/event.source 的原始系统 node 直接传进来做 claim。
-     *
-     */
-    fun claimNodeDirectly(node: AccessibilityNodeInfo?): Boolean {
-        if (node == null) return false
-        // 仅登记，不做其它复制/回收
-        val key = System.identityHashCode(node)
-        // 如果已有条目，返回 false（表示重复接管）
-        if (ownershipMap.putIfAbsent(key, node) == null) {
-            return true
-        }
-        return false
-    }
-
-
-    fun extractNodeSummary(node: AccessibilityNodeInfo): NodeSummary {
-        // 从节点中提取包名和类名（如果存在）
-        val packageName = node.packageName?.toString()
-        val className = node.className?.toString()
-
-        // 从节点中提取文本（如果存在）
-        val nodeText = node.text?.toString()
-
-        // 获取资源ID（视图ID）
-        val viewId = node.viewIdResourceName
-
-        // 获取节点的坐标和尺寸
-        val bounds = Rect()
-        node.getBoundsInScreen(bounds)
-
-        // 获取节点的描述（如果有的话）
-        val describe = node.contentDescription?.toString()
-
-        // 返回 NodeSummary
-        return NodeSummary(
-            packageName = packageName,
-            className = className,
-            nodeText = nodeText,
-            viewId = viewId,
-            bounds = bounds,
-            describe = describe
-        )
-    }
 
 
 /*    override fun onScreenOff() {
@@ -614,4 +554,18 @@ data class NodeSummary(
     val viewId: String?,
     val bounds: Rect,
     val describe: String?
+)
+data class XPQEventData(
+    val service: AccessibilityService,
+    val event: AccessibilityEvent,
+    val rootNode: AccessibilityNodeInfo,
+    val nodeInfoList: List<AccessibilityNodeInfo>,
+    val pkgName: String = "",
+    val className: String = "",
+    val fromIndex: Int = 0,
+    val toIndex: Int = 0,
+    val scrollx: Int = 0,
+    val scrolly: Int = 0,
+
+
 )
