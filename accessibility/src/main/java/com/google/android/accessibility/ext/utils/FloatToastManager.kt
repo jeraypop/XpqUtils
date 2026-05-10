@@ -42,109 +42,117 @@ object FloatToastManager {
      * @param duration 显示时长
      * @param packageName 应用包名，可获取应用图标
      */
+    @Synchronized
     fun showFloatToast(
         message: String,
         duration: Long = 2000L,
         packageName: String? = null
     ) {
-        val context: Context = accessibilityService ?: appContext
+        handler.post {
+            val context: Context = accessibilityService ?: appContext
 
-        // 自动初始化
-        if (floatLayout == null) {
-            if (windowManager == null) {
-                windowManager = context.getSystemService(Context.WINDOW_SERVICE) as WindowManager
-            }
-
-            // 横向布局，左侧图标，右侧文字
-            floatLayout = LinearLayout(context).apply {
-                orientation = LinearLayout.HORIZONTAL
-                gravity = Gravity.CENTER_VERTICAL
-                setPadding(dpToPx(context, 8), dpToPx(context, 8), dpToPx(context, 8), dpToPx(context, 8))
-                background = GradientDrawable().apply {
-                    shape = GradientDrawable.RECTANGLE
-                    setColor(0x88000000.toInt())
-                    // cornerRadius 先设置0，之后动态更新
-                    cornerRadius = 0f
+            // 自动初始化
+            if (floatLayout == null) {
+                if (windowManager == null) {
+                    windowManager = context.getSystemService(Context.WINDOW_SERVICE) as WindowManager
                 }
-                visibility = View.GONE
-            }
 
-            // 延迟设置 cornerRadius 为高度的一半，使左右圆角为椭圆
-            floatLayout?.let { layout ->
-                layout.post {
-                    (layout.background as? GradientDrawable)?.let { bg ->
-                        bg.cornerRadius = layout.height / 2f
+                // 横向布局，左侧图标，右侧文字
+                floatLayout = LinearLayout(context).apply {
+                    orientation = LinearLayout.HORIZONTAL
+                    gravity = Gravity.CENTER_VERTICAL
+                    setPadding(dpToPx(context, 8), dpToPx(context, 8), dpToPx(context, 8), dpToPx(context, 8))
+                    background = GradientDrawable().apply {
+                        shape = GradientDrawable.RECTANGLE
+                        setColor(0x88000000.toInt())
+                        // cornerRadius 先设置0，之后动态更新
+                        cornerRadius = 0f
+                    }
+                    visibility = View.GONE
+                }
+
+                // 延迟设置 cornerRadius 为高度的一半，使左右圆角为椭圆
+                floatLayout?.let { layout ->
+                    layout.post {
+                        (layout.background as? GradientDrawable)?.let { bg ->
+                            bg.cornerRadius = layout.height / 2f
+                        }
                     }
                 }
-            }
 
-            // 设置固定尺寸，防止测量为0
-            val size = dpToPx(context, 30)
-            imageView = ImageView(context).apply {
-                layoutParams = LinearLayout.LayoutParams(size, size).apply {
-                    marginEnd = dpToPx(context, 8)
-                }
-            }
-            // 占位图可见测试
-            imageView?.setImageDrawable(getPlaceholderDrawable(context))
-            textView = TextView(context).apply {
-                textSize = 14f
-                setTextColor(0xFFFFFFFF.toInt())
-            }
-            floatLayout?.minimumHeight = size + dpToPx(context, 10)
-            floatLayout?.addView(imageView)
-            floatLayout?.addView(textView)
-
-            // 确定 Window 类型
-            val windowType = when {
-                accessibilityService != null -> {
-                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O)
-                        LayoutParams.TYPE_ACCESSIBILITY_OVERLAY
-                    else
-                        LayoutParams.TYPE_PHONE
-                }
-                Build.VERSION.SDK_INT >= Build.VERSION_CODES.M -> {
-                    if (Settings.canDrawOverlays(context))
-                        LayoutParams.TYPE_APPLICATION_OVERLAY
-                    else {
-                        //requestOverlayPermission()
-                        return
+                // 设置固定尺寸，防止测量为0
+                val size = dpToPx(context, 30)
+                imageView = ImageView(context).apply {
+                    layoutParams = LinearLayout.LayoutParams(size, size).apply {
+                        marginEnd = dpToPx(context, 8)
                     }
                 }
-                else -> LayoutParams.TYPE_PHONE
+                // 占位图可见测试
+                imageView?.setImageDrawable(getPlaceholderDrawable(context))
+                textView = TextView(context).apply {
+                    textSize = 14f
+                    setTextColor(0xFFFFFFFF.toInt())
+                }
+                floatLayout?.minimumHeight = size + dpToPx(context, 10)
+                floatLayout?.addView(imageView)
+                floatLayout?.addView(textView)
+
+                // 确定 Window 类型
+                val windowType = when {
+                    accessibilityService != null -> {
+                        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O)
+                            LayoutParams.TYPE_ACCESSIBILITY_OVERLAY
+                        else
+                            LayoutParams.TYPE_PHONE
+                    }
+                    Build.VERSION.SDK_INT >= Build.VERSION_CODES.M -> {
+                        if (Settings.canDrawOverlays(context))
+                            LayoutParams.TYPE_APPLICATION_OVERLAY
+                        else {
+                            //requestOverlayPermission()
+                            return@post
+                        }
+                    }
+                    else -> LayoutParams.TYPE_PHONE
+                }
+
+
+                val params = WindowManager.LayoutParams(
+                    WindowManager.LayoutParams.WRAP_CONTENT,
+                    WindowManager.LayoutParams.WRAP_CONTENT,
+                    windowType,
+                    LayoutParams.FLAG_NOT_FOCUSABLE
+                            or LayoutParams.FLAG_NOT_TOUCH_MODAL
+                            or LayoutParams.FLAG_KEEP_SCREEN_ON,
+                    PixelFormat.TRANSLUCENT
+                )
+
+                params.gravity = Gravity.BOTTOM or Gravity.CENTER_HORIZONTAL
+                params.y = 200
+
+                try {
+                    // 防止已经存在 parent
+                    if (floatLayout?.parent == null) {
+                        windowManager?.addView(floatLayout, params)
+                    }
+                } catch (_: Exception) {
+                }
             }
 
+            // 更新内容
+            textView?.text = message
+            val icon = packageName?.let { getAppIcon(context, it) } ?: getPlaceholderDrawable(context)
+            imageView?.setImageDrawable(icon)
 
-            val params = WindowManager.LayoutParams(
-                WindowManager.LayoutParams.WRAP_CONTENT,
-                WindowManager.LayoutParams.WRAP_CONTENT,
-                windowType,
-                LayoutParams.FLAG_NOT_FOCUSABLE
-                        or LayoutParams.FLAG_NOT_TOUCH_MODAL
-                        or LayoutParams.FLAG_KEEP_SCREEN_ON,
-                PixelFormat.TRANSLUCENT
-            )
+            floatLayout?.visibility = View.VISIBLE
 
-            params.gravity = Gravity.BOTTOM or Gravity.CENTER_HORIZONTAL
-            params.y = 200
+            // 隐藏控制
+            hideRunnable?.let { handler.removeCallbacks(it) }
+            hideRunnable = Runnable { floatLayout?.visibility = View.GONE }
+                .also { handler.postDelayed(it, duration) }
 
-            try {
-                windowManager?.addView(floatLayout, params)
-            } catch (_: Exception) {
-            }
         }
 
-        // 更新内容
-        textView?.text = message
-        val icon = packageName?.let { getAppIcon(context, it) } ?: getPlaceholderDrawable(context)
-        imageView?.setImageDrawable(icon)
-
-        floatLayout?.visibility = View.VISIBLE
-
-        // 隐藏控制
-        hideRunnable?.let { handler.removeCallbacks(it) }
-        hideRunnable = Runnable { floatLayout?.visibility = View.GONE }
-            .also { handler.postDelayed(it, duration) }
     }
 
     private fun dpToPx(context: Context, dp: Int): Int =
@@ -158,8 +166,14 @@ object FloatToastManager {
         }
     }
     fun hide() {
-        floatLayout?.visibility = View.GONE
-        hideRunnable?.let { handler.removeCallbacks(it) }
+        handler.post {
+
+            floatLayout?.visibility = View.GONE
+
+            hideRunnable?.let {
+                handler.removeCallbacks(it)
+            }
+        }
     }
 
     /** 获取应用图标 */
