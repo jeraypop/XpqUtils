@@ -231,7 +231,7 @@ abstract class SelectToSpeakServiceAbstract : AccessibilityService() {
 
         @Volatile
         var cur_PkgName: String? = ""
-
+        @JvmStatic
         fun copyNodeCompat(node: AccessibilityNodeInfo?): AccessibilityNodeInfo? {
             if (node == null) return null
             return try {
@@ -245,7 +245,7 @@ abstract class SelectToSpeakServiceAbstract : AccessibilityService() {
                 null
             }
         }
-
+        @JvmStatic
         fun recycleCompat(node: AccessibilityNodeInfo?) {
             if (node == null) return
             if (Build.VERSION.SDK_INT < 34) {
@@ -346,7 +346,7 @@ abstract class SelectToSpeakServiceAbstract : AccessibilityService() {
         when (event.eventType) {
             //通知改变
             AccessibilityEvent.TYPE_NOTIFICATION_STATE_CHANGED -> {
-                AppExecutors.executors4.execute {
+                AppExecutors.executors3.execute {
                     val eventTime = event.eventTime
                     if (!shouldHandle(eventTime)) return@execute
                     val pkgName = event.packageName?.toString() ?: "UnKnown"
@@ -390,7 +390,7 @@ abstract class SelectToSpeakServiceAbstract : AccessibilityService() {
                     }
                 }
 
-                AppExecutors.executors4.execute {
+                /*AppExecutors.executors4.execute {
                     val nodeInfoList: MutableList<AccessibilityNodeInfo> = mutableListOf()
                     nodeInfoList.add(rootCopy)
                     // 复制 windows roots（兼容性安全调用）
@@ -401,7 +401,6 @@ abstract class SelectToSpeakServiceAbstract : AccessibilityService() {
                         winCopy?.let { nodeInfoList.add(it) }
                     }
                     if (nodeInfoList.isEmpty()) return@execute
-                    //
                     try {
                         val eventData = XPQEventData(
                             service = this@SelectToSpeakServiceAbstract,
@@ -417,7 +416,7 @@ abstract class SelectToSpeakServiceAbstract : AccessibilityService() {
                     } finally {
 
                     }
-                }
+                }*/
 
                 //定期更新标准的北京时间
                 NetworkHelperFullSmart.updateMyTime()
