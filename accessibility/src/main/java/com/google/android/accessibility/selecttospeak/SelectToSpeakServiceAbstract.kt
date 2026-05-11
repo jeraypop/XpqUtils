@@ -64,7 +64,6 @@ abstract class SelectToSpeakServiceAbstract : AccessibilityService() {
 
     open fun asyncHandleAccessibilityNotification(notification: Notification, title: String, content: String, a_n_Info: AccessibilityNInfo){}
     open fun asyncHandleAccessibilityEvent(event: AccessibilityEvent){}
-    open fun asyncHandle_WINDOW_STATE_CHANGED_FAST(data: XPQEventData){}
     open fun asyncHandle_WINDOW_STATE_CHANGED(data: XPQEventData){}
     open fun asyncHandle_WINDOW_CONTENT_CHANGED(data: XPQEventData){}
 
@@ -382,7 +381,7 @@ abstract class SelectToSpeakServiceAbstract : AccessibilityService() {
                 )
                 AppExecutors.executors3.execute {
                     try {
-                        asyncHandle_WINDOW_STATE_CHANGED_FAST(eventData)
+                        asyncHandle_WINDOW_STATE_CHANGED(eventData)
                     } catch (t: Throwable) {
 
                     } finally {
