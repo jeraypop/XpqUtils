@@ -11,8 +11,18 @@ import android.text.TextUtils
 import android.util.Log
 import android.view.accessibility.AccessibilityEvent
 import android.view.accessibility.AccessibilityNodeInfo
+import androidx.annotation.CallSuper
 import androidx.core.app.NotificationCompat
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.LifecycleOwner
+import androidx.lifecycle.LifecycleRegistry
 import androidx.lifecycle.MutableLiveData
+import androidx.lifecycle.ServiceLifecycleDispatcher
+import androidx.lifecycle.ViewModelStore
+import androidx.lifecycle.ViewModelStoreOwner
+import androidx.savedstate.SavedStateRegistry
+import androidx.savedstate.SavedStateRegistryController
+import androidx.savedstate.SavedStateRegistryOwner
 import com.android.accessibility.ext.R
 import com.google.android.accessibility.ext.AssistsServiceListener
 import com.google.android.accessibility.ext.utils.AliveUtils
@@ -44,7 +54,29 @@ import java.util.concurrent.ConcurrentHashMap
 
 val accessibilityServiceLiveData = MutableLiveData<AccessibilityService?>(null)
 val accessibilityService: AccessibilityService? get() = accessibilityServiceLiveData.value
-abstract class SelectToSpeakServiceAbstract : AccessibilityService() {
+abstract class SelectToSpeakServiceAbstract : AccessibilityService(),
+    LifecycleOwner,
+    ViewModelStoreOwner,
+    SavedStateRegistryOwner {
+    // 不再使用 ServiceLifecycleDispatcher
+    // AccessibilityService 不属于标准 startService 生命周期
+    // 使用 LifecycleRegistry 更稳定、更可控
+    private val lifecycleRegistry = LifecycleRegistry(this)
+    @Suppress("LeakingThis")
+    private val savedStateRegistryController = SavedStateRegistryController.create(this)
+
+    override val savedStateRegistry: SavedStateRegistry
+        get() = savedStateRegistryController.savedStateRegistry
+
+    override val lifecycle: Lifecycle
+        get() = lifecycleRegistry
+
+    override val viewModelStore: ViewModelStore = ViewModelStore()
+    // 防止重复 dispatch destroy
+    @Volatile
+    private var destroyed = false
+
+    //=====================
 
     private val TAG = this::class.java.simpleName
     //用于TYPE_WINDOW_CONTENT_CHANGED的简单防抖（按包名）
@@ -69,10 +101,28 @@ abstract class SelectToSpeakServiceAbstract : AccessibilityService() {
 
     open fun asyncHandle_VIEW_SCROLLED(data: XPQEventData){}
     open fun asyncHandle_WINDOWS_CHANGED(event: AccessibilityEvent){}
+    open fun onSetOverlay(){}
+    @CallSuper
+    override fun onCreate() {
 
+        savedStateRegistryController.performRestore(null)
 
+        super.onCreate()
+
+        lifecycleRegistry.handleLifecycleEvent(
+            Lifecycle.Event.ON_CREATE
+        )
+    }
+    @CallSuper
     override fun onServiceConnected() {
         super.onServiceConnected()
+        lifecycleRegistry.handleLifecycleEvent(
+            Lifecycle.Event.ON_START
+        )
+        try {
+            onSetOverlay()
+        } catch (t: Throwable) { }
+
         instance = this
         accessibilityServiceLiveData.value = this
         AssistsWindowManager.init(this)
@@ -179,8 +229,21 @@ abstract class SelectToSpeakServiceAbstract : AccessibilityService() {
     }
 
 
-
+    @CallSuper
     override fun onDestroy() {
+        if (destroyed) {
+            super.onDestroy()
+            return
+        }
+        destroyed = true
+
+        lifecycleRegistry.handleLifecycleEvent(
+            Lifecycle.Event.ON_DESTROY
+        )
+
+        // 清理 ViewModel
+        viewModelStore.clear()
+
         Log.e("监听屏幕啊", "无障碍服务：onDestroy" )
         instance = null
         accessibilityServiceLiveData.value = null

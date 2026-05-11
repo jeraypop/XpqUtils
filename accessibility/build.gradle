@@ -73,6 +73,7 @@ dependencies {
     implementation libs.androidx.work.runtime.ktx
 
     implementation(libs.flexbox)
+    implementation libs.androidx.lifecycle.service
 
 //    implementation 'androidx.core:core-ktx:1.7.0'
 //    implementation 'androidx.appcompat:appcompat:1.4.1'
