@@ -91,7 +91,9 @@ abstract class SelectToSpeakServiceAbstract : AccessibilityService(),
 
 
 
-    abstract fun targetPackageName(): String
+    open fun targetPackageName(): String {
+        return ""
+    }
 
 
     open fun asyncHandleAccessibilityNotification(notification: Notification, title: String, content: String, a_n_Info: AccessibilityNInfo){}
