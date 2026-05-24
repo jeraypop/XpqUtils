@@ -8,6 +8,7 @@ room = "2.7.2"
 mmkv= "2.2.2"
 #xpqu= "2.8"
 xpqu= "latest.release"
+gesturelib= "latest.release"
 jeraypopeasyfloat = "latest.release"
 easywindow = "latest.release"
 xxpermission = "26.5"
@@ -120,6 +121,7 @@ androidx-junit = { group = "androidx.test.ext", name = "junit", version.ref = "j
 hutool-crypto = { module = "cn.hutool:hutool-crypto", version.ref = "hutool" }
 easy-float = { module = "com.github.jeraypop:EasyFloat", version.ref = "jeraypopeasyfloat" }
 xpq-utils = { module = "com.github.jeraypop:XpqUtils", version.ref = "xpqu" }
+gesturelib = { module = "com.github.jeraypop:SideGesture", version.ref = "gesturelib" }
 easy-window = { module = "com.github.getActivity:EasyWindow", version.ref = "easywindow" }
 easy-permission = { module = "com.github.getActivity:XXPermissions", version.ref = "xxpermission" }
 devicecompat = { module = "com.github.getActivity:DeviceCompat", version.ref = "devicecompat" }
