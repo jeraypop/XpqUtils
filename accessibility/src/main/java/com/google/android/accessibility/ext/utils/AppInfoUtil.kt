@@ -1,8 +1,27 @@
 package com.google.android.accessibility.ext.utils
 
+import android.app.Activity
 import android.content.Context
+import android.content.Intent
+import android.graphics.Color
 import android.os.Build
+import android.text.Spannable
+import android.text.SpannableString
+import android.text.TextPaint
+import android.text.method.LinkMovementMethod
+import android.text.style.AbsoluteSizeSpan
+import android.text.style.ClickableSpan
+import android.text.style.ForegroundColorSpan
+import android.view.View
+import android.view.WindowManager
+import android.widget.TextView
+import android.widget.Toast
+import com.android.accessibility.ext.R
+import com.google.android.accessibility.ext.utils.KeyguardUnLock.getScreenSize
 import com.google.android.accessibility.ext.utils.LibCtxProvider.Companion.appContext
+import com.google.android.accessibility.privacypolicy.XPQPrivacyPolicyActivity
+import com.google.android.accessibility.privacypolicy.XPQTermsActivity
+import com.google.android.accessibility.privacypolicy.XpqPrivacyDialog
 
 /**
  * Company    :
@@ -106,6 +125,133 @@ object AppInfoUtil {
     fun getSelfAppInfo(context: Context = appContext): XPQ_AppInfo {
         return getAppInfo(context, context.packageName)
     }
+
+    /**
+     * 获取当前语言
+     *
+     * @param context
+     * @return 返回格式
+     * zh-CN
+     * en-US
+     * ja-JP
+     * zh-TW
+     */
+    @JvmStatic
+    @JvmOverloads
+    fun getLanguageTag(context: Context = appContext): String {
+        val locale = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {
+            context.resources.configuration.locales[0]
+        } else {
+            @Suppress("DEPRECATION")
+            context.resources.configuration.locale
+        }
+        return locale.toLanguageTag()
+    }
+
+    @JvmOverloads
+    @JvmStatic
+    fun setPrivacyPolicy(zqs: Boolean = false) {
+        MMKVUtil.put(MMKVConst.KEY_PRIVACY_POLICY,zqs)
+    }
+    @JvmOverloads
+    @JvmStatic
+    fun getPrivacyPolicy(default: Boolean = false): Boolean {
+        return MMKVUtil.get(MMKVConst.KEY_PRIVACY_POLICY,default)
+    }
+
+    @JvmOverloads
+    @JvmStatic
+    fun setCurrentVersionCode(zqs: Long = 0L) {
+        MMKVUtil.put(MMKVConst.KEY_CURRENT_VERSION_CODE,zqs)
+    }
+    @JvmOverloads
+    @JvmStatic
+    fun getCurrentVersionCode(default: Long = 0L): Long {
+        return MMKVUtil.get(MMKVConst.KEY_CURRENT_VERSION_CODE,default)
+    }
+
+    /**
+     * 显示用户协议和隐私政策
+     */
+    @JvmStatic
+    fun privacy_GuoNei_SJ(activity: Activity, privacy: String, terms: String) {
+        val dialog = XpqPrivacyDialog(activity, privacy, terms)
+        val tv_privacy_tips: TextView = dialog.findViewById(R.id.tv_privacy_tips)
+        val btn_exit: TextView = dialog.findViewById(R.id.btn_exit)
+        val btn_enter: TextView = dialog.findViewById(R.id.btn_enter)
+        dialog.show()
+        val string = activity.resources.getString(R.string.xpqprivacy_tips)
+        val key1 = activity.resources.getString(R.string.xpqprivacy_tips_key1)
+        val key2 = activity.resources.getString(R.string.xpqprivacy_tips_key2)
+        val index1 = string.indexOf(key1)
+        val index2 = string.indexOf(key2)
+
+        //需要显示的字串
+        val spannedString = SpannableString(string)
+        //设置点击字体颜色
+        val colorSpan1 = ForegroundColorSpan(Color.BLUE)
+        spannedString.setSpan(colorSpan1, index1, index1 + key1.length, Spannable.SPAN_EXCLUSIVE_INCLUSIVE)
+        val colorSpan2 = ForegroundColorSpan(Color.BLUE)
+        spannedString.setSpan(colorSpan2, index2, index2 + key2.length, Spannable.SPAN_EXCLUSIVE_INCLUSIVE)
+        //设置点击字体大小
+        val sizeSpan1 = AbsoluteSizeSpan(18, true)
+        spannedString.setSpan(sizeSpan1, index1, index1 + key1.length, Spannable.SPAN_EXCLUSIVE_INCLUSIVE)
+        val sizeSpan2 = AbsoluteSizeSpan(18, true)
+        spannedString.setSpan(sizeSpan2, index2, index2 + key2.length, Spannable.SPAN_EXCLUSIVE_INCLUSIVE)
+        //设置点击事件
+        val clickableSpan1: ClickableSpan = object : ClickableSpan() {
+            override fun onClick(view: View) {
+                val intent = Intent(activity, XPQTermsActivity::class.java)
+                activity.startActivity(intent)
+            }
+
+            override fun updateDrawState(ds: TextPaint) {
+                //点击事件去掉下划线
+                ds.isUnderlineText = false
+            }
+        }
+        spannedString.setSpan(clickableSpan1, index1, index1 + key1.length, Spannable.SPAN_EXCLUSIVE_INCLUSIVE)
+        val clickableSpan2: ClickableSpan = object : ClickableSpan() {
+            override fun onClick(view: View) {
+                val intent = Intent(activity, XPQPrivacyPolicyActivity::class.java)
+                activity.startActivity(intent)
+            }
+
+            override fun updateDrawState(ds: TextPaint) {
+                //点击事件去掉下划线
+                ds.isUnderlineText = false
+            }
+        }
+        spannedString.setSpan(clickableSpan2, index2, index2 + key2.length, Spannable.SPAN_EXCLUSIVE_INCLUSIVE)
+
+        //设置点击后的颜色为透明，否则会一直出现高亮
+        tv_privacy_tips.highlightColor = Color.TRANSPARENT
+        //开始响应点击事件
+        tv_privacy_tips.movementMethod = LinkMovementMethod.getInstance()
+        tv_privacy_tips.text = spannedString
+
+        //设置弹框宽度占屏幕的80%
+        val (width, height) = getScreenSize()
+        val params: WindowManager.LayoutParams = dialog!!.getWindow()!!.getAttributes()
+        params.width = (width * 0.80).toInt()
+        dialog!!.getWindow()!!.setAttributes(params)
+        btn_exit.setOnClickListener {
+            dialog.dismiss()
+
+            setCurrentVersionCode(getSelfAppInfo().versionCode)
+            setPrivacyPolicy(false)
+
+        }
+        btn_enter.setOnClickListener {
+            dialog.dismiss()
+            setCurrentVersionCode(getSelfAppInfo().versionCode)
+            setPrivacyPolicy(true)
+            AliveUtils.toast(msg = activity.getString(R.string.xpqconfirmed))
+
+        }
+    }
+
+
 }
 
 /**
@@ -116,3 +262,4 @@ data class XPQ_AppInfo(
     val versionName: String,
     val versionCode: Long
 )
+

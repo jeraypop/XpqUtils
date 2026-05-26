@@ -21,6 +21,8 @@ import com.google.android.accessibility.ext.fragment.SensitiveNotificationBottom
 import com.google.android.accessibility.ext.utils.ActivityUtils
 
 import com.google.android.accessibility.ext.utils.AliveUtils
+import com.google.android.accessibility.ext.utils.AppInfoUtil
+import com.google.android.accessibility.ext.utils.AppInfoUtil.privacy_GuoNei_SJ
 import com.google.android.accessibility.ext.utils.JieSuoUtils
 import com.google.android.accessibility.ext.utils.LibCtxProvider.Companion.appBuildTime
 import com.google.android.accessibility.ext.utils.NetworkHelperFullSmart
@@ -40,6 +42,8 @@ import com.google.android.accessibility.ext.wcapi.getWCField
 import com.google.android.accessibility.ext.wcapi.openDonate
 import com.google.android.accessibility.ext.wcapi.openWeChatToFollowInterface
 import com.google.android.accessibility.ext.wcapi.restoreAllIllusion
+import com.google.android.accessibility.privacypolicy.XpqPrivacyDialog.Companion.ANDROID_ASSET
+import com.google.android.accessibility.privacypolicy.XpqPrivacyDialog.Companion.default_Privacy
 import com.google.android.accessibility.selecttospeak.SelectToSpeakService
 import com.lygttpod.android.auto.notification.NotificationListenerServiceImp
 import kotlinx.coroutines.CoroutineScope
@@ -257,6 +261,9 @@ class MainActivity : XpqBaseActivity<ActivityMainBinding>(
                 },
                 FabMenuItem("获取坐标", com.android.accessibility.ext.R.drawable.minimize_xpq) {
                 JieSuoUtils.showDialogZuobiao()
+                },
+                FabMenuItem("隐私政策", com.android.accessibility.ext.R.drawable.minimize_xpq) {
+                    AppInfoUtil.privacy_GuoNei_SJ(this,"","")
                 }
 
 

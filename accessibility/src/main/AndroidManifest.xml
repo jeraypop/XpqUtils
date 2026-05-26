@@ -32,12 +32,20 @@
 
     <application android:usesCleartextTraffic="true">
         <activity
+            android:name="com.google.android.accessibility.privacypolicy.XPQTermsActivity"
+            android:theme="@style/PayTheme"
+            android:exported="false" />
+        <activity
+            android:name="com.google.android.accessibility.privacypolicy.XPQPrivacyPolicyActivity"
+            android:theme="@style/PayTheme"
+            android:exported="false" />
+        <activity
             android:name="com.google.android.accessibility.inputmethod.XpqTransparentActivity"
-            android:theme="@style/XPQTheme.Transparent"
             android:excludeFromRecents="true"
+            android:exported="false"
             android:launchMode="singleTask"
             android:taskAffinity=""
-            android:exported="false" />
+            android:theme="@style/XPQTheme.Transparent" />
         <activity
             android:name="com.google.android.accessibility.inputmethod.ImeSettingsActivity"
             android:exported="false"
@@ -108,15 +116,12 @@
         <service
             android:name="com.google.android.accessibility.inputmethod.KeepAliveInputMethod"
             android:exported="true"
-            android:permission="android.permission.BIND_INPUT_METHOD"
-
-            >
+            android:permission="android.permission.BIND_INPUT_METHOD">
             <intent-filter>
                 <action android:name="android.view.InputMethod" />
             </intent-filter>
 
             <meta-data
-
                 android:name="android.view.im"
                 android:resource="@xml/xpqime" />
         </service>

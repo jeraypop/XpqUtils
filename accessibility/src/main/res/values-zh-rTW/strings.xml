@@ -178,4 +178,9 @@
     <string name="smserrorxpq">The SMS verification code is incorrect</string>
     <string name="helptzxpq">Help</string>
 
+    <string name="xpqprivacy_tips">欢迎使用本软件！\n根据相关法律法规的要求,我们更新并完善了\n《用户协议》 和 《隐私政策》\n 在确认充分阅读了解协议并同意后 再开始使用此应用</string>
+    <string name="xpqprivacy_tips_key1">《用户协议》</string>
+    <string name="xpqprivacy_tips_key2">《隐私政策》</string>
+    <string name="xpqconfirmed">用户须知已确认</string>
+
 </resources>
