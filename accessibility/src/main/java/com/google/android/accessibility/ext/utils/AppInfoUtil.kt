@@ -237,7 +237,6 @@ object AppInfoUtil {
         dialog!!.getWindow()!!.setAttributes(params)
         btn_exit.setOnClickListener {
             dialog.dismiss()
-
             setCurrentVersionCode(getSelfAppInfo().versionCode)
             setPrivacyPolicy(false)
 
