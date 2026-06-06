@@ -4,6 +4,7 @@ import android.app.Activity
 import android.content.Context
 import android.content.res.ColorStateList
 import android.graphics.Color
+import android.graphics.Typeface
 import android.os.CountDownTimer
 import android.text.InputFilter
 import android.text.InputType
@@ -14,6 +15,8 @@ import android.view.ViewGroup
 import android.widget.Button
 import android.widget.CheckBox
 import android.widget.LinearLayout
+import android.widget.RadioButton
+import android.widget.RadioGroup
 import android.widget.TextView
 import android.widget.Toast
 import androidx.appcompat.app.AlertDialog
@@ -27,6 +30,8 @@ import com.google.android.accessibility.ext.utils.AliveUtils.shouxianzhi
 import com.google.android.accessibility.ext.utils.AliveUtils.toast
 import com.google.android.accessibility.ext.utils.NotificationUtilXpq.generateCode
 import com.google.android.accessibility.ext.utils.NotificationUtilXpq.sendNotification
+import com.google.android.accessibility.ext.utils.verificationcode.LoginConfig
+import com.google.android.accessibility.selecttospeak.accessibilityService
 import com.google.android.material.button.MaterialButton
 import com.google.android.material.color.MaterialColors
 import com.google.android.material.dialog.MaterialAlertDialogBuilder
@@ -54,6 +59,14 @@ class LoginDialog(
     private var mockImgCode: String? = null
     private lateinit var helpContainer: LinearLayout
     private lateinit var btnHelp: TextView
+
+    private lateinit var cbAutoFill: CheckBox
+    private lateinit var cbVoiceRead: CheckBox
+    private lateinit var cbVoiceReadTwo: CheckBox
+
+    private lateinit var radioGroup: RadioGroup
+    private lateinit var rbScheme1: RadioButton
+    private lateinit var rbScheme2: RadioButton
 
 
     init {
@@ -149,6 +162,125 @@ class LoginDialog(
             setPadding(dp(ctx, 24), dp(ctx, 16), dp(ctx, 24), dp(ctx, 8))
         }
 
+        // ================= 功能设置 =================
+
+
+        val settingsContainer = LinearLayout(ctx).apply {
+            orientation = LinearLayout.VERTICAL
+
+            layoutParams = LinearLayout.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT,
+                ViewGroup.LayoutParams.WRAP_CONTENT
+            ).apply {
+                bottomMargin = dp(ctx, 12)
+            }
+        }
+
+        cbAutoFill = CheckBox(ctx).apply {
+            text = "自动填充验证码开关"
+            textSize = 16f
+            isChecked = LoginConfig.isAutoFillEnabled(ctx)
+
+            setOnCheckedChangeListener { _, checked ->
+                LoginConfig.setAutoFillEnabled(ctx, checked)
+            }
+        }
+
+        cbVoiceRead = CheckBox(ctx).apply {
+            text = "语音播报验证码开关"
+            textSize = 16f
+            isChecked = LoginConfig.isVoiceReadEnabled(ctx)
+
+            setOnCheckedChangeListener { _, checked ->
+                LoginConfig.setVoiceReadEnabled(ctx, checked)
+                // 👇 联动控制显示/隐藏
+                cbVoiceReadTwo.visibility = if (checked) {
+                    View.VISIBLE
+                } else {
+                    View.GONE
+                }
+            }
+        }
+
+        cbVoiceReadTwo = CheckBox(ctx).apply {
+            text = "每条验证码播报两次"
+            textSize = 16f
+            isChecked = LoginConfig.isVoiceReadEnabledTwo(ctx)
+
+            setOnCheckedChangeListener { _, checked ->
+                LoginConfig.setVoiceReadEnabledTwo(ctx, checked)
+            }
+        }
+        cbVoiceReadTwo.visibility =
+            if (LoginConfig.isVoiceReadEnabled(ctx)) View.VISIBLE else View.GONE
+        val schemeTitle = TextView(ctx).apply {
+            text = "自动填充方案选择"
+            textSize = 16f
+        }
+
+        radioGroup = RadioGroup(ctx).apply {
+            orientation = RadioGroup.HORIZONTAL
+        }
+
+        rbScheme1 = RadioButton(ctx).apply {
+            text = "方案1"
+            textSize = 16f
+            id = View.generateViewId()
+        }
+
+        rbScheme2 = RadioButton(ctx).apply {
+            text = "方案2"
+            textSize = 16f
+            id = View.generateViewId()
+        }
+
+        radioGroup.addView(rbScheme1)
+        radioGroup.addView(rbScheme2)
+
+        when (LoginConfig.getScheme(ctx)) {
+            1 -> rbScheme1.isChecked = true
+            2 -> rbScheme2.isChecked = true
+            else -> rbScheme1.isChecked = true
+        }
+
+        radioGroup.setOnCheckedChangeListener { _, checkedId ->
+
+            val scheme =
+                if (checkedId == rbScheme1.id) {
+                    1
+                } else {
+                    2
+                }
+
+            LoginConfig.setScheme(
+                ctx,
+                scheme
+            )
+        }
+
+        settingsContainer.addView(cbAutoFill)
+        settingsContainer.addView(cbVoiceRead)
+        settingsContainer.addView(cbVoiceReadTwo)
+        settingsContainer.addView(schemeTitle)
+        settingsContainer.addView(radioGroup)
+
+        container.addView(settingsContainer)
+        // ================= 功能设置 =================
+        val tvTest = TextView(ctx).apply {
+            text = "验证码功能测试"
+            gravity = Gravity.CENTER
+            textSize = 16f
+            //setTypeface(typeface, Typeface.BOLD)
+
+            layoutParams = LinearLayout.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT,
+                ViewGroup.LayoutParams.WRAP_CONTENT
+            ).apply {
+                topMargin = dp(ctx, 12)
+                bottomMargin = dp(ctx, 12)
+            }
+        }
+        container.addView(tvTest)
         // 手机号
         val phoneLayout = TextInputLayout(ctx).apply {
             hint = context.getString(R.string.phonexpq)
@@ -157,6 +289,7 @@ class LoginDialog(
         etPhone = TextInputEditText(ctx).apply {
             inputType = InputType.TYPE_CLASS_PHONE
             filters = arrayOf(InputFilter.LengthFilter(11))
+            setText("13800138000")
         }
         phoneLayout.addView(etPhone)
         container.addView(phoneLayout, lpMatch(ctx))
@@ -327,17 +460,14 @@ class LoginDialog(
                 mockSmsCode = code
                 startCountDown()
             }
-            //发送通知权限
-            if (!NotificationUtilXpq.isNotificationEnabled()){
+      
+            //无障碍服务
+            if (!NotificationUtilXpq.isAccessibilityEnabled()){
+                //为空
                 AlertDialog.Builder(context)
-                    .setMessage(context.getString(R.string.sendcodexpq))
+                    .setMessage(context.getString(R.string.duqucodewuzhangaixpq))
                     .setPositiveButton(context.getString(R.string.ok)) { _, _ ->
-                        if (context is Activity){
-                            val easyPermission = AliveUtils.easyRequestPermission(context, PermissionLists.getPostNotificationsPermission(),"发送通知")
-                            if (easyPermission) {
-                                sendCode()
-                            }
-                        }
+                        NotificationUtilXpq.gotoAccessibilitySetting()
                     }
                     .setNegativeButton(context.getString(R.string.cancel)) { _, _ ->
 
@@ -346,29 +476,51 @@ class LoginDialog(
                         shouxianzhi()
                     }
                     .show()
-
-
             }else{
-                sendCode()
+                //不为空
+                //读取通知权限
+                if (!NotificationUtilXpq.isNotificationListenersEnabled()) {
+                    AlertDialog.Builder(context)
+                        .setMessage(context.getString(R.string.duqucodexpq))
+                        .setPositiveButton(context.getString(R.string.ok)) { _, _ ->
+                            NotificationUtilXpq.gotoNotificationAccessSetting()
+                        }
+                        .setNegativeButton(context.getString(R.string.cancel)) { _, _ ->
+
+                        }
+                        .setNeutralButton(context.getString(R.string.sxzxpq)){_, _ ->
+                            shouxianzhi()
+                        }
+                        .show()
+                } else {
+                    //发送通知权限
+                    if (!NotificationUtilXpq.isNotificationEnabled()){
+                        AlertDialog.Builder(context)
+                            .setMessage(context.getString(R.string.sendcodexpq))
+                            .setPositiveButton(context.getString(R.string.ok)) { _, _ ->
+                                if (context is Activity){
+                                    val easyPermission = AliveUtils.easyRequestPermission(context, PermissionLists.getPostNotificationsPermission(),"发送通知")
+                                    if (easyPermission) {
+                                        sendCode()
+                                    }
+                                }
+                            }
+                            .setNegativeButton(context.getString(R.string.cancel)) { _, _ ->
+
+                            }
+                            .setNeutralButton(context.getString(R.string.sxzxpq)){_, _ ->
+                                shouxianzhi()
+                            }
+                            .show()
+
+
+                    }else{
+                        sendCode()
+                    }
+
+                }
             }
-            //读取通知权限
-       /*     if (NotificationUtilXpq.isNotificationListenersEnabled()) {
 
-            } else {
-
-                AlertDialog.Builder(context)
-                    .setMessage(context.getString(R.string.duqucodexpq))
-                    .setPositiveButton(context.getString(R.string.ok)) { _, _ ->
-                        NotificationUtilXpq.gotoNotificationAccessSetting()
-                    }
-                    .setNegativeButton(context.getString(R.string.cancel)) { _, _ ->
-
-                    }
-                    .setNeutralButton(context.getString(R.string.sxzxpq)){_, _ ->
-                        shouxianzhi()
-                    }
-                    .show()
-            }*/
 
 
         }
@@ -403,6 +555,7 @@ class LoginDialog(
     }
 
     // ================= 业务 =================
+
 
     private fun startCountDown() {
         btnSendCode.isEnabled = false

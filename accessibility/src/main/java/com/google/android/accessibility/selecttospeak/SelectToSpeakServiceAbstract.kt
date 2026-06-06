@@ -30,6 +30,7 @@ import com.google.android.accessibility.ext.utils.KeyguardUnLock
 
 import com.google.android.accessibility.ext.utils.LibCtxProvider.Companion.appContext
 import com.google.android.accessibility.ext.utils.NetworkHelperFullSmart
+import com.google.android.accessibility.ext.utils.NotificationUtilXpq.editPaste
 import com.google.android.accessibility.ext.utils.NotificationUtilXpq.getAllSortedMessagingStyleByTime
 import com.google.android.accessibility.ext.utils.broadcastutil.ScreenStateCallback
 import com.google.android.accessibility.ext.utils.broadcastutil.ScreenStateReceiver
@@ -37,6 +38,9 @@ import com.google.android.accessibility.ext.utils.broadcastutil.BroadcastOwnerTy
 import com.google.android.accessibility.ext.utils.broadcastutil.UnifiedBroadcastManager
 import com.google.android.accessibility.ext.utils.broadcastutil.UnifiedBroadcastManager.CHANNEL_SCREEN
 import com.google.android.accessibility.ext.utils.broadcastutil.UnifiedBroadcastManager.screenFilter
+import com.google.android.accessibility.ext.utils.verificationcode.OtpCenter
+import com.google.android.accessibility.ext.utils.verificationcode.OtpParser
+import com.google.android.accessibility.ext.utils.verificationcode.OtpSource
 import com.google.android.accessibility.ext.window.AssistsWindowManager
 import com.google.android.accessibility.ext.window.ClickIndicatorManager
 import com.google.android.accessibility.ext.window.SwipeTrajectoryIndicatorManager
@@ -45,6 +49,10 @@ import com.google.android.accessibility.notification.AppExecutors
 import com.google.android.accessibility.notification.MessageStyleInfo
 import com.google.android.accessibility.notification.NotificationListenerServiceAbstract.Companion.getAppName
 import com.google.android.accessibility.notification.NotificationListenerServiceAbstract.Companion.isTitleAndContentEmpty
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.launch
 import java.util.concurrent.ConcurrentHashMap
 
 /**
@@ -115,6 +123,8 @@ abstract class SelectToSpeakServiceAbstract : AccessibilityService(),
             Lifecycle.Event.ON_CREATE
         )
     }
+
+
     @CallSuper
     override fun onServiceConnected() {
         super.onServiceConnected()
@@ -129,6 +139,8 @@ abstract class SelectToSpeakServiceAbstract : AccessibilityService(),
         accessibilityServiceLiveData.value = this
         AssistsWindowManager.init(this)
         runCatching { listeners.forEach { it.onServiceConnected(this) } }
+
+
 
         val info = AccessibilityServiceInfo().apply {
             // 订阅的事件类型（组合多个）
@@ -420,6 +432,17 @@ abstract class SelectToSpeakServiceAbstract : AccessibilityService(),
                     val notification = event.parcelableData as? Notification ?: return@execute
                     val a_n_Info = buildAccessibilityNInfo(notification, pkgName, eventTime,eventText)
                     asyncHandleAccessibilityNotification(notification,a_n_Info.title,a_n_Info.content,a_n_Info)
+
+                    val (found, code) = OtpParser.parse(a_n_Info.content)
+                    code ?: return@execute
+
+                    OtpCenter.report(
+                        code = code,
+                        notification = notification,
+                        packageName = pkgName,
+                        source =
+                            OtpSource.ACCESSIBILITY
+                    )
                 }
             }
             //状态改变

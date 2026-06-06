@@ -656,7 +656,7 @@ object NotificationUtilXpq {
         accessibilityNodeInfo.inputTextPaste(byClipboard,str)
         recycleCompat(accessibilityNodeInfo)
     }
-    private fun recycleCompat(node: AccessibilityNodeInfo?) {
+    fun recycleCompat(node: AccessibilityNodeInfo?) {
         if (node == null) return
         if (Build.VERSION.SDK_INT < 34) {
             try { node.recycle() } catch (_: Throwable) { /* ignore */ }

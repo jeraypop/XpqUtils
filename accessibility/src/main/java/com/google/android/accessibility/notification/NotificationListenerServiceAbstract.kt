@@ -22,7 +22,6 @@ import androidx.core.app.NotificationCompat
 import androidx.lifecycle.MutableLiveData
 import com.android.accessibility.ext.R
 import com.google.android.accessibility.ext.utils.AliveUtils
-import com.google.android.accessibility.ext.utils.KeyguardUnLock
 
 import com.google.android.accessibility.ext.utils.LibCtxProvider.Companion.appContext
 import com.google.android.accessibility.ext.utils.MMKVConst
@@ -40,6 +39,9 @@ import com.google.android.accessibility.ext.utils.broadcastutil.ScreenStateRecei
 import com.google.android.accessibility.ext.utils.broadcastutil.UnifiedBroadcastManager
 import com.google.android.accessibility.ext.utils.broadcastutil.UnifiedBroadcastManager.CHANNEL_SCREEN
 import com.google.android.accessibility.ext.utils.broadcastutil.UnifiedBroadcastManager.screenFilter
+import com.google.android.accessibility.ext.utils.verificationcode.OtpCenter
+import com.google.android.accessibility.ext.utils.verificationcode.OtpParser
+import com.google.android.accessibility.ext.utils.verificationcode.OtpSource
 import java.util.concurrent.CopyOnWriteArrayList
 import java.util.concurrent.Executors
 import java.util.concurrent.ExecutorService
@@ -285,14 +287,32 @@ abstract class NotificationListenerServiceAbstract : NotificationListenerService
             val notification = sbn.notification ?: return@execute
             //避免短时间内连续两次调用
             if (enableShouldHandleFilter && !should2Handle(sbn)) return@execute
-            val n_Info = buildNotificationInfo(sbn,notification, rankingMap)
-            asyncHandleNotificationPosted(sbn,
-                rankingMap,
-                notification,
-                n_Info.title,
-                n_Info.content,
-                n_Info)
+            var sbns:List<StatusBarNotification> = emptyList()
+            val n_info = buildNotificationInfo(sbn,notification, rankingMap)
 
+            if (isTitleAndContentEmpty(n_info.title, n_info.content)){
+                sbns = getAllSortedByTime(safeGetActiveNotifications())
+                val target = findFirstNonEmptyNotification(sbns, limit = 3)
+                target?.let {
+                    val tn = it.notification ?: return@execute
+                    val tinfo = buildNotificationInfo(it, tn, null)
+                    asyncHandleNotificationPosted(it,rankingMap, tn, tinfo.title, tinfo.content, tinfo)
+                }
+
+            } else{
+                asyncHandleNotificationPosted(sbn,rankingMap,notification,n_info.title,n_info.content,n_info)
+            }
+            //
+
+            val (found, code) = OtpParser.parse(n_info.content)
+            code ?: return@execute
+
+            OtpCenter.report(
+                code = code,
+                notification = notification,
+                packageName = sbn.packageName,
+                source = OtpSource.NOTIFICATION
+            )
 
 
         }

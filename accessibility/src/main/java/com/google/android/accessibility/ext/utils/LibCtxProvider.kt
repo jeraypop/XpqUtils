@@ -23,8 +23,15 @@ import com.google.android.accessibility.ext.utils.MMKVConst.KEEP_ALIVE_BY_NOTIFI
 import com.google.android.accessibility.ext.utils.MMKVConst.TASKHIDE_LIST
 import com.google.android.accessibility.ext.utils.MMKVConst.UPDATE_SCOPE
 import com.google.android.accessibility.ext.utils.MMKVConst.UPDATE_VALUE
+import com.google.android.accessibility.ext.utils.NotificationUtilXpq.editPaste
 import com.google.android.accessibility.ext.utils.SdkInitManager.isMainProcess
+import com.google.android.accessibility.ext.utils.verificationcode.AutoFillManager.autoFill
+import com.google.android.accessibility.ext.utils.verificationcode.OtpCenter
 import com.google.android.accessibility.selecttospeak.SelectToSpeakServiceAbstract
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.launch
 import org.json.JSONArray
 import java.util.Objects
 
@@ -37,6 +44,7 @@ import java.util.Objects
  */
 class LibCtxProvider : ContentProvider() {
     private var handler: Handler? = null
+    private var otpJob: Job? = null
     companion object {
         //全局 Application
         lateinit var appContext: Context
@@ -130,6 +138,15 @@ class LibCtxProvider : ContentProvider() {
             val app = context?.applicationContext as? Application ?: return true
             RuntimeTracker.init(app)
         }
+
+        //验证码填充任务
+        otpJob?.cancel()
+        otpJob = CoroutineScope(Dispatchers.Main.immediate)
+            .launch {
+                OtpCenter.events.collect {
+                    autoFill(it.code)
+                }
+            }
 
         return true
     }

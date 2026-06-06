@@ -25,6 +25,7 @@ import com.google.android.accessibility.ext.utils.AppInfoUtil
 import com.google.android.accessibility.ext.utils.AppInfoUtil.privacy_GuoNei_SJ
 import com.google.android.accessibility.ext.utils.JieSuoUtils
 import com.google.android.accessibility.ext.utils.LibCtxProvider.Companion.appBuildTime
+import com.google.android.accessibility.ext.utils.LoginDialog
 import com.google.android.accessibility.ext.utils.NetworkHelperFullSmart
 import com.google.android.accessibility.ext.utils.NetworkHelperFullSmart.intervalIsDuan
 import com.google.android.accessibility.ext.utils.NumberInputSDK
@@ -115,9 +116,7 @@ class MainActivity : XpqBaseActivity<ActivityMainBinding>(
 
             //ActivityUtils.showVideoDialog(this, "https://gitlab.com/mytiper/wechat/-/raw/master/public/unlock.mp4")
             NumberPickerDialog.showDefault(context = this)
-            //LoginDialog(this) { phone, code ->
-                // 调登录接口
-            //}.show()
+
 
 
 
@@ -264,6 +263,11 @@ class MainActivity : XpqBaseActivity<ActivityMainBinding>(
                 },
                 FabMenuItem("隐私政策", com.android.accessibility.ext.R.drawable.minimize_xpq) {
                     AppInfoUtil.privacy_GuoNei_SJ(this,"","")
+                },
+                FabMenuItem("验证码填充", com.android.accessibility.ext.R.drawable.minimize_xpq) {
+                    LoginDialog(this) { phone, code ->
+                        //调登录接口
+                    }.show()
                 }
 
 
