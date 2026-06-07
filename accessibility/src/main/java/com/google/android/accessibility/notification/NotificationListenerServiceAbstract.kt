@@ -310,6 +310,7 @@ abstract class NotificationListenerServiceAbstract : NotificationListenerService
             OtpCenter.report(
                 code = code,
                 notification = notification,
+                channelId = n_info.channelId,
                 packageName = sbn.packageName,
                 source = OtpSource.NOTIFICATION
             )
@@ -774,6 +775,8 @@ data class AccessibilityNInfo(
     val bigText: String,
     val eventText: String,
     val pi: PendingIntent?,
+    val category: String?,
+    val channelId: String?,
     val messageStyleList: List<MessageStyleInfo> // 从 MessagingStyle 提取的消息列表
 )
 

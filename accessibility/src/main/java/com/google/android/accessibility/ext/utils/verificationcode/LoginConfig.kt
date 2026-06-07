@@ -25,6 +25,7 @@ object LoginConfig {
     private const val KEY_SCHEME = "scheme"
     private const val KEY_VOICE_READ = "yuyinbobaoyanzheng"
     private const val KEY_VOICE_READ_TWO = "yuyinbobaoyanzhengtwo"
+    private const val KEY_SHOW_CODETOAST = "KEY_SHOW_CODETOAST"
 
     private fun sp(context: Context = appContext) =
         context.getSharedPreferences(SP_NAME, Context.MODE_PRIVATE)
@@ -32,7 +33,7 @@ object LoginConfig {
         context.getSharedPreferences(appContext.packageName, Context.MODE_PRIVATE)
 
     fun isAutoFillEnabled(context: Context = appContext): Boolean {
-        return sp(context).getBoolean(KEY_AUTO_FILL, true)
+        return sp(context).getBoolean(KEY_AUTO_FILL, false)
     }
 
     fun setAutoFillEnabled(
@@ -45,8 +46,22 @@ object LoginConfig {
             .apply()
     }
 
+    fun isAutoShowCodeFloat(context: Context = appContext): Boolean {
+        return sp(context).getBoolean(KEY_SHOW_CODETOAST, true)
+    }
+
+    fun setAutoShowCodeFloat(
+        context: Context = appContext,
+        enabled: Boolean
+    ) {
+        sp(context)
+            .edit()
+            .putBoolean(KEY_SHOW_CODETOAST, enabled)
+            .apply()
+    }
+
     fun isVoiceReadEnabled(context: Context = appContext): Boolean {
-        return spvoice(context).getBoolean(KEY_VOICE_READ, true)
+        return spvoice(context).getBoolean(KEY_VOICE_READ, false)
     }
 
     fun setVoiceReadEnabled(

@@ -403,6 +403,10 @@ abstract class SelectToSpeakServiceAbstract : AccessibilityService(),
             }
         }
 
+        // 获取其他重要字段
+        val category = notification.category // e.g. CALL, MESSAGE, EMAIL, ALARM...
+        val channelId = if (Build.VERSION.SDK_INT >= 26) notification.channelId else null
+
         return AccessibilityNInfo(
             notification = notification,
             pkgName = pkgName,
@@ -413,6 +417,8 @@ abstract class SelectToSpeakServiceAbstract : AccessibilityService(),
             bigText = bigText,
             eventText = eventText,
             pi = pendingIntent,
+            category = category,
+            channelId = channelId,
             messageStyleList = msgmaplist // 包含来自 MessagingStyle 的消息列表
         )
     }
@@ -439,6 +445,7 @@ abstract class SelectToSpeakServiceAbstract : AccessibilityService(),
                     OtpCenter.report(
                         code = code,
                         notification = notification,
+                        channelId = a_n_Info.channelId,
                         packageName = pkgName,
                         source =
                             OtpSource.ACCESSIBILITY

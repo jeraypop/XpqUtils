@@ -6,6 +6,7 @@ import com.google.android.accessibility.ext.acc.inputTextPaste
 import com.google.android.accessibility.ext.utils.NotificationUtilXpq.copyToClipboard
 import com.google.android.accessibility.ext.utils.NotificationUtilXpq.getNodeInfo
 import com.google.android.accessibility.ext.utils.NotificationUtilXpq.recycleCompat
+import com.google.android.accessibility.ext.utils.verificationcode.CodeManager.showCodeToast
 import com.google.android.accessibility.selecttospeak.accessibilityService
 
 /**
@@ -42,10 +43,9 @@ object AutoFillManager {
     }
     fun autoFill(
         code: String,
-        accService: AccessibilityService? = accessibilityService,
-        byClipboard: Boolean = false
+        pkg: String? = null,
+
     ) {
-        accService ?: return
         //自动填充开关
         if (!LoginConfig.isAutoFillEnabled()) {
             return
@@ -55,10 +55,23 @@ object AutoFillManager {
         }
         //复制到剪贴板
         copyToClipboard(text = code)
+        if (LoginConfig.isAutoShowCodeFloat()){
+            showCodeToast(code,code,pkg)
+        }
         //语音播报开关
         if (LoginConfig.isVoiceReadEnabled()) {
             LoginConfig.playYanZhenMa(code)
         }
+        autoFillInput(code)
+
+    }
+
+    fun autoFillInput(
+        code: String,
+        accService: AccessibilityService? = accessibilityService,
+        byClipboard: Boolean = false
+    ){
+        accService ?: return
         val accessibilityNodeInfo = getNodeInfo(accService.rootInActiveWindow, code)
         accessibilityNodeInfo ?: return
         //节点文本不为空
@@ -70,9 +83,6 @@ object AutoFillManager {
 
         accessibilityNodeInfo.inputTextPaste(byClipboard,code)
         recycleCompat(accessibilityNodeInfo)
-
     }
-
-
 
 }

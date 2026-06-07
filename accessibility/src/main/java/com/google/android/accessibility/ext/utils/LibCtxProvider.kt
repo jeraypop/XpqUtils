@@ -25,7 +25,7 @@ import com.google.android.accessibility.ext.utils.MMKVConst.UPDATE_SCOPE
 import com.google.android.accessibility.ext.utils.MMKVConst.UPDATE_VALUE
 import com.google.android.accessibility.ext.utils.NotificationUtilXpq.editPaste
 import com.google.android.accessibility.ext.utils.SdkInitManager.isMainProcess
-import com.google.android.accessibility.ext.utils.verificationcode.AutoFillManager.autoFill
+import com.google.android.accessibility.ext.utils.verificationcode.AutoFillManager
 import com.google.android.accessibility.ext.utils.verificationcode.OtpCenter
 import com.google.android.accessibility.selecttospeak.SelectToSpeakServiceAbstract
 import kotlinx.coroutines.CoroutineScope
@@ -144,7 +144,7 @@ class LibCtxProvider : ContentProvider() {
         otpJob = CoroutineScope(Dispatchers.Main.immediate)
             .launch {
                 OtpCenter.events.collect {
-                    autoFill(it.code)
+                    AutoFillManager.autoFill(it.code,it.packageName)
                 }
             }
 

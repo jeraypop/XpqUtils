@@ -61,6 +61,7 @@ class LoginDialog(
     private lateinit var btnHelp: TextView
 
     private lateinit var cbAutoFill: CheckBox
+    private lateinit var cbAutoShowCodeFloat: CheckBox
     private lateinit var cbVoiceRead: CheckBox
     private lateinit var cbVoiceReadTwo: CheckBox
 
@@ -186,6 +187,16 @@ class LoginDialog(
             }
         }
 
+        cbAutoShowCodeFloat = CheckBox(ctx).apply {
+            text = "验证码悬浮窗开关"
+            textSize = 16f
+            isChecked = LoginConfig.isAutoShowCodeFloat(ctx)
+
+            setOnCheckedChangeListener { _, checked ->
+                LoginConfig.setAutoShowCodeFloat(ctx, checked)
+            }
+        }
+
         cbVoiceRead = CheckBox(ctx).apply {
             text = "语音播报验证码开关"
             textSize = 16f
@@ -259,6 +270,7 @@ class LoginDialog(
         }
 
         settingsContainer.addView(cbAutoFill)
+        settingsContainer.addView(cbAutoShowCodeFloat)
         settingsContainer.addView(cbVoiceRead)
         settingsContainer.addView(cbVoiceReadTwo)
         settingsContainer.addView(schemeTitle)

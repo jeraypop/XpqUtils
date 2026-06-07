@@ -1,7 +1,11 @@
 package com.google.android.accessibility.ext.utils.verificationcode
 
 import android.app.Notification
+import android.text.TextUtils
 import android.util.Log
+import com.google.android.accessibility.ext.utils.LibCtxProvider.Companion.appContext
+import com.google.android.accessibility.ext.utils.NotificationUtilXpq.XPQ_OTP
+import com.google.android.accessibility.ext.utils.NotificationUtilXpq.YANZHENGMA_CHANNEL_ID
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.SharedFlow
 
@@ -32,9 +36,13 @@ object OtpCenter {
     fun report(
         code: String,
         notification: Notification,
+        channelId: String?,
         packageName: String?,
         source: OtpSource
     ) {
+        if (TextUtils.equals(packageName, appContext.packageName)){
+            if (!TextUtils.equals(channelId, XPQ_OTP))return
+        }
         Log.e("通知是否相等", "source: "+source )
         val key = "${packageName ?: "unknown"}:$code"
 
