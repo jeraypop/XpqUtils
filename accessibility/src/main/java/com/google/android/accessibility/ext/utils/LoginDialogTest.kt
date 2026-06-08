@@ -41,6 +41,7 @@ import com.hjq.permissions.permission.PermissionLists
 
 class LoginDialog(
     private val context: Context,
+    private val hasAccessibility: Boolean = false,
     private val onLogin: ((phone: String, code: String) -> Unit)? = null
 ) {
 
@@ -472,26 +473,62 @@ class LoginDialog(
                 mockSmsCode = code
                 startCountDown()
             }
-      
-            //无障碍服务
-            if (!NotificationUtilXpq.isAccessibilityEnabled()){
-                //为空
-                AlertDialog.Builder(context)
-                    .setMessage(context.getString(R.string.duqucodewuzhangaixpq))
-                    .setPositiveButton(context.getString(R.string.ok)) { _, _ ->
-                        NotificationUtilXpq.gotoAccessibilitySetting()
-                    }
-                    .setNegativeButton(context.getString(R.string.cancel)) { _, _ ->
 
-                    }
-                    .setNeutralButton(context.getString(R.string.sxzxpq)){_, _ ->
-                        shouxianzhi()
-                    }
-                    .show()
+            fun sendCodeByNotification() {
+                //发送通知权限
+                if (!NotificationUtilXpq.isNotificationEnabled()){
+                    AlertDialog.Builder(context)
+                        .setMessage(context.getString(R.string.sendcodexpq))
+                        .setPositiveButton(context.getString(R.string.ok)) { _, _ ->
+                            if (context is Activity){
+                                val easyPermission = AliveUtils.easyRequestPermission(context, PermissionLists.getPostNotificationsPermission(),"发送通知")
+                                if (easyPermission) {
+                                    sendCode()
+                                }
+                            }
+                        }
+                        .setNegativeButton(context.getString(R.string.cancel)) { _, _ ->
+
+                        }
+                        .setNeutralButton(context.getString(R.string.sxzxpq)){_, _ ->
+                            shouxianzhi()
+                        }
+                        .show()
+
+
+                }else{
+                    sendCode()
+                }
+            }
+
+
+
+            if (hasAccessibility){
+                //有,无障碍
+                if (!NotificationUtilXpq.isAccessibilityEnabled()){
+                    //无障碍为空
+                    AlertDialog.Builder(context)
+                        .setMessage(context.getString(R.string.duqucodewuzhangaixpq))
+                        .setPositiveButton(context.getString(R.string.ok)) { _, _ ->
+                            NotificationUtilXpq.gotoAccessibilitySetting()
+                        }
+                        .setNegativeButton(context.getString(R.string.cancel)) { _, _ ->
+
+                        }
+                        .setNeutralButton(context.getString(R.string.sxzxpq)){_, _ ->
+                            shouxianzhi()
+                        }
+                        .show()
+                }else{
+                    //无障碍不为空
+                    sendCodeByNotification()
+                }
+
             }else{
-                //不为空
+                //没有无障碍
                 //读取通知权限
                 if (!NotificationUtilXpq.isNotificationListenersEnabled()) {
+                    //没有读取通知权限
                     AlertDialog.Builder(context)
                         .setMessage(context.getString(R.string.duqucodexpq))
                         .setPositiveButton(context.getString(R.string.ok)) { _, _ ->
@@ -504,35 +541,12 @@ class LoginDialog(
                             shouxianzhi()
                         }
                         .show()
-                } else {
-                    //发送通知权限
-                    if (!NotificationUtilXpq.isNotificationEnabled()){
-                        AlertDialog.Builder(context)
-                            .setMessage(context.getString(R.string.sendcodexpq))
-                            .setPositiveButton(context.getString(R.string.ok)) { _, _ ->
-                                if (context is Activity){
-                                    val easyPermission = AliveUtils.easyRequestPermission(context, PermissionLists.getPostNotificationsPermission(),"发送通知")
-                                    if (easyPermission) {
-                                        sendCode()
-                                    }
-                                }
-                            }
-                            .setNegativeButton(context.getString(R.string.cancel)) { _, _ ->
-
-                            }
-                            .setNeutralButton(context.getString(R.string.sxzxpq)){_, _ ->
-                                shouxianzhi()
-                            }
-                            .show()
-
-
-                    }else{
-                        sendCode()
-                    }
-
+                }else{
+                    //有读取通知权限
+                    sendCodeByNotification()
                 }
-            }
 
+            }
 
 
         }

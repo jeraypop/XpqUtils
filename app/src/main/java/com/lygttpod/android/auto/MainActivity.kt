@@ -265,7 +265,7 @@ class MainActivity : XpqBaseActivity<ActivityMainBinding>(
                     AppInfoUtil.privacy_GuoNei_SJ(this,"","")
                 },
                 FabMenuItem("验证码填充", com.android.accessibility.ext.R.drawable.minimize_xpq) {
-                    LoginDialog(this) { phone, code ->
+                    LoginDialog(this,true) { phone, code ->
                         //调登录接口
                     }.show()
                 }

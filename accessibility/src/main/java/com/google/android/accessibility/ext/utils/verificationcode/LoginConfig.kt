@@ -12,6 +12,7 @@ import android.speech.tts.UtteranceProgressListener
 import android.util.Log
 import com.google.android.accessibility.ext.utils.LibCtxProvider.Companion.appContext
 import java.util.Locale
+import java.util.UUID
 
 /**
  * Company    : 
@@ -101,14 +102,14 @@ object LoginConfig {
             .putInt(KEY_SCHEME, scheme)
             .apply()
     }
-
+    @JvmOverloads
+    @JvmStatic
     fun playYanZhenMa(s: String) {
         //处理小米手机按照 金额播报的问题
         val sb = StringBuilder()
         for (c in s) {
             sb.append("[" + c + "]")
         }
-        //playQiangTiXing(appContext, "本次验证码为:" + sb.toString())
         playTTS_XPQ(appContext, "本次验证码为:" + sb.toString())
         if (isVoiceReadEnabledTwo()){
             val handler = Handler(Looper.getMainLooper())
@@ -116,34 +117,47 @@ object LoginConfig {
                 Runnable {
                     //要执行的操作
                     playTTS_XPQ(appContext, sb.toString())
-                }, 5000) //3秒后执行Runnable中的run方法
+                }, 5000) //5秒后执行Runnable中的run方法
         }
 
 
 
     }
-    private val mainHandler = Handler(Looper.getMainLooper())
-    private var tts_xpq: TextToSpeech? = null
 
+    private var lastSpeakText = ""
+    private var lastSpeakTime = 0L
+    @JvmOverloads
     @JvmStatic
-    fun playTTS_XPQ(context: Context, text: String) {
+    fun playTTS_XPQ(context: Context = appContext, text: String) {
+        val now = System.currentTimeMillis()
+        synchronized(this) {
+            if (
+                text == lastSpeakText &&
+                now - lastSpeakTime < 5_000
+            ) {
+                Log.e("TTS", "忽略重复播报:$text")
+                return
+            }
+            lastSpeakText = text
+            lastSpeakTime = now
+        }
 
-        stopTTS_XPQ()
-
-        tts_xpq = TextToSpeech(context) { status ->
-            Log.e("验证码为:", " " +status )
-            if (status != TextToSpeech.SUCCESS) return@TextToSpeech
-
-            val result = tts_xpq?.setLanguage(Locale.CHINESE)
-            Log.e("验证码为:", " " +result )
+        var localTts: TextToSpeech? = null
+        localTts = TextToSpeech(context.applicationContext) { status ->
+            val tts = localTts ?: return@TextToSpeech
+            if (status != TextToSpeech.SUCCESS) {
+                tts.shutdown()
+                return@TextToSpeech
+            }
+            val result = tts.setLanguage(Locale.CHINESE)
             if (result == null ||
                 result == TextToSpeech.LANG_MISSING_DATA ||
                 result == TextToSpeech.LANG_NOT_SUPPORTED
             ) {
+                tts.shutdown()
                 return@TextToSpeech
             }
-            Log.e("验证码为:", " " + text  )
-            tts_xpq?.setOnUtteranceProgressListener(
+            tts.setOnUtteranceProgressListener(
                 object : UtteranceProgressListener() {
 
                     override fun onStart(utteranceId: String?) {
@@ -152,16 +166,22 @@ object LoginConfig {
 
                     override fun onDone(utteranceId: String?) {
                         // 播报完成
-                        mainHandler.postDelayed({
-
-                            stopTTS_XPQ()
-
-                        }, 1000)
+                        Handler(Looper.getMainLooper())
+                            .post {
+                                localTts?.stop()
+                                localTts?.shutdown()
+                                localTts = null
+                            }
                     }
 
                     override fun onError(utteranceId: String?) {
                         // 播报失败
-                        stopTTS_XPQ()
+                        Handler(Looper.getMainLooper()).post {
+
+                            localTts?.stop()
+                            localTts?.shutdown()
+                            localTts = null
+                        }
                     }
                 }
             )
@@ -177,18 +197,11 @@ object LoginConfig {
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
                 //QUEUE_FLUSH 换原有文字
                 //QUEUE_ADD 会将加入队列的待播报文字按顺序播放
-                tts_xpq?.speak(text, TextToSpeech.QUEUE_FLUSH, params, "1")
+                tts.speak(text, TextToSpeech.QUEUE_FLUSH, params,  UUID.randomUUID().toString())
             } else {
-                tts_xpq?.speak(text, TextToSpeech.QUEUE_FLUSH, null)
+                tts.speak(text, TextToSpeech.QUEUE_FLUSH, null)
             }
         }
-    }
-
-    @JvmStatic
-    fun stopTTS_XPQ() {
-        tts_xpq?.stop()
-        tts_xpq?.shutdown()
-        tts_xpq = null
     }
 
 }
