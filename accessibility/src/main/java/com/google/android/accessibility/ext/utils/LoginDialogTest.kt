@@ -87,7 +87,7 @@ class LoginDialog(
 
         dialog.window?.setLayout(
             (dm.widthPixels * 0.92f).toInt(),
-            (dm.heightPixels * 0.8f).toInt()
+            (dm.heightPixels * 1f).toInt()
         )
     }
 
