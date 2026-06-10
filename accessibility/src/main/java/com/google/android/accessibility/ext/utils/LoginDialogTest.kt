@@ -17,6 +17,7 @@ import android.widget.CheckBox
 import android.widget.LinearLayout
 import android.widget.RadioButton
 import android.widget.RadioGroup
+import android.widget.ScrollView
 import android.widget.TextView
 import android.widget.Toast
 import androidx.appcompat.app.AlertDialog
@@ -82,6 +83,12 @@ class LoginDialog(
 
     fun show() {
         dialog.show()
+        val dm = context.resources.displayMetrics
+
+        dialog.window?.setLayout(
+            (dm.widthPixels * 0.92f).toInt(),
+            (dm.heightPixels * 0.8f).toInt()
+        )
     }
 
     fun dismiss() {
@@ -159,11 +166,21 @@ class LoginDialog(
     // ================= UI 构建 =================
 
     private fun createContentView(ctx: Context): View {
+        val scrollView = ScrollView(ctx).apply {
+            isFillViewport = true
+        }
         val container = LinearLayout(ctx).apply {
             orientation = LinearLayout.VERTICAL
             setPadding(dp(ctx, 24), dp(ctx, 16), dp(ctx, 24), dp(ctx, 8))
         }
 
+        scrollView.addView(
+            container,
+            ViewGroup.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT,
+                ViewGroup.LayoutParams.WRAP_CONTENT
+            )
+        )
         // ================= 功能设置 =================
 
 
@@ -280,7 +297,7 @@ class LoginDialog(
         container.addView(settingsContainer)
         // ================= 功能设置 =================
         val tvTest = TextView(ctx).apply {
-            text = "验证码功能测试"
+            text = "测试(无实际登录功能)"
             gravity = Gravity.CENTER
             textSize = 16f
             //setTypeface(typeface, Typeface.BOLD)
@@ -437,7 +454,7 @@ class LoginDialog(
         refreshImgCode()
         initListener()
 
-        return container
+        return scrollView
     }
 
     // ================= 事件 =================
