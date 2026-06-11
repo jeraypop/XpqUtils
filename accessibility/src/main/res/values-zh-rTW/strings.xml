@@ -184,4 +184,17 @@
     <string name="xpqprivacy_tips_key2">《隐私政策》</string>
     <string name="xpqconfirmed">用户须知已确认</string>
 
+    <string name="gp_permission_title">Accessibility Permission Required</string>
+    <string name="gp_permission_content">
+        We use the AccessibilityService API to implement the main functions of the app. \n
+        1. Why do we use this service? \n
+        We use it for core features such as: %1$s \n
+
+        2. Do we collect personal data? \n
+        We do not collect any personal information in this way.If you agree, please click the Agree button to continue.
+    </string>
+    <string name="gp_button_cancel">Cancel</string>
+    <string name="gp_button_sure">Agree</string>
+    <string name="gp_fullscreen_gesture">Full-screen gesture</string>
+
 </resources>

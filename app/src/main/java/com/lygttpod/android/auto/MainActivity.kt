@@ -262,7 +262,8 @@ class MainActivity : XpqBaseActivity<ActivityMainBinding>(
                 JieSuoUtils.showDialogZuobiao()
                 },
                 FabMenuItem("隐私政策", com.android.accessibility.ext.R.drawable.minimize_xpq) {
-                    AppInfoUtil.privacy_GuoNei_SJ(this,"","")
+                    //AppInfoUtil.privacy_GuoNei_SJ(this,"","")
+                    AppInfoUtil.showAccessibilityAgreement(this)
                 },
                 FabMenuItem("验证码填充", com.android.accessibility.ext.R.drawable.minimize_xpq) {
                     LoginDialog(this,true) { phone, code ->

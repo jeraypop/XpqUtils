@@ -186,5 +186,18 @@
     <string name="xpqprivacy_tips_key2">《隐私政策》</string>
     <string name="xpqconfirmed">用户须知已确认</string>
 
+    <string name="gp_permission_title">需要无障碍服务使用权限</string>
+    <string name="gp_permission_content">
+        我们使用AccessibilityService API来实现软件的主要功能；\n
+        1、为什么要使用这个服务?\n
+        我们使用这个服务来实现比如：%1$s 等核心功能\n
+
+        2、我们是否收集了私人数据?\n
+        我们不会以这种方式收集任何私人信息,如果您同意使用，请单击同意按钮并继续
+    </string>
+    <string name="gp_button_cancel">不同意</string>
+    <string name="gp_button_sure">同意</string>
+    <string name="gp_fullscreen_gesture">全面屏手势</string>
+
 
 </resources>

@@ -1,10 +1,15 @@
 package com.google.android.accessibility.ext.utils
 
+import android.R.attr.fadingEdgeLength
 import android.app.Activity
 import android.content.Context
 import android.content.Intent
+import android.content.res.ColorStateList
 import android.graphics.Color
+import android.graphics.drawable.ColorDrawable
+import android.graphics.drawable.RippleDrawable
 import android.os.Build
+import android.text.Layout
 import android.text.Spannable
 import android.text.SpannableString
 import android.text.TextPaint
@@ -12,11 +17,24 @@ import android.text.method.LinkMovementMethod
 import android.text.style.AbsoluteSizeSpan
 import android.text.style.ClickableSpan
 import android.text.style.ForegroundColorSpan
+import android.util.TypedValue
+import android.view.Gravity
 import android.view.View
+import android.view.ViewGroup
 import android.view.WindowManager
+import android.widget.Button
+import android.widget.ImageView
+import android.widget.LinearLayout
+import android.widget.RelativeLayout
+import android.widget.ScrollView
 import android.widget.TextView
 import android.widget.Toast
+import androidx.appcompat.app.AlertDialog
+import androidx.appcompat.widget.AppCompatButton
+import androidx.appcompat.widget.AppCompatTextView
+import androidx.constraintlayout.widget.ConstraintLayout
 import com.android.accessibility.ext.R
+import com.android.accessibility.ext.databinding.XpqGpPrivacyAgreementBinding
 import com.google.android.accessibility.ext.utils.KeyguardUnLock.getScreenSize
 import com.google.android.accessibility.ext.utils.LibCtxProvider.Companion.appContext
 import com.google.android.accessibility.privacypolicy.XPQPrivacyPolicyActivity
@@ -248,6 +266,43 @@ object AppInfoUtil {
             AliveUtils.toast(msg = activity.getString(R.string.xpqconfirmed))
 
         }
+    }
+
+    fun showAccessibilityAgreement(activity: Activity, example: String = activity.getString(R.string.gp_fullscreen_gesture)) {
+        val str: String = activity.getString(R.string.gp_permission_content, example)
+     
+        try {
+            val privacyAgreementBinding: XpqGpPrivacyAgreementBinding =
+                XpqGpPrivacyAgreementBinding.inflate(
+                    activity.layoutInflater)
+            val alertDialog: AlertDialog =
+                AlertDialog.Builder(activity).setCancelable(false)
+                    .setView(privacyAgreementBinding.getRoot()).create()
+            privacyAgreementBinding.content.setText(str)
+            privacyAgreementBinding.sure.setOnClickListener(View.OnClickListener {
+                setPrivacyPolicy(true)
+                alertDialog.dismiss()
+
+
+
+            })
+            privacyAgreementBinding.cancel.setOnClickListener(View.OnClickListener {
+                alertDialog.dismiss()
+                setPrivacyPolicy(false)
+                //activity.finishAndRemoveTask()
+            })
+            val window = alertDialog.window
+            //window!!.setBackgroundDrawableResource(com.assistant.`fun`.R.drawable.add_data_background)
+            alertDialog.show()
+            val lp = window!!.attributes
+            val metrics = activity.resources.displayMetrics
+            lp.width = metrics.widthPixels / 5 * 4
+            lp.height = metrics.heightPixels / 5 * 3
+            window.attributes = lp
+        } catch (e: Throwable) {
+
+        }
+
     }
 
 

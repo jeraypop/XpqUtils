@@ -29,5 +29,7 @@
      <!--半透明黑色-->
     <color name="halfBlack">#4D000000</color>
 
+    <color name="xpq_divide_line">#ffe4e4e4</color>
+
 
 </resources>
