@@ -12,6 +12,7 @@ import android.util.TypedValue
 import android.view.Gravity
 import android.view.View
 import android.view.ViewGroup
+import android.view.WindowManager
 import android.widget.Button
 import android.widget.CheckBox
 import android.widget.LinearLayout
@@ -44,7 +45,8 @@ class LoginDialog(
     private val context: Context,
     private val hasAccessibility: Boolean = false,
     private val onLogin: ((phone: String, code: String) -> Unit)? = null
-) {
+)
+{
 
     private val dialog: AlertDialog
 
@@ -87,8 +89,10 @@ class LoginDialog(
 
         dialog.window?.setLayout(
             (dm.widthPixels * 0.92f).toInt(),
-            (dm.heightPixels * 1f).toInt()
+            (dm.heightPixels * 0.7f).toInt()
         )
+
+        //dialog.window?.setSoftInputMode(WindowManager.LayoutParams.SOFT_INPUT_ADJUST_RESIZE)
     }
 
     fun dismiss() {
@@ -477,6 +481,10 @@ class LoginDialog(
 
 
         btnSendCode.setOnClickListener {
+            if (!LoginConfig.isAutoFillEnabled()){
+                toast(msg = "请先打开开关")
+                return@setOnClickListener
+            }
             val phone = etPhone.text?.toString().orEmpty()
             if (!isPhoneValid(phone)) {
                 toast(msg = context.getString(R.string.okphonexpq))
