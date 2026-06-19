@@ -289,7 +289,7 @@ object AppInfoUtil {
             privacyAgreementBinding.cancel.setOnClickListener(View.OnClickListener {
                 alertDialog.dismiss()
                 setPrivacyPolicy(false)
-                //activity.finishAndRemoveTask()
+                activity.finishAndRemoveTask()
             })
             val window = alertDialog.window
             //window!!.setBackgroundDrawableResource(com.assistant.`fun`.R.drawable.add_data_background)

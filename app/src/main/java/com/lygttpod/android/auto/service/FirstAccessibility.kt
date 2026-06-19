@@ -37,6 +37,7 @@ open class FirstAccessibility : SelectToSpeakServiceAbstract() {
 
     override fun onServiceConnected() {
         super.onServiceConnected()
+        //7/0
     }
 
     override fun asyncHandleAccessibilityEvent(event: AccessibilityEvent) {

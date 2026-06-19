@@ -82,7 +82,7 @@ class MainActivity : XpqBaseActivity<ActivityMainBinding>(
             binding.content.setPadding(0, systemBars.top, 0, 0)
             insets
         }
-       
+
 
 //        val navController = findNavController(R.id.nav_host_fragment_content_main)
 //        appBarConfiguration = AppBarConfiguration(navController.graph)
@@ -269,6 +269,7 @@ class MainActivity : XpqBaseActivity<ActivityMainBinding>(
                     LoginDialog(this,true) { phone, code ->
                         //调登录接口
                     }.show()
+
                 }
 
 

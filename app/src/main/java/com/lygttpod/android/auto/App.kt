@@ -118,6 +118,6 @@ class App : Application() {
             }
         })
         //异常捕获
-        XpqUncaughtExceptionHandler.getInstance(this).run()
+        //XpqUncaughtExceptionHandler.getInstance(this).run()
     }
 }
