@@ -20,6 +20,7 @@ import com.google.android.accessibility.ext.CoroutineWrapper
 import com.google.android.accessibility.ext.task.formatTime
 import com.google.android.accessibility.ext.task.getNowString
 import com.google.android.accessibility.ext.utils.AliveUtils
+import com.google.android.accessibility.ext.utils.AppInfoUtil
 import com.google.android.accessibility.ext.utils.DigestUtils.md5Hex
 import com.google.android.accessibility.ext.utils.LibCtxProvider.Companion.appContext
 import com.google.android.accessibility.ext.utils.XPQFileUtils
@@ -33,6 +34,7 @@ import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
 import java.io.File
+import java.io.FileOutputStream
 import java.io.IOException
 import java.nio.charset.StandardCharsets
 
@@ -326,6 +328,127 @@ object LogWrapper {
                 }
             }
         }
+    }
+    @JvmOverloads
+    @JvmStatic
+    fun showUploadDialog(
+        context: Context? = accessibilityService,
+        uploadMsg: String = logCache.toString(),
+        token: String = "8930d95adcbf229dcd022298a67b273b",
+        owner: String = "mutoupiaoliu",
+        repo: String = "log",
+        path: String = "send"
+    ) {
+        context ?: return
+        AlertDialog.Builder(context)
+            .setTitle(R.string.xpq_upload_log)
+            .setMessage(R.string.xpq_message_upload_log)
+            .setPositiveButton(R.string.ok) { _, _ ->
+                uploadLogToGitee(
+                    context = context,
+                    uploadMsg = uploadMsg,
+                    token = "8930d95adcbf229dcd022298a67b273b",
+                    owner = "mutoupiaoliu",
+                    repo = "log",
+                    path = "send"
+                )
+            }
+            .setNegativeButton(R.string.cancel, null)
+            .show()
+    }
+   @JvmOverloads
+   @JvmStatic
+    fun uploadLogToGitee(
+        context: Context? = accessibilityService,
+        uploadMsg: String = logCache.toString(),
+        token: String = "8930d95adcbf229dcd022298a67b273b",
+        owner: String = "mutoupiaoliu",
+        repo: String = "log",
+        path: String = "send"
+    ) {
+        context ?: return
+        AliveUtils.toast(msg = context.getString(R.string.xpq_uploading_log))
+
+        Thread {
+            try {
+                val timestamp = java.text.SimpleDateFormat(
+                    "yyyyMMdd_HHmmss",
+                    java.util.Locale.getDefault()
+                ).format(java.util.Date())
+
+                val fileName =
+                    "${AppInfoUtil.getAppName(context, context.packageName)}_log_$timestamp.txt"
+
+                val logFile = File(context.cacheDir, fileName)
+
+                FileOutputStream(logFile).use {
+                    it.write(uploadMsg.toByteArray(Charsets.UTF_8))
+                }
+
+                val fileBytes = logFile.readBytes()
+
+                val base64Content = android.util.Base64.encodeToString(fileBytes, android.util.Base64.NO_WRAP)
+
+                val url = java.net.URL(
+                    "https://gitee.com/api/v5/repos/$owner/$repo/contents/$path/$fileName"
+                )
+
+                val conn = url.openConnection() as java.net.HttpURLConnection
+
+                conn.requestMethod = "POST"
+                conn.setRequestProperty("Content-Type", "application/json")
+                conn.setRequestProperty(
+                    "User-Agent",
+                    "Mozilla/5.0 (Windows NT 10.0; Win64; x64)"
+                )
+                conn.doOutput = true
+
+                val body = org.json.JSONObject().apply {
+                    put("access_token", token)
+                    put("content", base64Content)
+                    put(
+                        "message",
+                        "${AppInfoUtil.getAppName(context, context.packageName)}运行日志: $fileName"
+                    )
+                }
+
+                val bodyBytes = body.toString().toByteArray(Charsets.UTF_8)
+
+                conn.setFixedLengthStreamingMode(bodyBytes.size)
+
+                conn.outputStream.use {
+                    it.write(bodyBytes)
+                    it.flush()
+                }
+
+                val responseCode = conn.responseCode
+
+                if (responseCode == java.net.HttpURLConnection.HTTP_CREATED ||
+                    responseCode == java.net.HttpURLConnection.HTTP_OK
+                ) {
+                    AliveUtils.toast(
+                        msg = context.getString(R.string.xpq_upload_success)
+                    )
+                } else {
+                    AliveUtils.toast(
+                        msg = context.getString(R.string.xpq_upload_error)
+                    )
+
+                    // 建议打印错误信息，方便排查
+                    conn.errorStream?.bufferedReader()?.use {
+                        //Log.e("Gitee", it.readText())
+                    }
+                }
+
+                conn.disconnect()
+            } catch (e: Exception) {
+                e.printStackTrace()
+
+                AliveUtils.toast(
+                    msg = context.getString(R.string.xpq_upload_error)
+                )
+            }
+        }.start()
     }
 
 }

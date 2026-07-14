@@ -199,5 +199,11 @@
     <string name="gp_button_sure">同意</string>
     <string name="gp_fullscreen_gesture">全面屏手势</string>
 
+    <string name="xpq_upload_log">上传</string>
+    <string name="xpq_uploading_log">正在上传日志</string>
+    <string name="xpq_upload_success">上传日志文件成功</string>
+    <string name="xpq_upload_error">上传日志文件失败</string>
+    <string name="xpq_message_upload_log">是否将当前日志上传,以帮助我们改进服务？</string>
+
 
 </resources>

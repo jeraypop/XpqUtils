@@ -13,6 +13,7 @@ import com.google.android.accessibility.ext.utils.XpqUncaughtExceptionHandler
 import com.lygttpod.android.auto.notification.MyJieSuoHelper
 import com.lygttpod.android.auto.notification.MyJieSuoHelperDefault
 import com.lygttpod.android.auto.notification.NotificationListenerServiceImp
+import com.mqd.updatelib.UpdateManager
 
 
 class App : Application() {
@@ -25,6 +26,11 @@ class App : Application() {
     override fun onCreate() {
         super.onCreate()
         instance = this
+        UpdateManager.init(
+            context = this,
+            fallbackUrl = "https://520821.cn/rule/wxzhuli.json",
+            fallbackOnly = true
+        )
         TaskByJieSuoHelper.setInstance(MyJieSuoHelper())
         TaskByJieSuoHelperDefault.setInstance(MyJieSuoHelperDefault())
         //重新绑定服务

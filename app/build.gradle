@@ -139,6 +139,13 @@ dependencies {
     implementation (libs.okhttp)
     implementation (libs.gson)
 
+    //implementation(libs.updatelib)
+    implementation(libs.update.lib)
+    //implementation(libs.update.compose)
+
+
+
+
 
 
 }

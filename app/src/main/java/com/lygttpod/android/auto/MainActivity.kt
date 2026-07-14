@@ -5,6 +5,7 @@ package com.lygttpod.android.auto
 //import com.lygttpod.android.activity.result.api.observer.PermissionApi
 
 
+import android.content.Intent
 import android.os.Bundle
 import android.util.Log
 import android.view.WindowManager
@@ -12,7 +13,13 @@ import androidx.activity.enableEdgeToEdge
 import androidx.core.view.ViewCompat
 import androidx.core.view.WindowInsetsCompat
 import androidx.lifecycle.MutableLiveData
+import androidx.lifecycle.lifecycleScope
 import androidx.navigation.ui.AppBarConfiguration
+import com.mqd.updatelib.UpdateManager
+import com.mqd.updatelib.core.UpdateRepository
+import com.mqd.updatelib.core.UpdateState
+import com.mqd.updatelib.download.ApkInstaller
+import com.mqd.updatelib.ui.UpdateDialogHelper
 import com.android.accessibility.ext.BuildConfig
 
 import com.google.android.accessibility.ext.activity.XpqBaseActivity
@@ -49,6 +56,7 @@ import com.google.android.accessibility.selecttospeak.SelectToSpeakService
 import com.lygttpod.android.auto.notification.NotificationListenerServiceImp
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import xpq.friend.R
 
@@ -91,7 +99,14 @@ class MainActivity : XpqBaseActivity<ActivityMainBinding>(
         accServiceLiveData.observe(this) { open ->
 
         }
-
+        binding.btnParse.setOnClickListener{
+            val decrypt = BuildConfig.COUNT_KEY.decrypt()
+            val de = decrypt.restoreAllIllusion()
+            val encrypt = "L7763^I^LOVE^YOU^66664".encrypt()
+            Log.e("解密字符串", "decrypt=: "+ decrypt)
+            Log.e("解密字符串", "de=: "+ de)
+            Log.e("解密字符串", "encrypt=: "+ encrypt)
+        }
         binding.fab.setOnClickListener {
 //            AliveUtils.easyPermission(this@MainActivity)
             //OverlayLog.show()
@@ -99,12 +114,7 @@ class MainActivity : XpqBaseActivity<ActivityMainBinding>(
                 //throw RuntimeException("这是一个后台线程异常测试")
             }.start()
 
-            val decrypt = BuildConfig.INTENT_URL_FORMAT.decrypt()
-            val de = decrypt.restoreAllIllusion()
-            val encrypt = "L7763^I^LOVE^YOU^66664".encrypt()
-            Log.e("解密字符串", "decrypt=: "+ decrypt)
-            Log.e("解密字符串", "de=: "+ de)
-            Log.e("解密字符串", "encrypt=: "+ encrypt)
+
             val buildTimeMillis: Long = BuildConfig.BUILD_TIME
             // 如果要格式化输出：
             val date = java.util.Date(buildTimeMillis)
@@ -270,8 +280,11 @@ class MainActivity : XpqBaseActivity<ActivityMainBinding>(
                         //调登录接口
                     }.show()
 
-                }
+                },
+                FabMenuItem("检查更新", com.android.accessibility.ext.R.drawable.minimize_xpq) {
+                    checkForUpdate()
 
+            }
 
 
             )
@@ -302,5 +315,83 @@ class MainActivity : XpqBaseActivity<ActivityMainBinding>(
 //        return navController.navigateUp(appBarConfiguration) || super.onSupportNavigateUp()
 //    }
 
+    private fun checkForUpdate() {
+        lifecycleScope.launch {
+            val result = UpdateManager.checkForUpdate(force = true)
 
+            when (result) {
+                is UpdateRepository.CheckResult.NewVersion -> {
+                    UpdateDialogHelper.showUpdateAvailableDialog(
+                        context = this@MainActivity,
+                        version = result.state.latestVersion,
+                        releaseNotes = result.state.notes,
+                        apkUrl = result.state.apkUrl,
+                        apkSize = result.state.apkSize,
+                        onConfirm = { startDownload(result.state) }
+                    )
+                }
+
+                is UpdateRepository.CheckResult.UpToDate -> {
+                    UpdateDialogHelper.showAlreadyLatestDialog(this@MainActivity)
+                }
+
+                is UpdateRepository.CheckResult.Failed -> {
+                    UpdateDialogHelper.showCheckFailedDialog(
+                        this@MainActivity,
+                        onConfirm = { openGitHubPage() }
+                    )
+                }
+
+                is UpdateRepository.CheckResult.RateLimited -> {
+                    UpdateDialogHelper.showRateLimitedDialog(
+                        this@MainActivity,
+                        onConfirm = { openGitHubPage() }
+                    )
+                }
+
+                is UpdateRepository.CheckResult.NoApk -> {
+                    UpdateDialogHelper.showNoApkDialog(
+                        this@MainActivity,
+                        onConfirm = { openGitHubPage() }
+                    )
+                }
+
+                UpdateRepository.CheckResult.Skipped -> {
+                    // 缓存未过期，跳过检查
+                }
+            }
+        }
+    }
+
+    private fun startDownload(state: UpdateState) {
+        if (!UpdateManager.canInstall(this@MainActivity)) {
+            UpdateManager.gotoUnknownSourceSetting(this@MainActivity)
+            return
+        }
+
+        UpdateManager.downloadUpdate(this@MainActivity, state.latestVersion, state.apkUrl, state.apkSize)
+
+        val (dialog, job) = UpdateDialogHelper.showDownloadProgressDialog(this@MainActivity)
+
+        // 等待对话框关闭后检查 APK 并安装
+        lifecycleScope.launch {
+            while (dialog.isShowing) {
+                delay(200)
+            }
+            val apkFile = ApkInstaller.apkFile(this@MainActivity, state.latestVersion)
+            if (ApkInstaller.isDownloaded(apkFile, state.apkSize)) {
+                UpdateManager.installUpdate(this@MainActivity, state.latestVersion)
+            }
+        }
+    }
+    /**
+     * 打开 GitHub Releases 页面。
+     */
+    private fun openGitHubPage() {
+        try {
+            startActivity(Intent(Intent.ACTION_VIEW,
+                android.net.Uri.parse(UpdateManager.getReleasesPageUrl())))
+        } catch (_: Exception) {
+        }
+    }
 }

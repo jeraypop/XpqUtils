@@ -68,6 +68,11 @@ object OverlayLog : AssistsServiceListener {
                             hide()
                         }
                     }
+                    btnUpload.setOnClickListener {
+                        CoroutineWrapper.launch {
+                            LogWrapper.showUploadDialog()
+                        }
+                    }
                 }
             }
             return field

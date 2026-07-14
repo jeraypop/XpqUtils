@@ -10,6 +10,7 @@ mmkv= "2.2.2"
 xpqu= "latest.release"
 gesturelib= "latest.release"
 aczhulib= "latest.release"
+updatelib = "latest.release"
 jeraypopeasyfloat = "latest.release"
 easywindow = "latest.release"
 #26.5
@@ -128,6 +129,15 @@ easy-float = { module = "com.github.jeraypop:EasyFloat", version.ref = "jeraypop
 xpq-utils = { module = "com.github.jeraypop:XpqUtils", version.ref = "xpqu" }
 gesturelib = { module = "com.github.jeraypop:SideGesture", version.ref = "gesturelib" }
 aczhulib = { module = "com.github.jeraypop:accessibilityers", version.ref = "aczhulib" }
+# 下面这俩都是 库的合集 效果一样
+#updatelib = { module = "com.github.miaoqidong:UpdateLib", version.ref = "updatelib" }
+#updatelib = { group = "com.github.miaoqidong", name = "UpdateLib", version.ref = "updatelib" }
+#库的子库
+update-lib = { group = "com.github.miaoqidong.UpdateLib", name = "update-lib", version.ref = "updatelib" }
+update-compose = { group = "com.github.miaoqidong.UpdateLib", name = "update-compose", version.ref = "updatelib" }
+update-java = { group = "com.github.miaoqidong.UpdateLib", name = "update-java", version.ref = "updatelib" }
+update-simple = { group = "com.github.miaoqidong.UpdateLib", name = "update-simple", version.ref = "updatelib" }
+
 easy-window = { module = "com.github.getActivity:EasyWindow", version.ref = "easywindow" }
 easy-permission = { module = "com.github.getActivity:XXPermissions", version.ref = "xxpermission" }
 devicecompat = { module = "com.github.getActivity:DeviceCompat", version.ref = "devicecompat" }
