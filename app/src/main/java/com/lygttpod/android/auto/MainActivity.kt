@@ -50,6 +50,7 @@ import com.google.android.accessibility.ext.wcapi.getWCField
 import com.google.android.accessibility.ext.wcapi.openDonate
 import com.google.android.accessibility.ext.wcapi.openWeChatToFollowInterface
 import com.google.android.accessibility.ext.wcapi.restoreAllIllusion
+import com.google.android.accessibility.ext.window.OverlayLog
 import com.google.android.accessibility.privacypolicy.XpqPrivacyDialog.Companion.ANDROID_ASSET
 import com.google.android.accessibility.privacypolicy.XpqPrivacyDialog.Companion.default_Privacy
 import com.google.android.accessibility.selecttospeak.SelectToSpeakService
@@ -282,7 +283,8 @@ class MainActivity : XpqBaseActivity<ActivityMainBinding>(
 
                 },
                 FabMenuItem("检查更新", com.android.accessibility.ext.R.drawable.minimize_xpq) {
-                    checkForUpdate()
+                    //checkForUpdate()
+                    OverlayLog.show()
 
             }
 

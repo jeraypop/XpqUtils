@@ -1,13 +1,16 @@
 package com.google.android.accessibility.ext.window
 
+import android.app.Activity
 import android.app.AlertDialog
 import android.content.ClipData
 import android.content.ClipboardManager
 import android.content.Context
+import android.content.ContextWrapper
 import android.content.DialogInterface
 import android.content.Intent
 import android.os.Handler
 import android.os.Looper
+import android.util.Log
 import android.view.LayoutInflater
 import android.view.WindowManager
 import android.widget.Toast
@@ -342,23 +345,39 @@ object LogWrapper {
         context ?: return
         // 显示上传对话框 必须在主线程
         Handler(Looper.getMainLooper()).post {
-            AlertDialog.Builder(context)
+            val dialog = AlertDialog.Builder(context)
                 .setTitle(R.string.xpq_upload_log)
                 .setMessage(R.string.xpq_message_upload_log)
                 .setPositiveButton(R.string.ok) { _, _ ->
                     uploadLogToGitee(
                         context = context,
                         uploadMsg = uploadMsg,
-                        token = "8930d95adcbf229dcd022298a67b273b",
-                        owner = "mutoupiaoliu",
-                        repo = "log",
-                        path = "send"
+                        token = token,
+                        owner = owner,
+                        repo = repo,
+                        path = path
                     )
                 }
                 .setNegativeButton(R.string.cancel, null)
-                .show()
+                .create()
+            // 只有非 Activity Context 才设置窗口类型
+            if (context.findActivity() == null) {
+                dialog.window?.setType(WindowManager.LayoutParams.TYPE_ACCESSIBILITY_OVERLAY)
+            }
+            dialog.show()
         }
 
+    }
+
+    private fun Context.findActivity(): Activity? {
+        var ctx = this
+        while (ctx is ContextWrapper) {
+            if (ctx is Activity) {
+                return ctx
+            }
+            ctx = ctx.baseContext
+        }
+        return null
     }
    @JvmOverloads
    @JvmStatic
@@ -368,10 +387,15 @@ object LogWrapper {
         token: String = "8930d95adcbf229dcd022298a67b273b",
         owner: String = "mutoupiaoliu",
         repo: String = "log",
-        path: String = "send"
+        path: String = "send",
+        showToast: Boolean = true
     ) {
         context ?: return
-        AliveUtils.toast(msg = context.getString(R.string.xpq_uploading_log))
+       if (uploadMsg.isEmpty()){
+           if (showToast) AliveUtils.toast(msg = "日志为空，取消上传")
+            return
+        }
+       if (showToast)AliveUtils.toast(msg = context.getString(R.string.xpq_uploading_log))
 
         Thread {
             try {
@@ -430,17 +454,17 @@ object LogWrapper {
                 if (responseCode == java.net.HttpURLConnection.HTTP_CREATED ||
                     responseCode == java.net.HttpURLConnection.HTTP_OK
                 ) {
-                    AliveUtils.toast(
+                    if (showToast)AliveUtils.toast(
                         msg = context.getString(R.string.xpq_upload_success)
                     )
                 } else {
-                    AliveUtils.toast(
+                    if (showToast)AliveUtils.toast(
                         msg = context.getString(R.string.xpq_upload_error)
                     )
 
                     // 建议打印错误信息，方便排查
                     conn.errorStream?.bufferedReader()?.use {
-                        //Log.e("Gitee", it.readText())
+                        Log.e("Gitee", it.readText())
                     }
                 }
 
@@ -448,7 +472,7 @@ object LogWrapper {
             } catch (e: Exception) {
                 e.printStackTrace()
 
-                AliveUtils.toast(
+                if (showToast)AliveUtils.toast(
                     msg = context.getString(R.string.xpq_upload_error)
                 )
             }

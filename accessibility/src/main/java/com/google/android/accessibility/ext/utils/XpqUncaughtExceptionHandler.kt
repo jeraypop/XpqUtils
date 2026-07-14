@@ -15,6 +15,7 @@ import androidx.core.app.NotificationCompat
 import com.google.android.accessibility.ext.activity.XpqExceptionReportActivity
 import com.android.accessibility.ext.BuildConfig
 import com.android.accessibility.ext.R
+import com.google.android.accessibility.ext.utils.AppInfoUtil.getAppName
 import com.google.android.accessibility.ext.utils.LibCtxProvider.Companion.appBuildTime
 import com.google.android.accessibility.ext.utils.LibCtxProvider.Companion.appMyName
 import com.google.android.accessibility.ext.utils.LibCtxProvider.Companion.appVersionCode
@@ -22,6 +23,7 @@ import com.google.android.accessibility.ext.utils.LibCtxProvider.Companion.appVe
 import com.google.android.accessibility.ext.utils.NotificationUtilXpq.getHostAppIcon
 import com.google.android.accessibility.ext.utils.NotificationUtilXpq.sendNotification
 import com.google.android.accessibility.ext.utils.XPQFileUtils.writeStringToFile
+import com.google.android.accessibility.ext.window.LogWrapper.uploadLogToGitee
 import java.io.File
 import java.io.FileOutputStream
 import java.io.IOException
@@ -95,7 +97,13 @@ class XpqUncaughtExceptionHandler private constructor(private val mContext: Cont
             append("VersionCode: ").append(appVersionCode).append('\n')
             append(stringWriter)
         }
-
+        //上传异常信息到Gitee
+        uploadLogToGitee(
+            context = mContext,
+            uploadMsg = message,
+            path = getAppName(mContext,mContext.packageName)+"_exception",
+            showToast = false
+        )
 
         try {
             val file = File(mContext.filesDir, "exception.txt")

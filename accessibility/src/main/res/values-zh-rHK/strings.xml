@@ -198,4 +198,10 @@
     <string name="gp_button_sure">Agree</string>
     <string name="gp_fullscreen_gesture">Full-screen gesture</string>
 
+    <string name="xpq_upload_log">upload</string>
+    <string name="xpq_uploading_log">Uploading logs</string>
+    <string name="xpq_upload_success">Log file uploaded successfully</string>
+    <string name="xpq_upload_error">Log file upload failed</string>
+    <string name="xpq_message_upload_log">Upload current logs to help us improve our service?</string>
+
 </resources>
