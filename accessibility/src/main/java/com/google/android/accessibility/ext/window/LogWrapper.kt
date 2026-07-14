@@ -340,21 +340,25 @@ object LogWrapper {
         path: String = "send"
     ) {
         context ?: return
-        AlertDialog.Builder(context)
-            .setTitle(R.string.xpq_upload_log)
-            .setMessage(R.string.xpq_message_upload_log)
-            .setPositiveButton(R.string.ok) { _, _ ->
-                uploadLogToGitee(
-                    context = context,
-                    uploadMsg = uploadMsg,
-                    token = "8930d95adcbf229dcd022298a67b273b",
-                    owner = "mutoupiaoliu",
-                    repo = "log",
-                    path = "send"
-                )
-            }
-            .setNegativeButton(R.string.cancel, null)
-            .show()
+        // 显示上传对话框 必须在主线程
+        Handler(Looper.getMainLooper()).post {
+            AlertDialog.Builder(context)
+                .setTitle(R.string.xpq_upload_log)
+                .setMessage(R.string.xpq_message_upload_log)
+                .setPositiveButton(R.string.ok) { _, _ ->
+                    uploadLogToGitee(
+                        context = context,
+                        uploadMsg = uploadMsg,
+                        token = "8930d95adcbf229dcd022298a67b273b",
+                        owner = "mutoupiaoliu",
+                        repo = "log",
+                        path = "send"
+                    )
+                }
+                .setNegativeButton(R.string.cancel, null)
+                .show()
+        }
+
     }
    @JvmOverloads
    @JvmStatic
