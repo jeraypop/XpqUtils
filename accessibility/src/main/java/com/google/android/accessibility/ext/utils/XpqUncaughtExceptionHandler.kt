@@ -23,7 +23,7 @@ import com.google.android.accessibility.ext.utils.LibCtxProvider.Companion.appVe
 import com.google.android.accessibility.ext.utils.NotificationUtilXpq.getHostAppIcon
 import com.google.android.accessibility.ext.utils.NotificationUtilXpq.sendNotification
 import com.google.android.accessibility.ext.utils.XPQFileUtils.writeStringToFile
-import com.google.android.accessibility.ext.window.LogWrapper.uploadLogToGitee
+import com.google.android.accessibility.ext.window.LogWrapper
 import java.io.File
 import java.io.FileOutputStream
 import java.io.IOException
@@ -98,10 +98,9 @@ class XpqUncaughtExceptionHandler private constructor(private val mContext: Cont
             append(stringWriter)
         }
         //上传异常信息到Gitee
-        uploadLogToGitee(
+        LogWrapper.uploadLogToGitee(
             context = mContext,
             uploadMsg = message,
-            path = getAppName(mContext,mContext.packageName)+"_exception",
             showToast = false
         )
 

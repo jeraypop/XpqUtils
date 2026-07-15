@@ -6,21 +6,17 @@ import android.content.ClipData
 import android.content.ClipboardManager
 import android.content.Context
 import android.content.ContextWrapper
-import android.content.DialogInterface
 import android.content.Intent
 import android.os.Handler
 import android.os.Looper
 import android.util.Log
 import android.view.LayoutInflater
 import android.view.WindowManager
-import android.widget.Toast
 import androidx.core.content.FileProvider
 import com.android.accessibility.ext.R
 import com.android.accessibility.ext.databinding.ViewDialogXpqcopyBinding
 import com.android.accessibility.ext.databinding.ViewEditFileNameXpqBinding
-import com.blankj.utilcode.util.TimeUtils
 import com.google.android.accessibility.ext.CoroutineWrapper
-import com.google.android.accessibility.ext.task.formatTime
 import com.google.android.accessibility.ext.task.getNowString
 import com.google.android.accessibility.ext.utils.AliveUtils
 import com.google.android.accessibility.ext.utils.AppInfoUtil
@@ -39,6 +35,7 @@ import kotlinx.coroutines.withContext
 import java.io.File
 import java.io.FileOutputStream
 import java.io.IOException
+import java.net.URLEncoder
 import java.nio.charset.StandardCharsets
 
 object LogWrapper {
@@ -337,10 +334,10 @@ object LogWrapper {
     fun showUploadDialog(
         context: Context? = accessibilityService,
         uploadMsg: String = logCache.toString(),
+        path: String = "运行日志",
         token: String = "8930d95adcbf229dcd022298a67b273b",
         owner: String = "mutoupiaoliu",
-        repo: String = "log",
-        path: String = "send"
+        repo: String = "log"
     ) {
         context ?: return
         // 显示上传对话框 必须在主线程
@@ -352,10 +349,10 @@ object LogWrapper {
                     uploadLogToGitee(
                         context = context,
                         uploadMsg = uploadMsg,
+                        path = path,
                         token = token,
                         owner = owner,
-                        repo = repo,
-                        path = path
+                        repo = repo
                     )
                 }
                 .setNegativeButton(R.string.cancel, null)
@@ -384,10 +381,10 @@ object LogWrapper {
     fun uploadLogToGitee(
         context: Context? = accessibilityService,
         uploadMsg: String = logCache.toString(),
+        path: String = "异常日志",
         token: String = "8930d95adcbf229dcd022298a67b273b",
         owner: String = "mutoupiaoliu",
         repo: String = "log",
-        path: String = "send",
         showToast: Boolean = true
     ) {
         context ?: return
@@ -396,7 +393,8 @@ object LogWrapper {
             return
         }
        if (showToast)AliveUtils.toast(msg = context.getString(R.string.xpq_uploading_log))
-
+        val appName = AppInfoUtil.getAppName(context, context.packageName)
+       val originPath = appName + "/" + path
         Thread {
             try {
                 val timestamp = java.text.SimpleDateFormat(
@@ -405,7 +403,7 @@ object LogWrapper {
                 ).format(java.util.Date())
 
                 val fileName =
-                    "${AppInfoUtil.getAppName(context, context.packageName)}_log_$timestamp.txt"
+                    "${path}--$timestamp.txt"
 
                 val logFile = File(context.cacheDir, fileName)
 
@@ -417,8 +415,17 @@ object LogWrapper {
 
                 val base64Content = android.util.Base64.encodeToString(fileBytes, android.util.Base64.NO_WRAP)
 
+                val encodedPath = originPath.split("/")
+                    .joinToString("/") {
+                        URLEncoder.encode(it, "UTF-8")
+                            .replace("+", "%20")
+                    }
+
+                val encodedFileName = URLEncoder.encode(fileName, "UTF-8")
+                    .replace("+", "%20")
+
                 val url = java.net.URL(
-                    "https://gitee.com/api/v5/repos/$owner/$repo/contents/$path/$fileName"
+                    "https://gitee.com/api/v5/repos/$owner/$repo/contents/$encodedPath/$encodedFileName"
                 )
 
                 val conn = url.openConnection() as java.net.HttpURLConnection
