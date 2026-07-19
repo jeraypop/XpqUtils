@@ -101,9 +101,9 @@ class MainActivity : XpqBaseActivity<ActivityMainBinding>(
 
         }
         binding.btnParse.setOnClickListener{
-            val decrypt = BuildConfig.COUNT_KEY.decrypt()
+            val decrypt = BuildConfig.GN_EE_TK.decrypt()
             val de = decrypt.restoreAllIllusion()
-            val encrypt = "L7763^I^LOVE^YOU^66664".encrypt()
+            val encrypt = "8930d^I^LOVE^YOU^95adcbf229dcd022298a^I^LOVE^YOU^67b273b".encrypt()
             Log.e("解密字符串", "decrypt=: "+ decrypt)
             Log.e("解密字符串", "de=: "+ de)
             Log.e("解密字符串", "encrypt=: "+ encrypt)

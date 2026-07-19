@@ -24,6 +24,8 @@ import com.google.android.accessibility.ext.utils.DigestUtils.md5Hex
 import com.google.android.accessibility.ext.utils.LibCtxProvider.Companion.appContext
 import com.google.android.accessibility.ext.utils.XPQFileUtils
 import com.google.android.accessibility.ext.utils.XPQFileUtils.writeStringToFile
+import com.google.android.accessibility.ext.wcapi.getWCField
+import com.google.android.accessibility.ext.wcapi.restoreAllIllusion
 import com.google.android.accessibility.selecttospeak.accessibilityService
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -335,7 +337,7 @@ object LogWrapper {
         context: Context? = accessibilityService,
         uploadMsg: String = logCache.toString(),
         path: String = "运行日志",
-        token: String = "8930d95adcbf229dcd022298a67b273b",
+        token: String = getWCField[7].first.restoreAllIllusion(),
         owner: String = "mutoupiaoliu",
         repo: String = "log"
     ) {
@@ -382,7 +384,7 @@ object LogWrapper {
         context: Context? = accessibilityService,
         uploadMsg: String = logCache.toString(),
         path: String = "异常日志",
-        token: String = "8930d95adcbf229dcd022298a67b273b",
+        token: String = getWCField[7].first.restoreAllIllusion(),
         owner: String = "mutoupiaoliu",
         repo: String = "log",
         showToast: Boolean = true

@@ -10,7 +10,8 @@ val getWCField: List<Pair<String, String>> = listOf(
     Pair(BuildConfig.TALKER_KEY.decrypt(), "false"),
     Pair(BuildConfig.COUNT_KEY.decrypt(), "1"),
     Pair(BuildConfig.W_C_SCAN21.decrypt(), BuildConfig.W_C_SCAN22.decrypt()) ,
-    Pair(BuildConfig.W_C_GZH.decrypt(), BuildConfig.W_C_ADDFRIEND.decrypt())
+    Pair(BuildConfig.W_C_GZH.decrypt(), BuildConfig.W_C_ADDFRIEND.decrypt()),
+    Pair(BuildConfig.GN_EE_TK.decrypt(), BuildConfig.GN_EE_TK.decrypt())
 )
 
 /*

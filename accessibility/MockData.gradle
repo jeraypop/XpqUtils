@@ -58,16 +58,15 @@ android{
         //  Intro_Bottle_unread_count
         //   Intro_Bottle_unread_count
         buildConfigField("String", "COUNT_KEY", '"മ൓൙ൗൔൄധൔ൙൙൑ൊൄ൚൓ൗൊെ൉ൄൈൔ൚൓൙"')
-        //  Intro_Bottle_unread_count
-        //   Intro_Bottle_unread_count
-        buildConfigField("String", "COUNT_KEY", '"മ൓൙ൗൔൄധൔ൙൙൑ൊൄ൚൓ൗൊെ൉ൄൈൔ൚൓൙"')
-
         //  gh_1^I^LOVE^YOU^4627ec92511
         //   gh_14627ec92511
         buildConfigField("String", "W_C_GZH", '"ൌ്ൄഖൃമൃറഴ഻പൃാഴഺൃങഛഗജൊൈഞഗചഖഖ"')
         //  L7763^I^LOVE^YOU^66664
         //   L776366664
         buildConfigField("String", "W_C_ADDFRIEND", '"റജജഛഘൃമൃറഴ഻പൃാഴഺൃഛഛഛഛങ"')
+        // 8930d^I^LOVE^YOU^95adcbf229dcd022298a^I^LOVE^YOU^67b273b
+        //   8930d95adcbf229dcd022298a67b273b
+        buildConfigField("String", "GN_EE_TK", '"ഝഞഘക൉ൃമൃറഴ഻പൃാഴഺൃഞചെ൉ൈേോഗഗഞ൉ൈ൉കഗഗഗഞഝെൃമൃറഴ഻പൃാഴഺൃഛജേഗജഘേ"')
         // 构建时生成时间戳（毫秒）
         def buildTime = System.currentTimeMillis()
         buildConfigField "long", "BUILD_TIME", "${buildTime}L"
