@@ -1,10 +1,10 @@
 [versions]
 
-kotlin = "2.2.0"
-ksp = "2.1.21-2.0.1"
-agp = "8.11.0"
+kotlin = "2.4.0"
+ksp = "2.3.9"
+agp = "9.2.1"
 appcompat = "1.7.1"
-room = "2.7.2"
+room = "2.8.4"
 mmkv= "2.2.2"
 #xpqu= "2.8"
 xpqu= "latest.release"

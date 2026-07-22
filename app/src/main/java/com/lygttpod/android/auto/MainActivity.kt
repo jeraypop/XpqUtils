@@ -283,8 +283,8 @@ class MainActivity : XpqBaseActivity<ActivityMainBinding>(
 
                 },
                 FabMenuItem("检查更新", com.android.accessibility.ext.R.drawable.minimize_xpq) {
-                    //checkForUpdate()
-                    OverlayLog.show()
+                    checkForUpdate()
+                    //OverlayLog.show()
 
             }
 

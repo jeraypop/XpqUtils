@@ -2,7 +2,7 @@ plugins {
 //    id 'com.android.application'
 //    id 'org.jetbrains.kotlin.android'
     alias libs.plugins.android.application
-    alias libs.plugins.kotlin.android
+    //alias libs.plugins.kotlin.android
 }
 
 def keystorePropertiesFile = rootProject.file("Keystore.properties")
@@ -95,12 +95,6 @@ android {
         }
     }
 
-    applicationVariants.configureEach { variant ->
-        variant.outputs.configureEach {
-            outputFileName = "Friend_${defaultConfig.versionName}.apk"
-        }
-    }
-
     compileOptions {
         sourceCompatibility JavaVersion.VERSION_17
         targetCompatibility JavaVersion.VERSION_17
@@ -114,6 +108,21 @@ android {
     buildFeatures {
         viewBinding true
         buildConfig true
+        resValues  true
+    }
+
+    afterEvaluate {
+        tasks.named("assembleRelease").configure {
+            doLast {
+                def apkDir = file("$buildDir/outputs/apk/release")
+                def apk = apkDir.listFiles()?.find {
+                    it.name.endsWith(".apk")
+                }
+                if (apk != null) {
+                    apk.renameTo(new File(apkDir, "Friend_${android.defaultConfig.versionName}.apk"))
+                }
+            }
+        }
     }
 }
 
