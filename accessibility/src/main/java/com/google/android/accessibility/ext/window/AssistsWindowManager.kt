@@ -17,8 +17,7 @@ import com.google.android.accessibility.selecttospeak.SelectToSpeakServiceAbstra
 import com.google.android.accessibility.ext.CoroutineWrapper
 import com.google.android.accessibility.ext.runIO
 import com.google.android.accessibility.ext.runMain
-import com.blankj.utilcode.util.LogUtils
-import com.blankj.utilcode.util.SizeUtils
+import com.google.android.accessibility.ext.utils.KeyguardUnLock.dp2px
 
 
 import kotlinx.coroutines.Dispatchers
@@ -242,7 +241,7 @@ object AssistsWindowManager {
                 viewList.remove(it)
             }
         } catch (e: Throwable) {
-            LogUtils.e(e)
+
         }
     }
 
@@ -350,7 +349,7 @@ object AssistsWindowManager {
                 val textView = TextView(it).apply {
                     text = this@overlayToast
                     setTextColor(Color.WHITE)
-                    setPadding(SizeUtils.dp2px(10f))
+                    setPadding(dp2px(10f))
                 }
                 val assistsWindowWrapper = AssistsWindowWrapper(textView, wmLayoutParams = createLayoutParams().apply {
                     width = -2

@@ -11,6 +11,7 @@ import android.app.PendingIntent
 import android.content.Context
 import android.content.Intent
 import android.content.pm.PackageManager
+import android.content.res.Resources
 import android.graphics.Path
 import android.graphics.Rect
 import android.hardware.display.DisplayManager
@@ -22,7 +23,10 @@ import android.os.SystemClock
 import android.text.TextUtils
 import android.util.DisplayMetrics
 import android.util.Log
+import android.util.TypedValue
 import android.view.Display
+import android.view.View
+import android.view.WindowInsets
 import android.view.accessibility.AccessibilityNodeInfo
 import androidx.annotation.IntRange
 import com.google.android.accessibility.ext.activity.AliveActivity
@@ -1401,17 +1405,66 @@ isDeviceSecure = 这台设备“有没有任何安全门槛”
         return isSuc
     }
 
+    @JvmStatic
+    @JvmOverloads
+    fun dp2px(dp: Float, context: Context = appContext): Int {
+        return TypedValue.applyDimension(
+            TypedValue.COMPLEX_UNIT_DIP,
+            dp,
+            context.resources.displayMetrics
+        ).toInt()
+    }
 
+    @JvmStatic
+    @JvmOverloads
+    fun px2dp(px: Float, context: Context = appContext): Int {
+        return (px / context.resources.displayMetrics.density + 0.5f).toInt()
+    }
+    /**
+     * 获取当前窗口真实的状态栏高度（推荐）
+     * 需要 View 已经 attach 到 Window。
+     */
+    @JvmStatic
+    fun getStatusBarHeight(view: View): Int {
+        val insets = view.rootWindowInsets
+        if (insets != null) {
+            return if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+                insets.getInsets(WindowInsets.Type.statusBars()).top
+            } else {
+                @Suppress("DEPRECATION")
+                insets.systemWindowInsetTop
+            }
+        }
 
-/*    @JvmStatic
-    fun getScreenSize(context: Context): Pair<Int, Int> {
-        val displayMetrics = context.resources.displayMetrics
-        val width = displayMetrics.widthPixels
-        val height = displayMetrics.heightPixels
-        return Pair(width, height)
-    }*/
+        // 降级方案
+        return getStatusBarHeight(view.context)
+    }
+
+    /**
+     * 获取系统默认状态栏高度
+     * 不依赖 View，可任意时机调用。
+     */
+    @JvmOverloads
+    @JvmStatic
+    fun getStatusBarHeight(context: Context = appContext): Int {
+        val resources = context.resources
+
+        @Suppress("DiscouragedApi")
+        val resourceId = resources.getIdentifier(
+            "status_bar_height",
+            "dimen",
+            "android"
+        )
+
+        return if (resourceId > 0) {
+            resources.getDimensionPixelSize(resourceId)
+        } else {
+            0
+        }
+    }
 
     @Suppress("DEPRECATION")
+    @JvmOverloads
     @JvmStatic
     fun getScreenSize(context: Context = appContext): Pair<Int, Int> {
         val wm = context.applicationContext.getSystemService(Context.WINDOW_SERVICE) as android.view.WindowManager

@@ -10,8 +10,9 @@ import androidx.core.view.isInvisible
 import androidx.core.view.isVisible
 import com.google.android.accessibility.ext.CoroutineWrapper
 import com.android.accessibility.ext.databinding.AssistsWindowLayoutWrapperXpqBinding
-import com.blankj.utilcode.util.BarUtils
-import com.blankj.utilcode.util.ScreenUtils
+
+import com.google.android.accessibility.ext.utils.KeyguardUnLock.getScreenSize
+import com.google.android.accessibility.ext.utils.KeyguardUnLock.getStatusBarHeight
 
 
 //import com.ven.assists.utils.CoroutineWrapper
@@ -112,7 +113,7 @@ class AssistsWindowWrapper(
             }
             if (event.action == MotionEvent.ACTION_MOVE) {
                 wmlp.x = event.rawX.toInt()
-                wmlp.y = event.rawY.toInt() - BarUtils.getStatusBarHeight()
+                wmlp.y = event.rawY.toInt() - getStatusBarHeight()
                 CoroutineWrapper.launch { AssistsWindowManager.updateViewLayout(viewBinding.root, wmlp) }
                 return true
             }
@@ -136,8 +137,8 @@ class AssistsWindowWrapper(
                         if (initialCenter) {
                             val measuredWidth = root.measuredWidth
                             val measuredHeight = root.measuredHeight
-                            val initialX = ScreenUtils.getScreenWidth() / 2 - measuredWidth / 2
-                            val initialY = ScreenUtils.getScreenHeight() / 2 - measuredHeight / 2
+                            val initialX = getScreenSize().first / 2 - measuredWidth / 2
+                            val initialY = getScreenSize().second / 2 - measuredHeight / 2
                             wmlp.x = initialX
                             wmlp.y = initialY
                         }

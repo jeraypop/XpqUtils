@@ -9,11 +9,13 @@ import android.view.View.OnTouchListener
 
 import com.android.accessibility.ext.databinding.LogOverlayXpqBinding
 
-import com.blankj.utilcode.util.ScreenUtils
+
 import com.google.android.accessibility.ext.AssistsServiceListener
 import com.google.android.accessibility.ext.CoroutineWrapper
+import com.google.android.accessibility.ext.utils.KeyguardUnLock.getScreenSize
 import com.google.android.accessibility.ext.utils.LibCtxProvider.Companion.appContext
 import com.google.android.accessibility.selecttospeak.SelectToSpeakServiceAbstract
+
 
 
 import kotlinx.coroutines.Dispatchers
@@ -93,11 +95,11 @@ object OverlayLog : AssistsServiceListener {
             viewBinding?.let {
                 if (field == null) {
                     field = AssistsWindowWrapper(it.root, wmLayoutParams = AssistsWindowManager.createLayoutParams().apply {
-                        width = (ScreenUtils.getScreenWidth() * 0.8).toInt()
-                        height = (ScreenUtils.getScreenHeight() * 0.5).toInt()
+                        width = (getScreenSize().first * 0.8).toInt()
+                        height = (getScreenSize().second * 0.5).toInt()
                     }, onClose = { hide() }).apply {
-                        minWidth = (ScreenUtils.getScreenWidth() * 0.6).toInt()
-                        minHeight = (ScreenUtils.getScreenHeight() * 0.4).toInt()
+                        minWidth = (getScreenSize().first * 0.6).toInt()
+                        minHeight = (getScreenSize().second * 0.4).toInt()
                         initialCenter = true
                         viewBinding.tvTitle.text = "日志"
                     }

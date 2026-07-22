@@ -65,7 +65,7 @@ dependencies {
     implementation(libs.media3.ui)
 
     implementation(libs.navigationktx)
-    implementation(libs.blankj)
+    //implementation(libs.blankj)
     //tencent mmkv   api可以依赖传递
     api(libs.mmkv.static)
     api(libs.easy.float)
