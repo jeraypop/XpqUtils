@@ -130,13 +130,14 @@ fun AccessibilityService.findByIdAndTextToUser(id: String, text: String): Access
 
 fun AccessibilityService?.clickById(
     id: String,
-    gestureClick: Boolean = true
+    gestureClick: Boolean = true,
+    position: Int = 0
 ): Boolean {
     this ?: return false
 
     val raw = rootInActiveWindow
         ?.findNodesById(id)
-        ?.firstOrNull()
+        ?.getOrNull(position)
         ?: return false
 
     val node = copyNodeCompat(raw)

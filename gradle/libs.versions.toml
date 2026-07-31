@@ -16,6 +16,7 @@ easywindow = "latest.release"
 #26.5
 xxpermission = "28.2"
 devicecompat = "latest.release"
+fastjson = "1.2.83"
 material = "1.11.0"
 activity = "1.8.2"
 commonsText = "1.11.0"
@@ -95,7 +96,7 @@ ahocorasick = "0.6.3"
 #===============================new add
 
 [libraries]
-
+fastjson = { group = "com.alibaba", name = "fastjson", version.ref = "fastjson" }
 activity-activity = { module = "androidx.activity:activity", version.ref = "activity" }
 activity-compose = { module = "androidx.activity:activity-compose", version.ref = "activity" }
 activity-ktx = { module = "androidx.activity:activity-ktx", version.ref = "activity" }
@@ -260,11 +261,10 @@ dialogx-latest = "com.kongzue.dialogx:DialogX:latest.release"
 align-textview = "me.codeboy.android:align-text-view:2.3.2"
 commons-io = "commons-io:commons-io:2.19.0"
 commons-codec = "commons-codec:commons-codec:1.18.0"
-cymchad-baserecycler = "com.github.CymChad:BaseRecyclerViewAdapterHelper:2.9.36"
+baserecycleradapterhelper4 = "io.github.cymchad:BaseRecyclerViewAdapterHelper4:4.4.1"
+loading-button-android2 = "com.github.leandroborgesferreira:loading-button-android:2.3.0"
 folding-cell = "com.ramotion.foldingcell:folding-cell:1.2.3"
-io-navigationtabbar = "devlight.io:navigationtabbar:1.2.5"
-infinitecycleviewpager = "com.github.devlight:infinitecycleviewpager:1.0.2"
-loading-button-android = "br.com.simplepass:loading-button-android:1.14.0"
+io-navigationtabbar = "com.github.jeraypop:NavigationTabBar:1.2.6"
 settingscompat = "com.github.czy1121:settingscompat:1.1.4"
 checkversionlib = "com.github.AlexLiuSheng:CheckVersionLib:2.4.1_androidx"
 volley-volley = "com.android.volley:volley:1.2.1"
