@@ -10,6 +10,7 @@ import android.util.Log
 import android.view.accessibility.AccessibilityNodeInfo
 import androidx.annotation.RequiresApi
 import com.google.android.accessibility.ext.default
+import com.google.android.accessibility.ext.removeTrailingNumber
 import com.google.android.accessibility.ext.utils.KeyguardUnLock
 import com.google.android.accessibility.selecttospeak.SelectToSpeakServiceAbstract.Companion.copyNodeCompat
 import com.google.android.accessibility.selecttospeak.SelectToSpeakServiceAbstract.Companion.recycleCompat
@@ -635,9 +636,14 @@ fun AccessibilityService?.clickByIdAndTextFilter(
 ): Boolean {
     this ?: return false
 
+//    val raw = rootInActiveWindow
+//        ?.findNodesById(id)
+//        ?.firstOrNull { it.text.default(filter = true).removeTrailingNumber() == text }
+//        ?: return false
+
     val raw = rootInActiveWindow
         ?.findNodesById(id)
-        ?.firstOrNull { it.text.default(filter = true) == text }
+        ?.firstOrNull { it.text.default(filter = true).removeTrailingNumber() == text.default(filter = true).removeTrailingNumber() }
         ?: return false
 
     val node = copyNodeCompat(raw)

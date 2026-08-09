@@ -23,3 +23,7 @@ fun String?.default(
 ) = (this ?: default).let {
     if (filter) it.replace(Regex("[^\u4e00-\u9fff\u0021-\u007E]"), "") else it
 }
+
+fun String.removeTrailingNumber(): String {
+    return replace(Regex("\\(\\d+\\)$"), "")
+}
