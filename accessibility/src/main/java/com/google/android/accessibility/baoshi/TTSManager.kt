@@ -28,6 +28,12 @@ object TTSManager : TextToSpeech.OnInitListener {
         }
     }
 
+    /** 停止当前朗读（保留 TTS 引擎，可再次 speak）。用于播放暂停/停止时立即停止播报。 */
+    @JvmStatic
+    fun stop() {
+        try { tts?.stop() } catch (_: Exception) { }
+    }
+
     override fun onInit(status: Int) {
 
         if (status == TextToSpeech.SUCCESS) {

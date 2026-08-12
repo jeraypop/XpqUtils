@@ -43,4 +43,20 @@
         <item name="android:textColor">@drawable/btn_black_text_color_xpq</item>
     </style>
 
+    <!-- 音乐模块：浅色主题，与 MainActivity 的 Theme.AndroidAuto（Light + gold #F6D36B 主色）保持一致 -->
+    <style name="Theme.XpqMusic" parent="Theme.MaterialComponents.Light.NoActionBar">
+        <item name="android:windowBackground">@color/music_bg</item>
+        <item name="android:statusBarColor">@color/music_bg</item>
+        <item name="android:navigationBarColor">@color/music_bg</item>
+        <item name="colorPrimary">@color/music_accent</item>
+        <item name="colorAccent">@color/music_accent</item>
+        <item name="android:textColor">@color/music_text</item>
+    </style>
+
+    <style name="Theme.XpqMusic.BottomSheet" parent="Theme.Material3.Light.BottomSheetDialog">
+        <item name="android:windowBackground">@android:color/transparent</item>
+        <item name="android:backgroundDimEnabled">true</item>
+        <item name="colorPrimary">@color/music_accent</item>
+    </style>
+
 </resources>

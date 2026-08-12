@@ -189,6 +189,20 @@
                 android:name="android.support.FILE_PROVIDER_PATHS"
                 android:resource="@xml/xpq_file_paths" />
         </provider>
+
+        <!-- 音乐选曲界面：供宿主应用调用（显式类名或 OPEN_MUSIC action 均可拉起） -->
+        <activity
+            android:name="com.google.android.accessibility.ext.music.MusicActivity"
+            android:configChanges="keyboardHidden|orientation|screenSize"
+            android:exported="true"
+            android:launchMode="singleTask"
+            android:screenOrientation="portrait"
+            android:theme="@style/Theme.XpqMusic">
+            <intent-filter>
+                <action android:name="com.google.android.accessibility.ext.action.OPEN_MUSIC" />
+                <category android:name="android.intent.category.DEFAULT" />
+            </intent-filter>
+        </activity>
     </application>
 
 </manifest>

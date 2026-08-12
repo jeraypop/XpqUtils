@@ -117,6 +117,16 @@ android:fitsSystemWindows="true"
                 android:text="加解密"
                 android:textSize="15dp" />
 
+            <Button
+                android:id="@+id/btnPlaySaved"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:minWidth="300dp"
+                android:layout_gravity="center"
+                android:gravity="center"
+                android:text="后台播放列表(不打开界面)"
+                android:textSize="15dp" />
+
         </androidx.appcompat.widget.LinearLayoutCompat>
 
     </androidx.core.widget.NestedScrollView>

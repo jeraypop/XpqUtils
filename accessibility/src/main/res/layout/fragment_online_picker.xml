@@ -1,0 +1,98 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:orientation="vertical"
+    android:background="@color/music_card"
+    android:padding="16dp"
+    android:paddingBottom="24dp">
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="horizontal"
+        android:gravity="center_vertical">
+        <TextView
+            android:id="@+id/tv_picker_title"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:text="@string/music_picker_title"
+            android:textSize="17sp"
+            android:textColor="@color/music_text"
+            android:textStyle="bold" />
+        <TextView
+            android:id="@+id/btn_picker_close"
+            android:layout_width="36dp"
+            android:layout_height="36dp"
+            android:gravity="center"
+            android:text="✕"
+            android:textSize="20sp"
+            android:textColor="@color/music_text"
+            android:background="?attr/selectableItemBackgroundBorderless" />
+    </LinearLayout>
+
+    <androidx.recyclerview.widget.RecyclerView
+        android:id="@+id/recycler_picker"
+        android:layout_width="match_parent"
+        android:layout_height="0dp"
+        android:layout_weight="1"
+        android:minHeight="220dp"
+        android:layout_marginTop="10dp" />
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="horizontal"
+        android:layout_marginTop="10dp">
+        <TextView
+            android:id="@+id/btn_cache_now"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="@string/music_cache_now"
+            android:textSize="13sp"
+            android:textColor="@color/music_accent"
+            android:background="@drawable/bg_card"
+            android:padding="10dp" />
+        <TextView
+            android:id="@+id/btn_clear_cache"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="@string/music_clear_cache"
+            android:textSize="13sp"
+            android:textColor="#ff8a8a"
+            android:background="@drawable/bg_card"
+            android:padding="10dp"
+            android:layout_marginLeft="10dp" />
+    </LinearLayout>
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="horizontal"
+        android:layout_marginTop="12dp">
+        <TextView
+            android:id="@+id/btn_picker_cancel"
+            android:layout_width="0dp"
+            android:layout_height="48dp"
+            android:layout_weight="1"
+            android:gravity="center"
+            android:text="@string/music_picker_cancel"
+            android:textSize="15sp"
+            android:textColor="@color/music_text"
+            android:background="@drawable/bg_card" />
+        <Space
+            android:layout_width="12dp"
+            android:layout_height="wrap_content" />
+        <TextView
+            android:id="@+id/btn_picker_confirm"
+            android:layout_width="0dp"
+            android:layout_height="48dp"
+            android:layout_weight="1"
+            android:gravity="center"
+            android:text="@string/music_picker_confirm"
+            android:textSize="15sp"
+            android:textColor="@color/music_text"
+            android:background="@drawable/bg_play_on" />
+    </LinearLayout>
+</LinearLayout>

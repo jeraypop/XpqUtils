@@ -31,5 +31,20 @@
 
     <color name="xpq_divide_line">#ffe4e4e4</color>
 
+    <!-- 音乐模块（浅色主题，与 MainActivity 的 gold #F6D36B 主色保持一致） -->
+    <color name="music_accent">#F6D36B</color>
+    <color name="music_accent2">#E0A800</color>
+    <color name="music_bg">#F5F5F5</color>
+    <color name="music_card">#FFFFFF</color>
+    <color name="music_card_online">#E8F5EE</color>
+    <color name="music_card_local">#EAF1FF</color>
+    <color name="music_card_active">#FFF4D6</color>
+    <color name="music_text">#1A1A1A</color>
+    <color name="music_text_sub">#666666</color>
+    <color name="music_tag_online">#2E7D32</color>
+    <color name="music_tag_local">#1565C0</color>
+    <color name="music_badge_cached">#2E7D32</color>
+    <color name="music_badge_loading">#B8860B</color>
+    <color name="music_badge_added">#E0A800</color>
 
 </resources>

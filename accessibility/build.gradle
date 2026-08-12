@@ -64,6 +64,9 @@ dependencies {
     implementation(libs.media3.exoplayer)
     implementation(libs.media3.ui)
 
+    implementation(libs.recyclerview)
+    implementation(libs.kotlinx.coroutines.android)
+
     implementation(libs.navigationktx)
     //implementation(libs.blankj)
     //tencent mmkv   api可以依赖传递

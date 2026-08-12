@@ -32,6 +32,8 @@ import com.google.android.accessibility.ext.utils.AppInfoUtil
 import com.google.android.accessibility.ext.utils.AppInfoUtil.privacy_GuoNei_SJ
 import com.google.android.accessibility.ext.utils.JieSuoUtils
 import com.google.android.accessibility.ext.utils.LibCtxProvider.Companion.appBuildTime
+import com.google.android.accessibility.ext.music.MusicPlayer
+import com.google.android.accessibility.ext.music.MusicStore
 import com.google.android.accessibility.ext.utils.LoginDialog
 import com.google.android.accessibility.ext.utils.NetworkHelperFullSmart
 import com.google.android.accessibility.ext.utils.NetworkHelperFullSmart.intervalIsDuan
@@ -107,6 +109,19 @@ class MainActivity : XpqBaseActivity<ActivityMainBinding>(
             Log.e("解密字符串", "decrypt=: "+ decrypt)
             Log.e("解密字符串", "de=: "+ de)
             Log.e("解密字符串", "encrypt=: "+ encrypt)
+        }
+        binding.btnPlaySaved.setOnClickListener{
+            // 测试「不打开 MusicActivity 也能播放已保存歌单」：直接调用 MusicPlayer.playSaved
+            // 注意：playSaved 受「播放总开关」控制，总开关关闭时返回 false（不播）
+            val ok = MusicPlayer.playSaved(this@MainActivity)
+            val msg = if (ok) {
+                "已开始后台播放歌单"
+            } else if (MusicStore.isBgmOn()) {
+                "暂无可播放歌单，请先到「音乐播放」添加歌曲"
+            } else {
+                "播放总开关未开启，无法后台播放"
+            }
+            AliveUtils.toast(msg = msg)
         }
         binding.fab.setOnClickListener {
 //            AliveUtils.easyPermission(this@MainActivity)
@@ -281,6 +296,9 @@ class MainActivity : XpqBaseActivity<ActivityMainBinding>(
                         //调登录接口
                     }.show()
 
+                },
+                FabMenuItem("音乐播放", com.android.accessibility.ext.R.drawable.ic_music_xpq) {
+                    MusicPlayer.openMusic(this@MainActivity)
                 },
                 FabMenuItem("检查更新", com.android.accessibility.ext.R.drawable.minimize_xpq) {
                     checkForUpdate()

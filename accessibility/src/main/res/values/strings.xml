@@ -205,5 +205,35 @@
     <string name="xpq_upload_error">上传日志文件失败</string>
     <string name="xpq_message_upload_log">是否将当前日志上传,以帮助我们改进服务？</string>
 
+    <!-- 音乐模块 -->
+    <string name="music_title">音乐</string>
+    <string name="music_bgm_title">播放总开关</string>
+    <string name="music_bgm_sub">任务失败播放歌曲,提醒及时手动操作
+        \n注意:可能会误播,视情况选择是否开启</string>
+    <string name="music_vibrate_title">播放时震动</string>
+    <string name="music_vibrate_sub">仅播放总开关开启时生效：播放歌曲时震动手机</string>
+    <string name="music_loop_title">顺序循环</string>
+    <string name="music_loop_sub">开启：播完列表最后一首自动回到第一首循环；\n关闭：播完最后一首即停止</string>
+    <string name="music_tts_title">TTS 播报文字</string>
+    <string name="music_tts_sub">仅播放总开关开启时生效：每首歌开始播放时朗读下方自定义文字</string>
+    <string name="music_tts_hint">输入要朗读的文字（每首歌开始播放时朗读）</string>
+    <string name="music_tts_test">试播</string>
+    <string name="music_tracks_title">播放列表（长按拖动可排序）</string>
+    <string name="music_add_local">本地选择</string>
+    <string name="music_add_online">在线曲库</string>
+    <string name="music_clear_all">清空全部</string>
+    <string name="music_tip_empty">未播放 · 先添加歌曲</string>
+    <string name="music_tip_not_playing">未播放 · 点右侧 ▶ 开始播放</string>
+    <string name="music_tip_playing">正在播放</string>
+    <string name="music_picker_title">在线曲库</string>
+    <string name="music_picker_confirm">确定（已选 0）</string>
+    <string name="music_picker_cancel">取消</string>
+    <string name="music_picker_added">已添加</string>
+    <string name="music_cached">已缓存</string>
+    <string name="music_cache_now">立即缓存</string>
+    <string name="music_clear_cache">清理缓存</string>
+    <string name="music_loading">加载中…</string>
+    <string name="music_empty">暂无歌曲（往 GitLab 的 songs/ 目录上传音频即可）</string>
+    <string name="music_preview">试听</string>
 
 </resources>

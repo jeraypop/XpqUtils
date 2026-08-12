@@ -1,0 +1,58 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:orientation="horizontal"
+    android:gravity="center_vertical"
+    android:padding="12dp"
+    android:minHeight="56dp">
+
+    <View
+        android:id="@+id/picker_check"
+        android:layout_width="22dp"
+        android:layout_height="22dp"
+        android:background="@drawable/bg_check"
+        android:layout_marginRight="14dp" />
+
+    <TextView
+        android:id="@+id/tv_picker_name"
+        android:layout_width="0dp"
+        android:layout_height="wrap_content"
+        android:layout_weight="1"
+        android:text="歌名"
+        android:textSize="15sp"
+        android:textColor="@color/music_text"
+        android:singleLine="true"
+        android:ellipsize="end" />
+
+    <TextView
+        android:id="@+id/tv_picker_cache"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="已缓存"
+        android:textSize="11sp"
+        android:textColor="@color/music_badge_cached"
+        android:visibility="gone"
+        android:layout_marginLeft="8dp" />
+
+    <TextView
+        android:id="@+id/tv_picker_added"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="@string/music_picker_added"
+        android:textSize="11sp"
+        android:textColor="@color/music_badge_added"
+        android:visibility="gone"
+        android:layout_marginLeft="8dp" />
+
+    <TextView
+        android:id="@+id/btn_picker_preview"
+        android:layout_width="40dp"
+        android:layout_height="40dp"
+        android:gravity="center"
+        android:text="▶"
+        android:textSize="16sp"
+        android:textColor="@color/music_text"
+        android:background="@drawable/bg_play_off"
+        android:layout_marginLeft="10dp" />
+</LinearLayout>
