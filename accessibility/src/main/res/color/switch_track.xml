@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <selector xmlns:android="http://schemas.android.com/apk/res/android">
-    <!-- 禁用（播放总开关关时）：浅灰轨道 -->
+    <!-- 禁用（提醒总开关关时）：浅灰轨道 -->
     <item android:color="#E2E2E2" android:state_enabled="false" />
     <!-- 开启：半透明金轨道 -->
     <item android:color="#80F6D36B" android:state_checked="true" />

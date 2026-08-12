@@ -33,7 +33,7 @@ object MusicPlayer {
         context.startActivity(intent)
     }
 
-    /** 用给定歌单起播（受「播放总开关」控制：总开关关闭时不播放） */
+    /** 用给定歌单起播（受「提醒总开关」控制：总开关关闭时不播放） */
     @JvmStatic
     fun play(context: Context, songs: List<Song>, startIndex: Int = 0) {
         if (!MusicStore.isBgmOn()) return
@@ -43,7 +43,7 @@ object MusicPlayer {
     /**
      * 恢复并播放上次保存的歌单（无需打开 MusicActivity 界面）。
      * 例如：之前在界面里添加过歌曲并退出，之后想直接继续播、又不想再弹界面时使用。
-     * 受「播放总开关」控制：总开关关闭时返回 false，不播放。
+     * 受「提醒总开关」控制：总开关关闭时返回 false，不播放。
      * 若本地无保存歌单（空歌单），但「TTS 播报」开关开启且有自定义文字，仍会朗读该文字。
      * @return 是否成功开始（总开关关闭则 false）
      */

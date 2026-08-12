@@ -91,12 +91,12 @@ class MusicActivity : XpqBaseActivity<ViewBinding>(layoutId = R.layout.activity_
         loopSwitch.isChecked = MusicStore.isLoopOn()
         loopSwitch.setOnCheckedChangeListener { _, isOn -> MusicStore.setLoopOn(isOn) }
 
-        // TTS 播报开关 + 自定义文字（仅在「播放总开关」开启时生效；开 + 有文字 → 每首歌起播时朗读）
+        // TTS 播报开关 + 自定义文字（仅在「提醒总开关」开启时生效；开 + 有文字 → 每首歌起播时朗读）
         ttsSwitch.isChecked = MusicStore.isTtsOn()
         ttsInput.setText(MusicStore.getTtsText())
         ttsSwitch.setOnCheckedChangeListener { _, isOn ->
             MusicStore.setTtsOn(isOn)
-            // 开启 → 立即朗读（即使歌曲列表为空，只要播放总开关开启且有文字）；关闭 → 立即停止朗读
+            // 开启 → 立即朗读（即使歌曲列表为空，只要提醒总开关开启且有文字）；关闭 → 立即停止朗读
             MusicManager.onTtsSettingChanged(isOn)
         }
         ttsInput.addTextChangedListener(object : TextWatcher {

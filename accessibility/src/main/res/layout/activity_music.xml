@@ -148,7 +148,7 @@
                 app:trackTint="@color/switch_track" />
         </LinearLayout>
 
-        <!-- TTS 播报开关（仅在播放总开关开启时生效）：开 + 有文字 → 每首歌起播时朗读自定义文字 -->
+        <!-- TTS 播报开关（仅在提醒总开关开启时生效）：开 + 有文字 → 每首歌起播时朗读自定义文字 -->
         <LinearLayout
             android:layout_width="match_parent"
             android:layout_height="wrap_content"

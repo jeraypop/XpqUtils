@@ -90,7 +90,7 @@ object MusicStore {
         }
     }
 
-    /** TTS 播报自定义文字开关（仅在播放总开关开启时生效） */
+    /** TTS 播报自定义文字开关（仅在提醒总开关开启时生效） */
     fun isTtsOn(): Boolean =
         try {
             appContext.getSharedPreferences(PREFS, Context.MODE_PRIVATE).getBoolean(KEY_TTS_ON, false)

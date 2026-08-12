@@ -125,7 +125,7 @@ object MusicManager {
         setState(PlayState.PLAYING)
         lastError = null
         startVibrateIfNeeded() // 播放开关与「播放时震动」均开启时，启动循环震动（来电式节奏）
-        speakTtsIfNeeded() // 播放总开关与「TTS 播报」均开启、且有文字时，朗读自定义文字
+        speakTtsIfNeeded() // 提醒总开关与「TTS 播报」均开启、且有文字时，朗读自定义文字
         Log.d(TAG, "onPrepared -> start, idx=$currentIndex")
     }
 
@@ -172,12 +172,12 @@ object MusicManager {
         }
     }
 
-    /** 外部（UI TTS 开关）改变设置时调用：开启 → 立即朗读自定义文字（即使歌曲列表为空，只要播放总开关开启且有文字）；关闭 → 立即停读 */
+    /** 外部（UI TTS 开关）改变设置时调用：开启 → 立即朗读自定义文字（即使歌曲列表为空，只要提醒总开关开启且有文字）；关闭 → 立即停读 */
     fun onTtsSettingChanged(on: Boolean) {
         if (on) speakTtsIfNeeded() else stopTts()
     }
 
-    // 播放时 TTS 播报自定义文字（仅当「播放总开关」与「TTS 播报」均开启、且文字非空）
+    // 播放时 TTS 播报自定义文字（仅当「提醒总开关」与「TTS 播报」均开启、且文字非空）
     /** 每首歌起播时朗读自定义文字；已满足开关条件但文字为空则不播报 */
     private fun speakTtsIfNeeded() {
         if (!MusicStore.isBgmOn() || !MusicStore.isTtsOn()) return
