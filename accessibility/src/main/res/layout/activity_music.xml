@@ -74,7 +74,7 @@
                 app:trackTint="@color/switch_track" />
         </LinearLayout>
 
-        <!-- 播放时震动开关（仅在背景音乐开启时生效；关闭时不震动） -->
+        <!-- 播放歌曲开关（受提醒总开关控制，与震动、语音提醒相互独立）：开启后外部/自动播放才会播歌 -->
         <LinearLayout
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
@@ -91,20 +91,20 @@
                 <TextView
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
-                    android:text="@string/music_vibrate_title"
+                    android:text="@string/music_play_title"
                     android:textSize="16sp"
                     android:textColor="@color/music_text"
                     android:textStyle="bold" />
                 <TextView
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
-                    android:text="@string/music_vibrate_sub"
+                    android:text="@string/music_play_sub"
                     android:textSize="12sp"
                     android:textColor="@color/music_text_sub"
                     android:layout_marginTop="4dp" />
             </LinearLayout>
             <androidx.appcompat.widget.SwitchCompat
-                android:id="@+id/music_vibrate_switch"
+                android:id="@+id/music_play_switch"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 app:thumbTint="@color/switch_thumb"
@@ -146,6 +146,99 @@
                 android:layout_height="wrap_content"
                 app:thumbTint="@color/switch_thumb"
                 app:trackTint="@color/switch_track" />
+        </LinearLayout>
+
+        <!-- 播放时震动开关（受提醒总开关控制，与播放歌曲、语音提醒相互独立；可自定义震动时长） -->
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="vertical"
+            android:background="@drawable/bg_card"
+            android:padding="16dp"
+            android:layout_marginTop="12dp">
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="horizontal"
+                android:gravity="center_vertical">
+                <LinearLayout
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:orientation="vertical">
+                    <TextView
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="@string/music_vibrate_title"
+                        android:textSize="16sp"
+                        android:textColor="@color/music_text"
+                        android:textStyle="bold" />
+                    <TextView
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="@string/music_vibrate_sub"
+                        android:textSize="12sp"
+                        android:textColor="@color/music_text_sub"
+                        android:layout_marginTop="4dp" />
+                </LinearLayout>
+                <androidx.appcompat.widget.SwitchCompat
+                    android:id="@+id/music_vibrate_switch"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    app:thumbTint="@color/switch_thumb"
+                    app:trackTint="@color/switch_track" />
+            </LinearLayout>
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="horizontal"
+                android:gravity="center_vertical"
+                android:layout_marginTop="12dp">
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="@string/music_vibrate_duration_label"
+                    android:textSize="14sp"
+                    android:textColor="@color/music_text" />
+                <EditText
+                    android:id="@+id/vibrate_duration_input"
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:minHeight="48dp"
+                    android:layout_marginStart="8dp"
+                    android:background="@drawable/bg_card"
+                    android:paddingStart="12dp"
+                    android:paddingEnd="12dp"
+                    android:hint="@string/music_vibrate_duration_hint"
+                    android:textColor="@color/music_text"
+                    android:textColorHint="@color/music_text_sub"
+                    android:textSize="14sp"
+                    android:inputType="number"
+                    android:maxLength="4" />
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginStart="8dp"
+                    android:text="@string/music_vibrate_duration_unit"
+                    android:textSize="14sp"
+                    android:textColor="@color/music_text_sub" />
+                <TextView
+                    android:id="@+id/btn_vibrate_test"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginStart="8dp"
+                    android:gravity="center"
+                    android:text="@string/music_vibrate_test"
+                    android:textSize="14sp"
+                    android:textStyle="bold"
+                    android:textColor="@color/music_accent2"
+                    android:paddingStart="16dp"
+                    android:paddingEnd="16dp"
+                    android:paddingTop="12dp"
+                    android:paddingBottom="12dp"
+                    android:background="?attr/selectableItemBackgroundBorderless" />
+            </LinearLayout>
         </LinearLayout>
 
         <!-- TTS 播报开关（仅在提醒总开关开启时生效）：开 + 有文字 → 每首歌起播时朗读自定义文字 -->
@@ -227,7 +320,7 @@
             </LinearLayout>
         </LinearLayout>
 
-        <!-- 播放列表（仅开启背景音乐时显示）：点列表中某首 = 播放/暂停该首 -->
+        <!-- 播放列表（仅开启「播放歌曲」开关时显示）：点列表中某首 = 播放/暂停该首 -->
         <LinearLayout
             android:id="@+id/tracks_area"
             android:layout_width="match_parent"

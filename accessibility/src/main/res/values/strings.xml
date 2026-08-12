@@ -206,16 +206,22 @@
     <string name="xpq_message_upload_log">是否将当前日志上传,以帮助我们改进服务？</string>
 
     <!-- 音乐模块 -->
-    <string name="music_title">音乐</string>
+    <string name="music_title">强提醒</string>
     <string name="music_bgm_title">提醒总开关</string>
-    <string name="music_bgm_sub">任务失败播放歌曲,提醒及时手动操作
+    <string name="music_bgm_sub">任务失败时强提醒,以便及时手动操作
         \n注意:可能会误播,视情况选择是否开启</string>
-    <string name="music_vibrate_title">播放时震动</string>
-    <string name="music_vibrate_sub">仅提醒总开关开启时生效：播放歌曲时震动手机</string>
+    <string name="music_play_title">播放歌曲</string>
+    <string name="music_play_sub">受总开关控制，与震动、语音提醒相互独立；</string>
+    <string name="music_vibrate_title">震动</string>
+    <string name="music_vibrate_sub">受总开关控制，与播放歌曲、语音提醒相互独立；</string>
+    <string name="music_vibrate_duration_label">震动时长</string>
+    <string name="music_vibrate_duration_hint">留空=默认30秒；0 = 持续震动</string>
+    <string name="music_vibrate_duration_unit">秒</string>
+    <string name="music_vibrate_test">试震</string>
     <string name="music_loop_title">顺序循环</string>
     <string name="music_loop_sub">开启：播完列表最后一首自动回到第一首循环；\n关闭：播完最后一首即停止</string>
     <string name="music_tts_title">自定义语音提醒</string>
-    <string name="music_tts_sub">仅提醒总开关开启时生效</string>
+    <string name="music_tts_sub">受总开关控制，与播放歌曲、震动相互独立（有文字时朗读）</string>
     <string name="music_tts_hint">输入要朗读的文字</string>
     <string name="music_tts_test">试播</string>
     <string name="music_tracks_title">播放列表（长按拖动可排序）</string>

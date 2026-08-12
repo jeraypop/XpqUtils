@@ -55,7 +55,7 @@ object MusicPlayer {
     fun playSaved(tip: String? = null): Boolean {
         if (!MusicStore.isBgmOn()) return false
         val ok = MusicManager.restoreAndPlay()
-        // 起播成功后弹出音乐控制悬浮窗（优先无障碍服务类型），便于一键关闭播放/震动/语音
+        // 起播成功后弹出强提醒控制悬浮窗（优先无障碍服务类型），便于一键关闭播放/震动/语音
         if (ok) MusicControlFloatWindow.show(tip = tip)
         return ok
     }

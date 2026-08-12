@@ -15,6 +15,8 @@ object TTSManager : TextToSpeech.OnInitListener {
 
     private var tts: TextToSpeech? = null
     private var ready = false
+    /** 引擎尚未就绪时暂存待播文字，onInit 成功后补播（解决首次点击不播报）。 */
+    private var pendingText: String? = null
     @JvmOverloads
     @JvmStatic
     fun speak(context: Context = appContext, text: String) {
@@ -25,6 +27,9 @@ object TTSManager : TextToSpeech.OnInitListener {
 
         if (ready) {
             tts?.speak(text, TextToSpeech.QUEUE_FLUSH, null, "time")
+        } else {
+            // 引擎仍在异步初始化：先暂存，待 onInit 成功后再播（连续点击只保留最后一次）
+            pendingText = text
         }
     }
 
@@ -32,6 +37,7 @@ object TTSManager : TextToSpeech.OnInitListener {
     @JvmStatic
     fun stop() {
         try { tts?.stop() } catch (_: Exception) { }
+        pendingText = null
     }
 
     override fun onInit(status: Int) {
@@ -39,6 +45,12 @@ object TTSManager : TextToSpeech.OnInitListener {
         if (status == TextToSpeech.SUCCESS) {
             ready = true
             tts?.language = Locale.CHINA
+            // 初始化完成：若有等待播报的文字，立即补播（首次点击场景）
+            val pending = pendingText
+            pendingText = null
+            if (pending != null) {
+                tts?.speak(pending, TextToSpeech.QUEUE_FLUSH, null, "time")
+            }
         }
     }
 }

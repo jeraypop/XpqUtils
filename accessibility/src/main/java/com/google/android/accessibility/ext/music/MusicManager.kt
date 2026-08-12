@@ -66,6 +66,8 @@ object MusicManager {
     private var pausedByFocusLoss = false
     /** 准备过程中若需暂停（焦点丢失 / 用户中途暂停），准备完成后保持暂停、不要自动开播 */
     private var wantPauseWhenReady = false
+    // 本次播放是否带「震动/TTS 伴随」：外部入口（playSaved/play）默认带；列表直接 play 传 false 只出声
+    private var accompanyOnPlay = true
     /** 焦点变化监听器（复用同一实例） */
     private val focusChangeListener = AudioManager.OnAudioFocusChangeListener { focus ->
         when (focus) {
@@ -124,18 +126,24 @@ object MusicManager {
         startProgress()
         setState(PlayState.PLAYING)
         lastError = null
-        startVibrateIfNeeded() // 播放开关与「播放时震动」均开启时，启动循环震动（来电式节奏）
-        speakTtsIfNeeded() // 提醒总开关与「TTS 播报」均开启、且有文字时，朗读自定义文字
+        // 震动/TTS 伴随仅在「外部播放」带；列表的 play 传 accompanyOnPlay=false 时不触发，只出声
+        if (accompanyOnPlay) {
+            startVibrateIfNeeded() // 播放开关与「播放时震动」均开启时，启动循环震动（来电式节奏）
+            speakTtsIfNeeded() // 提醒总开关与「TTS 播报」均开启、且有文字时，朗读自定义文字
+        }
         Log.d(TAG, "onPrepared -> start, idx=$currentIndex")
     }
 
-    // 播放时震动（来电式节奏，循环持续到暂停/停止/播完）
+    // 震动（来电式节奏，循环持续）：是否震动只由「总开关 + 震动开关」的设置决定，与歌曲播放生命周期解耦
     private var vibrator: Vibrator? = null
     private var vibrating = false
     /** 来电式震动节奏（ms）：静0 / 震250 / 停120 / 震250 / 停780，循环 → “嗡-嗡 … 嗡-嗡” */
     private val CALL_VIBRATE_PATTERN = longArrayOf(0, 250, 120, 250, 780)
+    /** 到时自动停震的任务（按自定义震动时长） */
+    private val vibrateStopRunnable = Runnable { stopVibrate() }
 
-    /** 起播即启动循环震动（仅当「播放开关」与「播放时震动」均开启）；已在震动则忽略，保证切歌/续播无缝连续 */
+    /** 起播即启动循环震动（仅当「播放开关」与「播放时震动」均开启）；已在震动则忽略，保证切歌/续播无缝连续。
+     *  按「震动时长」设置：0 = 持续循环；>0 = 震动该秒数后自动停止。 */
     private fun startVibrateIfNeeded() {
         if (!MusicStore.isBgmOn() || !MusicStore.isVibrateOn()) return
         if (vibrator == null) {
@@ -153,28 +161,66 @@ object MusicManager {
             }
         } catch (_: Exception) {
             vibrating = false
+            return
         }
+        // 按自定义时长安排自动停止（0 = 持续，不安排）
+        val durSec = MusicStore.getVibrateDuration()
+        handler.removeCallbacks(vibrateStopRunnable)
+        if (durSec > 0) handler.postDelayed(vibrateStopRunnable, durSec * 1000L)
     }
 
-    /** 停止循环震动（暂停 / 停止 / 播完时调用） */
+    /** 强制停止循环震动，并取消「到时自动停止」的任务 */
     private fun stopVibrate() {
+        handler.removeCallbacks(vibrateStopRunnable)
         if (!vibrating) return
         vibrating = false
         try { vibrator?.cancel() } catch (_: Exception) { }
     }
 
-    /** 外部（UI 震动开关）在播放过程中改变设置时调用：关闭 → 立即停震；开启 → 正在播放则立即开始震 */
-    fun onVibrateSettingChanged(on: Boolean) {
-        if (on) {
-            if (state == PlayState.PLAYING) startVibrateIfNeeded()
-        } else {
-            stopVibrate()
-        }
+    /**
+     * 根据当前设置同步震动状态：总开关开 且 震动开关开 → 持续震动（即使未播放歌曲）；否则停止。
+     * 供开关 / 总开关变化、外部 playSaved、以及歌曲起播 / 暂停 / 停止 / 播完时调用，
+     * 使震动只跟随「设置」、与歌曲播放生命周期解耦（即：没播歌时开震动开关也会震）。
+     */
+    fun syncVibrateFromSettings() {
+        if (MusicStore.isBgmOn() && MusicStore.isVibrateOn()) startVibrateIfNeeded() else stopVibrate()
     }
 
-    /** 外部（UI TTS 开关）改变设置时调用：开启 → 立即朗读自定义文字（即使歌曲列表为空，只要提醒总开关开启且有文字）；关闭 → 立即停读 */
-    fun onTtsSettingChanged(on: Boolean) {
-        if (on) speakTtsIfNeeded() else stopTts()
+    /**
+     * 震动时长被修改后立即按新时长「重来」：仅在当前正在震动时生效（重新读取最新时长并安排自动停止）。
+     * 不在震动时调用无副作用（不主动开启震动，保持与设置解耦的语义）。
+     */
+    fun restartVibrate() {
+        if (!vibrating) return
+        stopVibrate()
+        startVibrateIfNeeded()
+    }
+
+    /**
+     * 测试震动（类似 TTS「试播」）：不依赖震动开关 / 任何设置，仅按传入时长触发一次来电式震动，用于试手感。
+     * 不受「总开关 + 震动开关」门控；界面由「试震」按钮调用（该按钮在提醒总开关关闭时已置灰）。
+     * @param durSec 震动秒数；0 = 持续循环（同「持续震动」语义，由用户自行停止）
+     */
+    fun testVibrate(durSec: Int) {
+        stopVibrate()
+        if (vibrator == null) {
+            vibrator = appContext.getSystemService(Context.VIBRATOR_SERVICE) as? Vibrator
+        }
+        val v = vibrator ?: return
+        vibrating = true
+        try {
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                v.vibrate(VibrationEffect.createWaveform(CALL_VIBRATE_PATTERN, 0))
+            } else {
+                @Suppress("DEPRECATION")
+                v.vibrate(CALL_VIBRATE_PATTERN, 0)
+            }
+        } catch (_: Exception) {
+            vibrating = false
+            return
+        }
+        handler.removeCallbacks(vibrateStopRunnable)
+        if (durSec > 0) handler.postDelayed(vibrateStopRunnable, durSec * 1000L)
     }
 
     // 播放时 TTS 播报自定义文字（仅当「提醒总开关」与「TTS 播报」均开启、且文字非空）
@@ -204,7 +250,7 @@ object MusicManager {
         val msg = "播放失败：格式或源不支持 (what=$what extra=$extra)"
         Log.e(TAG, "$msg src=${song?.src}")
         lastError = msg
-        listeners.forEach { it.onMusicError(msg) }
+        notifyListeners { onMusicError(msg) }
         // 当前曲目出错：跳到下一首，避免卡死；仅一首则停止
         if (playlist.size > 1) {
             play(if (currentIndex < playlist.size - 1) currentIndex + 1 else 0)
@@ -239,10 +285,24 @@ object MusicManager {
     }
 
     // ---------- 监听器 ----------
+    /**
+     * 统一在主线程通知所有 listener，避免「子线程调用 playSaved 等」时直接触发 UI 回调而崩溃。
+     * 遍历前拷贝快照（toList）并加锁，防止并发增删导致 ConcurrentModificationException。
+     */
+    private fun notifyListeners(action: MusicListener.() -> Unit) {
+        val snapshot = synchronized(listeners) { listeners.toList() }
+        handler.post {
+            snapshot.forEach { it.action() }
+        }
+    }
+
     fun addListener(l: MusicListener) {
         listeners.add(l)
-        l.onMusicState(state, currentIndex)
-        l.onMusicPlaylist(playlist, currentIndex)
+        // 初始化回调也切到主线程，避免子线程注册 listener 时触发 UI 崩溃
+        handler.post {
+            l.onMusicState(state, currentIndex)
+            l.onMusicPlaylist(playlist, currentIndex)
+        }
     }
 
     fun removeListener(l: MusicListener) {
@@ -255,7 +315,7 @@ object MusicManager {
         if (state == s && !indexChanged) return
         state = s
         notifiedIndex = currentIndex
-        listeners.forEach { it.onMusicState(s, currentIndex) }
+        notifyListeners { onMusicState(s, currentIndex) }
         if (s != PlayState.PLAYING) handler.removeCallbacks(progressRunnable)
     }
 
@@ -275,7 +335,7 @@ object MusicManager {
         val idx = if (list.isEmpty()) -1 else startIndex.coerceIn(0, list.size - 1)
         currentIndex = idx
         MusicStore.setPlayIndex(idx.coerceAtLeast(0))
-        listeners.forEach { it.onMusicPlaylist(list, idx) }
+        notifyListeners { onMusicPlaylist(list, idx) }
     }
 
     /** 判定是否为同一首歌：在线按 URL、本地按 content:// URI，与歌名无关 */
@@ -290,7 +350,7 @@ object MusicManager {
         loadPlaylist(playlist + incoming, startIdx)
     }
 
-    fun removeAt(index: Int) {
+    fun removeAt(index: Int, accompany: Boolean = false) {
         if (index < 0 || index >= playlist.size) return
         val wasPlaying = index == currentIndex
         val list = playlist.toMutableList().apply { removeAt(index) }
@@ -302,7 +362,9 @@ object MusicManager {
         }
         loadPlaylist(list, newIdx)
         if (wasPlaying) {
-            if (list.isNotEmpty() && state != PlayState.IDLE) play(newIdx) else stop()
+            // 列表删除是纯管理操作：即使删掉正在播放的歌，也不触发震动/TTS 伴随
+            if (list.isNotEmpty() && state != PlayState.IDLE) play(newIdx, accompany)
+            else stop(stopVibrate = accompany) // 删到空：仅停播放；列表删除(accompany=false)不改动震动状态
         }
     }
 
@@ -327,13 +389,19 @@ object MusicManager {
     }
 
     // ---------- 播放控制 ----------
-    fun play(index: Int) {
+    fun play(index: Int, accompany: Boolean = true) {
+        accompanyOnPlay = accompany
+        if (!accompany) {
+            // 列表模式：只播放歌曲。进入即清除任何残留的震动/TTS 伴随，保证列表维度纯净。
+            stopTts()
+            stopVibrate()
+        }
         if (playlist.isEmpty()) return
         val idx = index.coerceIn(0, playlist.size - 1)
         currentIndex = idx
         MusicStore.setPlayIndex(idx)
         // 立即通知 UI 当前曲目已切换（即便播放状态字符串未变），避免切歌后控件错位
-        listeners.forEach { it.onMusicState(state, currentIndex) }
+        notifyListeners { onMusicState(state, currentIndex) }
         val song = playlist[idx]
         lastError = null
         // 在线歌曲未缓存：先下载到本地再播。
@@ -342,7 +410,7 @@ object MusicManager {
         // 下载到本地后走本地文件解码最稳妥，也契合「首次下载、之后离线」的设计。
         if (song.source == SongSource.ONLINE && !song.file.isNullOrEmpty() && !MusicCache.hasCached(song.file!!)) {
             updateState(song, SongCacheState.LOADING)
-            listeners.forEach { it.onMusicPlaylist(playlist, idx) }
+            notifyListeners { onMusicPlaylist(playlist, idx) }
             MusicCache.cacheAsync(song) { ok ->
                 if (ok) {
                     Log.d(TAG, "cache done, play local: ${song.file}")
@@ -371,7 +439,7 @@ object MusicManager {
         pendingSeek = seekToMs
         preparing = true
         MusicStore.save(playlist)
-        listeners.forEach { it.onMusicPlaylist(playlist, currentIndex) }
+        notifyListeners { onMusicPlaylist(playlist, currentIndex) }
         Log.d(TAG, "prepareAndPlay idx=$currentIndex uri=$uri scheme=${uri.scheme} seek=$seekToMs")
         try {
             if (uri.scheme == "http" || uri.scheme == "https") {
@@ -389,7 +457,8 @@ object MusicManager {
 
     fun playList(list: List<Song>, startIndex: Int = 0) {
         loadPlaylist(list, startIndex)
-        play(startIndex)
+        // 「播放歌曲」开关受提醒总开关控制：仅开启才真正播歌；否则不播歌，但按各自开关独立触发（TTS 朗读 / 震动）
+        if (MusicStore.isPlayMusicOn()) play(startIndex) else { speakTtsIfNeeded(); syncVibrateFromSettings() }
     }
 
     /**
@@ -400,18 +469,25 @@ object MusicManager {
     fun restoreAndPlay(): Boolean {
         // 内存中已有歌单（如界面打开过）：按已存序号直接起播
         if (playlist.isNotEmpty()) {
-            play(MusicStore.getPlayIndex().coerceIn(0, playlist.size - 1))
+            if (MusicStore.isPlayMusicOn()) {
+                play(MusicStore.getPlayIndex().coerceIn(0, playlist.size - 1))
+            } else {
+                // 不播歌，但按各自开关独立触发（TTS 朗读 + 震动）
+                speakTtsIfNeeded()
+                syncVibrateFromSettings()
+            }
             return true
         }
         val saved = MusicStore.load()
         if (saved.isEmpty()) {
-            // 空歌单：若 TTS 播报开启且有文字，仍朗读自定义文字（即使没有歌）
+            // 空歌单：若 TTS 播报开启且有文字，仍朗读自定义文字；震动按设置独立触发（即使没有歌）
             speakTtsIfNeeded()
+            syncVibrateFromSettings()
             return true
         }
         val idx = MusicStore.getPlayIndex().coerceIn(0, saved.size - 1)
         loadPlaylist(saved, idx)
-        play(idx)
+        if (MusicStore.isPlayMusicOn()) play(idx) else { speakTtsIfNeeded(); syncVibrateFromSettings() }
         return true
     }
 
@@ -423,16 +499,27 @@ object MusicManager {
         }
     }
 
-    fun pause() {
-        internalPause()
+    /** 用户主动暂停（列表或外部）。
+     *  @param accompany false=列表暂停：只管歌曲暂停，不牵扯震动/TTS（符合"列表只播放歌曲"）；
+     *                   true（默认）=外部播放暂停：保持原语义——语音跟随播放停止、震动按设置保留。 */
+    fun pause(accompany: Boolean = true) {
+        internalPause(accompany)
         abandonAudioFocus() // 用户主动暂停：释放音频焦点，避免长期占用
     }
 
     /** 仅暂停播放（不释放播放器、不放弃焦点），供音频焦点丢失 / 系统中断时调用。
-     *  若正处于准备阶段，则标记「准备完成后保持暂停」，避免在这里动 player 破坏 prepare。 */
-    private fun internalPause() {
-        stopVibrate()
-        stopTts()
+     *  若正处于准备阶段，则标记「准备完成后保持暂停」，避免在这里动 player 破坏 prepare。
+     *  @param accompany true=外部模式（暂停时语音停、震动按设置保留）；false=列表模式（暂停时一并停掉震动/TTS）。 */
+    private fun internalPause(accompany: Boolean = true) {
+        if (accompany) {
+            // 外部模式：语音播报跟随播放停止；震动按设置保留（与歌曲解耦，设置仍开则继续震）。
+            stopTts()
+            syncVibrateFromSettings()
+        } else {
+            // 列表模式：只暂停歌曲，不触碰设置，连残留的震动/TTS 也一并停下，保持列表纯净。
+            stopTts()
+            stopVibrate()
+        }
         if (preparing) {
             wantPauseWhenReady = true
             handler.removeCallbacks(progressRunnable)
@@ -449,14 +536,18 @@ object MusicManager {
     }
 
     fun resume() {
+        accompanyOnPlay = false // 列表续播只出声，不触发震动/TTS 伴随
         if (playlist.isEmpty()) return
-        if (currentIndex < 0) { play(0); return }
+        if (currentIndex < 0) { play(0, accompany = false); return }
         // 续播：重建干净实例并从暂停位置 seek 继续（最可靠，本地/缓存几乎瞬时）
         prepareAndPlay(playlist[currentIndex.coerceAtLeast(0)], seekToMs = pausedPosition)
     }
 
-    fun stop() {
-        stopVibrate()
+    fun stop(stopVibrate: Boolean = true) {
+        // 歌曲停止：语音播报也停；震动按 stopVibrate 决定 ——
+        // 默认(=true)按「设置」同步（设置仍开则继续震，即与歌曲解耦）；
+        // 列表删除等纯管理操作传 false，则不改动震动状态（既不新起也不停）。
+        if (stopVibrate) syncVibrateFromSettings()
         stopTts()
         try {
             player?.let { it.stop(); it.reset() }
@@ -470,7 +561,17 @@ object MusicManager {
         wantPauseWhenReady = false
         handler.removeCallbacks(progressRunnable)
         setState(PlayState.IDLE)
-        listeners.forEach { it.onMusicState(PlayState.IDLE, -1) }
+        notifyListeners { onMusicState(PlayState.IDLE, -1) }
+    }
+
+    /**
+     * 彻底停止一切（歌曲 / 震动 / 语音），用于悬浮窗「停止全部」；**不修改任何设置开关**。
+     * 与 [stop] 的区别：无论设置如何都强制停震、停 TTS（[stop] 在设置仍开时会按设置保留震动）。
+     */
+    fun stopEverything() {
+        stop()        // 停播放（内部按当前设置同步震动）
+        stopVibrate() // 强制停震（即使震动开关仍开）
+        stopTts()     // 强制停 TTS
     }
 
     fun next() {
@@ -511,7 +612,7 @@ object MusicManager {
         if (cur.state == st) return
         playlist = playlist.toMutableList().apply { this[idx] = cur.copy(state = st) }
         MusicStore.save(playlist)
-        listeners.forEach { it.onMusicPlaylist(playlist, currentIndex) }
+        notifyListeners { onMusicPlaylist(playlist, currentIndex) }
     }
 
     // ---------- 音频焦点 ----------

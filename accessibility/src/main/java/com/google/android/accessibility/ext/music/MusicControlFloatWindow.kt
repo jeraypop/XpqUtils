@@ -6,6 +6,8 @@ import android.content.Intent
 import android.graphics.PixelFormat
 import android.net.Uri
 import android.os.Build
+import android.os.Handler
+import android.os.Looper
 import android.provider.Settings
 import android.util.Log
 import android.view.Gravity
@@ -20,8 +22,9 @@ import com.google.android.accessibility.ext.utils.LibCtxProvider.Companion.appCo
 import com.google.android.accessibility.selecttospeak.SelectToSpeakServiceAbstract
 
 /**
- * 音乐控制悬浮窗：外部调用 [MusicPlayer.playSaved] 起播后弹出，提供一键关闭
- * 「歌曲播放 / 震动 / 自定义语音播报」三个开关，以及一个关闭按钮。
+ * 强提醒控制悬浮窗：外部调用 [MusicPlayer.playSaved] 起播后弹出。
+ * 窗内仅一个「停止全部」按钮：点击即停止歌曲播放、震动、自定义语音播报三者，
+ * **但不修改设置界面的任何开关**（开关状态保持原样）。
  *
  * 窗口类型优先使用无障碍服务类型 [WindowManager.LayoutParams.TYPE_ACCESSIBILITY_OVERLAY]
  * （由无障碍服务实例持有，无需 SYSTEM_ALERT_WINDOW 权限）；当无障碍服务不可用（instance 为 null）
@@ -30,10 +33,6 @@ import com.google.android.accessibility.selecttospeak.SelectToSpeakServiceAbstra
 object MusicControlFloatWindow {
 
     private const val TAG = "MusicControlFloatWindow"
-    private const val ON_COLOR = 0xFFF6D36B.toInt()   // music_accent 金
-    private const val ON_TEXT = 0xFF1A1A1A.toInt()
-    private const val OFF_COLOR = 0xFF4A4A4A.toInt()
-    private const val OFF_TEXT = 0xFFFFFFFF.toInt()
 
     private var windowManager: WindowManager? = null
     private var floatingView: View? = null
@@ -54,6 +53,12 @@ object MusicControlFloatWindow {
         accessibilityService: AccessibilityService? = SelectToSpeakServiceAbstract.instance,
         tip: String? = null
     ) {
+        // 悬浮窗的 inflate / addView / toast 必须在主线程执行；子线程调用时自动切到主线程，
+        // 避免 WindowManager.addView 在子线程抛 "Can't create handler..."（其 catch 内的 toast 也会二次崩溃）。
+        if (Looper.myLooper() != Looper.getMainLooper()) {
+            Handler(Looper.getMainLooper()).post { show(accessibilityService, tip) }
+            return
+        }
         this.tip = tip?.trim()?.takeIf { it.isNotEmpty() }
         if (floatingView != null) {
             refresh()
@@ -93,24 +98,18 @@ object MusicControlFloatWindow {
             y = (screenH * 0.12f).toInt().coerceAtLeast(0)
         }
 
-        b.btnClose.setOnClickListener { hide() }
-        b.btnPlayToggle.setOnClickListener { togglePlay() }
-        b.btnVibrateToggle.setOnClickListener { toggleVibrate() }
-        b.btnTtsToggle.setOnClickListener { toggleTts() }
+        b.btnStopAll.setOnClickListener { stopAll() }
         b.root.setOnTouchListener(
             DragTouchListener(windowManager, layoutParams, screenW, screenH)
         )
 
-        // 监听播放状态，保持「歌曲播放」按钮与实际播放同步
-        MusicManager.addListener(stateListener)
-
-        refresh()
+        refreshTip()
         try {
             windowManager?.addView(floatingView, layoutParams)
             Log.i(TAG, "悬浮窗显示，type=$windowType")
         } catch (e: Exception) {
             Log.e(TAG, "显示悬浮窗失败: ${e.message}")
-            AliveUtils.toast(msg = "音乐控制悬浮窗显示失败：${e.message}")
+            AliveUtils.toast(msg = "强提醒控制悬浮窗显示失败：${e.message}")
             cleanup()
         }
     }
@@ -124,7 +123,7 @@ object MusicControlFloatWindow {
             if (Settings.canDrawOverlays(ctx)) {
                 WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY
             } else {
-                AliveUtils.toast(msg = "请开启悬浮窗权限以显示音乐控制面板")
+                AliveUtils.toast(msg = "请开启悬浮窗权限以显示强提醒控制面板")
                 requestOverlayPermission(ctx)
                 null
             }
@@ -142,19 +141,9 @@ object MusicControlFloatWindow {
         try { ctx.startActivity(intent) } catch (_: Exception) { }
     }
 
-    private val stateListener = object : MusicManager.MusicListener {
-        override fun onMusicState(state: MusicManager.PlayState, index: Int) = refreshPlay()
-        override fun onMusicProgress(positionMs: Long, durationMs: Long) {}
-        override fun onMusicPlaylist(list: List<Song>, index: Int) {}
-        override fun onMusicError(message: String) {}
-    }
-
-    /** 刷新三个开关与提示文字的显示状态 */
+    /** 刷新提示文字的显示状态 */
     private fun refresh() {
         refreshTip()
-        refreshPlay()
-        refreshVibrate()
-        refreshTts()
     }
 
     /** 顶部居中提示：有文字则显示，否则隐藏该行 */
@@ -170,57 +159,11 @@ object MusicControlFloatWindow {
         }
     }
 
-    private fun refreshPlay() {
-        val playing = MusicManager.getState() == MusicManager.PlayState.PLAYING
-        binding?.btnPlayToggle?.apply {
-            text = if (playing) "开" else "关"
-            setBackgroundColor(if (playing) ON_COLOR else OFF_COLOR)
-            setTextColor(if (playing) ON_TEXT else OFF_TEXT)
-        }
-    }
-
-    private fun refreshVibrate() {
-        val on = MusicStore.isVibrateOn()
-        binding?.btnVibrateToggle?.apply {
-            text = if (on) "开" else "关"
-            setBackgroundColor(if (on) ON_COLOR else OFF_COLOR)
-            setTextColor(if (on) ON_TEXT else OFF_TEXT)
-        }
-    }
-
-    private fun refreshTts() {
-        val on = MusicStore.isTtsOn()
-        binding?.btnTtsToggle?.apply {
-            text = if (on) "开" else "关"
-            setBackgroundColor(if (on) ON_COLOR else OFF_COLOR)
-            setTextColor(if (on) ON_TEXT else OFF_TEXT)
-        }
-    }
-
-    /** 歌曲播放：开→停止；关且歌单非空→续播/起播 */
-    private fun togglePlay() {
-        if (MusicManager.getState() == MusicManager.PlayState.PLAYING) {
-            MusicManager.stop()
-        } else if (MusicManager.getPlaylist().isNotEmpty()) {
-            MusicManager.resume()
-        }
-        refreshPlay()
-    }
-
-    /** 震动：切换开关并立即生效 */
-    private fun toggleVibrate() {
-        val on = !MusicStore.isVibrateOn()
-        MusicStore.setVibrateOn(on)
-        MusicManager.onVibrateSettingChanged(on)
-        refreshVibrate()
-    }
-
-    /** 自定义语音播报：切换开关并立即生效 */
-    private fun toggleTts() {
-        val on = !MusicStore.isTtsOn()
-        MusicStore.setTtsOn(on)
-        MusicManager.onTtsSettingChanged(on)
-        refreshTts()
+    /** 一键停止：歌曲播放 / 震动 / 自定义语音播报全部停止，但不修改设置界面的开关；停止后关闭悬浮窗 */
+    private fun stopAll() {
+        // stopEverything() 强制停掉播放 / 震动 / TTS，但绝不改动任何 MusicStore 偏好（开关保持原样）
+        MusicManager.stopEverything()
+        hide()
     }
 
     /** 关闭并移除悬浮窗 */
@@ -232,7 +175,6 @@ object MusicControlFloatWindow {
     }
 
     private fun cleanup() {
-        MusicManager.removeListener(stateListener)
         floatingView = null
         binding = null
         layoutParams = null

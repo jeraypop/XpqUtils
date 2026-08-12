@@ -13,7 +13,9 @@ object MusicStore {
     private const val PREFS = "xpq_music"
     private const val KEY_PLAYLIST = "playlist"
     private const val KEY_BGM_ON = "bgm_on"
+    private const val KEY_PLAY_ON = "play_on"
     private const val KEY_VIBRATE_ON = "vibrate_on"
+    private const val KEY_VIBRATE_DURATION = "vibrate_duration" // 震动时长（秒）；0 = 持续循环；默认 30 秒
     private const val KEY_LOOP_ON = "loop_on"
     private const val KEY_TTS_ON = "tts_on"
     private const val KEY_TTS_TEXT = "tts_text"
@@ -60,6 +62,21 @@ object MusicStore {
         }
     }
 
+    /** 播放歌曲偏好（受提醒总开关控制；开启后外部/自动播放才会播放歌曲，与震动、语音提醒相互独立） */
+    fun isPlayMusicOn(): Boolean =
+        try {
+            appContext.getSharedPreferences(PREFS, Context.MODE_PRIVATE).getBoolean(KEY_PLAY_ON, false)
+        } catch (_: Exception) {
+            false
+        }
+
+    fun setPlayMusicOn(on: Boolean) {
+        try {
+            appContext.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit().putBoolean(KEY_PLAY_ON, on).apply()
+        } catch (_: Exception) {
+        }
+    }
+
     /** 播放时震动偏好（仅在播放开关开启时生效） */
     fun isVibrateOn(): Boolean =
         try {
@@ -71,6 +88,21 @@ object MusicStore {
     fun setVibrateOn(on: Boolean) {
         try {
             appContext.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit().putBoolean(KEY_VIBRATE_ON, on).apply()
+        } catch (_: Exception) {
+        }
+    }
+
+    /** 震动时长（秒）：0 = 持续循环震动；>0 = 触发后按该时长震动再自动停止（默认 30） */
+    fun getVibrateDuration(): Int =
+        try {
+            appContext.getSharedPreferences(PREFS, Context.MODE_PRIVATE).getInt(KEY_VIBRATE_DURATION, 30).coerceAtLeast(0)
+        } catch (_: Exception) {
+            30
+        }
+
+    fun setVibrateDuration(sec: Int) {
+        try {
+            appContext.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit().putInt(KEY_VIBRATE_DURATION, sec.coerceAtLeast(0)).apply()
         } catch (_: Exception) {
         }
     }

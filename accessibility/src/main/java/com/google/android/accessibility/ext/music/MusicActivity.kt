@@ -33,7 +33,10 @@ class MusicActivity : XpqBaseActivity<ViewBinding>(layoutId = R.layout.activity_
     MusicManager.MusicListener {
 
     private lateinit var switch: SwitchCompat
+    private lateinit var playSwitch: SwitchCompat
     private lateinit var vibrateSwitch: SwitchCompat
+    private lateinit var vibrateDurationInput: EditText
+    private lateinit var vibrateTestBtn: View
     private lateinit var loopSwitch: SwitchCompat
     private lateinit var ttsSwitch: SwitchCompat
     private lateinit var ttsInput: EditText
@@ -71,7 +74,14 @@ class MusicActivity : XpqBaseActivity<ViewBinding>(layoutId = R.layout.activity_
 
     override fun initView_Xpq() {
         switch = findViewById(R.id.music_switch)
+        playSwitch = findViewById(R.id.music_play_switch)
         vibrateSwitch = findViewById(R.id.music_vibrate_switch)
+        vibrateDurationInput = findViewById(R.id.vibrate_duration_input)
+        // 试震按钮：按当前时长触发一次震动，不依赖震动开关（与 TTS 试播一致）；提醒总开关关时由 applyBgmVisibility 置灰
+        vibrateTestBtn = findViewById(R.id.btn_vibrate_test)
+        vibrateTestBtn.setOnClickListener {
+            MusicManager.testVibrate(MusicStore.getVibrateDuration())
+        }
         loopSwitch = findViewById(R.id.music_loop_switch)
         ttsSwitch = findViewById(R.id.music_tts_switch)
         ttsInput = findViewById(R.id.tts_text_input)
@@ -79,26 +89,41 @@ class MusicActivity : XpqBaseActivity<ViewBinding>(layoutId = R.layout.activity_
         tracksArea = findViewById(R.id.tracks_area)
         tipText = findViewById(R.id.tv_tip)
 
-        // 播放时震动开关：仅在「播放开关」开启时生效（开=可操作，关=灰掉且无效）
+        // 播放歌曲开关：纯设置，仅持久化；不绑定任何业务逻辑（受提醒总开关控制）。
+        // 播放列表的显示/隐藏由本开关控制（见 applyBgmVisibility）。
+        playSwitch.isChecked = MusicStore.isPlayMusicOn()
+        playSwitch.setOnCheckedChangeListener { _, isOn ->
+            MusicStore.setPlayMusicOn(isOn)
+            applyBgmVisibility() // 播放歌曲开关变化 → 立即切换播放列表显隐
+        }
+
+        // 播放时震动开关：纯设置，仅持久化；开关切换不触发也不停止震动
+        // （musicactivity 只是设置界面，实际震动由播放流程 / “试震”按钮负责）
         vibrateSwitch.isChecked = MusicStore.isVibrateOn()
         vibrateSwitch.setOnCheckedChangeListener { _, isOn ->
             MusicStore.setVibrateOn(isOn)
-            // 播放过程中手动改震动开关：关 → 立即停震；开 → 立即开始震
-            MusicManager.onVibrateSettingChanged(isOn)
         }
+        // 震动时长（秒）：0 = 持续循环；>0 = 按该时长震动后自动停止。纯设置，仅持久化
+        vibrateDurationInput.setText(MusicStore.getVibrateDuration().takeIf { it > 0 }?.toString() ?: "")
+        vibrateDurationInput.addTextChangedListener(object : TextWatcher {
+            override fun beforeTextChanged(s: CharSequence?, start: Int, count: Int, after: Int) = Unit
+            override fun onTextChanged(s: CharSequence?, start: Int, before: Int, count: Int) = Unit
+            override fun afterTextChanged(s: Editable?) {
+                val sec = s?.toString()?.toIntOrNull()?.coerceAtLeast(0) ?: 0
+                MusicStore.setVibrateDuration(sec)
+                // 震动时长变化时，若正在震动则立即按新时长重来
+                MusicManager.restartVibrate()
+            }
+        })
 
-        // 顺序循环开关：仅在「播放开关」开启时可操作
+        // 顺序循环开关：纯设置
         loopSwitch.isChecked = MusicStore.isLoopOn()
         loopSwitch.setOnCheckedChangeListener { _, isOn -> MusicStore.setLoopOn(isOn) }
 
-        // TTS 播报开关 + 自定义文字（仅在「提醒总开关」开启时生效；开 + 有文字 → 每首歌起播时朗读）
+        // 自定义语音提醒开关 + 自定义文字：纯设置，仅持久化；实际朗读在歌曲起播/外部触发时按本开关与总开关决定
         ttsSwitch.isChecked = MusicStore.isTtsOn()
         ttsInput.setText(MusicStore.getTtsText())
-        ttsSwitch.setOnCheckedChangeListener { _, isOn ->
-            MusicStore.setTtsOn(isOn)
-            // 开启 → 立即朗读（即使歌曲列表为空，只要提醒总开关开启且有文字）；关闭 → 立即停止朗读
-            MusicManager.onTtsSettingChanged(isOn)
-        }
+        ttsSwitch.setOnCheckedChangeListener { _, isOn -> MusicStore.setTtsOn(isOn) }
         ttsInput.addTextChangedListener(object : TextWatcher {
             override fun beforeTextChanged(s: CharSequence?, start: Int, count: Int, after: Int) = Unit
             override fun onTextChanged(s: CharSequence?, start: Int, before: Int, count: Int) = Unit
@@ -165,13 +190,14 @@ class MusicActivity : XpqBaseActivity<ViewBinding>(layoutId = R.layout.activity_
         }
         findViewById<View>(R.id.btn_close).setOnClickListener { finish() }
 
+        // 先按持久化状态设置总开关，务必在 attach 监听器之前（否则初始化时 isChecked 变化会触发 onBgmSwitch → 进入界面自动震动）
+        bgmOn = MusicStore.isBgmOn()
+        switch.isChecked = bgmOn
         switch.setOnCheckedChangeListener { _, isOn -> onBgmSwitch(isOn) }
     }
 
     override fun initData_Xpq() {
         MusicManager.addListener(this)
-        bgmOn = MusicStore.isBgmOn()
-        switch.isChecked = bgmOn
         applyBgmVisibility()
 
         val list = MusicStore.load()
@@ -214,6 +240,7 @@ class MusicActivity : XpqBaseActivity<ViewBinding>(layoutId = R.layout.activity_
         MusicStore.setBgmOn(on)
         applyBgmVisibility()
         if (!on) {
+            // 关闭总开关：停止正在进行的歌曲（总闸职责）；开启时仅改设置，不主动触发震动/播放
             MusicManager.stop()
         }
     }
@@ -223,12 +250,17 @@ class MusicActivity : XpqBaseActivity<ViewBinding>(layoutId = R.layout.activity_
         switch.isChecked = on
         MusicStore.setBgmOn(on)
         applyBgmVisibility()
+        // 仅改设置；实际震动由播放流程 / “试震”按钮触发，不在设置界面主动同步
     }
 
     private fun applyBgmVisibility() {
-        tracksArea.visibility = if (bgmOn) View.VISIBLE else View.GONE
-        // 震动 / 循环 / TTS 开关仅在播放开关开启时可操作；关闭时灰掉
+        // 播放列表的显示/隐藏由「播放歌曲」开关控制（开启才显示列表，关闭则隐藏）；其余子开关仍受提醒总开关控制
+        tracksArea.visibility = if (playSwitch.isChecked) View.VISIBLE else View.GONE
+        // 播放歌曲 / 震动 / 循环 / TTS 开关仅在提醒总开关开启时可操作；关闭时灰掉（即“都受总开关控制”）
+        playSwitch.isEnabled = bgmOn
         vibrateSwitch.isEnabled = bgmOn
+        vibrateDurationInput.isEnabled = bgmOn
+        vibrateTestBtn.isEnabled = bgmOn
         loopSwitch.isEnabled = bgmOn
         ttsSwitch.isEnabled = bgmOn
         ttsInput.isEnabled = bgmOn
@@ -245,17 +277,15 @@ class MusicActivity : XpqBaseActivity<ViewBinding>(layoutId = R.layout.activity_
         sheet.show(supportFragmentManager, OnlinePickerBottomSheet.TAG)
     }
 
-    /** 点列表某首歌：当前且正在播 → 暂停；当前且已暂停 → 从原位置继续；否则切到该首播放 */
+    /** 点列表某首歌：当前且正在播 → 暂停；当前且已暂停 → 从原位置继续；否则切到该首播放。
+     *  按钮只控制歌曲的播放/暂停，不牵扯任何设置开关（总开关/播放歌曲开关），也不自动翻转它们。 */
     private fun togglePlayAt(pos: Int) {
         val cur = MusicManager.getCurrentIndex()
         val isCurrent = cur == pos
         when {
-            isCurrent && MusicManager.getState() == MusicManager.PlayState.PLAYING -> MusicManager.pause()
+            isCurrent && MusicManager.getState() == MusicManager.PlayState.PLAYING -> MusicManager.pause(accompany = false) // 列表暂停只管歌曲，不牵扯震动/TTS
             isCurrent && MusicManager.getState() == MusicManager.PlayState.PAUSED -> MusicManager.resume()
-            else -> {
-                if (!bgmOn) setBgmOn(true)
-                MusicManager.play(pos)
-            }
+            else -> MusicManager.play(pos, accompany = false) // 列表只播放歌曲，不触发震动/TTS 伴随
         }
     }
 
