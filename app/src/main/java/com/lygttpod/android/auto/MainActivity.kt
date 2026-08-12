@@ -113,7 +113,7 @@ class MainActivity : XpqBaseActivity<ActivityMainBinding>(
         binding.btnPlaySaved.setOnClickListener{
             // 测试「不打开 MusicActivity 也能播放已保存歌单」：直接调用 MusicPlayer.playSaved
             // 注意：playSaved 受「提醒总开关」控制，总开关关闭时返回 false（不播）
-            val ok = MusicPlayer.playSaved(this@MainActivity)
+            val ok = MusicPlayer.playSaved("测试显示用的文案")
             val msg = if (ok) {
                 "已开始后台播放歌单"
             } else if (MusicStore.isBgmOn()) {

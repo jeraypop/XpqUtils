@@ -43,14 +43,21 @@ object MusicPlayer {
     /**
      * 恢复并播放上次保存的歌单（无需打开 MusicActivity 界面）。
      * 例如：之前在界面里添加过歌曲并退出，之后想直接继续播、又不想再弹界面时使用。
-     * 受「提醒总开关」控制：总开关关闭时返回 false，不播放。
+     * 受「播放总开关」控制：总开关关闭时返回 false，不播放。
      * 若本地无保存歌单（空歌单），但「TTS 播报」开关开启且有自定义文字，仍会朗读该文字。
+     * 起播成功后会弹出音乐控制悬浮窗（优先无障碍服务类型），便于一键关闭播放/震动/语音；
+     * 可在 [tip] 传入一段提示文字，居中显示在悬浮窗顶部。
+     * @param tip 悬浮窗顶部居中提示文字（可空；为空则不显示）
      * @return 是否成功开始（总开关关闭则 false）
      */
     @JvmStatic
-    fun playSaved(context: Context): Boolean {
+    @JvmOverloads
+    fun playSaved(tip: String? = null): Boolean {
         if (!MusicStore.isBgmOn()) return false
-        return MusicManager.restoreAndPlay()
+        val ok = MusicManager.restoreAndPlay()
+        // 起播成功后弹出音乐控制悬浮窗（优先无障碍服务类型），便于一键关闭播放/震动/语音
+        if (ok) MusicControlFloatWindow.show(tip = tip)
+        return ok
     }
 
     /** 停止播放 */
