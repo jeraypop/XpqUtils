@@ -110,6 +110,7 @@ object OverlayLog : AssistsServiceListener {
 
 
     // ---------- 智能线程检测版 show ----------
+    @JvmStatic
     fun show() {
         if (Looper.myLooper() == Looper.getMainLooper()) {
             internalShow()
@@ -132,6 +133,7 @@ object OverlayLog : AssistsServiceListener {
     }
 
     // ---------- 智能线程检测版 hide ----------
+    @JvmStatic
     fun hide() {
         if (Looper.myLooper() == Looper.getMainLooper()) {
             internalHide()

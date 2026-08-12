@@ -14,7 +14,6 @@ import android.view.Gravity
 import android.view.LayoutInflater
 import android.view.MotionEvent
 import android.view.View
-import android.view.View.MeasureSpec
 import android.view.WindowManager
 import com.android.accessibility.ext.databinding.FloatMusicControlBinding
 import com.google.android.accessibility.ext.utils.AliveUtils
@@ -42,6 +41,7 @@ object MusicControlFloatWindow {
     private var tip: String? = null
 
     /** 当前是否正在显示 */
+    @JvmStatic
     fun isShowing(): Boolean = floatingView != null
 
     /**
@@ -49,6 +49,8 @@ object MusicControlFloatWindow {
      * @param accessibilityService 无障碍服务实例；不传则自动取 [SelectToSpeakServiceAbstract.instance]
      * @param tip 顶部居中显示的提示文字；为空或 null 则不显示该提示行
      */
+    @JvmStatic
+    @JvmOverloads
     fun show(
         accessibilityService: AccessibilityService? = SelectToSpeakServiceAbstract.instance,
         tip: String? = null
@@ -79,11 +81,6 @@ object MusicControlFloatWindow {
         val screenW = dm.widthPixels
         val screenH = dm.heightPixels
 
-        // 先量出自然尺寸，便于初始水平居中
-        b.root.measure(MeasureSpec.UNSPECIFIED, MeasureSpec.UNSPECIFIED)
-        val viewW = b.root.measuredWidth
-        val viewH = b.root.measuredHeight
-
         layoutParams = WindowManager.LayoutParams(
             WindowManager.LayoutParams.WRAP_CONTENT,
             WindowManager.LayoutParams.WRAP_CONTENT,
@@ -93,8 +90,11 @@ object MusicControlFloatWindow {
                     or WindowManager.LayoutParams.FLAG_LAYOUT_IN_SCREEN,
             PixelFormat.TRANSLUCENT
         ).apply {
-            gravity = Gravity.TOP or Gravity.START
-            x = if (viewW > 0) kotlin.math.max(0, (screenW - viewW) / 2) else screenW / 2
+            // 用 CENTER_HORIZONTAL 让 WindowManager 自己把窗口水平居中，
+            // 避免 addView 前手动 measure 出的宽度与实际渲染宽度不一致导致偏右。
+            // 此时 x 为「相对屏幕水平中心的偏移」，0 = 水平居中。
+            gravity = Gravity.TOP or Gravity.CENTER_HORIZONTAL
+            x = 0
             y = (screenH * 0.12f).toInt().coerceAtLeast(0)
         }
 
@@ -161,13 +161,21 @@ object MusicControlFloatWindow {
 
     /** 一键停止：歌曲播放 / 震动 / 自定义语音播报全部停止，但不修改设置界面的开关；停止后关闭悬浮窗 */
     private fun stopAll() {
-        // stopEverything() 强制停掉播放 / 震动 / TTS，但绝不改动任何 MusicStore 偏好（开关保持原样）
-        MusicManager.stopEverything()
-        hide()
+        hide(stop = true)
     }
 
-    /** 关闭并移除悬浮窗 */
-    fun hide() {
+    /**
+     * 关闭并移除悬浮窗（可在任意线程调用：子线程自动切主线程执行 removeView）。
+     * @param stop 默认 false = 仅关窗，不影响播放；true = 先强制停止播放/震动/语音（不改动设置开关），再关窗。
+     */
+    @JvmStatic
+    @JvmOverloads
+    fun hide(stop: Boolean = false) {
+        if (Looper.myLooper() != Looper.getMainLooper()) {
+            Handler(Looper.getMainLooper()).post { hide(stop) }
+            return
+        }
+        if (stop) MusicManager.stopEverything() // 强停播放/震动/TTS，但绝不改动任何 MusicStore 偏好（开关保持原样）
         floatingView?.let {
             try { windowManager?.removeView(it) } catch (_: Exception) { }
         }
@@ -208,9 +216,11 @@ object MusicControlFloatWindow {
                         dragging = true
                     }
                     if (dragging) {
-                        val maxX = (screenW - v.width).coerceAtLeast(0)
+                        // CENTER_HORIZONTAL 下 x 为「相对屏幕水平中心的偏移」，0 = 居中，
+                        // 允许范围为 ±(screenW - 实际宽度)/2（贴左/贴右边）。
+                        val halfRangeX = (screenW - v.width).coerceAtLeast(0) / 2
                         val maxY = (screenH - v.height).coerceAtLeast(0)
-                        params.x = (params.x + dx).toInt().coerceIn(0, maxX)
+                        params.x = (params.x + dx).toInt().coerceIn(-halfRangeX, halfRangeX)
                         params.y = (params.y + dy).toInt().coerceIn(0, maxY)
                         wm?.updateViewLayout(v, params)
                         lastX = e.rawX
