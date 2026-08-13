@@ -36,6 +36,7 @@ import kotlinx.coroutines.withContext
 /**
  * 类「灵动岛」顶部悬浮条：订阅 [LogWrapper.logAppendValue]，实时把 [LogWrapper.logAppend]
  * 收到的最新一条消息显示在屏幕指定位置；每次新消息弹出后停留数秒自动消失，期间再来新消息则重置计时。
+ * 消息过滤：仅当消息文本包含关键词"步骤"或"任务"时才显示（设置预览不受影响）。
  *
  * 窗口类型优先使用无障碍服务类型 [WindowManager.LayoutParams.TYPE_ACCESSIBILITY_OVERLAY]
  * （由无障碍服务实例持有，无需 SYSTEM_ALERT_WINDOW 权限）；无障碍服务不可用（instance 为 null）
@@ -54,6 +55,8 @@ object DynamicIslandFloatWindow {
     private const val HORIZONTAL_MARGIN_DP = 12
     /** 预览时显示的示例文字 */
     private const val PREVIEW_TEXT = "这是灵动岛预览效果"
+    /** 关键词过滤：消息包含下列任一关键词时才显示（设置预览不受影响） */
+    private val FILTER_KEYWORDS = listOf("步骤", "任务")
 
     private var enabled = false
     /** 是否处于「设置预览」状态：预览期间不触发自动隐藏，关闭对话框后复原 */
@@ -136,6 +139,7 @@ object DynamicIslandFloatWindow {
 
     private fun update(msg: String) {
         if (!enabled) return
+        if (FILTER_KEYWORDS.none { msg.contains(it) }) return
         ensureWindow() ?: return
         binding?.tvIslandText?.text = withTime(msg)
         // 预览期间不触发自动隐藏，保持可见；非预览才按默认停留后消失
