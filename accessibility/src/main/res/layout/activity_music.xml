@@ -320,6 +320,45 @@
             </LinearLayout>
         </LinearLayout>
 
+        <!-- 灵动岛设置：开关是否启用、调整悬浮窗大小 -->
+        <LinearLayout
+            android:id="@+id/btn_island_settings"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal"
+            android:gravity="center_vertical"
+            android:background="@drawable/bg_card"
+            android:padding="16dp"
+            android:visibility="gone"
+            android:layout_marginTop="12dp">
+            <LinearLayout
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:orientation="vertical">
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="@string/music_island_title"
+                    android:textSize="16sp"
+                    android:textColor="@color/music_text"
+                    android:textStyle="bold" />
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="@string/music_island_sub"
+                    android:textSize="12sp"
+                    android:textColor="@color/music_text_sub"
+                    android:layout_marginTop="4dp" />
+            </LinearLayout>
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="›"
+                android:textSize="22sp"
+                android:textColor="@color/music_text_sub" />
+        </LinearLayout>
+
         <!-- 播放列表（仅开启「播放歌曲」开关时显示）：点列表中某首 = 播放/暂停该首 -->
         <LinearLayout
             android:id="@+id/tracks_area"

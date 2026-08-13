@@ -242,4 +242,8 @@
     <string name="music_empty">暂无歌曲（往 GitLab 的 songs/ 目录上传音频即可）</string>
     <string name="music_preview">试听</string>
 
+    <!-- 灵动岛 -->
+    <string name="music_island_title">日志灵动岛</string>
+    <string name="music_island_sub">顶部实时显示最新日志；</string>
+
 </resources>

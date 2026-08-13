@@ -19,7 +19,10 @@ import androidx.viewbinding.ViewBinding
 import com.android.accessibility.ext.R
 import com.google.android.accessibility.ext.activity.XpqBaseActivity
 import com.google.android.accessibility.baoshi.TTSManager
+import com.google.android.accessibility.ext.utils.AliveUtils.closeTaskHidePlus
+import com.google.android.accessibility.ext.utils.KeyguardUnLock.sendLog
 import com.google.android.accessibility.ext.utils.LibCtxProvider.Companion.appContext
+import com.google.android.accessibility.ext.window.DynamicIslandFloatWindow
 
 /**
  * 音乐选曲界面（仿小程序 mqd-bbx 的选曲体验）：
@@ -177,6 +180,7 @@ class MusicActivity : XpqBaseActivity<ViewBinding>(layoutId = R.layout.activity_
 
         // 按钮
         findViewById<View>(R.id.btn_local).setOnClickListener {
+            closeTaskHidePlus()
             pickLauncher.launch(Intent(Intent.ACTION_OPEN_DOCUMENT).apply {
                 type = "audio/*"
                 putExtra(Intent.EXTRA_ALLOW_MULTIPLE, true)
@@ -189,6 +193,10 @@ class MusicActivity : XpqBaseActivity<ViewBinding>(layoutId = R.layout.activity_
             setBgmOn(false)
         }
         findViewById<View>(R.id.btn_close).setOnClickListener { finish() }
+        // 灵动岛设置：打开设置对话框（开关启用 / 调整悬浮窗宽度与字号，带实时预览）
+        findViewById<View>(R.id.btn_island_settings).setOnClickListener {
+            DynamicIslandFloatWindow.showSettings(this)
+        }
 
         // 先按持久化状态设置总开关，务必在 attach 监听器之前（否则初始化时 isChecked 变化会触发 onBgmSwitch → 进入界面自动震动）
         bgmOn = MusicStore.isBgmOn()

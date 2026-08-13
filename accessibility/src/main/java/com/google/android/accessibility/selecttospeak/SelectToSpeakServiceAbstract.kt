@@ -43,6 +43,7 @@ import com.google.android.accessibility.ext.utils.verificationcode.OtpParser
 import com.google.android.accessibility.ext.utils.verificationcode.OtpSource
 import com.google.android.accessibility.ext.window.AssistsWindowManager
 import com.google.android.accessibility.ext.window.ClickIndicatorManager
+import com.google.android.accessibility.ext.window.DynamicIslandFloatWindow
 import com.google.android.accessibility.ext.window.SwipeTrajectoryIndicatorManager
 import com.google.android.accessibility.notification.AccessibilityNInfo
 import com.google.android.accessibility.notification.AppExecutors
@@ -139,6 +140,9 @@ abstract class SelectToSpeakServiceAbstract : AccessibilityService(),
         accessibilityServiceLiveData.value = this
         AssistsWindowManager.init(this)
         runCatching { listeners.forEach { it.onServiceConnected(this) } }
+
+        // 灵动岛：若开关已开启则自动初始化（受开关控制，关闭则不显示）
+        runCatching { DynamicIslandFloatWindow.autoInit() }
 
 
 
