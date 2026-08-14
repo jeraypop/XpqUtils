@@ -9,8 +9,9 @@
         android:layout_height="wrap_content"
         android:background="@android:color/white"
         android:orientation="vertical"
-        android:padding="20dp">
+        android:padding="16dp">
 
+        <!-- 开关行 -->
         <LinearLayout
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
@@ -21,9 +22,10 @@
                 android:layout_width="0dp"
                 android:layout_height="wrap_content"
                 android:layout_weight="1"
-                android:text="日志灵动岛开关"
+                android:text="启用日志灵动岛"
                 android:textColor="#FF000000"
-                android:textSize="15sp" />
+                android:textSize="16sp"
+                android:textStyle="bold" />
 
             <Switch
                 android:id="@+id/sw_enabled"
@@ -34,107 +36,166 @@
         <TextView
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_marginTop="16dp"
-            android:text="宽度"
-            android:textColor="#FF000000"
-            android:textSize="14sp" />
+            android:layout_marginTop="4dp"
+            android:text="开启后实时显示最新日志；拖动滑块可在屏幕预览"
+            android:textColor="#FF888888"
+            android:textSize="12sp" />
 
+        <View
+            android:layout_width="match_parent"
+            android:layout_height="1px"
+            android:layout_marginTop="12dp"
+            android:background="#FFE0E0E0" />
+
+        <!-- 尺寸（首行还原为「宽度」） -->
         <LinearLayout
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
+            android:layout_marginTop="12dp"
             android:gravity="center_vertical"
             android:orientation="horizontal">
+
+            <TextView
+                android:layout_width="38dp"
+                android:layout_height="wrap_content"
+                android:text="宽度"
+                android:textColor="#FF000000"
+                android:textSize="14sp" />
 
             <SeekBar
                 android:id="@+id/sb_width"
                 android:layout_width="0dp"
                 android:layout_height="wrap_content"
+                android:layout_marginHorizontal="6dp"
                 android:layout_weight="1" />
 
             <TextView
                 android:id="@+id/tv_width_value"
-                android:layout_width="wrap_content"
+                android:layout_width="52dp"
                 android:layout_height="wrap_content"
                 android:gravity="end"
-                android:minWidth="58dp"
                 android:text="300 dp"
                 android:textColor="#FF000000"
-                android:textSize="13sp" />
+                android:textSize="14sp" />
         </LinearLayout>
-
-        <TextView
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:layout_marginTop="16dp"
-            android:text="高度"
-            android:textColor="#FF000000"
-            android:textSize="14sp" />
 
         <LinearLayout
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
+            android:layout_marginTop="10dp"
             android:gravity="center_vertical"
             android:orientation="horizontal">
+
+            <TextView
+                android:layout_width="38dp"
+                android:layout_height="wrap_content"
+                android:text="高度"
+                android:textColor="#FF000000"
+                android:textSize="14sp" />
 
             <SeekBar
                 android:id="@+id/sb_height"
                 android:layout_width="0dp"
                 android:layout_height="wrap_content"
+                android:layout_marginHorizontal="6dp"
                 android:layout_weight="1" />
 
             <TextView
                 android:id="@+id/tv_height_value"
-                android:layout_width="wrap_content"
+                android:layout_width="52dp"
                 android:layout_height="wrap_content"
                 android:gravity="end"
-                android:minWidth="58dp"
                 android:text="44 dp"
                 android:textColor="#FF000000"
-                android:textSize="13sp" />
+                android:textSize="14sp" />
         </LinearLayout>
-
-        <TextView
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:layout_marginTop="16dp"
-            android:text="字号"
-            android:textColor="#FF000000"
-            android:textSize="14sp" />
 
         <LinearLayout
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
+            android:layout_marginTop="10dp"
             android:gravity="center_vertical"
             android:orientation="horizontal">
+
+            <TextView
+                android:layout_width="38dp"
+                android:layout_height="wrap_content"
+                android:text="字号"
+                android:textColor="#FF000000"
+                android:textSize="14sp" />
 
             <SeekBar
                 android:id="@+id/sb_text_size"
                 android:layout_width="0dp"
                 android:layout_height="wrap_content"
+                android:layout_marginHorizontal="6dp"
                 android:layout_weight="1" />
 
             <TextView
                 android:id="@+id/tv_textsize_value"
-                android:layout_width="wrap_content"
+                android:layout_width="52dp"
                 android:layout_height="wrap_content"
                 android:gravity="end"
-                android:minWidth="58dp"
                 android:text="13 sp"
                 android:textColor="#FF000000"
-                android:textSize="13sp" />
+                android:textSize="14sp" />
         </LinearLayout>
 
-        <TextView
+        <View
             android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:layout_marginTop="16dp"
-            android:text="停留时长"
-            android:textColor="#FF000000"
-            android:textSize="14sp" />
+            android:layout_height="1px"
+            android:layout_marginTop="12dp"
+            android:background="#FFE0E0E0" />
 
+        <!-- 显示时长（标题内联到首行） -->
         <LinearLayout
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
+            android:layout_marginTop="12dp"
+            android:gravity="center_vertical"
+            android:orientation="horizontal">
+
+            <TextView
+                android:layout_width="44dp"
+                android:layout_height="wrap_content"
+                android:text="时长"
+                android:textColor="#FF1565C0"
+                android:textSize="14sp"
+                android:textStyle="bold" />
+
+            <RadioGroup
+                android:id="@+id/rg_display_mode"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:orientation="horizontal">
+
+                <RadioButton
+                    android:id="@+id/rb_persistent"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="常驻不消失"
+                    android:textColor="#FF000000"
+                    android:textSize="14sp" />
+
+                <RadioButton
+                    android:id="@+id/rb_timed"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginStart="16dp"
+                    android:text="定时消失"
+                    android:textColor="#FF000000"
+                    android:textSize="14sp" />
+            </RadioGroup>
+        </LinearLayout>
+
+        <!-- 停留时长作为「显示时长」的子项，不再单独占标签 -->
+        <LinearLayout
+            android:id="@+id/layout_duration"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="4dp"
+            android:layout_marginStart="44dp"
             android:gravity="center_vertical"
             android:orientation="horizontal">
 
@@ -142,136 +203,156 @@
                 android:id="@+id/sb_duration"
                 android:layout_width="0dp"
                 android:layout_height="wrap_content"
+                android:layout_marginEnd="10dp"
                 android:layout_weight="1" />
 
             <TextView
                 android:id="@+id/tv_duration_value"
-                android:layout_width="wrap_content"
+                android:layout_width="56dp"
                 android:layout_height="wrap_content"
                 android:gravity="end"
-                android:minWidth="58dp"
                 android:text="3 秒"
                 android:textColor="#FF000000"
-                android:textSize="13sp" />
+                android:textSize="14sp" />
         </LinearLayout>
 
-        <TextView
+        <View
             android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:layout_marginTop="16dp"
-            android:text="垂直位置"
-            android:textColor="#FF000000"
-            android:textSize="14sp" />
+            android:layout_height="1px"
+            android:layout_marginTop="12dp"
+            android:background="#FFE0E0E0" />
 
-        <RadioGroup
-            android:id="@+id/rg_vertical"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:orientation="horizontal">
-
-            <RadioButton
-                android:id="@+id/rb_top"
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:text="顶部"
-                android:textColor="#FF000000"
-                android:textSize="14sp" />
-
-            <RadioButton
-                android:id="@+id/rb_bottom"
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:layout_marginStart="24dp"
-                android:text="底部"
-                android:textColor="#FF000000"
-                android:textSize="14sp" />
-        </RadioGroup>
-
-        <TextView
+        <!-- 位置（顶部/底部 + 居左/居中/居右 合并到一组） -->
+        <LinearLayout
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:layout_marginTop="12dp"
-            android:text="距边缘距离"
-            android:textColor="#FF000000"
-            android:textSize="14sp" />
+            android:gravity="center_vertical"
+            android:orientation="horizontal">
+
+            <TextView
+                android:layout_width="44dp"
+                android:layout_height="wrap_content"
+                android:text="位置"
+                android:textColor="#FF1565C0"
+                android:textSize="14sp"
+                android:textStyle="bold" />
+
+            <RadioGroup
+                android:id="@+id/rg_vertical"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:orientation="horizontal">
+
+                <RadioButton
+                    android:id="@+id/rb_top"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="顶部"
+                    android:textColor="#FF000000"
+                    android:textSize="14sp" />
+
+                <RadioButton
+                    android:id="@+id/rb_bottom"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginStart="20dp"
+                    android:text="底部"
+                    android:textColor="#FF000000"
+                    android:textSize="14sp" />
+            </RadioGroup>
+        </LinearLayout>
 
         <LinearLayout
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
+            android:layout_marginTop="4dp"
             android:gravity="center_vertical"
             android:orientation="horizontal">
+
+            <Space
+                android:layout_width="44dp"
+                android:layout_height="wrap_content" />
+
+            <RadioGroup
+                android:id="@+id/rg_horizontal"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:orientation="horizontal">
+
+                <RadioButton
+                    android:id="@+id/rb_left"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="居左"
+                    android:textColor="#FF000000"
+                    android:textSize="14sp" />
+
+                <RadioButton
+                    android:id="@+id/rb_center"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginStart="14dp"
+                    android:text="居中"
+                    android:textColor="#FF000000"
+                    android:textSize="14sp" />
+
+                <RadioButton
+                    android:id="@+id/rb_right"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginStart="14dp"
+                    android:text="居右"
+                    android:textColor="#FF000000"
+                    android:textSize="14sp" />
+            </RadioGroup>
+        </LinearLayout>
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="4dp"
+            android:gravity="center_vertical"
+            android:orientation="horizontal">
+
+            <TextView
+                android:layout_width="44dp"
+                android:layout_height="wrap_content"
+                android:text="距边"
+                android:textColor="#FF000000"
+                android:textSize="14sp" />
 
             <SeekBar
                 android:id="@+id/sb_vmargin"
                 android:layout_width="0dp"
                 android:layout_height="wrap_content"
+                android:layout_marginHorizontal="10dp"
                 android:layout_weight="1" />
 
             <TextView
                 android:id="@+id/tv_vmargin_value"
-                android:layout_width="wrap_content"
+                android:layout_width="56dp"
                 android:layout_height="wrap_content"
                 android:gravity="end"
-                android:minWidth="58dp"
                 android:text="10 dp"
                 android:textColor="#FF000000"
-                android:textSize="13sp" />
+                android:textSize="14sp" />
         </LinearLayout>
 
-        <TextView
+        <View
             android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:layout_marginTop="16dp"
-            android:text="水平位置"
-            android:textColor="#FF000000"
-            android:textSize="14sp" />
+            android:layout_height="1px"
+            android:layout_marginTop="12dp"
+            android:background="#FFE0E0E0" />
 
-        <RadioGroup
-            android:id="@+id/rg_horizontal"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:orientation="horizontal">
-
-            <RadioButton
-                android:id="@+id/rb_left"
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:text="居左"
-                android:textColor="#FF000000"
-                android:textSize="14sp" />
-
-            <RadioButton
-                android:id="@+id/rb_center"
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:layout_marginStart="18dp"
-                android:text="居中"
-                android:textColor="#FF000000"
-                android:textSize="14sp" />
-
-            <RadioButton
-                android:id="@+id/rb_right"
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:layout_marginStart="18dp"
-                android:text="居右"
-                android:textColor="#FF000000"
-                android:textSize="14sp" />
-        </RadioGroup>
-
-        <TextView
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:layout_marginTop="18dp"
-            android:text="外观"
-            android:textColor="#FF000000"
-            android:textSize="14sp" />
-
+        <!-- 外观（标题内联到首行） -->
         <LinearLayout
             android:id="@+id/row_bg_color"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_marginTop="10dp"
+            android:layout_marginTop="12dp"
             android:gravity="center_vertical"
             android:orientation="horizontal"
             android:paddingVertical="6dp">
@@ -286,8 +367,8 @@
 
             <View
                 android:id="@+id/swatch_bg"
-                android:layout_width="40dp"
-                android:layout_height="24dp"
+                android:layout_width="44dp"
+                android:layout_height="26dp"
                 android:background="#D9000000" />
 
             <TextView
@@ -318,8 +399,8 @@
 
             <View
                 android:id="@+id/swatch_text"
-                android:layout_width="40dp"
-                android:layout_height="24dp"
+                android:layout_width="44dp"
+                android:layout_height="26dp"
                 android:background="#FFFFFF" />
 
             <TextView
@@ -335,16 +416,8 @@
             android:id="@+id/btn_reset_default"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_marginTop="18dp"
+            android:layout_marginTop="16dp"
             android:text="恢复默认"
             android:textSize="14sp" />
-
-        <TextView
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:layout_marginTop="18dp"
-            android:text="开启后，灵动岛实时显示最新运行日志；拖动滑块时可在屏幕预览效果"
-            android:textColor="#FF666666"
-            android:textSize="12sp" />
     </LinearLayout>
 </ScrollView>

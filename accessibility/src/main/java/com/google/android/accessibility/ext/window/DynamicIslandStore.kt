@@ -17,6 +17,7 @@ object DynamicIslandStore {
     private const val KEY_VERTICAL = "island_vertical"
     private const val KEY_VMARGIN_DP = "island_vmargin_dp"
     private const val KEY_HORIZONTAL = "island_horizontal"
+    private const val KEY_PERSISTENT = "island_persistent"
     private const val KEY_BG_COLOR = "island_bg_color"
     private const val KEY_TEXT_COLOR = "island_text_color"
 
@@ -28,7 +29,7 @@ object DynamicIslandStore {
     const val MIN_TEXT_SIZE_SP = 9
     const val MAX_TEXT_SIZE_SP = 24
     const val MIN_DURATION_SEC = 1
-    const val MAX_DURATION_SEC = 10
+    const val MAX_DURATION_SEC = 30
     const val MIN_VMARGIN_DP = 0
     const val MAX_VMARGIN_DP = 200
     /** 背景色默认：半透明黑胶囊 #D9000000 */
@@ -43,6 +44,7 @@ object DynamicIslandStore {
     private const val DEFAULT_VERTICAL = "top"
     private const val DEFAULT_VMARGIN_DP = 10
     private const val DEFAULT_HORIZONTAL = "center"
+    private const val DEFAULT_PERSISTENT = false
     private const val DEFAULT_BG_COLOR_INT = 0xD9000000.toInt()
     private const val DEFAULT_TEXT_COLOR_INT = 0xFFFFFFFF.toInt()
 
@@ -90,6 +92,14 @@ object DynamicIslandStore {
     fun setDurationSec(sec: Int) {
         try { prefs().edit().putInt(KEY_DURATION_SEC, sec.coerceIn(MIN_DURATION_SEC, MAX_DURATION_SEC)).apply() }
         catch (_: Exception) { }
+    }
+
+    /** 是否常驻显示：true 时新消息弹出后不再自动消失，停留在屏幕直到关闭功能 */
+    fun isPersistent(): Boolean =
+        try { prefs().getBoolean(KEY_PERSISTENT, DEFAULT_PERSISTENT) } catch (_: Exception) { DEFAULT_PERSISTENT }
+
+    fun setPersistent(on: Boolean) {
+        try { prefs().edit().putBoolean(KEY_PERSISTENT, on).apply() } catch (_: Exception) { }
     }
 
     /** 垂直位置："top" 贴顶部，"bottom" 贴底部 */
@@ -162,6 +172,7 @@ object DynamicIslandStore {
                 putString(KEY_VERTICAL, DEFAULT_VERTICAL)
                 putInt(KEY_VMARGIN_DP, DEFAULT_VMARGIN_DP)
                 putString(KEY_HORIZONTAL, DEFAULT_HORIZONTAL)
+                putBoolean(KEY_PERSISTENT, DEFAULT_PERSISTENT)
                 putInt(KEY_BG_COLOR, DEFAULT_BG_COLOR_INT)
                 putInt(KEY_TEXT_COLOR, DEFAULT_TEXT_COLOR_INT)
             }.apply()

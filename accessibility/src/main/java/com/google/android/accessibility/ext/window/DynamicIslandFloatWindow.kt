@@ -39,6 +39,7 @@ import kotlinx.coroutines.withContext
 /**
  * 类「灵动岛」顶部悬浮条：订阅 [LogWrapper.logAppendValue]，实时把 [LogWrapper.logAppend]
  * 收到的最新一条消息显示在屏幕指定位置；每次新消息弹出后停留数秒自动消失，期间再来新消息则重置计时。
+ * 停留时长可在 1–30 秒间设置；开启「常驻显示」后新消息不再自动消失。
  * 消息过滤：仅当消息文本包含关键词"步骤"或"任务"时才显示（设置预览不受影响）。
  *
  * 窗口类型优先使用无障碍服务类型 [WindowManager.LayoutParams.TYPE_ACCESSIBILITY_OVERLAY]
@@ -145,8 +146,9 @@ object DynamicIslandFloatWindow {
         if (FILTER_KEYWORDS.none { msg.contains(it) }) return
         ensureWindow() ?: return
         binding?.tvIslandText?.text = withTime(msg)
-        // 预览期间不触发自动隐藏，保持可见；非预览才按默认停留后消失
-        if (!previewing) {
+        // 预览期间不触发自动隐藏，保持可见；常驻模式也不自动隐藏；
+        // 其余情况按停留时长倒计时后消失
+        if (!previewing && !DynamicIslandStore.isPersistent()) {
             handler.removeCallbacks(hideRunnable)
             handler.postDelayed(hideRunnable, DynamicIslandStore.getDurationSec() * 1000L)
         }
@@ -325,6 +327,7 @@ object DynamicIslandFloatWindow {
         var height = DynamicIslandStore.getHeightDp()
         var textSize = DynamicIslandStore.getTextSizeSp()
         var duration = DynamicIslandStore.getDurationSec()
+        var persistent = DynamicIslandStore.isPersistent()
         var vmargin = DynamicIslandStore.getVMarginDp()
 
         b.swEnabled.isChecked = enabledNow
@@ -349,6 +352,10 @@ object DynamicIslandFloatWindow {
         b.tvTextsizeValue.text = "$textSize sp"
         b.tvDurationValue.text = "$duration 秒"
         b.tvVmarginValue.text = "$vmargin dp"
+        // 「显示时长」合并为单选：常驻 / 定时；选常驻时隐藏停留时长滑块
+        if (persistent) b.rgDisplayMode.check(R.id.rb_persistent)
+        else b.rgDisplayMode.check(R.id.rb_timed)
+        b.layoutDuration.visibility = if (persistent) View.GONE else View.VISIBLE
 
         when (DynamicIslandStore.getVertical()) {
             "bottom" -> b.rgVertical.check(R.id.rb_bottom)
@@ -395,6 +402,10 @@ object DynamicIslandFloatWindow {
             b.tvTextsizeValue.text = "$textSize sp"
             b.tvDurationValue.text = "$duration 秒"
             b.tvVmarginValue.text = "$vmargin dp"
+            persistent = DynamicIslandStore.isPersistent()
+            if (persistent) b.rgDisplayMode.check(R.id.rb_persistent)
+            else b.rgDisplayMode.check(R.id.rb_timed)
+            b.layoutDuration.visibility = if (persistent) View.GONE else View.VISIBLE
             if (DynamicIslandStore.getVertical() == "bottom") b.rgVertical.check(R.id.rb_bottom)
             else b.rgVertical.check(R.id.rb_top)
             when (DynamicIslandStore.getHorizontal()) {
@@ -438,6 +449,19 @@ object DynamicIslandFloatWindow {
             DynamicIslandStore.setEnabled(isOn)
             if (isOn) show() else hide()
             if (isOn) previewIsland() else stopPreview()
+        }
+
+        b.rgDisplayMode.setOnCheckedChangeListener { _: RadioGroup?, checkedId: Int ->
+            val isPersistent = checkedId == R.id.rb_persistent
+            persistent = isPersistent
+            DynamicIslandStore.setPersistent(isPersistent)
+            // 选「常驻不消失」时隐藏停留时长滑块；选「定时消失」时恢复
+            b.layoutDuration.visibility = if (isPersistent) View.GONE else View.VISIBLE
+            if (!isPersistent) b.tvDurationValue.text = "$duration 秒"
+            // 开启常驻：取消待执行的隐藏任务，让当前已显示的消息保持可见
+            if (isPersistent && enabledNow && isShowing()) {
+                handler.removeCallbacks(hideRunnable)
+            }
         }
 
         b.sbWidth.setOnSeekBarChangeListener(object : SeekBar.OnSeekBarChangeListener {
