@@ -47,6 +47,7 @@ class MusicActivity : XpqBaseActivity<ViewBinding>(layoutId = R.layout.activity_
     private lateinit var tracksArea: View
     private lateinit var tipText: TextView
     private lateinit var adapter: PlaylistAdapter
+    private lateinit var recycler: RecyclerView
 
     private var bgmOn = false
     private var lastError: String? = null
@@ -151,6 +152,7 @@ class MusicActivity : XpqBaseActivity<ViewBinding>(layoutId = R.layout.activity_
             onDelete = { deleteAt(it) }
         )
         val recycler = findViewById<RecyclerView>(R.id.recycler_playlist)
+        this.recycler = recycler
         recycler.layoutManager = LinearLayoutManager(this)
         recycler.adapter = adapter
 
@@ -234,6 +236,7 @@ class MusicActivity : XpqBaseActivity<ViewBinding>(layoutId = R.layout.activity_
             adapter.submit(list)
             adapter.setCurrent(index, MusicManager.getState() == MusicManager.PlayState.PLAYING)
             updateTip(list, MusicManager.getState())
+            resizePlaylist()
         }
     }
 
@@ -264,6 +267,8 @@ class MusicActivity : XpqBaseActivity<ViewBinding>(layoutId = R.layout.activity_
     private fun applyBgmVisibility() {
         // 播放列表的显示/隐藏由「播放歌曲」开关控制（开启才显示列表，关闭则隐藏）；其余子开关仍受提醒总开关控制
         tracksArea.visibility = if (playSwitch.isChecked) View.VISIBLE else View.GONE
+        // 列表变可见时，重新按项数计算高度（修复 wrap_content RecyclerView 在 ScrollView 中只显示首项的坑）
+        if (playSwitch.isChecked) resizePlaylist()
         // 播放歌曲 / 震动 / 循环 / TTS 开关仅在提醒总开关开启时可操作；关闭时灰掉（即“都受总开关控制”）
         playSwitch.isEnabled = bgmOn
         vibrateSwitch.isEnabled = bgmOn
@@ -299,6 +304,36 @@ class MusicActivity : XpqBaseActivity<ViewBinding>(layoutId = R.layout.activity_
 
     private fun deleteAt(pos: Int) {
         MusicManager.removeAt(pos)
+    }
+
+    /**
+     * 修复：播放列表 RecyclerView 在 ScrollView 内使用 wrap_content 时只会渲染首项（measure 拿到 AT_MOST 高度），
+     * 导致多首歌时除第一首外都「显示不出来」。这里在布局完成后按真实项数计算确切高度，
+     * 由外层 ScrollView 统一滚动，所有歌曲都能正常展示。
+     *
+     * 高度计算不依赖脆弱的「运行时取首行高度」：所有行高一致（由固定 44dp 播放按钮 + 固定 padding/margin 决定，
+     * 与字体缩放无关），优先用已布局首行的真实高度，若此刻尚未布局（post 过早）则回退到固定行高，
+     * 保证任何时机都能算出正确高度，避免列表被误设为 0 而不显示。
+     */
+    private fun resizePlaylist() {
+        recycler.post {
+            val count = adapter.itemCount
+            val lp = recycler.layoutParams
+            if (count <= 0) {
+                lp.height = 0
+                recycler.layoutParams = lp
+                return@post
+            }
+            val fallbackH = (ITEM_HEIGHT_DP * recycler.resources.displayMetrics.density + 0.5f).toInt()
+            val itemH = (recycler.getChildAt(0)?.height ?: fallbackH).coerceAtLeast(fallbackH)
+            lp.height = itemH * count
+            recycler.layoutParams = lp
+        }
+    }
+
+    companion object {
+        /** 单首歌占位的固定高度(dp)：play 按钮 44dp + 上下 padding 14dp*2 + 下间距 10dp，与字体无关 */
+        private const val ITEM_HEIGHT_DP = 82
     }
 
     private fun updateTip(list: List<Song>, state: MusicManager.PlayState) {
