@@ -17,6 +17,8 @@ object DynamicIslandStore {
     private const val KEY_VERTICAL = "island_vertical"
     private const val KEY_VMARGIN_DP = "island_vmargin_dp"
     private const val KEY_HORIZONTAL = "island_horizontal"
+    private const val KEY_BG_COLOR = "island_bg_color"
+    private const val KEY_TEXT_COLOR = "island_text_color"
 
     const val MIN_WIDTH_DP = 120
     /** 存储安全上限；设置界面滑块的实际最大值按设备屏幕宽度动态计算 */
@@ -29,6 +31,10 @@ object DynamicIslandStore {
     const val MAX_DURATION_SEC = 10
     const val MIN_VMARGIN_DP = 0
     const val MAX_VMARGIN_DP = 200
+    /** 背景色默认：半透明黑胶囊 #D9000000 */
+    const val DEFAULT_BG_COLOR = 0xD9000000.toInt()
+    /** 文字颜色默认：白色 */
+    const val DEFAULT_TEXT_COLOR = 0xFFFFFFFF.toInt()
 
     private const val DEFAULT_WIDTH_DP = 300
     private const val DEFAULT_HEIGHT_DP = 44
@@ -37,6 +43,8 @@ object DynamicIslandStore {
     private const val DEFAULT_VERTICAL = "top"
     private const val DEFAULT_VMARGIN_DP = 10
     private const val DEFAULT_HORIZONTAL = "center"
+    private const val DEFAULT_BG_COLOR_INT = 0xD9000000.toInt()
+    private const val DEFAULT_TEXT_COLOR_INT = 0xFFFFFFFF.toInt()
 
     private fun prefs() = appContext.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
 
@@ -124,6 +132,39 @@ object DynamicIslandStore {
                 else -> "center"
             }
             prefs().edit().putString(KEY_HORIZONTAL, v).apply()
+        } catch (_: Exception) { }
+    }
+
+    /** 悬浮窗背景色（ARGB int） */
+    fun getBgColor(): Int =
+        try { prefs().getInt(KEY_BG_COLOR, DEFAULT_BG_COLOR_INT) } catch (_: Exception) { DEFAULT_BG_COLOR_INT }
+
+    fun setBgColor(color: Int) {
+        try { prefs().edit().putInt(KEY_BG_COLOR, color).apply() } catch (_: Exception) { }
+    }
+
+    /** 悬浮窗文字颜色（ARGB int） */
+    fun getTextColor(): Int =
+        try { prefs().getInt(KEY_TEXT_COLOR, DEFAULT_TEXT_COLOR_INT) } catch (_: Exception) { DEFAULT_TEXT_COLOR_INT }
+
+    fun setTextColor(color: Int) {
+        try { prefs().edit().putInt(KEY_TEXT_COLOR, color).apply() } catch (_: Exception) { }
+    }
+
+    /** 恢复默认：除「启用开关」外，重置全部外观/位置/尺寸设置为默认值 */
+    fun resetToDefaults() {
+        try {
+            prefs().edit().apply {
+                putInt(KEY_WIDTH_DP, DEFAULT_WIDTH_DP)
+                putInt(KEY_HEIGHT_DP, DEFAULT_HEIGHT_DP)
+                putInt(KEY_TEXT_SIZE_SP, DEFAULT_TEXT_SIZE_SP)
+                putInt(KEY_DURATION_SEC, DEFAULT_DURATION_SEC)
+                putString(KEY_VERTICAL, DEFAULT_VERTICAL)
+                putInt(KEY_VMARGIN_DP, DEFAULT_VMARGIN_DP)
+                putString(KEY_HORIZONTAL, DEFAULT_HORIZONTAL)
+                putInt(KEY_BG_COLOR, DEFAULT_BG_COLOR_INT)
+                putInt(KEY_TEXT_COLOR, DEFAULT_TEXT_COLOR_INT)
+            }.apply()
         } catch (_: Exception) { }
     }
 }

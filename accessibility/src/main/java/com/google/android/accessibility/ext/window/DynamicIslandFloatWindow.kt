@@ -5,6 +5,7 @@ import android.app.Activity
 import android.content.Context
 import android.content.ContextWrapper
 import android.graphics.PixelFormat
+import android.graphics.drawable.GradientDrawable
 import android.os.Build
 import android.os.Handler
 import android.os.Looper
@@ -17,11 +18,13 @@ import java.util.Date
 import java.util.Locale
 import android.view.LayoutInflater
 import android.view.View
+import android.view.ViewGroup
 import android.view.WindowManager
 import android.widget.RadioGroup
 import android.widget.SeekBar
 import android.app.AlertDialog
 import com.android.accessibility.ext.R
+import com.android.accessibility.ext.databinding.DialogColorPickerBinding
 import com.android.accessibility.ext.databinding.DialogDynamicIslandSettingsBinding
 import com.android.accessibility.ext.databinding.DynamicIslandFloatBinding
 import com.google.android.accessibility.ext.CoroutineWrapper
@@ -45,8 +48,8 @@ import kotlinx.coroutines.withContext
  * 用法：
  * - [show] 启用（开始监听日志，之后自动随日志弹出/隐藏）；
  * - [hide] 彻底关闭（停止监听并移除悬浮窗）；
- * - [showSettings] 弹出设置对话框，可开关该功能，调整悬浮窗的宽度、高度、字号、停留时长，
- *   以及位置（垂直顶/底+距边、水平左/中/右），并带实时预览。
+ * - [showSettings] 弹出设置对话框，可开关该功能，调整悬浮窗的宽度、高度、字号、停留时长、
+ *   位置（垂直顶/底+距边、水平左/中/右）、背景色与文字色，并支持「恢复默认」，带实时预览。
  */
 object DynamicIslandFloatWindow {
 
@@ -168,7 +171,8 @@ object DynamicIslandFloatWindow {
             windowType,
             WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE
                     or WindowManager.LayoutParams.FLAG_NOT_TOUCH_MODAL
-                    or WindowManager.LayoutParams.FLAG_LAYOUT_IN_SCREEN,
+                    or WindowManager.LayoutParams.FLAG_LAYOUT_IN_SCREEN
+                    or WindowManager.LayoutParams.FLAG_LAYOUT_NO_LIMITS,
             PixelFormat.TRANSLUCENT
         ).apply {
             this.gravity = gravity
@@ -183,6 +187,7 @@ object DynamicIslandFloatWindow {
             cleanup()
             return false
         }
+        applyAppearanceToView()
         return true
     }
 
@@ -232,6 +237,20 @@ object DynamicIslandFloatWindow {
         windowManager?.updateViewLayout(b.root, lp)
     }
 
+    /** 把持久化的背景色 / 文字色应用到已显示的悬浮窗（背景用胶囊圆角 drawable） */
+    private fun applyAppearanceToView() {
+        val b = binding ?: return
+        val dm = b.root.resources.displayMetrics
+        val bgColor = DynamicIslandStore.getBgColor()
+        val textColor = DynamicIslandStore.getTextColor()
+        val pill = GradientDrawable()
+        pill.setColor(bgColor)
+        // 圆角取高度一半，保持胶囊形状
+        pill.cornerRadius = (DynamicIslandStore.getHeightDp() * dm.density) / 2f
+        b.root.background = pill
+        b.tvIslandText.setTextColor(textColor)
+    }
+
     /** 在顶部显示一条预览文字并持续可见（不自动隐藏），供设置对话框实时预览 */
     private fun previewIsland(text: String = PREVIEW_TEXT) {
         if (!enabled) return
@@ -239,9 +258,10 @@ object DynamicIslandFloatWindow {
         previewing = true
         handler.removeCallbacks(hideRunnable)
         binding?.tvIslandText?.text = withTime(text)
-        // 确保预览立即反映最新尺寸/位置
+        // 确保预览立即反映最新尺寸/位置/外观
         applySizeToView()
         applyPositionToView()
+        applyAppearanceToView()
     }
 
     /** 结束预览：移除预览窗（保留监听，若已启用则下次真实日志会再次弹出） */
@@ -338,6 +358,57 @@ object DynamicIslandFloatWindow {
             "left" -> b.rgHorizontal.check(R.id.rb_left)
             "right" -> b.rgHorizontal.check(R.id.rb_right)
             else -> b.rgHorizontal.check(R.id.rb_center)
+        }
+
+        // 颜色色块初始化
+        b.swatchBg.setBackgroundColor(DynamicIslandStore.getBgColor())
+        b.swatchText.setBackgroundColor(DynamicIslandStore.getTextColor())
+        b.rowBgColor.setOnClickListener {
+            openColorPicker(context, "背景颜色", DynamicIslandStore.getBgColor()) { c ->
+                DynamicIslandStore.setBgColor(c)
+                b.swatchBg.setBackgroundColor(c)
+                if (isShowing()) applyAppearanceToView()
+            }
+        }
+        b.rowTextColor.setOnClickListener {
+            openColorPicker(context, "文字颜色", DynamicIslandStore.getTextColor()) { c ->
+                DynamicIslandStore.setTextColor(c)
+                b.swatchText.setBackgroundColor(c)
+                if (isShowing()) applyAppearanceToView()
+            }
+        }
+        b.btnResetDefault.setOnClickListener {
+            DynamicIslandStore.resetToDefaults()
+            // 重新读取并刷新所有控件到默认值
+            width = DynamicIslandStore.getWidthDp()
+            height = DynamicIslandStore.getHeightDp()
+            textSize = DynamicIslandStore.getTextSizeSp()
+            duration = DynamicIslandStore.getDurationSec()
+            vmargin = DynamicIslandStore.getVMarginDp()
+            b.sbWidth.progress = (width - DynamicIslandStore.MIN_WIDTH_DP).coerceIn(0, widthMax)
+            b.sbHeight.progress = height - DynamicIslandStore.MIN_HEIGHT_DP
+            b.sbTextSize.progress = textSize - DynamicIslandStore.MIN_TEXT_SIZE_SP
+            b.sbDuration.progress = duration - DynamicIslandStore.MIN_DURATION_SEC
+            b.sbVmargin.progress = vmargin - DynamicIslandStore.MIN_VMARGIN_DP
+            b.tvWidthValue.text = "$width dp"
+            b.tvHeightValue.text = "$height dp"
+            b.tvTextsizeValue.text = "$textSize sp"
+            b.tvDurationValue.text = "$duration 秒"
+            b.tvVmarginValue.text = "$vmargin dp"
+            if (DynamicIslandStore.getVertical() == "bottom") b.rgVertical.check(R.id.rb_bottom)
+            else b.rgVertical.check(R.id.rb_top)
+            when (DynamicIslandStore.getHorizontal()) {
+                "left" -> b.rgHorizontal.check(R.id.rb_left)
+                "right" -> b.rgHorizontal.check(R.id.rb_right)
+                else -> b.rgHorizontal.check(R.id.rb_center)
+            }
+            b.swatchBg.setBackgroundColor(DynamicIslandStore.getBgColor())
+            b.swatchText.setBackgroundColor(DynamicIslandStore.getTextColor())
+            if (isShowing()) {
+                applySizeToView()
+                applyPositionToView()
+                applyAppearanceToView()
+            }
         }
 
         // 关键：若持久化已启用（典型场景：重启应用后单例内存重置为关闭，但 store 仍为开启），
@@ -469,6 +540,67 @@ object DynamicIslandFloatWindow {
             dialog.window?.setType(WindowManager.LayoutParams.TYPE_ACCESSIBILITY_OVERLAY)
         }
         dialog.show()
+
+        // 小屏保护：若内容超高，把对话框窗口高度限制在「屏幕高 - 预留」以内，
+        // ScrollView(match_parent) 随之变为可滚动，避免「完成」按钮/底部项被挤出屏幕。
+        val win = dialog.window ?: return
+        val dmGuard = context.resources.displayMetrics
+        val reservePx = (200 * dmGuard.density).toInt() // 标题 + 完成按钮 + 边距预留
+        val maxH = (dmGuard.heightPixels - reservePx).coerceAtLeast((dmGuard.heightPixels * 0.5).toInt())
+        val inner = (b.root as? ViewGroup)?.getChildAt(0)
+        if (inner != null) {
+            inner.measure(
+                View.MeasureSpec.makeMeasureSpec(0, View.MeasureSpec.UNSPECIFIED),
+                View.MeasureSpec.makeMeasureSpec(0, View.MeasureSpec.UNSPECIFIED)
+            )
+            val contentH = inner.measuredHeight
+            val chromePx = (110 * dmGuard.density).toInt() // 标题 + 完成按钮高度估算
+            val desired = (contentH + chromePx).coerceAtMost(maxH)
+            val lp = win.attributes
+            lp.height = desired
+            win.attributes = lp
+        }
+    }
+
+    /** 弹出 ARGB 取色器；onPick 返回选中的颜色（ARGB int） */
+    private fun openColorPicker(context: Context, title: String, initial: Int, onPick: (Int) -> Unit) {
+        val pb = DialogColorPickerBinding.inflate(LayoutInflater.from(context))
+        var cur = initial
+        fun refresh(color: Int) {
+            pb.swatch.setBackgroundColor(color)
+            pb.tvHex.text = String.format("#%08X", color)
+        }
+        val listener = object : SeekBar.OnSeekBarChangeListener {
+            override fun onProgressChanged(s: SeekBar?, p: Int, fromUser: Boolean) {
+                if (!fromUser) return
+                cur = ((pb.sbAlpha.progress shl 24)
+                        or (pb.sbRed.progress shl 16)
+                        or (pb.sbGreen.progress shl 8)
+                        or pb.sbBlue.progress)
+                refresh(cur)
+            }
+            override fun onStartTrackingTouch(s: SeekBar?) {}
+            override fun onStopTrackingTouch(s: SeekBar?) {}
+        }
+        pb.sbAlpha.max = 255; pb.sbAlpha.progress = (initial shr 24) and 0xFF
+        pb.sbRed.max = 255; pb.sbRed.progress = (initial shr 16) and 0xFF
+        pb.sbGreen.max = 255; pb.sbGreen.progress = (initial shr 8) and 0xFF
+        pb.sbBlue.max = 255; pb.sbBlue.progress = initial and 0xFF
+        pb.sbAlpha.setOnSeekBarChangeListener(listener)
+        pb.sbRed.setOnSeekBarChangeListener(listener)
+        pb.sbGreen.setOnSeekBarChangeListener(listener)
+        pb.sbBlue.setOnSeekBarChangeListener(listener)
+        refresh(initial)
+        val dlg = AlertDialog.Builder(context)
+            .setTitle(title)
+            .setView(pb.root)
+            .setPositiveButton("确定") { _, _ -> onPick(cur) }
+            .setNegativeButton("取消", null)
+            .create()
+        if (context.findActivity() == null) {
+            dlg.window?.setType(WindowManager.LayoutParams.TYPE_ACCESSIBILITY_OVERLAY)
+        }
+        dlg.show()
     }
 
     private fun Context.findActivity(): Activity? {

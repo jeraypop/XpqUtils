@@ -204,7 +204,7 @@
     <string name="xpq_upload_success">上传日志文件成功</string>
     <string name="xpq_upload_error">上传日志文件失败</string>
     <string name="xpq_message_upload_log">是否将当前日志上传,以帮助我们改进服务？</string>
-
+    <string name="log_island_title">灵动岛</string>
     <!-- 音乐模块 -->
     <string name="music_title">强提醒</string>
     <string name="music_bgm_title">提醒总开关</string>
@@ -244,6 +244,6 @@
 
     <!-- 灵动岛 -->
     <string name="music_island_title">日志灵动岛</string>
-    <string name="music_island_sub">顶部实时显示最新日志；</string>
+    <string name="music_island_sub">岛内实时显示最新运行日志；</string>
 
 </resources>

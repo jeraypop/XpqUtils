@@ -12,31 +12,90 @@
         android:layout_height="wrap_content"
         android:orientation="vertical">
 
-        <!-- 顶部标题栏 -->
-        <LinearLayout
+        <!-- 顶部标题栏：标题居中，关闭按钮固定于右侧、距边缘 20dp -->
+        <RelativeLayout
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:orientation="horizontal"
             android:gravity="center_vertical">
+
             <TextView
-                android:layout_width="0dp"
+                android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:layout_weight="1"
-                android:text="@string/music_title"
+                android:layout_centerInParent="true"
+                android:text="@string/log_island_title"
                 android:textSize="22sp"
                 android:textStyle="bold"
                 android:textColor="@color/music_text" />
+
             <TextView
                 android:id="@+id/btn_close"
                 android:layout_width="40dp"
                 android:layout_height="40dp"
+                android:layout_alignParentEnd="true"
+                android:layout_centerVertical="true"
+                android:layout_marginEnd="20dp"
                 android:gravity="center"
                 android:text="✕"
                 android:textSize="22sp"
                 android:textColor="@color/music_text"
                 android:background="?attr/selectableItemBackgroundBorderless" />
+        </RelativeLayout>
+        <!-- 灵动岛设置：开关是否启用、调整悬浮窗大小 -->
+        <LinearLayout
+            android:id="@+id/btn_island_settings"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal"
+            android:gravity="center_vertical"
+            android:background="@drawable/bg_card"
+            android:padding="16dp"
+
+            android:layout_marginTop="12dp">
+            <LinearLayout
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:orientation="vertical">
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="@string/music_island_title"
+                    android:textSize="16sp"
+                    android:textColor="@color/music_text"
+                    android:textStyle="bold" />
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="@string/music_island_sub"
+                    android:textSize="12sp"
+                    android:textColor="@color/music_text_sub"
+                    android:layout_marginTop="4dp" />
+            </LinearLayout>
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="›"
+                android:textSize="22sp"
+                android:textColor="@color/music_text_sub" />
         </LinearLayout>
 
+        <!-- 标题栏：标题居中，关闭按钮固定于右侧、距边缘 20dp -->
+        <RelativeLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="12dp"
+            android:gravity="center_vertical">
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_centerInParent="true"
+                android:text="@string/music_title"
+                android:textSize="22sp"
+                android:textStyle="bold"
+                android:textColor="@color/music_text" />
+
+        </RelativeLayout>
         <!-- 背景音乐开关 -->
         <LinearLayout
             android:layout_width="match_parent"
@@ -320,44 +379,7 @@
             </LinearLayout>
         </LinearLayout>
 
-        <!-- 灵动岛设置：开关是否启用、调整悬浮窗大小 -->
-        <LinearLayout
-            android:id="@+id/btn_island_settings"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:orientation="horizontal"
-            android:gravity="center_vertical"
-            android:background="@drawable/bg_card"
-            android:padding="16dp"
-            android:visibility="gone"
-            android:layout_marginTop="12dp">
-            <LinearLayout
-                android:layout_width="0dp"
-                android:layout_height="wrap_content"
-                android:layout_weight="1"
-                android:orientation="vertical">
-                <TextView
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:text="@string/music_island_title"
-                    android:textSize="16sp"
-                    android:textColor="@color/music_text"
-                    android:textStyle="bold" />
-                <TextView
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:text="@string/music_island_sub"
-                    android:textSize="12sp"
-                    android:textColor="@color/music_text_sub"
-                    android:layout_marginTop="4dp" />
-            </LinearLayout>
-            <TextView
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:text="›"
-                android:textSize="22sp"
-                android:textColor="@color/music_text_sub" />
-        </LinearLayout>
+
 
         <!-- 播放列表（仅开启「播放歌曲」开关时显示）：点列表中某首 = 播放/暂停该首 -->
         <LinearLayout
@@ -365,6 +387,7 @@
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:orientation="vertical"
+            android:padding="16dp"
             android:layout_marginTop="12dp">
 
             <TextView
