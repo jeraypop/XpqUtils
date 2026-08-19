@@ -39,6 +39,7 @@ import com.google.android.accessibility.ext.utils.NetworkHelperFullSmart
 import com.google.android.accessibility.ext.utils.NetworkHelperFullSmart.intervalIsDuan
 import com.google.android.accessibility.ext.utils.NumberInputSDK
 import com.google.android.accessibility.ext.utils.NumberPickerDialog
+import com.google.android.accessibility.ext.utils.XPQAccUtils.show_AC_Warn_Dialog
 import com.google.android.accessibility.ext.utils.broadcastutil.ScreenStateCallback
 import com.google.android.accessibility.ext.view.FabMenuItem
 import com.google.android.accessibility.ext.view.TaichiFabMenuView
@@ -187,8 +188,8 @@ class MainActivity : XpqBaseActivity<ActivityMainBinding>(
         }
         binding.btnGZH.setOnClickListener{
             //公众号ID
-
-            openWeChatToFollowInterface(getWCField[6].first.restoreAllIllusion())
+            show_AC_Warn_Dialog(this@MainActivity,false )
+            //openWeChatToFollowInterface(getWCField[6].first.restoreAllIllusion())
         }
         binding.btnAddFriend.setOnClickListener{
             //好友微信号
