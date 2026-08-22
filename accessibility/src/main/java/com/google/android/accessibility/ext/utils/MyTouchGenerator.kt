@@ -83,6 +83,6 @@ object MyTouchGenerator {
      */
     @JvmStatic
     @JvmOverloads
-    fun randomDelayMs(base: Long = 550, jitter: Long = 650): Long =
+    fun randomDelayMs(base: Long = 1050, jitter: Long = 650): Long =
         base + Random.nextLong(jitter + 1)
 }

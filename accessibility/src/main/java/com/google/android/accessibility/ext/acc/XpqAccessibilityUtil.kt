@@ -7,6 +7,7 @@ import android.graphics.Rect
 import android.os.Bundle
 import android.view.accessibility.AccessibilityNodeInfo
 import com.google.android.accessibility.ext.utils.LibCtxProvider.Companion.appContext
+import com.google.android.accessibility.ext.utils.MyTouchGenerator
 import com.google.android.accessibility.selecttospeak.accessibilityService
 import kotlinx.coroutines.delay
 
@@ -145,12 +146,14 @@ object XpqAccessibilityUtil {
         clipboard.setPrimaryClip(ClipData.newPlainText("label", ""))
         // 2️⃣ focus + paste
         node.performAction(AccessibilityNodeInfo.ACTION_FOCUS)
+        MyTouchGenerator.randomDelayMs()
         node.performAction(AccessibilityNodeInfo.ACTION_PASTE)
         delay(delayMs)
         // 1️⃣ 写剪贴板
         clipboard.setPrimaryClip(ClipData.newPlainText("label", text))
         // 2️⃣ focus + paste
-        node.performAction(AccessibilityNodeInfo.ACTION_FOCUS)
+        //node.performAction(AccessibilityNodeInfo.ACTION_FOCUS)
+        MyTouchGenerator.randomDelayMs()
         node.performAction(AccessibilityNodeInfo.ACTION_PASTE)
 
         // 3️⃣ 等待 UI 线程处理
@@ -184,7 +187,9 @@ object XpqAccessibilityUtil {
                 text
             )
         }
+
         node.performAction(AccessibilityNodeInfo.ACTION_FOCUS)
+        MyTouchGenerator.randomDelayMs()
         if (node.performAction(AccessibilityNodeInfo.ACTION_SET_TEXT, args)) {
             delay(delayMs)
             val sig = node.nodeSignature()
