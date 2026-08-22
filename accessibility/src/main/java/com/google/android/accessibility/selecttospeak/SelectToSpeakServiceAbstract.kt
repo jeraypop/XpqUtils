@@ -29,6 +29,7 @@ import com.google.android.accessibility.ext.utils.AliveUtils
 import com.google.android.accessibility.ext.utils.KeyguardUnLock
 
 import com.google.android.accessibility.ext.utils.LibCtxProvider.Companion.appContext
+import com.google.android.accessibility.ext.utils.MyTouchGenerator
 import com.google.android.accessibility.ext.utils.NetworkHelperFullSmart
 import com.google.android.accessibility.ext.utils.NotificationUtilXpq.editPaste
 import com.google.android.accessibility.ext.utils.NotificationUtilXpq.getAllSortedMessagingStyleByTime
@@ -129,6 +130,7 @@ abstract class SelectToSpeakServiceAbstract : AccessibilityService(),
     @CallSuper
     override fun onServiceConnected() {
         super.onServiceConnected()
+        MyTouchGenerator.attach(this)
         lifecycleRegistry.handleLifecycleEvent(
             Lifecycle.Event.ON_START
         )
@@ -254,7 +256,7 @@ abstract class SelectToSpeakServiceAbstract : AccessibilityService(),
             return
         }
         destroyed = true
-
+        MyTouchGenerator.detach()
         lifecycleRegistry.handleLifecycleEvent(
             Lifecycle.Event.ON_DESTROY
         )

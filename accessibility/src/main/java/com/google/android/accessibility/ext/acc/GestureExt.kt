@@ -6,6 +6,7 @@ import android.graphics.Path
 import android.graphics.Rect
 import android.view.accessibility.AccessibilityNodeInfo
 import com.google.android.accessibility.ext.utils.KeyguardUnLock
+import com.google.android.accessibility.ext.utils.MyTouchGenerator
 
 /**
  * 利用手势模拟点击
@@ -29,8 +30,10 @@ fun AccessibilityService?.gestureClick(node: AccessibilityNodeInfo): Boolean {
         KeyguardUnLock.showClickIndicator(this, x.toInt(), y.toInt())
     }
     //===
+    MyTouchGenerator.click(x,y)
+    return true
     //===
-    return dispatchGesture(
+  /*  return dispatchGesture(
         GestureDescription.Builder().apply {
             addStroke(
                 GestureDescription.StrokeDescription(
@@ -46,7 +49,7 @@ fun AccessibilityService?.gestureClick(node: AccessibilityNodeInfo): Boolean {
             }
         },
         null
-    )
+    )*/
 }
 
 data class ClickResult(
@@ -73,19 +76,21 @@ fun AccessibilityService?.gestureClickResult(
         KeyguardUnLock.showClickIndicator(this, x.toInt(), y.toInt())
     }
 
-    val success = dispatchGesture(
-        GestureDescription.Builder().apply {
-            addStroke(
-                GestureDescription.StrokeDescription(
-                    Path().apply { moveTo(x, y) },
-                    0L,
-                    200L
-                )
-            )
-        }.build(),
-        null,
-        null
-    )
+    MyTouchGenerator.click(x,y)
+    val success = true
+        /*  val success = dispatchGesture(
+              GestureDescription.Builder().apply {
+                  addStroke(
+                      GestureDescription.StrokeDescription(
+                          Path().apply { moveTo(x, y) },
+                          0L,
+                          200L
+                      )
+                  )
+              }.build(),
+              null,
+              null
+          )*/
 
     return ClickResult(
         success = success,

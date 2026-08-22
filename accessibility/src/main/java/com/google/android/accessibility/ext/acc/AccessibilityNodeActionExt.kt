@@ -5,12 +5,14 @@ import android.content.ClipboardManager
 import android.content.Context
 import android.graphics.Rect
 import android.os.Bundle
+import android.os.SystemClock
 import android.view.accessibility.AccessibilityNodeInfo
 import com.google.android.accessibility.ext.utils.KeyguardUnLock
 import com.google.android.accessibility.ext.utils.NotificationUtilXpq.copyToClipboard
 import com.google.android.accessibility.ext.utils.verificationcode.LoginConfig
 import com.google.android.accessibility.selecttospeak.accessibilityService
 import kotlinx.coroutines.delay
+import kotlin.random.Random
 
 /**
  * 点击事件
@@ -141,8 +143,8 @@ fun AccessibilityNodeInfo.inputTextNew(input: String): Boolean {
     }
     //===
 
-
-
+    SystemClock.sleep(250 + Random.nextLong(200))// 250~450ms 随机
+    //delay(250 + Random.nextLong(200)) // 250~450ms 随机
     val arguments = Bundle().apply {
         putCharSequence(AccessibilityNodeInfo.ACTION_ARGUMENT_SET_TEXT_CHARSEQUENCE, input)
     }
