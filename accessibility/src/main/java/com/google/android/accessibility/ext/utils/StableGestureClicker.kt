@@ -25,18 +25,6 @@ import kotlin.coroutines.resume
  * Description:This is StableGestureClicker
  */
 object StableGestureClicker {
-    /** 拟人化配置，全部带默认值，按需覆盖 */
-    data class Config(
-        val posStdPx: Double = 7.0,             // 落点高斯标准差，大按钮可加大
-        val microStdPx: Double = 1.6,           // 按压中微移幅度标准差
-        val microMoves: IntRange = 1..3,        // 按压中微移点数
-        val durJitterMs: Double = 18.0,         // 按压时长抖动标准差
-        val pressClamp: LongRange = 40L..250L,  // 按压时长钳制范围
-        val breathMs: LongRange = 90L..170L     // click() 点完后的喘息间隔
-    )
-    /** Java 侧用的默认实例 */
-    @JvmField
-    val DEFAULT_CONFIG = Config()
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
     private val mutex = Mutex()
 

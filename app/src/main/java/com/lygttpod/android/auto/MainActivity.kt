@@ -257,7 +257,7 @@ class MainActivity : XpqBaseActivity<ActivityMainBinding>(
                 },
                 FabMenuItem("输入数字", com.android.accessibility.ext.R.drawable.move_xpq) {
                    
-                    NumberInputSDK.showNumberInputDialog(context = this@MainActivity)
+                    NumberInputSDK.showSecondsInputDialog(context = this@MainActivity)
                 },
                 FabMenuItem("网络测试", com.android.accessibility.ext.R.drawable.move_xpq) {
                     CoroutineScope(Dispatchers.Main).launch {

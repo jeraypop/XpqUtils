@@ -28,6 +28,7 @@ import com.google.android.accessibility.ext.utils.KeyguardUnLock.getZQSuccess
 import com.google.android.accessibility.ext.utils.KeyguardUnLock.sendLog
 import com.google.android.accessibility.ext.utils.LibCtxProvider.Companion.appContext
 import com.google.android.accessibility.ext.utils.NumberPickerDialog.hasRoot
+import com.google.android.accessibility.ext.utils.gestureUtils.HumanTouchEngine
 import com.google.android.accessibility.selecttospeak.accessibilityService
 import kotlinx.coroutines.delay
 import java.util.Locale
@@ -600,7 +601,11 @@ object JieSuoUtils {
                     getPointInt(dig.toInt())
                 }
                 //===========================
-                inputSuccess = StableGestureClicker.click(x = x, y = y)
+                inputSuccess = HumanTouchEngine.click(cx = x.toFloat(), cy = y.toFloat())
+                // 可视化点击点
+                if (KeyguardUnLock.getShowClickIndicator()) {
+                    KeyguardUnLock.showClickIndicator( x = x, y = y)
+                }
                 //=
             }
 
@@ -686,7 +691,11 @@ object JieSuoUtils {
                     getPointInt(dig.toInt())
                 }
                 //===========================
-                inputSuccess = StableGestureClicker.click(x = x, y = y)
+                inputSuccess = HumanTouchEngine.click(cx = x.toFloat(), cy = y.toFloat())
+                // 可视化点击点
+                if (KeyguardUnLock.getShowClickIndicator()) {
+                    KeyguardUnLock.showClickIndicator( x = x, y = y)
+                }
                 //=
             }
 

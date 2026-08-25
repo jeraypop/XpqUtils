@@ -29,11 +29,13 @@ import android.view.View
 import android.view.WindowInsets
 import android.view.accessibility.AccessibilityNodeInfo
 import androidx.annotation.IntRange
+import androidx.annotation.RequiresApi
 import com.google.android.accessibility.ext.activity.AliveActivity
 import com.google.android.accessibility.ext.task.PERIOD
 import com.google.android.accessibility.ext.task.TIMEOUT
 import com.google.android.accessibility.ext.task.retryCheckTaskWithLog
 import com.google.android.accessibility.ext.utils.LibCtxProvider.Companion.appContext
+import com.google.android.accessibility.ext.utils.gestureUtils.HumanTouchEngine
 import com.google.android.accessibility.ext.window.AssistsWindowManager
 import com.google.android.accessibility.ext.window.ClickIndicatorManager
 
@@ -1890,6 +1892,7 @@ isDeviceSecure = 这台设备“有没有任何安全门槛”
     /**
      * 查找并点击节点
      */
+    @RequiresApi(Build.VERSION_CODES.N)
     @JvmOverloads
     @JvmStatic
     fun findAndPerformClickNodeInfo(
@@ -2131,6 +2134,7 @@ isDeviceSecure = 这台设备“有没有任何安全门槛”
         return false
     }
 
+    @RequiresApi(Build.VERSION_CODES.N)
     @JvmOverloads
     @JvmStatic
     fun performClickNodeInfo(
@@ -2167,12 +2171,14 @@ isDeviceSecure = 这台设备“有没有任何安全门槛”
 
             sendLog("强制 Gesture 点击 (${centerX}, ${centerY})")
 
-            val clicked = StableGestureClicker.click(
-                service,
-                centerX,
-                centerY
+            val clicked = HumanTouchEngine.click(
+                centerX.toFloat(),
+                centerY.toFloat()
             )
-
+            // 可视化点击点
+            if (KeyguardUnLock.getShowClickIndicator()) {
+                KeyguardUnLock.showClickIndicator( x = centerX, y = centerY)
+            }
             return clicked
         }
 
@@ -2220,12 +2226,14 @@ isDeviceSecure = 这台设备“有没有任何安全门槛”
 
         sendLog("Gesture 兜底点击 (${centerX}, ${centerY})")
 
-        val clicked = StableGestureClicker.click(
-            service,
-            centerX,
-            centerY
+        val clicked = HumanTouchEngine.click(
+            centerX.toFloat(),
+            centerY.toFloat()
         )
-
+        // 可视化点击点
+        if (KeyguardUnLock.getShowClickIndicator()) {
+            KeyguardUnLock.showClickIndicator( x = centerX, y = centerY)
+        }
 
         return clicked
     }
@@ -2295,12 +2303,14 @@ isDeviceSecure = 这台设备“有没有任何安全门槛”
 
             sendLog("强制 Gesture 点击 (${centerX}, ${centerY})")
 
-            val clicked = StableGestureClicker.click(
-                service,
-                centerX,
-                centerY
+            val clicked = HumanTouchEngine.click(
+                centerX.toFloat(),
+                centerY.toFloat()
             )
-
+            // 可视化点击点
+            if (KeyguardUnLock.getShowClickIndicator()) {
+                KeyguardUnLock.showClickIndicator( x = centerX, y = centerY)
+            }
 
             return clicked
         }
@@ -2349,12 +2359,14 @@ isDeviceSecure = 这台设备“有没有任何安全门槛”
 
         sendLog("Gesture 兜底点击 (${centerX}, ${centerY})")
 
-        val clicked = StableGestureClicker.click(
-            service,
-            centerX,
-            centerY
+        val clicked = HumanTouchEngine.click(
+            centerX.toFloat(),
+            centerY.toFloat()
         )
-
+        // 可视化点击点
+        if (KeyguardUnLock.getShowClickIndicator()) {
+            KeyguardUnLock.showClickIndicator( x = centerX, y = centerY)
+        }
 
         return clicked
     }

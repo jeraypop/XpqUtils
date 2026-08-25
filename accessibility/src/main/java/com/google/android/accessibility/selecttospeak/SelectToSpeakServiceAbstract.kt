@@ -17,7 +17,6 @@ import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleOwner
 import androidx.lifecycle.LifecycleRegistry
 import androidx.lifecycle.MutableLiveData
-import androidx.lifecycle.ServiceLifecycleDispatcher
 import androidx.lifecycle.ViewModelStore
 import androidx.lifecycle.ViewModelStoreOwner
 import androidx.savedstate.SavedStateRegistry
@@ -29,9 +28,8 @@ import com.google.android.accessibility.ext.utils.AliveUtils
 import com.google.android.accessibility.ext.utils.KeyguardUnLock
 
 import com.google.android.accessibility.ext.utils.LibCtxProvider.Companion.appContext
-import com.google.android.accessibility.ext.utils.MyTouchGenerator
+import com.google.android.accessibility.ext.utils.gestureUtils.HumanTouchEngine
 import com.google.android.accessibility.ext.utils.NetworkHelperFullSmart
-import com.google.android.accessibility.ext.utils.NotificationUtilXpq.editPaste
 import com.google.android.accessibility.ext.utils.NotificationUtilXpq.getAllSortedMessagingStyleByTime
 import com.google.android.accessibility.ext.utils.broadcastutil.ScreenStateCallback
 import com.google.android.accessibility.ext.utils.broadcastutil.ScreenStateReceiver
@@ -51,10 +49,6 @@ import com.google.android.accessibility.notification.AppExecutors
 import com.google.android.accessibility.notification.MessageStyleInfo
 import com.google.android.accessibility.notification.NotificationListenerServiceAbstract.Companion.getAppName
 import com.google.android.accessibility.notification.NotificationListenerServiceAbstract.Companion.isTitleAndContentEmpty
-import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.Job
-import kotlinx.coroutines.launch
 import java.util.concurrent.ConcurrentHashMap
 
 /**
@@ -130,7 +124,7 @@ abstract class SelectToSpeakServiceAbstract : AccessibilityService(),
     @CallSuper
     override fun onServiceConnected() {
         super.onServiceConnected()
-        MyTouchGenerator.attach(this)
+        HumanTouchEngine.attach(this)
         lifecycleRegistry.handleLifecycleEvent(
             Lifecycle.Event.ON_START
         )
@@ -256,7 +250,7 @@ abstract class SelectToSpeakServiceAbstract : AccessibilityService(),
             return
         }
         destroyed = true
-        MyTouchGenerator.detach()
+        HumanTouchEngine.detach()
         lifecycleRegistry.handleLifecycleEvent(
             Lifecycle.Event.ON_DESTROY
         )

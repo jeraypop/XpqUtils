@@ -4,14 +4,17 @@ import android.accessibilityservice.AccessibilityService
 import android.accessibilityservice.GestureDescription
 import android.graphics.Path
 import android.graphics.Rect
+import android.os.Build
 import android.view.accessibility.AccessibilityNodeInfo
+import androidx.annotation.RequiresApi
 import com.google.android.accessibility.ext.utils.KeyguardUnLock
-import com.google.android.accessibility.ext.utils.MyTouchGenerator
+import com.google.android.accessibility.ext.utils.gestureUtils.HumanTouchEngine
 
 /**
  * 利用手势模拟点击
  * @param node: 需要点击的节点
  * */
+@RequiresApi(Build.VERSION_CODES.N)
 fun AccessibilityService?.gestureClick(node: AccessibilityNodeInfo): Boolean {
     this ?: return false
     //===
@@ -30,7 +33,7 @@ fun AccessibilityService?.gestureClick(node: AccessibilityNodeInfo): Boolean {
         KeyguardUnLock.showClickIndicator(this, x.toInt(), y.toInt())
     }
     //===
-    MyTouchGenerator.click(x,y)
+    HumanTouchEngine.click(x,y)
     return true
     //===
   /*  return dispatchGesture(
@@ -59,6 +62,7 @@ data class ClickResult(
     val reason: String? = null
 )
 //带返回坐标信息
+@RequiresApi(Build.VERSION_CODES.N)
 fun AccessibilityService?.gestureClickResult(
     node: AccessibilityNodeInfo?
 ): ClickResult {
@@ -76,7 +80,7 @@ fun AccessibilityService?.gestureClickResult(
         KeyguardUnLock.showClickIndicator(this, x.toInt(), y.toInt())
     }
 
-    MyTouchGenerator.click(x,y)
+    HumanTouchEngine.click(x,y)
     val success = true
         /*  val success = dispatchGesture(
               GestureDescription.Builder().apply {
