@@ -4,7 +4,9 @@ package com.google.android.accessibility.ext.utils
 
 import android.content.Context
 import android.content.SharedPreferences
+import android.widget.CompoundButton
 import android.widget.EditText
+import android.widget.Switch
 import androidx.appcompat.app.AlertDialog
 import com.google.android.accessibility.ext.utils.LibCtxProvider.Companion.appContext
 import kotlin.random.Random
@@ -23,6 +25,9 @@ object NumberInputSDK {
     private const val DEFAULT_SECONDS = 3
     private const val MIN_SECONDS = 0
     private const val MAX_SECONDS = 600
+
+    private const val KEY_RANDOM_ENABLED = "random_delay_enabled"
+    private const val DEFAULT_RANDOM_ENABLED = true
 
     /**
      * 弹出输入数字对话框
@@ -134,6 +139,7 @@ object NumberInputSDK {
         title: String = "随机延时时间(秒)",
         message: String = "在每次执行操作前，随机延时几秒的时间:" +
                 "\n例如:\n  你设置的是 6秒,执行每一个步骤时，都会随机停顿0到6秒的任意一个时间." +
+                "\n  设置的是 0秒，不再额外随机延时，效果等于开关关闭" +
                 "\n\n注意:\n  时间不建议过大,否则会很慢，也不建议过小，否则就没有任何意义.",
         onSecondsSaved: ((Int) -> Unit)? = null
     ) {
@@ -178,10 +184,33 @@ object NumberInputSDK {
             addView(unitView)
         }
 
+        val switchEnabled = Switch(context).apply {
+            isChecked = getRandomEnabled(context)
+            setOnCheckedChangeListener { _: CompoundButton?, isOn: Boolean ->
+                setRandomEnabled(isOn, context)
+            }
+        }
+
+        val switchRow = android.widget.LinearLayout(context).apply {
+            orientation = android.widget.LinearLayout.HORIZONTAL
+            gravity = android.view.Gravity.CENTER_VERTICAL
+            setPadding(0, 10.dp(context), 0, 0)
+
+            addView(android.widget.TextView(context).apply {
+                text = "随机延时开关"
+                textSize = 14f
+                setTextColor(0xFF000000.toInt())
+            }, android.widget.LinearLayout.LayoutParams(0,
+                android.widget.LinearLayout.LayoutParams.WRAP_CONTENT, 1f))
+
+            addView(switchEnabled)
+        }
+
         val container = android.widget.LinearLayout(context).apply {
             orientation = android.widget.LinearLayout.VERTICAL
             setPadding(16.dp(context), 12.dp(context), 16.dp(context), 4.dp(context))
             addView(textView)
+            addView(switchRow)
             addView(inputLayout)
         }
 
@@ -223,6 +252,26 @@ object NumberInputSDK {
         return prefs.getInt(KEY_SECONDS, DEFAULT_SECONDS)
     }
 
+    /**
+     * 随机延时开关是否生效
+     */
+    @JvmStatic
+    @JvmOverloads
+    fun getRandomEnabled(context: Context = appContext): Boolean {
+        val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+        return prefs.getBoolean(KEY_RANDOM_ENABLED, DEFAULT_RANDOM_ENABLED)
+    }
+
+    /**
+     * 设置随机延时开关
+     */
+    @JvmStatic
+    @JvmOverloads
+    fun setRandomEnabled(enabled: Boolean, context: Context = appContext) {
+        val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+        prefs.edit().putBoolean(KEY_RANDOM_ENABLED, enabled).apply()
+    }
+
     // ---- 洗牌袋（shuffle bag）状态：0 ~ 已保存秒数 之间的整数逐个不重复取出 ----
     @Volatile
     private var bagSeconds: List<Int>? = null
@@ -241,6 +290,10 @@ object NumberInputSDK {
     @JvmStatic
     @JvmOverloads
     fun getRandomSeconds(context: Context = appContext): Int = synchronized(this) {
+        // 开关关闭时，随机延时不生效，直接返回 0（不管输入的是几）
+        if (!getRandomEnabled(context)) {
+            return@synchronized 0
+        }
         val upper = getSavedSeconds(context)
         val bag = bagSeconds
         if (bag == null || bagIndex >= bag.size || bagForValue != upper) {
