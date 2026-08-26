@@ -13,6 +13,7 @@ import android.content.Intent
 import android.content.pm.PackageManager
 import android.content.res.Resources
 import android.graphics.Path
+import android.graphics.PointF
 import android.graphics.Rect
 import android.hardware.display.DisplayManager
 import android.os.Build
@@ -1583,50 +1584,61 @@ isDeviceSecure = 这台设备“有没有任何安全门槛”
         horizontalOffsetRatio: Float = 0.0f,
         jitterRatio: Float = 0.02f
     ): SwipePathInfo {
-        val (screenWidth, screenHeight) = getScreenSize(context) // 你已有的工具
-        KeyguardUnLock.sendLog("设备的宽度= " + screenWidth + ", 高度= " + screenHeight)
+        val (screenWidth, screenHeight) = getScreenSize(context)
+        KeyguardUnLock.sendLog("设备宽度= $screenWidth, 高度= $screenHeight")
+
         val startXBase = screenWidth / 2f
         val startYBase = screenHeight * 0.88f
         val endXBase = screenWidth / 2f + screenWidth * horizontalOffsetRatio
         val endYBase = screenHeight * 0.30f
 
-        // 防止极端值
         val curveFactor = curveIntensity.coerceIn(0f, 0.5f)
         val jitterFactor = jitterRatio.coerceIn(0f, 0.1f)
 
-        // 小随机，用来模拟手指微抖（每次可能不同）
-        val rand = Random.Default
-        fun jitter(amountRatio: Float) = (rand.nextFloat() * 2f - 1f) * amountRatio
+        // 采用高斯分布 (Box-Muller) 替换均匀随机，让抖动点更聚集在中心（更像真人）
+        fun gaussianJitter(maxPx: Float): Float {
+            if (maxPx <= 0f) return 0f
+            val u1 = Random.nextDouble().coerceAtLeast(1e-9)
+            val u2 = Random.nextDouble()
+            val g = kotlin.math.sqrt(-2.0 * kotlin.math.ln(u1)) * kotlin.math.cos(2.0 * Math.PI * u2)
+            return (g * (maxPx / 3.0)).toFloat().coerceIn(-maxPx, maxPx)
+        }
 
-        val startX = startXBase + screenWidth * jitter(jitterFactor)
-        val startY = startYBase + screenHeight * jitter(jitterFactor * 0.5f)
-        val endX = endXBase + screenWidth * jitter(jitterFactor * 0.5f)
-        val endY = endYBase + screenHeight * jitter(jitterFactor * 0.2f)
+        val maxJitterX = screenWidth * jitterFactor
+        val maxJitterY = screenHeight * jitterFactor
 
-        val distance = (startY - endY).coerceAtLeast(1f)
+        // 1. 带高斯抖动的起止点
+        val startX = startXBase + gaussianJitter(maxJitterX)
+        val startY = startYBase + gaussianJitter(maxJitterY * 0.5f)
+        val endX = endXBase + gaussianJitter(maxJitterX * 0.5f)
+        val endY = endYBase + gaussianJitter(maxJitterY * 0.2f)
 
-        // 控制点位置：基于距离分段，并加入曲线强度与少量水平偏移
-        val cp1x = startX + screenWidth * (0.05f * curveFactor) + screenWidth * jitter(jitterFactor)
-        val cp1y = startY - distance * 0.33f - screenHeight * (0.02f * curveFactor)
+        val distance = (startY - endY).coerceAtLeast(10f)
 
-        val cp2x = endX - screenWidth * (0.05f * curveFactor) + screenWidth * jitter(jitterFactor)
-        val cp2y = startY - distance * 0.66f + screenHeight * (0.01f * curveFactor)
+        // 2. 模拟真人手势的抛物线弯曲方向（随机向左/向右弯）
+        val curveDir = if (Random.nextBoolean()) 1f else -1f
+        // 放大控制点 X 轴拉力（基准系数从 0.05 提升至 0.25，避免弯曲太轻像直线）
+        val cp1x = startX + (screenWidth * 0.25f * curveFactor * curveDir) + gaussianJitter(maxJitterX)
+        val cp1y = startY - distance * 0.33f
 
-        KeyguardUnLock.sendLog("模拟人手轻微抖动轨迹: start=($startX,$startY) end=($endX,$endY) cp1=($cp1x,$cp1y) cp2=($cp2x,$cp2y)")
+        val cp2x = endX - (screenWidth * 0.12f * curveFactor * curveDir) + gaussianJitter(maxJitterX)
+        val cp2y = startY - distance * 0.66f
+
+        KeyguardUnLock.sendLog("拟人高斯轨迹: start=($startX,$startY) end=($endX,$endY) cp1=($cp1x,$cp1y) cp2=($cp2x,$cp2y)")
+
         val path = Path().apply {
             moveTo(startX, startY)
             if (useCurve && curveFactor > 0f) {
                 cubicTo(cp1x, cp1y, cp2x, cp2y, endX, endY)
             } else {
-                // 直线（保留一点微抖使其不显僵硬）
-                val midX = (startX + endX) / 2f + screenWidth * jitter(jitterFactor * 0.3f)
-                val midY = (startY + endY) / 2f + screenHeight * jitter(jitterFactor * 0.3f)
+                val midX = (startX + endX) / 2f + gaussianJitter(maxJitterX * 0.3f)
+                val midY = (startY + endY) / 2f
                 lineTo(midX, midY)
                 lineTo(endX, endY)
             }
         }
-        return  SwipePathInfo(path, startX, startY, endX, endY)
 
+        return SwipePathInfo(path, startX, startY, endX, endY)
     }
     // 🟡【新增】互斥锁，防止手势并发重叠执行
     private val moveMutex = Mutex()
@@ -1750,7 +1762,7 @@ isDeviceSecure = 这台设备“有没有任何安全门槛”
             result
         }
     }*/
-    suspend fun moveAwait(
+    suspend fun moveAwaitOld(
         service: AccessibilityService? = accessibilityService,
         pathInfo: SwipePathInfo? = null,
         @IntRange(from = 0) startTime: Long = 500,
@@ -1875,7 +1887,163 @@ isDeviceSecure = 这台设备“有没有任何安全门槛”
         }
     }
 
+    suspend fun moveAwait(
+        service: AccessibilityService? = accessibilityService,
+        pathInfo: SwipePathInfo? = null,
+        start: PointF? = null,
+        end: PointF? = null,
+        @IntRange(from = 0) startTime: Long = 0L,
+        @IntRange(from = 0) duration: Long = 500L,
+        moveCallback: MoveCallback? = null,
+        timeoutMs: Long = 2000L,
+        autoDurationEnabled: Boolean = true,
+        useCurve: Boolean = true,
+        curveIntensity: Float = 0.12f,
+        horizontalOffsetRatio: Float = 0.0f,
+        jitterRatio: Float = 0.02f,
+        retryCount: Int = 1
+    ): Boolean = coroutineScope {
 
+        // 严格串行，并发手势排队
+        moveMutex.withLock {
+
+            // ====== 1. 基础校验 ======
+            if (startTime < 0 || duration < 0) {
+                moveCallback?.onError()
+                return@withLock false
+            }
+
+            val accService = service ?: run {
+                KeyguardUnLock.sendLog("无障碍服务未开启")
+                moveCallback?.onError()
+                return@withLock false
+            }
+
+            if (Build.VERSION.SDK_INT < Build.VERSION_CODES.N) {
+                KeyguardUnLock.sendLog("系统版本小于 7.0")
+                moveCallback?.onError()
+                return@withLock false
+            }
+
+            // ====== 2. 重试循环 ======
+            repeat(retryCount + 1) { attempt ->
+
+                if (attempt > 0) {
+                    KeyguardUnLock.sendLog("手势失败，开始第 $attempt 次重试")
+                    delay(200L)
+                }
+
+                // ====== 3. 动态构建 GestureDescription (加回默认与新方式的融合) ======
+                val (finalGesture, finalDuration) = when {
+                    // 方式 A：外部直接传了旧版的 pathInfo
+                    pathInfo != null -> {
+                        val distancePx = kotlin.math.abs(pathInfo.startY - pathInfo.endY)
+                        val dur = calculateDuration(accService, duration, autoDurationEnabled, distancePx, curveIntensity)
+                        val g = GestureDescription.Builder()
+                            .addStroke(GestureDescription.StrokeDescription(pathInfo.path, startTime, dur))
+                            .build()
+                        g to dur
+                    }
+
+                    // 方式 B：传了起始点，搭配 HumanTouchEngine 拟人算法构建
+                    start != null && end != null -> {
+                        val gesture = HumanTouchEngine.buildSwipeGesture(
+                            start = start,
+                            end = end,
+                            config = HumanTouchEngine.SwipeConfig(
+                                durationMeanMs = if (duration > 0) duration.toDouble() else 450.0
+                            )
+                        )
+                        val dur = gesture.getStroke(0)?.duration ?: duration
+                        gesture to dur
+                    }
+
+                    // 方式 C（默认加回）：既无 pathInfo 也无 start/end，自动调用你原有的 createNaturalSwipePathInfo
+                    else -> {
+                        val defaultPathInfo = createNaturalSwipePathInfo(
+                            context = accService.applicationContext,
+                            useCurve = useCurve,
+                            curveIntensity = curveIntensity,
+                            horizontalOffsetRatio = horizontalOffsetRatio,
+                            jitterRatio = jitterRatio
+                        )
+                        val distancePx = kotlin.math.abs(defaultPathInfo.startY - defaultPathInfo.endY)
+                        val dur = calculateDuration(accService, duration, autoDurationEnabled, distancePx, curveIntensity)
+                        val g = GestureDescription.Builder()
+                            .addStroke(GestureDescription.StrokeDescription(defaultPathInfo.path, startTime, dur))
+                            .build()
+                        g to dur
+                    }
+                }
+
+                // 给系统准备的稳定间隔
+                delay(60L)
+
+                // 主线程绘制轨迹指示器
+                finalGesture.getStroke(0)?.path?.let { path ->
+                    withContext(Dispatchers.Main) {
+                        try {
+                            showGestureIndicator(accService, path, finalDuration)
+                        } catch (_: Throwable) {}
+                    }
+                }
+
+                // ====== 4. 执行手势并挂起等待 ======
+                val gestureResult = withTimeoutOrNull(timeoutMs) {
+                    suspendCancellableCoroutine<Boolean> { cont ->
+                        val callback = object : AccessibilityService.GestureResultCallback() {
+                            override fun onCompleted(gestureDescription: GestureDescription) {
+                                if (cont.isActive) cont.resume(true)
+                            }
+
+                            override fun onCancelled(gestureDescription: GestureDescription) {
+                                if (cont.isActive) cont.resume(false)
+                            }
+                        }
+
+                        try {
+                            val dispatched = accService.dispatchGesture(finalGesture, callback, null)
+                            if (!dispatched && cont.isActive) {
+                                cont.resume(false)
+                            }
+                        } catch (_: Throwable) {
+                            if (cont.isActive) cont.resume(false)
+                        }
+                    }
+                } ?: false // 超时
+
+                if (gestureResult) {
+                    try { moveCallback?.onSuccess() } catch (_: Throwable) {}
+                    return@withLock true
+                }
+            }
+
+            // 彻底失败
+            try { moveCallback?.onError() } catch (_: Throwable) {}
+            false
+        }
+    }
+
+    /** 抽取出来的通用时长计算辅助函数 */
+    private fun calculateDuration(
+        service: AccessibilityService,
+        duration: Long,
+        autoDurationEnabled: Boolean,
+        distancePx: Float,
+        curveIntensity: Float
+    ): Long {
+        return when {
+            duration > 0L -> duration.coerceAtLeast(50L)
+            autoDurationEnabled -> computeAutoDuration(
+                context = service.applicationContext,
+                distancePx = distancePx,
+                curveIntensity = curveIntensity,
+                minMs = 80L,
+                maxMs = 900L
+            )
+            else -> 500L
+        }
+    }
     /**
      * 自动判断当前线程，必要时切回主线程执行。
      * 这样无论从哪个协程上下文调用，都能安全执行 UI 操作。
