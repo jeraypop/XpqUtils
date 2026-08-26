@@ -37,6 +37,7 @@ import com.google.android.accessibility.ext.task.TIMEOUT
 import com.google.android.accessibility.ext.task.retryCheckTaskWithLog
 import com.google.android.accessibility.ext.utils.LibCtxProvider.Companion.appContext
 import com.google.android.accessibility.ext.utils.gestureUtils.HumanTouchEngine
+import com.google.android.accessibility.ext.utils.gestureUtils.HumanTouchEngine.randomDelayMs
 import com.google.android.accessibility.ext.window.AssistsWindowManager
 import com.google.android.accessibility.ext.window.ClickIndicatorManager
 
@@ -1892,10 +1893,10 @@ isDeviceSecure = 这台设备“有没有任何安全门槛”
         pathInfo: SwipePathInfo? = null,
         start: PointF? = null,
         end: PointF? = null,
-        @IntRange(from = 0) startTime: Long = 800L,
+        @IntRange(from = 0) startTime: Long = 800L, // 保持你的默认值 800L
         @IntRange(from = 0) duration: Long = 600L,
         moveCallback: MoveCallback? = null,
-        timeoutMs: Long = 2000L,
+        timeoutMs: Long = 3000L,                  // 稍微调大，防止被 startTime 占满
         autoDurationEnabled: Boolean = true,
         useCurve: Boolean = true,
         curveIntensity: Float = 0.12f,
@@ -1933,16 +1934,19 @@ isDeviceSecure = 这台设备“有没有任何安全门槛”
                     delay(200L)
                 }
 
-                // ====== 3. 动态构建 GestureDescription (加回默认与新方式的融合) ======
-                val (finalGesture, finalDuration) = when {
-                    // 方式 A：外部直接传了旧版的 pathInfo
+                // ====== 3. 构建 Path 和 Duration ======
+                var targetPath: Path? = null
+                var finalDuration: Long = duration
+
+                val finalGesture = when {
+                    // 方式 A：外部直接传了 pathInfo
                     pathInfo != null -> {
                         val distancePx = kotlin.math.abs(pathInfo.startY - pathInfo.endY)
-                        val dur = calculateDuration(accService, duration, autoDurationEnabled, distancePx, curveIntensity)
-                        val g = GestureDescription.Builder()
-                            .addStroke(GestureDescription.StrokeDescription(pathInfo.path, startTime, dur))
+                        finalDuration = calculateDuration(accService, duration, autoDurationEnabled, distancePx, curveIntensity)
+                        targetPath = pathInfo.path
+                        GestureDescription.Builder()
+                            .addStroke(GestureDescription.StrokeDescription(pathInfo.path, startTime, finalDuration))
                             .build()
-                        g to dur
                     }
 
                     // 方式 B：传了起始点，搭配 HumanTouchEngine 拟人算法构建
@@ -1954,11 +1958,13 @@ isDeviceSecure = 这台设备“有没有任何安全门槛”
                                 durationMeanMs = if (duration > 0) duration.toDouble() else 450.0
                             )
                         )
-                        val dur = gesture.getStroke(0)?.duration ?: duration
-                        gesture to dur
+                        val stroke = gesture.getStroke(0)
+                        targetPath = stroke?.path
+                        finalDuration = stroke?.duration ?: duration
+                        gesture
                     }
 
-                    // 方式 C（默认加回）：既无 pathInfo 也无 start/end，自动调用你原有的 createNaturalSwipePathInfo
+                    // 方式 C（默认路线）：自动调用 createNaturalSwipePathInfo
                     else -> {
                         val defaultPathInfo = createNaturalSwipePathInfo(
                             context = accService.applicationContext,
@@ -1968,28 +1974,39 @@ isDeviceSecure = 这台设备“有没有任何安全门槛”
                             jitterRatio = jitterRatio
                         )
                         val distancePx = kotlin.math.abs(defaultPathInfo.startY - defaultPathInfo.endY)
-                        val dur = calculateDuration(accService, duration, autoDurationEnabled, distancePx, curveIntensity)
-                        val g = GestureDescription.Builder()
-                            .addStroke(GestureDescription.StrokeDescription(defaultPathInfo.path, startTime, dur))
+                        finalDuration = calculateDuration(accService, duration, autoDurationEnabled, distancePx, curveIntensity)
+                        targetPath = defaultPathInfo.path
+                        GestureDescription.Builder()
+                            .addStroke(GestureDescription.StrokeDescription(defaultPathInfo.path, startTime, finalDuration))
                             .build()
-                        g to dur
                     }
                 }
 
-                // 给系统准备的稳定间隔
-                delay(60L)
+                // ====== 4. 计算真实耗时并同步给指示器 ======
+                // 关键：指示器可见时长需覆盖 "等待时间(startTime) + 物理滑动时长(finalDuration)"
+                val totalVisualDuration = startTime + finalDuration
 
-                // 主线程绘制轨迹指示器
-                finalGesture.getStroke(0)?.path?.let { path ->
+                targetPath?.let { path ->
                     withContext(Dispatchers.Main) {
                         try {
-                            showGestureIndicator(accService, path, finalDuration)
+                            // 将包含了 startTime 的总时长传给指示器，避免指示器提前消失
+                            showGestureIndicator(accService, path, totalVisualDuration)
                         } catch (_: Throwable) {}
                     }
                 }
 
-                // ====== 4. 执行手势并挂起等待 ======
-                val gestureResult = withTimeoutOrNull(timeoutMs) {
+                // 保持给系统准备的时间
+                // 1. 基准保底时间：startTime ≥ 100ms 时只需 16ms (1帧)；否则留 40ms 给 UI 渲染
+                val prepareBase = if (startTime >= 100L) 16L else 40L
+                // 2. 调用高斯随机延迟 (base 为保底帧，jitter 为 20ms 的自然抖动)
+                val prepareDelay = randomDelayMs(base = prepareBase, jitter = 20L)
+                delay(prepareDelay)
+
+                // ====== 5. 执行手势并挂起等待 ======
+                // 关键：动态调整超时门槛，确保超时时间 > startTime + finalDuration
+                val dynamicTimeout = (startTime + finalDuration + 1000L).coerceAtLeast(timeoutMs)
+
+                val gestureResult = withTimeoutOrNull(dynamicTimeout) {
                     suspendCancellableCoroutine<Boolean> { cont ->
                         val callback = object : AccessibilityService.GestureResultCallback() {
                             override fun onCompleted(gestureDescription: GestureDescription) {
@@ -2010,7 +2027,7 @@ isDeviceSecure = 这台设备“有没有任何安全门槛”
                             if (cont.isActive) cont.resume(false)
                         }
                     }
-                } ?: false // 超时
+                } ?: false
 
                 if (gestureResult) {
                     try { moveCallback?.onSuccess() } catch (_: Throwable) {}
@@ -2018,7 +2035,6 @@ isDeviceSecure = 这台设备“有没有任何安全门槛”
                 }
             }
 
-            // 彻底失败
             try { moveCallback?.onError() } catch (_: Throwable) {}
             false
         }
