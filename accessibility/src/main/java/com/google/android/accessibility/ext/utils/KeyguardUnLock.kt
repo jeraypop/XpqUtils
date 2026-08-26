@@ -1543,8 +1543,8 @@ isDeviceSecure = 这台设备“有没有任何安全门槛”
         context: Context,
         distancePx: Float,
         curveIntensity: Float = 0.12f,
-        minMs: Long = 80L,
-        maxMs: Long = 900L
+        minMs: Long = 680L,
+        maxMs: Long = 1300L
     ): Long {
         val dist = max(1f, distancePx)
 
@@ -1588,9 +1588,9 @@ isDeviceSecure = 这台设备“有没有任何安全门槛”
         KeyguardUnLock.sendLog("设备宽度= $screenWidth, 高度= $screenHeight")
 
         val startXBase = screenWidth / 2f
-        val startYBase = screenHeight * 0.88f
+        val startYBase = screenHeight * 0.75f
         val endXBase = screenWidth / 2f + screenWidth * horizontalOffsetRatio
-        val endYBase = screenHeight * 0.30f
+        val endYBase = screenHeight * 0.35f
 
         val curveFactor = curveIntensity.coerceIn(0f, 0.5f)
         val jitterFactor = jitterRatio.coerceIn(0f, 0.1f)
@@ -1892,8 +1892,8 @@ isDeviceSecure = 这台设备“有没有任何安全门槛”
         pathInfo: SwipePathInfo? = null,
         start: PointF? = null,
         end: PointF? = null,
-        @IntRange(from = 0) startTime: Long = 0L,
-        @IntRange(from = 0) duration: Long = 500L,
+        @IntRange(from = 0) startTime: Long = 800L,
+        @IntRange(from = 0) duration: Long = 600L,
         moveCallback: MoveCallback? = null,
         timeoutMs: Long = 2000L,
         autoDurationEnabled: Boolean = true,
@@ -2037,9 +2037,7 @@ isDeviceSecure = 这台设备“有没有任何安全门槛”
             autoDurationEnabled -> computeAutoDuration(
                 context = service.applicationContext,
                 distancePx = distancePx,
-                curveIntensity = curveIntensity,
-                minMs = 80L,
-                maxMs = 900L
+                curveIntensity = curveIntensity
             )
             else -> 500L
         }
