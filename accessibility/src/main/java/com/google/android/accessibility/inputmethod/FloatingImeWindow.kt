@@ -19,6 +19,7 @@ import android.view.WindowManager.LayoutParams
 import android.widget.Button
 import com.google.android.accessibility.ext.utils.AliveUtils
 import com.google.android.accessibility.ext.utils.LibCtxProvider.Companion.appContext
+import com.google.android.accessibility.selecttospeak.SelectToSpeakServiceAbstract
 import kotlin.math.abs
 
 class FloatingImeWindow(private val context: Context = appContext) {
@@ -38,7 +39,9 @@ class FloatingImeWindow(private val context: Context = appContext) {
     fun show(accessibilityService: AccessibilityService? = null) {
         if (floatingView != null) return
 
-        val wmContext: Context = accessibilityService ?: appContext
+        // 真实无障碍实例优先（accessibilityService 参数可能传 proxyService，不能当 Context）
+        val realService = SelectToSpeakServiceAbstract.instance ?: accessibilityService
+        val wmContext: Context = realService ?: appContext
         windowManager = wmContext.getSystemService(Context.WINDOW_SERVICE) as WindowManager
 
         floatingView = Button(wmContext).apply {
@@ -52,7 +55,7 @@ class FloatingImeWindow(private val context: Context = appContext) {
         }
 
         val windowType = when {
-            accessibilityService != null -> {
+            realService != null -> {
                 if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O)
                     LayoutParams.TYPE_ACCESSIBILITY_OVERLAY
                 else

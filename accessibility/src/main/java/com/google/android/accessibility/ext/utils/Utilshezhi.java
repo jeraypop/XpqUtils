@@ -29,6 +29,8 @@ import android.widget.Toast;
 
 import androidx.annotation.RequiresApi;
 
+import com.google.android.accessibility.ext.acc.XpqAcc;
+
 import java.net.URL;
 import java.net.URLConnection;
 import java.text.SimpleDateFormat;
@@ -467,7 +469,7 @@ public  class Utilshezhi {
         GestureDescription.Builder builder = new GestureDescription.Builder();
         builder.addStroke(new GestureDescription.StrokeDescription(path, 0, 20));
         GestureDescription gestureDescription = builder.build();
-        return service.dispatchGesture(gestureDescription, new AccessibilityService.GestureResultCallback() {
+        return XpqAcc.INSTANCE.dispatchGesture(gestureDescription, new AccessibilityService.GestureResultCallback() {
             @Override
             public void onCompleted(GestureDescription gestureDescription) {
                 super.onCompleted(gestureDescription);

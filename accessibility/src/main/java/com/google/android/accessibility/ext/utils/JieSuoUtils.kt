@@ -29,6 +29,8 @@ import com.google.android.accessibility.ext.utils.KeyguardUnLock.sendLog
 import com.google.android.accessibility.ext.utils.LibCtxProvider.Companion.appContext
 import com.google.android.accessibility.ext.utils.NumberPickerDialog.hasRoot
 import com.google.android.accessibility.ext.utils.gestureUtils.HumanTouchEngine
+import com.google.android.accessibility.ext.window.AssistsWindowManager
+import com.google.android.accessibility.selecttospeak.SelectToSpeakServiceAbstract
 import com.google.android.accessibility.selecttospeak.accessibilityService
 import kotlinx.coroutines.delay
 import java.util.Locale
@@ -93,7 +95,7 @@ object JieSuoUtils {
         val btQuit = controlView.findViewById<Button>(R.id.button_quit)
 
         val controlParams = WindowManager.LayoutParams().apply {
-            type = WindowManager.LayoutParams.TYPE_ACCESSIBILITY_OVERLAY
+            type = AssistsWindowManager.chooseWindowType()
             format = PixelFormat.TRANSPARENT
             gravity = Gravity.START or Gravity.TOP
             flags = WindowManager.LayoutParams.FLAG_LAYOUT_IN_SCREEN or
@@ -182,7 +184,7 @@ object JieSuoUtils {
             val container = FrameLayout(service)
 
             val targetParams = WindowManager.LayoutParams().apply {
-                type = WindowManager.LayoutParams.TYPE_ACCESSIBILITY_OVERLAY
+                type = AssistsWindowManager.chooseWindowType()
                 format = PixelFormat.TRANSPARENT
                 gravity = Gravity.START or Gravity.TOP
                 flags = WindowManager.LayoutParams.FLAG_LAYOUT_IN_SCREEN or

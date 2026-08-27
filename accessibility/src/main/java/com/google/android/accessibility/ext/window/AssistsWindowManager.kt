@@ -18,6 +18,7 @@ import com.google.android.accessibility.ext.CoroutineWrapper
 import com.google.android.accessibility.ext.runIO
 import com.google.android.accessibility.ext.runMain
 import com.google.android.accessibility.ext.utils.KeyguardUnLock.dp2px
+import com.google.android.accessibility.ext.utils.LibCtxProvider.Companion.appContext
 
 
 import kotlinx.coroutines.Dispatchers
@@ -36,10 +37,12 @@ object AssistsWindowManager {
         return (dp * density + 0.5f).toInt()
     }
     fun chooseWindowType(): Int {
+        // 无障碍上下文用 TYPE_ACCESSIBILITY_OVERLAY（免悬浮窗权限）；
+        // 非无障碍上下文（如 UiAutomation）回退普通悬浮窗 TYPE_APPLICATION_OVERLAY（需悬浮窗权限）。
+        val isAccessibilityContext = SelectToSpeakServiceAbstract.instance != null
         return try {
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-                if (Build.VERSION.SDK_INT >= 28) {
-                    // 优先 TYPE_ACCESSIBILITY_OVERLAY（在 AccessibilityService 下可用）
+                if (isAccessibilityContext && Build.VERSION.SDK_INT >= 28) {
                     WindowManager.LayoutParams.TYPE_ACCESSIBILITY_OVERLAY
                 } else {
                     WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY
@@ -77,7 +80,7 @@ object AssistsWindowManager {
      * @return WindowManager实例，如果未初始化则返回null
      */
     fun getWindowManager(): WindowManager? {
-        SelectToSpeakServiceAbstract.instance?.getSystemService(Context.WINDOW_SERVICE)?.let { return (it as WindowManager) }
+        (SelectToSpeakServiceAbstract.instance ?: appContext).getSystemService(Context.WINDOW_SERVICE)?.let { return (it as WindowManager) }
         return null
     }
 
@@ -101,7 +104,8 @@ object AssistsWindowManager {
         layoutParams.gravity = Gravity.START or Gravity.TOP
         layoutParams.format = PixelFormat.RGBA_8888
         //此处layoutParams.type不建议使用TYPE_TOAST，因为在一些版本较低的系统中会出现拖动异常的问题，虽然它不需要权限
-        layoutParams.type = WindowManager.LayoutParams.TYPE_ACCESSIBILITY_OVERLAY
+        // 兼容模式：无障碍可用用 accessibility overlay，否则回退普通悬浮窗
+        layoutParams.type = chooseWindowType()
         //背景明暗度0~1，数值越大背景越暗，只有在flags设置了WindowManager.LayoutParams.FLAG_DIM_BEHIND 这个属性才会生效
         layoutParams.dimAmount = 0.0f
         //透明度0~1，数值越大越不透明
@@ -344,24 +348,23 @@ object AssistsWindowManager {
      * @param delay 显示时长，默认2000毫秒
      */
     fun String.overlayToast(delay: Long = 2000) {
-        SelectToSpeakServiceAbstract.instance?.let {
-            CoroutineWrapper.launch(isMain = true) {
-                val textView = TextView(it).apply {
-                    text = this@overlayToast
-                    setTextColor(Color.WHITE)
-                    setPadding(dp2px(10f))
-                }
-                val assistsWindowWrapper = AssistsWindowWrapper(textView, wmLayoutParams = createLayoutParams().apply {
-                    width = -2
-                    height = -2
-                }).apply {
-                    showOption = false
-                    initialCenter = true
-                }
-                add(assistsWindowWrapper, isTouchable = false)
-                runIO { delay(delay) }
-                removeView(assistsWindowWrapper.getView())
+        val ctx = SelectToSpeakServiceAbstract.instance ?: appContext
+        CoroutineWrapper.launch(isMain = true) {
+            val textView = TextView(ctx).apply {
+                text = this@overlayToast
+                setTextColor(Color.WHITE)
+                setPadding(dp2px(10f))
             }
+            val assistsWindowWrapper = AssistsWindowWrapper(textView, wmLayoutParams = createLayoutParams().apply {
+                width = -2
+                height = -2
+            }).apply {
+                showOption = false
+                initialCenter = true
+            }
+            add(assistsWindowWrapper, isTouchable = false)
+            runIO { delay(delay) }
+            removeView(assistsWindowWrapper.getView())
         }
     }
 

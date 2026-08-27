@@ -16,7 +16,7 @@ import android.widget.LinearLayout
 import android.widget.TextView
 import android.view.WindowManager.LayoutParams
 import com.google.android.accessibility.ext.utils.LibCtxProvider.Companion.appContext
-import com.google.android.accessibility.selecttospeak.accessibilityService
+import com.google.android.accessibility.selecttospeak.SelectToSpeakServiceAbstract
 
 /**
  * Company    :
@@ -50,7 +50,8 @@ object CodeToastManager {
         packageName: String? = null
     ) {
         handler.post {
-            val context: Context = accessibilityService ?: appContext
+            // 真实无障碍实例优先；UiAutomation 模式下全局 accessibilityService 是 proxyService，不能当 Context 用
+            val context: Context = SelectToSpeakServiceAbstract.instance ?: appContext
 
             // 自动初始化
             if (floatLayout == null) {
@@ -107,9 +108,9 @@ object CodeToastManager {
                 floatLayout?.addView(imageView)
                 floatLayout?.addView(textView)
 
-                // 确定 Window 类型
+                // 确定 Window 类型（兼容：真实无障碍可用走 accessibility overlay，否则回退普通悬浮窗）
                 val windowType = when {
-                    accessibilityService != null -> {
+                    SelectToSpeakServiceAbstract.instance != null -> {
                         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O)
                             LayoutParams.TYPE_ACCESSIBILITY_OVERLAY
                         else

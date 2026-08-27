@@ -90,6 +90,7 @@ pinyin = "1.0.7"
 freereflection = "3.2.2"
 reorderable = "2.5.1"
 shizuku = "13.1.5"
+hiddenapibypass = "4.3"
 desugarJdkLibs = "2.1.5"
 ahocorasick = "0.6.3"
 
@@ -304,6 +305,7 @@ com-tiann-freereflection = { group = "com.github.tiann", name = "FreeReflection"
 sh-calvin-reorderable = { group = "sh.calvin.reorderable", name = "reorderable", version.ref = "reorderable" }
 dev-rikka-shizuku-api = { group = "dev.rikka.shizuku", name = "api", version.ref = "shizuku" }
 dev-rikka-shizuku-provider = { group = "dev.rikka.shizuku", name = "provider", version.ref = "shizuku" }
+hiddenapibypass = { group = "org.lsposed.hiddenapibypass", name = "hiddenapibypass", version.ref = "hiddenapibypass" }
 desugar-jdk-libs = { group = "com.android.tools", name = "desugar_jdk_libs", version.ref = "desugarJdkLibs" }
 org-ahocorasick = { group = "org.ahocorasick", name = "ahocorasick", version.ref = "ahocorasick" }
 #===============================new add

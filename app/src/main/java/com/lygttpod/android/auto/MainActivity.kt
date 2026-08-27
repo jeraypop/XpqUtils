@@ -21,6 +21,9 @@ import com.mqd.updatelib.core.UpdateState
 import com.mqd.updatelib.download.ApkInstaller
 import com.mqd.updatelib.ui.UpdateDialogHelper
 import com.android.accessibility.ext.BuildConfig
+import com.google.android.accessibility.ext.acc.EngineMode
+import com.google.android.accessibility.ext.acc.XpqAcc
+import com.google.android.accessibility.ext.acc.clickByText
 
 import com.google.android.accessibility.ext.activity.XpqBaseActivity
 import com.google.android.accessibility.ext.fragment.SensitiveNotificationBottomSheet
@@ -57,6 +60,7 @@ import com.google.android.accessibility.ext.window.OverlayLog
 import com.google.android.accessibility.privacypolicy.XpqPrivacyDialog.Companion.ANDROID_ASSET
 import com.google.android.accessibility.privacypolicy.XpqPrivacyDialog.Companion.default_Privacy
 import com.google.android.accessibility.selecttospeak.SelectToSpeakService
+import com.google.android.accessibility.selecttospeak.accessibilityService
 import com.lygttpod.android.auto.notification.NotificationListenerServiceImp
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -187,17 +191,38 @@ class MainActivity : XpqBaseActivity<ActivityMainBinding>(
             AliveUtils.openNotificationListener(this, NotificationListenerServiceImp::class.java)
         }
         binding.btnGZH.setOnClickListener{
+            // App 启动时切到 UiAutomation（免开无障碍，需 Shizuku）
+            // 直接在主线程调用，不会卡
+            XpqAcc.connectUiAutomation(
+                onLog = { Log.d("XpqAcc", it) },
+                onResult = { success, reason ->
+                    if (success) {
+                        // 连接成功后立刻验证
+                        val root = XpqAcc.rootInActiveWindow()
+                        AliveUtils.toast(msg = "连接成功，取根节点=${root != null}，isConnected=${XpqAcc.isConnected}")
+  
+                    }else{
+                        AliveUtils.toast(msg = "失败"+reason)
+                    }
+                }
+            )
+
+
+
+            //
+            //show_AC_Warn_Dialog(this@MainActivity,false )
             //公众号ID
-            show_AC_Warn_Dialog(this@MainActivity,false )
             //openWeChatToFollowInterface(getWCField[6].first.restoreAllIllusion())
         }
         binding.btnAddFriend.setOnClickListener{
+            val ok = accessibilityService?.clickByText("赞赏")
+            AliveUtils.toast(msg = "clickByText=$ok")
             //好友微信号
             //openWeChatToFollowInterface(getWCField[6].second.restoreAllIllusion())
             //openAccessibilitySetting()
             // 使用 FragmentManager 来显示 BottomSheetDialogFragment
-            val sheet = SensitiveNotificationBottomSheet()
-            sheet.show(supportFragmentManager, SensitiveNotificationBottomSheet.TAG)
+            //val sheet = SensitiveNotificationBottomSheet()
+            //sheet.show(supportFragmentManager, SensitiveNotificationBottomSheet.TAG)
         }
 
         // 创建匿名内部类实现 ScreenStateCallback 接口

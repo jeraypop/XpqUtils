@@ -53,6 +53,7 @@ import androidx.core.content.ContextCompat
 import androidx.fragment.app.Fragment
 import com.android.accessibility.ext.R
 import com.android.accessibility.ext.databinding.ForgroundserviceDialogXpqBinding
+import com.google.android.accessibility.ext.acc.XpqAcc
 import com.google.android.accessibility.ext.activity.AliveActivity
 import com.google.android.accessibility.ext.activity.AliveFGService
 import com.google.android.accessibility.ext.activity.AliveFGService.Companion.fgs_ison
@@ -1335,11 +1336,11 @@ object AliveUtils {
                     }
                     BTN_RECENTS  ->{
                         //打开最近任务列表
-                        if (SelectToSpeakServiceAbstract.instance == null) {
+                        if (SelectToSpeakServiceAbstract.instance == null && !XpqAcc.isConnected) {
                             AliveUtils.toast(appContext, appContext.getString(R.string.lockapp))
                         } else {
                             AliveUtils.toast(appContext, appContext.getString(R.string.quanxian31))
-                            SelectToSpeakServiceAbstract.instance!!.performGlobalAction(GLOBAL_ACTION_RECENTS)
+                            XpqAcc.performGlobalAction(GLOBAL_ACTION_RECENTS)
                         }
                     }
 

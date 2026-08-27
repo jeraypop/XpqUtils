@@ -6,6 +6,7 @@ import android.graphics.Path
 import android.graphics.PointF
 import android.os.Build
 import androidx.annotation.RequiresApi
+import com.google.android.accessibility.ext.acc.XpqAcc
 import kotlinx.coroutines.*
 import java.lang.ref.WeakReference
 import kotlin.coroutines.resume
@@ -48,6 +49,15 @@ object HumanTouchEngine {
 
     private var serviceRef: WeakReference<AccessibilityService>? = null
     private var scope: CoroutineScope? = null
+
+    /**
+     * UiAutomation 模式下 attach() 不会被调用（无真实无障碍服务），
+     * 而手势派发已走 [XpqAcc] 门面（不依赖具体 service 实例），
+     * 故用此兜底 scope 跑协程，保证两条通道都能注入手势。
+     */
+    private val fallbackScope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
+
+    private fun activeScope(): CoroutineScope = scope ?: fallbackScope
 
     /** 绑定无障碍服务生命周期 */
     fun attach(service: AccessibilityService) {
@@ -205,11 +215,12 @@ object HumanTouchEngine {
         gestureBlock: () -> GestureDescription,
         onDone: ((Boolean) -> Unit)?
     ): Boolean {
-        val currentScope = scope ?: return false
-        val service = serviceRef?.get() ?: return false
+        // 无障碍模式用 attach 的 scope；UiAutomation 模式用 fallbackScope。
+        // 派发本身已走 XpqAcc 门面，不再依赖 service 实例，故不因 serviceRef 为空而失败。
+        val currentScope = activeScope()
 
         currentScope.launch {
-            val success = performGestureInternal(service, gestureBlock())
+            val success = performGesture(gestureBlock())
             onDone?.let {
                 withContext(Dispatchers.Main) { it(success) }
             }
@@ -219,18 +230,16 @@ object HumanTouchEngine {
 
     @RequiresApi(Build.VERSION_CODES.N)
     private suspend fun performGesture(gesture: GestureDescription): Boolean {
-        val service = serviceRef?.get() ?: return false
-        return performGestureInternal(service, gesture)
+        return performGestureInternal(gesture)
     }
 
     @RequiresApi(Build.VERSION_CODES.N)
     private suspend fun performGestureInternal(
-        service: AccessibilityService,
         gesture: GestureDescription
     ): Boolean {
         return suspendCancellableCoroutine { cont ->
             try {
-                val dispatched = service.dispatchGesture(
+                val dispatched = XpqAcc.dispatchGesture(
                     gesture,
                     object : AccessibilityService.GestureResultCallback() {
                         override fun onCompleted(g: GestureDescription) {

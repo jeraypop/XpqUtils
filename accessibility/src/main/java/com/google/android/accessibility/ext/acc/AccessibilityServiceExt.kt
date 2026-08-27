@@ -714,7 +714,7 @@ suspend fun AccessibilityService?.scrollToClickByText(
  * 模拟back按键
  */
 fun AccessibilityService.pressBackButton(): Boolean {
-    return performGlobalAction(AccessibilityService.GLOBAL_ACTION_BACK)
+    return XpqAcc.performGlobalAction(AccessibilityService.GLOBAL_ACTION_BACK)
 }
 
 suspend fun AccessibilityService?.scrollToFindNextNodeByCurrentText(

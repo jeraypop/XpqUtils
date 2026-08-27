@@ -4,6 +4,7 @@ import android.accessibilityservice.AccessibilityService
 import android.accessibilityservice.GestureDescription
 import android.graphics.Path
 import android.os.Build
+import com.google.android.accessibility.ext.acc.XpqAcc
 import com.google.android.accessibility.ext.utils.KeyguardUnLock.sendLog
 import com.google.android.accessibility.ext.utils.KeyguardUnLock.showClickIndicator
 import com.google.android.accessibility.selecttospeak.accessibilityService
@@ -88,7 +89,7 @@ object StableGestureClicker {
             .build()
 
         try {
-            service.dispatchGesture(gesture, null, null)
+            XpqAcc.dispatchGesture(gesture, null, null)
         } catch (_: Throwable) {
         }
     }
@@ -129,7 +130,7 @@ object StableGestureClicker {
                         .build()
 
                     try {
-                        val dispatched = service.dispatchGesture(
+                        val dispatched = XpqAcc.dispatchGesture(
                             gesture,
                             object : AccessibilityService.GestureResultCallback() {
 

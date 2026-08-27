@@ -25,6 +25,7 @@ import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.widget.AppCompatButton
 import androidx.appcompat.widget.SwitchCompat
 import com.android.accessibility.ext.R
+import com.google.android.accessibility.ext.acc.XpqAcc
 import com.google.android.accessibility.ext.utils.ActivityUtils.showPicDialog
 import com.google.android.accessibility.ext.utils.AliveUtils.keepAliveByFloatingWindow
 import com.google.android.accessibility.ext.utils.KeyguardUnLock.mKeyguardManager
@@ -284,7 +285,7 @@ object NumberPickerDialog {
                             "\n注:如果设置了坐标后,还是不能密码解锁,那还是把手机设置成无密码锁屏,直接滑动解锁吧",
                     imageResource = R.drawable.applock,
                     onConfirm = {
-                        accessibilityService?.performGlobalAction(GLOBAL_ACTION_LOCK_SCREEN)
+                        XpqAcc.performGlobalAction(GLOBAL_ACTION_LOCK_SCREEN)
                         JieSuoUtils.showDialogZuobiao()
                     },
                     onCancel = {

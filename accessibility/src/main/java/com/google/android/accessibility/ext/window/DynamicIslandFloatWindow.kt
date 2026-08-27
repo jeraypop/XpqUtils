@@ -559,9 +559,9 @@ object DynamicIslandFloatWindow {
             stopPreview()
             if (!enabledNow) hide()
         }
-        // 非 Activity 上下文（如无障碍服务）需指定窗口类型，否则对话框无法附着
+        // 非 Activity 上下文（如无障碍服务）需指定窗口类型，否则对话框无法附着（兼容模式）
         if (context.findActivity() == null) {
-            dialog.window?.setType(WindowManager.LayoutParams.TYPE_ACCESSIBILITY_OVERLAY)
+            dialog.window?.setType(AssistsWindowManager.chooseWindowType())
         }
         dialog.show()
 
@@ -622,7 +622,7 @@ object DynamicIslandFloatWindow {
             .setNegativeButton("取消", null)
             .create()
         if (context.findActivity() == null) {
-            dlg.window?.setType(WindowManager.LayoutParams.TYPE_ACCESSIBILITY_OVERLAY)
+            dlg.window?.setType(AssistsWindowManager.chooseWindowType())
         }
         dlg.show()
     }

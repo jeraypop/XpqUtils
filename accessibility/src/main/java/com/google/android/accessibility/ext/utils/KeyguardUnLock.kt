@@ -31,6 +31,7 @@ import android.view.WindowInsets
 import android.view.accessibility.AccessibilityNodeInfo
 import androidx.annotation.IntRange
 import androidx.annotation.RequiresApi
+import com.google.android.accessibility.ext.acc.XpqAcc
 import com.google.android.accessibility.ext.activity.AliveActivity
 import com.google.android.accessibility.ext.task.PERIOD
 import com.google.android.accessibility.ext.task.TIMEOUT
@@ -1509,15 +1510,17 @@ isDeviceSecure = 这台设备“有没有任何安全门槛”
         moveCallback: MoveCallback?
     ) {
         if (Build.VERSION.SDK_INT < Build.VERSION_CODES.N) return
+        // 显示滑动轨迹（对齐 moveAwait；内部有 SHOW_DO_GUIJI 开关判断，未开启时不显示）
+        showGestureIndicator(service, path, duration)
         if (moveCallback == null) {
-            service.dispatchGesture(
+            XpqAcc.dispatchGesture(
                 GestureDescription.Builder()
                     .addStroke(StrokeDescription(path, startTime, duration)).build(),
                 null,
                 null
             )
         } else {
-            service.dispatchGesture(
+            XpqAcc.dispatchGesture(
                 GestureDescription.Builder()
                     .addStroke(StrokeDescription(path, startTime, duration)).build(),
                 object : GestureResultCallback() {
@@ -1684,7 +1687,7 @@ isDeviceSecure = 这台设备“有没有任何安全门槛”
                 }
 
                 val finalPathInfo = pathInfo ?: createNaturalSwipePathInfo(
-                    context = service.applicationContext,
+                    context = (runCatching { service.applicationContext }.getOrNull() ?: appContext),
                     useCurve = useCurve,
                     curveIntensity = curveIntensity,
                     horizontalOffsetRatio = horizontalOffsetRatio,
@@ -1695,7 +1698,7 @@ isDeviceSecure = 这台设备“有没有任何安全门槛”
                 val finalDuration = when {
                     duration > 0L -> duration.coerceAtLeast(50L)
                     autoDurationEnabled -> computeAutoDuration(
-                        context = service.applicationContext,
+                        context = (runCatching { service.applicationContext }.getOrNull() ?: appContext),
                         distancePx = distancePx,
                         curveIntensity = curveIntensity,
                         minMs = 80L,
@@ -1716,7 +1719,7 @@ isDeviceSecure = 这台设备“有没有任何安全门槛”
 
                     if (moveCallback == null) {
                         try {
-                            service.dispatchGesture(gesture, null, null)
+                            XpqAcc.dispatchGesture(gesture, null, null)
                             return@safeRunOnMain true
                         } catch (_: Throwable) {
                             return@safeRunOnMain false
@@ -1738,7 +1741,7 @@ isDeviceSecure = 这台设备“有没有任何安全门槛”
                             }
 
                             try {
-                                service.dispatchGesture(gesture, callback, null)
+                                XpqAcc.dispatchGesture(gesture, callback, null)
                             } catch (_: Throwable) {
                                 try { moveCallback.onError() } catch (_: Throwable) {}
                                 if (cont.isActive) cont.resume(false)
@@ -1800,7 +1803,7 @@ isDeviceSecure = 这台设备“有没有任何安全门槛”
 
             // ====== 构建路径（只构建一次）======
             val finalPathInfo = pathInfo ?: createNaturalSwipePathInfo(
-                context = accService.applicationContext,
+                context = (runCatching { accService.applicationContext }.getOrNull() ?: appContext),
                 useCurve = useCurve,
                 curveIntensity = curveIntensity,
                 horizontalOffsetRatio = horizontalOffsetRatio,
@@ -1811,7 +1814,7 @@ isDeviceSecure = 这台设备“有没有任何安全门槛”
             val finalDuration = when {
                 duration > 0L -> duration.coerceAtLeast(50L)
                 autoDurationEnabled -> computeAutoDuration(
-                    context = accService.applicationContext,
+                    context = (runCatching { accService.applicationContext }.getOrNull() ?: appContext),
                     distancePx = distancePx,
                     curveIntensity = curveIntensity,
                     minMs = 80L,
@@ -1864,7 +1867,7 @@ isDeviceSecure = 这台设备“有没有任何安全门槛”
 
                             try {
                                 showGestureIndicator(accService, finalPathInfo.path, finalDuration)
-                                accService.dispatchGesture(gesture, callback, null)
+                                XpqAcc.dispatchGesture(gesture, callback, null)
 
                                 // 没有 callback 的情况，直接认为已发出
                                 if (callback == null && cont.isActive) {
@@ -1967,7 +1970,7 @@ isDeviceSecure = 这台设备“有没有任何安全门槛”
                     // 方式 C（默认路线）：自动调用 createNaturalSwipePathInfo
                     else -> {
                         val defaultPathInfo = createNaturalSwipePathInfo(
-                            context = accService.applicationContext,
+                            context = (runCatching { accService.applicationContext }.getOrNull() ?: appContext),
                             useCurve = useCurve,
                             curveIntensity = curveIntensity,
                             horizontalOffsetRatio = horizontalOffsetRatio,
@@ -2019,7 +2022,7 @@ isDeviceSecure = 这台设备“有没有任何安全门槛”
                         }
 
                         try {
-                            val dispatched = accService.dispatchGesture(finalGesture, callback, null)
+                            val dispatched = XpqAcc.dispatchGesture(finalGesture, callback, null)
                             if (!dispatched && cont.isActive) {
                                 cont.resume(false)
                             }
@@ -2051,7 +2054,7 @@ isDeviceSecure = 这台设备“有没有任何安全门槛”
         return when {
             duration > 0L -> duration.coerceAtLeast(50L)
             autoDurationEnabled -> computeAutoDuration(
-                context = service.applicationContext,
+                context = (runCatching { service.applicationContext }.getOrNull() ?: appContext),
                 distancePx = distancePx,
                 curveIntensity = curveIntensity
             )
@@ -2248,9 +2251,13 @@ isDeviceSecure = 这台设备“有没有任何安全门槛”
         service?: return
         val showguiji = MMKVUtil.get(MMKVConst.SHOW_DO_GUIJI, false)
         if (showguiji){
-            val (screenWidth, screenHeight) = getScreenSize(service.applicationContext)
+            // service 可能是 ProxyAccessibilityService（UiAutomation 模式，未 attach），
+            // 其 applicationContext 为 null 会 NPE；用 appContext 兜底。
+            // 窗口类型由 chooseWindowType() 按上下文自动选（无障碍→accessibility overlay，否则→application overlay）。
+            val ctx: Context = runCatching { service.applicationContext }.getOrNull() ?: appContext
+            val (screenWidth, screenHeight) = getScreenSize(ctx)
             //val baseOffset = 20
-            val baseOffset = AssistsWindowManager.pxFromDp(service, AssistsWindowManager.DIAMETER_DP)/2
+            val baseOffset = AssistsWindowManager.pxFromDp(ctx, AssistsWindowManager.DIAMETER_DP)/2
             // 计算偏移后的位置，确保不超出屏幕边界
             val adjustedX = when {
                 x + baseOffset > screenWidth -> x - baseOffset
@@ -2263,8 +2270,8 @@ isDeviceSecure = 这台设备“有没有任何安全门槛”
             }
             // 在主线程显示指示器
             Handler(Looper.getMainLooper()).post {
-                ClickIndicatorManager.show(service, x, y)
-                //ClickIndicatorManager.show(service, adjustedX, adjustedY)
+                ClickIndicatorManager.show(ctx, x, y)
+                //ClickIndicatorManager.show(ctx, adjustedX, adjustedY)
             }
         }
 
@@ -2275,9 +2282,11 @@ isDeviceSecure = 这台设备“有没有任何安全门槛”
         service?: return
         val showguiji = MMKVUtil.get(MMKVConst.SHOW_DO_GUIJI, false)
         if (showguiji){
+            // service 可能是 ProxyAccessibilityService（未 attach），用 appContext 兜底
+            val ctx: Context = runCatching { service.applicationContext }.getOrNull() ?: appContext
             // 在主线程显示指示器
             Handler(Looper.getMainLooper()).post {
-                SwipeTrajectoryIndicatorManager.show(service, path, duration = 600L)
+                SwipeTrajectoryIndicatorManager.show(ctx, path, duration = 600L)
 
             }
         }
@@ -2758,7 +2767,7 @@ isDeviceSecure = 这台设备“有没有任何安全门槛”
             path.moveTo(X.toFloat(), Y.toFloat())
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {
                 val builder = GestureDescription.Builder().addStroke(StrokeDescription(path, 0, time))
-                return service.dispatchGesture(builder.build(), null, null)
+                return XpqAcc.dispatchGesture(builder.build(), null, null)
             } else {
                 return false
             }

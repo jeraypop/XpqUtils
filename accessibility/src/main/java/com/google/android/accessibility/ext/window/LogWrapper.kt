@@ -209,7 +209,7 @@ object LogWrapper {
             }
             .create()
 
-        dialog.window?.attributes?.type = WindowManager.LayoutParams.TYPE_ACCESSIBILITY_OVERLAY
+        dialog.window?.attributes?.type = AssistsWindowManager.chooseWindowType()
         dialog.show()
     }
 
@@ -284,8 +284,8 @@ object LogWrapper {
             }
             .create()
 
-        // ⭐ Accessibility Overlay 必须设置
-        dialog.window?.setType(WindowManager.LayoutParams.TYPE_ACCESSIBILITY_OVERLAY)
+        // ⭐ 兼容模式：无障碍可用用 accessibility overlay，否则回退普通悬浮窗
+        dialog.window?.setType(AssistsWindowManager.chooseWindowType())
         dialog.show()
     }
     fun shareLogFile(strRegulation: String) {
@@ -359,9 +359,9 @@ object LogWrapper {
                 }
                 .setNegativeButton(R.string.cancel, null)
                 .create()
-            // 只有非 Activity Context 才设置窗口类型
+            // 只有非 Activity Context 才设置窗口类型（兼容：无障碍可用用 accessibility overlay，否则普通悬浮窗）
             if (context.findActivity() == null) {
-                dialog.window?.setType(WindowManager.LayoutParams.TYPE_ACCESSIBILITY_OVERLAY)
+                dialog.window?.setType(AssistsWindowManager.chooseWindowType())
             }
             dialog.show()
         }

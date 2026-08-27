@@ -178,7 +178,7 @@ private fun AccessibilityService?.gestureScroll(
                 lineTo(x, y + realYDistance / 2)
             }
         }
-        return dispatchGesture(
+        return XpqAcc.dispatchGesture(
             GestureDescription.Builder().apply {
                 addStroke(
                     GestureDescription.StrokeDescription(path, 0L, 300)
