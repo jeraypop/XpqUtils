@@ -1169,7 +1169,9 @@ isDeviceSecure = 这台设备“有没有任何安全门槛”
     @JvmStatic
     fun unlockScreen(access_Service: AccessibilityService? = accessibilityService, password: String=""): Boolean {
         var    isSuc = false
-        if (access_Service == null) {
+        // 兜底：显式传 null 时回退到全局 accessibilityService（UiAutomation 模式下是 proxyService）
+        val svc = access_Service ?: accessibilityService
+        if (svc == null) {
             sendLog("无障碍服务未开启!")
             return isSuc
         }
@@ -1214,7 +1216,7 @@ isDeviceSecure = 这台设备“有没有任何安全门槛”
             var num=1
             fun inputMiMa(s: Char) =
                 findAndPerformClickNodeInfo(
-                    access_Service!!,
+                    svc,
                     digitId,
                     s.toString(),
                     s.toString()
@@ -1255,7 +1257,7 @@ isDeviceSecure = 这台设备“有没有任何安全门槛”
 
         //===================
         move(
-            access_Service!!,
+            svc,
             path,
             500, 500,
             object : MoveCallback {
@@ -1263,7 +1265,7 @@ isDeviceSecure = 这台设备“有没有任何安全门槛”
                     sendLog("第1.2步,手势上划成功,然后开始输入密码解锁")
                     //睡眠一下 等待 解锁界面加载出来
                     SystemClock.sleep(1000)
-                    jiesuoRun(getLockViewID(access_Service.rootInActiveWindow))
+                    jiesuoRun(getLockViewID(svc.rootInActiveWindow))
                     //===
                 }
 
@@ -1279,7 +1281,9 @@ isDeviceSecure = 这台设备“有没有任何安全门槛”
     @JvmStatic
     fun inputPassword(access_Service: AccessibilityService? = accessibilityService, password: String="", isJava: Boolean = false, isNew: Boolean = true): Boolean {
         var    isSuc = false
-        if (access_Service == null) {
+        // 兜底：显式传 null 时回退到全局 accessibilityService（UiAutomation 模式下是 proxyService）
+        val svc = access_Service ?: accessibilityService
+        if (svc == null) {
             sendLog("无障碍服务未开启!")
             return isSuc
         }
@@ -1308,7 +1312,7 @@ isDeviceSecure = 这台设备“有没有任何安全门槛”
                 var num=1
                 fun inputMiMa(s: Char) =
                     findAndPerformClickNodeInfo(
-                        access_Service!!,
+                        svc,
                         digitId,
                         s.toString(),
                         s.toString(),
@@ -1339,7 +1343,7 @@ isDeviceSecure = 这台设备“有没有任何安全门槛”
                 }
 
             }
-            jiesuoRun(getLockViewID(access_Service.rootInActiveWindow))
+            jiesuoRun(getLockViewID(svc.rootInActiveWindow))
             //===================
         }
 
@@ -1362,7 +1366,9 @@ isDeviceSecure = 这台设备“有没有任何安全门槛”
     @JvmStatic
     fun unlockMove(access_Service: AccessibilityService? = accessibilityService, start: Long=500L, duration: Long=500L, password: String="",isJava: Boolean = false): Boolean {
         var    isSuc = false
-        if (access_Service == null) {
+        // 兜底：显式传 null 时回退到全局 accessibilityService（UiAutomation 模式下是 proxyService）
+        val svc = access_Service ?: accessibilityService
+        if (svc == null) {
             sendLog("无障碍服务未开启!")
             return isSuc
         }
@@ -1389,7 +1395,7 @@ isDeviceSecure = 这台设备“有没有任何安全门槛”
         path.lineTo(screenWidth / 8f, y - 800f)//滑动终点
 
         //===================
-        move(access_Service!!, path, start, duration,
+        move(svc, path, start, duration,
             object : MoveCallback {
                 override fun onSuccess() {
                     sendLog("手势上划成功,然后开始输入密码解锁")
@@ -1397,7 +1403,7 @@ isDeviceSecure = 这台设备“有没有任何安全门槛”
                         //睡眠一下 等待 解锁界面加载出来
                         SystemClock.sleep(500)
                         //===
-                        inputPassword(access_Service, password, isJava)
+                        inputPassword(svc, password, isJava)
                     }
 
                 }
@@ -1791,6 +1797,7 @@ isDeviceSecure = 这台设备“有没有任何安全门槛”
             }
 
             val accService = service
+                ?: accessibilityService
                 ?: run {
                     KeyguardUnLock.sendLog("无障碍服务未开启")
                     return@withLock false
@@ -1917,7 +1924,7 @@ isDeviceSecure = 这台设备“有没有任何安全门槛”
                 return@withLock false
             }
 
-            val accService = service ?: run {
+            val accService = service ?: accessibilityService ?: run {
                 KeyguardUnLock.sendLog("无障碍服务未开启")
                 moveCallback?.onError()
                 return@withLock false
@@ -2336,7 +2343,7 @@ isDeviceSecure = 这台设备“有没有任何安全门槛”
 
     ): Boolean {
 
-        if (service == null || nodeInfo == null) return false
+        if (nodeInfo == null) return false
 
         // 先拿坐标（Gesture 必须）
         val rect = Rect()
@@ -2402,9 +2409,8 @@ isDeviceSecure = 这台设备“有没有任何安全门槛”
         if (actionClickSuccess) {
             sendLog("ACTION_CLICK（含 parent）成功")
             showClickIndicator(
-                service,
-                centerX,
-                centerY
+                x = centerX,
+                y = centerY
             )
             return true
         }
@@ -2468,7 +2474,10 @@ isDeviceSecure = 这台设备“有没有任何安全门槛”
         maxDepth: Int = 5,
         interval: Long = 0L
     ): Boolean {
-        if (service == null || nodeInfo == null) return false
+        // 不再依赖 service 判空：执行点已收敛到 HumanTouchEngine.click / XpqAcc.dispatchGesture 门面，
+        // service 参数仅作 API 兼容保留。UiAutomation 模式下 service 可能是 null/proxyService，
+        // 无论传什么值，真正能否点击由门面（XpqAcc）按当前通道自行判断。
+        if (nodeInfo == null) return false
         if (!canClick(interval)) return false
         // 先拿坐标（Gesture 必须）
         val rect = Rect()
@@ -2535,9 +2544,8 @@ isDeviceSecure = 这台设备“有没有任何安全门槛”
         if (actionClickSuccess) {
             sendLog("ACTION_CLICK（含 parent）成功")
             showClickIndicator(
-                service,
-                centerX,
-                centerY
+                x = centerX,
+                y = centerY
             )
             return true
         }
@@ -2755,9 +2763,7 @@ isDeviceSecure = 这台设备“有没有任何安全门槛”
     @JvmOverloads
     @JvmStatic
     fun moniClick(X: Int, Y: Int, service: AccessibilityService?, time: Long = MMKVConst.clickDu_Time): Boolean {
-        if (service == null) {
-            return false
-        }
+        // 不再依赖 service 判空：最终走 XpqAcc.dispatchGesture 门面，service 参数仅作 API 兼容保留。
         if (Looper.myLooper() != Looper.getMainLooper()) {
             Handler(Looper.getMainLooper()).post { moniClick(X, Y, service) }
             return false

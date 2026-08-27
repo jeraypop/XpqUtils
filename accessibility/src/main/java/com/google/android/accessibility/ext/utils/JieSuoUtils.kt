@@ -29,6 +29,7 @@ import com.google.android.accessibility.ext.utils.KeyguardUnLock.sendLog
 import com.google.android.accessibility.ext.utils.LibCtxProvider.Companion.appContext
 import com.google.android.accessibility.ext.utils.NumberPickerDialog.hasRoot
 import com.google.android.accessibility.ext.utils.gestureUtils.HumanTouchEngine
+import com.google.android.accessibility.ext.acc.XpqAcc
 import com.google.android.accessibility.ext.window.AssistsWindowManager
 import com.google.android.accessibility.selecttospeak.SelectToSpeakServiceAbstract
 import com.google.android.accessibility.selecttospeak.accessibilityService
@@ -56,16 +57,18 @@ object JieSuoUtils {
                              maxCount: Int = 100 ,    // 默认只允许100个
                           onSave: ((x: String, y: String) -> Unit)? = null
                              ) {
-        if (accessibilityService == null){
+        // 双通道判断：无障碍模式看真实服务实例，UiAutomation 模式看是否已连接
+        val realService = SelectToSpeakServiceAbstract.instance
+        if (realService == null && !XpqAcc.isConnected) {
             AliveUtils.toast(msg = "无障碍服务未开启")
             return
         }
-        val service = accessibilityService ?: return
+        val ctx: Context = realService ?: appContext
         val windowManager =
-            service.getSystemService(AccessibilityService.WINDOW_SERVICE) as WindowManager
+            ctx.getSystemService(Context.WINDOW_SERVICE) as WindowManager
 
         val(screenWidth, screenHeight) = getScreenSize()
-        val inflater = LayoutInflater.from(service)
+        val inflater = LayoutInflater.from(ctx)
         // ==============================
         // 控制面板
         // ==============================
@@ -181,7 +184,7 @@ object JieSuoUtils {
 
         fun addTarget() {
 
-            val container = FrameLayout(service)
+            val container = FrameLayout(ctx)
 
             val targetParams = WindowManager.LayoutParams().apply {
                 type = AssistsWindowManager.chooseWindowType()
@@ -198,7 +201,7 @@ object JieSuoUtils {
                 y = screenHeight / 2 - targetSize / 2
             }
 
-            val imageTarget = ImageView(service).apply {
+            val imageTarget = ImageView(ctx).apply {
                 setImageResource(R.drawable.ic_targetxpq)
                 layoutParams = FrameLayout.LayoutParams(
                     FrameLayout.LayoutParams.MATCH_PARENT,
@@ -208,7 +211,7 @@ object JieSuoUtils {
 
             val labelSize = targetSize / 3
 
-            val tvLabel = TextView(service).apply {
+            val tvLabel = TextView(ctx).apply {
 
                 setTextColor(Color.WHITE)
                 textSize = 12f
@@ -800,7 +803,9 @@ object JieSuoUtils {
             SystemClock.sleep(2000)
         }
         var    isSuc = false
-        if (access_Service == null) {
+        // 兜底：显式传 null 时回退到全局 accessibilityService（UiAutomation 模式下是 proxyService）
+        val svc = access_Service ?: accessibilityService
+        if (svc == null) {
             sendLog("无障碍服务未开启!")
             return isSuc
         }
@@ -821,7 +826,7 @@ object JieSuoUtils {
             return s
         }
 
-        when (checkLockscreenReadable(root = access_Service.rootInActiveWindow)) {
+        when (checkLockscreenReadable(root = svc.rootInActiveWindow)) {
 
             LockReadState.NOT_LOCK_SCREEN -> {
                 // 不处理

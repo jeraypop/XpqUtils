@@ -26,13 +26,18 @@ object XpqAcc {
     private val proxyService by lazy { ProxyAccessibilityService() }
 
     @Volatile
+    @JvmStatic
     var driver: AccDriver = a11yDriver
         private set
 
+    @JvmStatic
     val mode: EngineMode get() = driver.mode
+
+    @JvmStatic
     val isConnected: Boolean get() = driver.isConnected
 
     /** 切换通道；切换时断开旧引擎，并同步 accessibilityService 全局变量指向。 */
+    @JvmStatic
     fun use(mode: EngineMode) {
         if (driver.mode == mode) return
         runCatching { driver.disconnect() }
@@ -52,18 +57,24 @@ object XpqAcc {
         }
     }
 
+    @JvmStatic
     fun useAccessibilityService() = use(EngineMode.ACCESSIBILITY_SERVICE)
+
+    @JvmStatic
     fun useUiAutomation() = use(EngineMode.UIAUTOMATION)
 
     // ---- Shizuku 检测 / 授权（UiAutomation 通道的前置步骤）----
 
     /** Shizuku 是否在运行（未运行则 UiAutomation 通道无法连接，需引导用户先启动 Shizuku）。 */
+    @JvmStatic
     fun isShizukuRunning(): Boolean = AutomationShizuku.isInstalled()
 
     /** 本 App 是否已获得 Shizuku 授权。 */
+    @JvmStatic
     fun isShizukuPermissionGranted(): Boolean = AutomationShizuku.isPermissionGranted()
 
     /** 请求 Shizuku 授权（Shizuku 会弹出授权界面），结果经回调返回 granted 是否成功。 */
+    @JvmStatic
     fun requestShizukuPermission(onResult: (granted: Boolean) -> Unit) =
         AutomationShizuku.requestPermission(onResult)
 
@@ -73,6 +84,8 @@ object XpqAcc {
      * 连接本身是阻塞操作（绑定 Shizuku UserService 最多等 10s、UiAutomation.connect 最多等 5s），
      * 故本方法内部在后台线程执行连接，onLog / onResult 都切回主线程回调，宿主可放心在主线程调用。
      */
+    @JvmStatic
+    @JvmOverloads
     fun connectUiAutomation(
         onLog: (String) -> Unit = {},
         onResult: (success: Boolean, reason: String?) -> Unit = { _, _ -> }
@@ -113,20 +126,33 @@ object XpqAcc {
     }
 
     // ---- 门面透传 ----
+    @JvmStatic
+    @JvmOverloads
     fun connect(onLog: (String) -> Unit = {}) = driver.connect(onLog)
+
+    @JvmStatic
     fun disconnect() = driver.disconnect()
 
+    @JvmStatic
     fun rootInActiveWindow(): AccessibilityNodeInfo? = driver.rootInActiveWindow()
+
+    @JvmStatic
     fun windows(): List<AccessibilityWindowInfo>? = driver.windows()
+
+    @JvmStatic
     fun findFocus(focusType: Int): AccessibilityNodeInfo? = driver.findFocus(focusType)
+
+    @JvmStatic
     fun performGlobalAction(action: Int): Boolean = driver.performGlobalAction(action)
 
+    @JvmStatic
     fun dispatchGesture(
         gesture: GestureDescription,
         callback: AccessibilityService.GestureResultCallback?,
         handler: Handler?
     ): Boolean = driver.dispatchGesture(gesture, callback, handler)
 
+    @JvmStatic
     fun setOnAccessibilityEventListener(listener: ((AccessibilityEvent) -> Unit)?) =
         driver.setOnAccessibilityEventListener(listener)
 }
