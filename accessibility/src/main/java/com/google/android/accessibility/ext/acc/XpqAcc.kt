@@ -4,6 +4,7 @@ import android.accessibilityservice.AccessibilityService
 import android.accessibilityservice.GestureDescription
 import android.app.Activity
 import android.app.AlertDialog
+import android.os.Build
 import android.os.Handler
 import android.os.Looper
 import android.view.accessibility.AccessibilityEvent
@@ -13,6 +14,7 @@ import android.widget.Toast
 import com.google.android.accessibility.ext.utils.AliveUtils
 import com.google.android.accessibility.ext.utils.MMKVConst
 import com.google.android.accessibility.ext.utils.MMKVUtil
+import com.google.android.accessibility.ext.window.DynamicIslandFloatWindow
 import com.google.android.accessibility.selecttospeak.SelectToSpeakServiceAbstract
 import com.google.android.accessibility.selecttospeak.accessibilityServiceLiveData
 import com.google.android.accessibility.uiautomation.shizuku.AutomationShizuku
@@ -42,11 +44,23 @@ object XpqAcc {
     @JvmStatic
     val isConnected: Boolean get() = driver.isConnected
 
-    /** 切换通道；切换时断开旧引擎，并同步 accessibilityService 全局变量指向。 */
+    /** 切换通道；切换时先主动关闭旧通道，再切换到新通道并同步 accessibilityService 全局变量指向。 */
     @JvmStatic
     fun use(mode: EngineMode) {
         if (driver.mode == mode) return
-        runCatching { driver.disconnect() }
+        // 主动关闭旧通道，避免无障碍服务与 UiAutomation 并存干扰
+        when (driver.mode) {
+            EngineMode.ACCESSIBILITY_SERVICE -> {
+                // 从无障碍切换到其它模式：主动禁用无障碍服务（disableSelf），
+                // 否则服务仍在后台监听事件/执行点击，与 UiAutomation 并存会产生干扰。
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {
+                    runCatching { SelectToSpeakServiceAbstract.instance?.disableSelf() }
+                }
+            }
+            EngineMode.UIAUTOMATION -> {
+                runCatching { driver.disconnect() }
+            }
+        }
         driver = when (mode) {
             EngineMode.ACCESSIBILITY_SERVICE -> a11yDriver
             EngineMode.UIAUTOMATION -> uiDriver
@@ -99,6 +113,13 @@ object XpqAcc {
         use(EngineMode.UIAUTOMATION)
         val main = Handler(Looper.getMainLooper())
         val log: (String) -> Unit = { s -> main.post { onLog(s) } }
+        // 连接成功后的统一收尾：触发就绪初始化（如灵动岛，等价无障碍 onServiceConnected）+ 回调结果
+        val finishConnect: (Boolean) -> Unit = { ok ->
+            if (ok) {
+                runCatching { DynamicIslandFloatWindow.autoInit() }
+            }
+            main.post { onResult(ok, if (ok) null else (UiAutomationDriver.lastError ?: "连接失败")) }
+        }
         Thread {
             // 连接前先清理旧连接，避免 system_server 残留注册导致 "already registered" 失败
             runCatching { disconnect() }
@@ -114,10 +135,7 @@ object XpqAcc {
                     requestShizukuPermission { granted ->
                         if (granted) {
                             log("Shizuku 授权成功，开始连接…")
-                            Thread {
-                                val ok = connect(log)
-                                main.post { onResult(ok, if (ok) null else (UiAutomationDriver.lastError ?: "连接失败")) }
-                            }.start()
+                            Thread { finishConnect(connect(log)) }.start()
                         } else {
                             log("✗ Shizuku 授权被拒绝")
                             main.post { onResult(false, "Shizuku 授权被拒绝") }
@@ -126,8 +144,7 @@ object XpqAcc {
                 }
                 return@Thread
             }
-            val ok = connect(log)
-            main.post { onResult(ok, if (ok) null else (UiAutomationDriver.lastError ?: "连接失败")) }
+            finishConnect(connect(log))
         }.start()
     }
 
@@ -233,6 +250,8 @@ object XpqAcc {
         val current = loadEngineMode().ordinal
         AlertDialog.Builder(activity)
             .setTitle("选择自动化通道")
+            .setMessage("Shizuku模式需要额外下载一个免费开源的Shizuku软件。" +
+                    "\n为什么引入了该模式：越来越多的软件会检测本设备上已开启了哪些无障碍服务，目前为止，还不检测Shizuku")
             .setSingleChoiceItems(items, current) { dialog, which ->
                 dialog.dismiss()
                 val mode = if (which == 0) EngineMode.ACCESSIBILITY_SERVICE else EngineMode.UIAUTOMATION

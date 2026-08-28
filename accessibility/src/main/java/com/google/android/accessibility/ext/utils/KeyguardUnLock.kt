@@ -44,6 +44,7 @@ import com.google.android.accessibility.ext.window.ClickIndicatorManager
 
 import com.google.android.accessibility.ext.window.LogWrapper
 import com.google.android.accessibility.ext.window.SwipeTrajectoryIndicatorManager
+import com.google.android.accessibility.selecttospeak.SelectToSpeakServiceAbstract
 import com.google.android.accessibility.selecttospeak.accessibilityService
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -2258,10 +2259,9 @@ isDeviceSecure = 这台设备“有没有任何安全门槛”
         service?: return
         val showguiji = MMKVUtil.get(MMKVConst.SHOW_DO_GUIJI, false)
         if (showguiji){
-            // service 可能是 ProxyAccessibilityService（UiAutomation 模式，未 attach），
-            // 其 applicationContext 为 null 会 NPE；用 appContext 兜底。
-            // 窗口类型由 chooseWindowType() 按上下文自动选（无障碍→accessibility overlay，否则→application overlay）。
-            val ctx: Context = runCatching { service.applicationContext }.getOrNull() ?: appContext
+            // 真实无障碍服务实例用 service 本身（拿 TYPE_ACCESSIBILITY_OVERLAY 的 token）；
+            // proxyService（UiAutomation 模式，未 attach）或 null 则用 appContext（TYPE_APPLICATION_OVERLAY）。
+            val ctx: Context = if (service === SelectToSpeakServiceAbstract.instance) service else appContext
             val (screenWidth, screenHeight) = getScreenSize(ctx)
             //val baseOffset = 20
             val baseOffset = AssistsWindowManager.pxFromDp(ctx, AssistsWindowManager.DIAMETER_DP)/2
@@ -2289,8 +2289,8 @@ isDeviceSecure = 这台设备“有没有任何安全门槛”
         service?: return
         val showguiji = MMKVUtil.get(MMKVConst.SHOW_DO_GUIJI, false)
         if (showguiji){
-            // service 可能是 ProxyAccessibilityService（未 attach），用 appContext 兜底
-            val ctx: Context = runCatching { service.applicationContext }.getOrNull() ?: appContext
+            // 真实无障碍服务用 service 本身（拿 TYPE_ACCESSIBILITY_OVERLAY token）；proxyService/null 用 appContext。
+            val ctx: Context = if (service === SelectToSpeakServiceAbstract.instance) service else appContext
             // 在主线程显示指示器
             Handler(Looper.getMainLooper()).post {
                 SwipeTrajectoryIndicatorManager.show(ctx, path, duration = 600L)
