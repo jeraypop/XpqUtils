@@ -155,4 +155,27 @@ object XpqAcc {
     @JvmStatic
     fun setOnAccessibilityEventListener(listener: ((AccessibilityEvent) -> Unit)?) =
         driver.setOnAccessibilityEventListener(listener)
+
+    /**
+     * 返回当前通道对应的 service 实例：
+     * 无障碍模式 = 真实无障碍服务实例（服务未开启时为 null）；
+     * UiAutomation 模式 = [ProxyAccessibilityService]（非 null）。
+     * 用于给 XPQEventData.service 等需要 AccessibilityService 的地方提供通道感知的值。
+     */
+    @JvmStatic
+    fun currentService(): AccessibilityService? = when (driver.mode) {
+        EngineMode.ACCESSIBILITY_SERVICE -> SelectToSpeakServiceAbstract.instance
+        EngineMode.UIAUTOMATION -> proxyService
+    }
+
+    /**
+     * 事件桥接：把当前通道的无障碍事件转发给指定的事件处理器（宿主继承 [SelectToSpeakServiceAbstract] 的实例）。
+     * 直接调用 [SelectToSpeakServiceAbstract.onAccessibilityEvent]（多态分派），宿主 override 的 onAccessibilityEvent 也会执行；
+     * 基类实现内部会 dealEvent → asyncHandle_XXX + asyncHandleAccessibilityEvent + listeners，与无障碍模式等价。
+     * 无障碍模式无需调用（系统直接回调 onAccessibilityEvent）；UiAutomation 模式下手动 new 一个服务实例传入即可。
+     */
+    @JvmStatic
+    fun bridgeAccessibilityEvent(handler: SelectToSpeakServiceAbstract) {
+        setOnAccessibilityEventListener { event -> handler.onAccessibilityEvent(event) }
+    }
 }

@@ -23,6 +23,7 @@ import androidx.savedstate.SavedStateRegistry
 import androidx.savedstate.SavedStateRegistryController
 import androidx.savedstate.SavedStateRegistryOwner
 import com.android.accessibility.ext.R
+import com.google.android.accessibility.ext.acc.XpqAcc
 import com.google.android.accessibility.ext.AssistsServiceListener
 import com.google.android.accessibility.ext.utils.AliveUtils
 import com.google.android.accessibility.ext.utils.KeyguardUnLock
@@ -218,7 +219,8 @@ abstract class SelectToSpeakServiceAbstract : AccessibilityService(),
     }
     override fun onAccessibilityEvent(event: AccessibilityEvent?) {
         event ?: return
-        instance = this
+        // instance 已在 onServiceConnected 中设置；此处不再重复赋值，
+        // 避免 UiAutomation 桥接（手动 new 的实例）时把 instance 污染成非系统 attach 的实例。
         dealEvent(event)
         AppExecutors.executors4.execute {
             asyncHandleAccessibilityEvent(event)
@@ -424,7 +426,8 @@ abstract class SelectToSpeakServiceAbstract : AccessibilityService(),
     }
 
 
-    private fun dealEvent(event: AccessibilityEvent) {
+    // 事件分发（open：供 UiAutomation 模式经 XpqAcc.bridgeAccessibilityEvent 复用同一套分发逻辑）
+    open fun dealEvent(event: AccessibilityEvent) {
         when (event.eventType) {
             //通知改变
             AccessibilityEvent.TYPE_NOTIFICATION_STATE_CHANGED -> {
@@ -454,7 +457,7 @@ abstract class SelectToSpeakServiceAbstract : AccessibilityService(),
             }
             //状态改变
             AccessibilityEvent.TYPE_WINDOW_STATE_CHANGED -> {
-                val originalRoot = try { rootInActiveWindow } catch (_: Throwable) { null }
+                val originalRoot = try { XpqAcc.rootInActiveWindow() } catch (_: Throwable) { null }
                 originalRoot ?: return
                 // 窗口变化（Activity 切换、弹窗显示等），你可以在这里处理或记录
                 val pkg = originalRoot.packageName?.toString()?:return
@@ -467,7 +470,7 @@ abstract class SelectToSpeakServiceAbstract : AccessibilityService(),
                 val rootCopy = copyNodeCompat(originalRoot)
                 rootCopy ?: return
                 val eventData = XPQEventData(
-                    service = this@SelectToSpeakServiceAbstract,
+                    service = (XpqAcc.currentService() ?: this@SelectToSpeakServiceAbstract),
                     event = event,
                     rootNode = rootCopy,
                     nodeInfoList = listOf(rootCopy),
@@ -497,7 +500,7 @@ abstract class SelectToSpeakServiceAbstract : AccessibilityService(),
                     if (nodeInfoList.isEmpty()) return@execute
                     try {
                         val eventData = XPQEventData(
-                            service = this@SelectToSpeakServiceAbstract,
+                            service = (XpqAcc.currentService() ?: this@SelectToSpeakServiceAbstract),
                             event = event,
                             rootNode = rootCopy,
                             nodeInfoList = nodeInfoList,
@@ -533,7 +536,7 @@ abstract class SelectToSpeakServiceAbstract : AccessibilityService(),
                 val sourceCopy = copyNodeCompat(sourceOriginal)
                 sourceCopy ?: return
                 val eventData = XPQEventData(
-                    service = this@SelectToSpeakServiceAbstract,
+                    service = (XpqAcc.currentService() ?: this@SelectToSpeakServiceAbstract),
                     event = event,
                     rootNode = sourceCopy,
                     nodeInfoList = listOf(sourceCopy),
@@ -564,7 +567,7 @@ abstract class SelectToSpeakServiceAbstract : AccessibilityService(),
                 val scrollx = event.scrollX
                 val scrolly = event.scrollY
                 val eventData = XPQEventData(
-                    service = this@SelectToSpeakServiceAbstract,
+                    service = (XpqAcc.currentService() ?: this@SelectToSpeakServiceAbstract),
                     event = event,
                     rootNode = sourceCopy,
                     nodeInfoList = listOf(sourceCopy),

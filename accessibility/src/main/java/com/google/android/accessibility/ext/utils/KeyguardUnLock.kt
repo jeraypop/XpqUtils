@@ -2762,7 +2762,7 @@ isDeviceSecure = 这台设备“有没有任何安全门槛”
      */
     @JvmOverloads
     @JvmStatic
-    fun moniClick(X: Int, Y: Int, service: AccessibilityService?, time: Long = MMKVConst.clickDu_Time): Boolean {
+    fun moniClick(X: Int, Y: Int, service: AccessibilityService? = accessibilityService, time: Long = MMKVConst.clickDu_Time): Boolean {
         // 不再依赖 service 判空：最终走 XpqAcc.dispatchGesture 门面，service 参数仅作 API 兼容保留。
         if (Looper.myLooper() != Looper.getMainLooper()) {
             Handler(Looper.getMainLooper()).post { moniClick(X, Y, service) }
