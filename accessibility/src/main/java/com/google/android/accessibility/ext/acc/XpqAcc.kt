@@ -2,11 +2,17 @@ package com.google.android.accessibility.ext.acc
 
 import android.accessibilityservice.AccessibilityService
 import android.accessibilityservice.GestureDescription
+import android.app.Activity
+import android.app.AlertDialog
 import android.os.Handler
 import android.os.Looper
 import android.view.accessibility.AccessibilityEvent
 import android.view.accessibility.AccessibilityNodeInfo
 import android.view.accessibility.AccessibilityWindowInfo
+import android.widget.Toast
+import com.google.android.accessibility.ext.utils.AliveUtils
+import com.google.android.accessibility.ext.utils.MMKVConst
+import com.google.android.accessibility.ext.utils.MMKVUtil
 import com.google.android.accessibility.selecttospeak.SelectToSpeakServiceAbstract
 import com.google.android.accessibility.selecttospeak.accessibilityServiceLiveData
 import com.google.android.accessibility.uiautomation.shizuku.AutomationShizuku
@@ -177,5 +183,69 @@ object XpqAcc {
     @JvmStatic
     fun bridgeAccessibilityEvent(handler: SelectToSpeakServiceAbstract) {
         setOnAccessibilityEventListener { event -> handler.onAccessibilityEvent(event) }
+    }
+
+    // ---- 引擎模式选择 + 持久化 ----
+
+    /** 读取持久化的引擎模式（默认无障碍模式）。 */
+    @JvmStatic
+    fun loadEngineMode(): EngineMode {
+        val saved = MMKVUtil.get(MMKVConst.KEY_ENGINE_MODE, EngineMode.ACCESSIBILITY_SERVICE.ordinal)
+        return EngineMode.values().getOrElse(saved) { EngineMode.ACCESSIBILITY_SERVICE }
+    }
+
+    /** 持久化引擎模式（仅保存，不切换）。 */
+    @JvmStatic
+    fun saveEngineMode(mode: EngineMode) {
+        MMKVUtil.put(MMKVConst.KEY_ENGINE_MODE, mode.ordinal)
+    }
+
+    /**
+     * 应用引擎模式：持久化 + 切换通道 + （UiAutomation）自动连接。
+     * 结果经 [onResult] 回调：无障碍模式仅切换（需用户已在系统设置开启无障碍服务）；
+     * UiAutomation 模式内部会检测/请求 Shizuku 授权并连接。
+     */
+    @JvmStatic
+    fun applyEngineMode(
+        mode: EngineMode,
+        onResult: (success: Boolean, reason: String?) -> Unit = { _, _ -> }
+    ) {
+        saveEngineMode(mode)
+        when (mode) {
+            EngineMode.ACCESSIBILITY_SERVICE -> {
+                useAccessibilityService()
+                val ok = SelectToSpeakServiceAbstract.instance != null
+                onResult(ok, if (ok) null else "请先在系统设置开启无障碍服务")
+            }
+            EngineMode.UIAUTOMATION -> {
+                connectUiAutomation(onLog = {}, onResult = onResult)
+            }
+        }
+    }
+
+    /**
+     * 弹窗选择自动化通道（无障碍 / UiAutomation），选择后持久化并立即应用。
+     * 宿主可把它挂在某个按钮/设置项上，App 启动时再调 [loadEngineMode] + [applyEngineMode] 恢复上次选择。
+     */
+    @JvmStatic
+    fun showEngineModeDialog(activity: Activity) {
+        val items = arrayOf("无障碍模式", "Shizuku 模式")
+        val current = loadEngineMode().ordinal
+        AlertDialog.Builder(activity)
+            .setTitle("选择自动化通道")
+            .setSingleChoiceItems(items, current) { dialog, which ->
+                dialog.dismiss()
+                val mode = if (which == 0) EngineMode.ACCESSIBILITY_SERVICE else EngineMode.UIAUTOMATION
+                applyEngineMode(mode) { success, reason ->
+                    val msg = when {
+                        success -> "已切换到 ${items[mode.ordinal]}"
+                        reason != null -> reason
+                        else -> "切换失败"
+                    }
+                    AliveUtils.toast(msg = msg)
+                }
+            }
+            .setNegativeButton("取消", null)
+            .show()
     }
 }

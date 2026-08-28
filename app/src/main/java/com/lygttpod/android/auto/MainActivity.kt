@@ -215,8 +215,9 @@ class MainActivity : XpqBaseActivity<ActivityMainBinding>(
             //openWeChatToFollowInterface(getWCField[6].first.restoreAllIllusion())
         }
         binding.btnAddFriend.setOnClickListener{
-            val ok = accessibilityService?.clickByText("赞赏")
-            AliveUtils.toast(msg = "clickByText=$ok")
+            XpqAcc.showEngineModeDialog(this)
+            //val ok = accessibilityService?.clickByText("赞赏")
+            //AliveUtils.toast(msg = "clickByText=$ok")
             //好友微信号
             //openWeChatToFollowInterface(getWCField[6].second.restoreAllIllusion())
             //openAccessibilitySetting()

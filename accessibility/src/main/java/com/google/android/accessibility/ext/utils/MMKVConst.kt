@@ -32,6 +32,9 @@ object MMKVConst {
     const val KEY_LOCK_NODEID_TIME = "KEY_LOCK_NODEID_TIME"
     const val KEY_PINLV_FIND = "KEY_PINLV_FINDER"
 
+    // 自动化引擎模式（0=无障碍 ACCESSIBILITY_SERVICE，1=UiAutomation）
+    const val KEY_ENGINE_MODE = "KEY_ENGINE_MODE"
+
     const val FORGROUNDSERVICETITLE = "forgroundsdrvicetitle"
     const val FORGROUNDSERVICECONTENT = "forgroundsdrvicecontent"
     const val AUTOBAOHUOISON = "autobaohuoison"
