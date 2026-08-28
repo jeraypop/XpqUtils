@@ -57,8 +57,8 @@ object AssistsWindowManager {
         }
     }
 
-    /** 系统窗口管理器 */
-    private lateinit var windowManager: WindowManager
+    /** 系统窗口管理器（可空：无障碍模式经 init() 初始化，UiAutomation 模式经 getWindowManager() 兜底） */
+    private var windowManager: WindowManager? = null
     /** 显示度量信息 */
     private lateinit var mDisplayMetrics: DisplayMetrics
     /** 浮窗视图列表，使用线程安全的集合 */
@@ -71,8 +71,7 @@ object AssistsWindowManager {
     fun init(accessibilityService: AccessibilityService) {
         windowManager = accessibilityService.getSystemService(Context.WINDOW_SERVICE) as WindowManager
         mDisplayMetrics = DisplayMetrics()
-        windowManager.defaultDisplay.getMetrics(mDisplayMetrics)
-
+        windowManager?.defaultDisplay?.getMetrics(mDisplayMetrics)
     }
 
     /**
@@ -80,8 +79,13 @@ object AssistsWindowManager {
      * @return WindowManager实例，如果未初始化则返回null
      */
     fun getWindowManager(): WindowManager? {
-        (SelectToSpeakServiceAbstract.instance ?: appContext).getSystemService(Context.WINDOW_SERVICE)?.let { return (it as WindowManager) }
-        return null
+        // 已初始化（无障碍 init 或上次兜底缓存）直接返回
+        windowManager?.let { return it }
+        // 兜底：无障碍模式用真实服务实例，UiAutomation 模式回退 appContext
+        val wm = (SelectToSpeakServiceAbstract.instance ?: appContext)
+            .getSystemService(Context.WINDOW_SERVICE) as? WindowManager
+        windowManager = wm
+        return wm
     }
 
     /**
@@ -204,7 +208,8 @@ object AssistsWindowManager {
         if (!isStack) {
             viewList.lastOrNull()?.let { it.view.isInvisible = true }
         }
-        windowManager.addView(view, layoutParams)
+        val wm = getWindowManager() ?: return
+        wm.addView(view, layoutParams)
         if (isTouchable) {
             layoutParams.touchableByLayoutParams()
         } else {
@@ -238,7 +243,7 @@ object AssistsWindowManager {
     fun removeView(view: View?) {
         view ?: return
         try {
-            windowManager.removeView(view)
+            getWindowManager()?.removeView(view)
             viewList.find {
                 return@find view == it.view
             }?.let {
@@ -292,7 +297,7 @@ object AssistsWindowManager {
      * @param params 新的布局参数
      */
     suspend fun updateViewLayout(view: View, params: ViewGroup.LayoutParams) {
-        runMain { windowManager.updateViewLayout(view, params) }
+        runMain { getWindowManager()?.updateViewLayout(view, params) }
     }
 
     /**
