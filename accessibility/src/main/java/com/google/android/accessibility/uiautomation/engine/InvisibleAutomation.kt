@@ -628,7 +628,10 @@ object InvisibleAutomation {
         mUiAutomation = null
         mProxyHelper = null
         mHandlerThread = null
-        mSvc?.let { runCatching { AutomationShizuku.unbind() } }
+        // 不 unbind Shizuku UserService：shell 通道（input tap/swipe、wm size）本就可复用。
+        // 若在此 unbind（removeTask=true 会杀 UserService 进程），下次 bind() 需重新 fork 进程、
+        // 易超时返回 null（用户反馈「绑定成功后再次绑定提示超时」）。仅清本地引用，保留
+        // AutomationShizuku.userService 供下次 bind() 直接复用。
         mSvc = null
     }
 
