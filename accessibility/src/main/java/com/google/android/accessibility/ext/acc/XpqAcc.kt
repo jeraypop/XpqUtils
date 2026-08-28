@@ -10,6 +10,7 @@ import android.os.Looper
 import android.view.accessibility.AccessibilityEvent
 import android.view.accessibility.AccessibilityNodeInfo
 import android.view.accessibility.AccessibilityWindowInfo
+import android.widget.TextView
 import android.widget.Toast
 import com.google.android.accessibility.ext.utils.AliveUtils
 import com.google.android.accessibility.ext.utils.MMKVConst
@@ -103,29 +104,42 @@ object XpqAcc {
      *
      * 连接本身是阻塞操作（绑定 Shizuku UserService 最多等 10s、UiAutomation.connect 最多等 5s），
      * 故本方法内部在后台线程执行连接，onLog / onResult 都切回主线程回调，宿主可放心在主线程调用。
+     *
+     * @param activity 可选；传入时，连接失败会自动弹出引导对话框（而非仅靠 onResult 回调），
+     *                 失败原因涉及 Shizuku 时带「打开 Shizuku」按钮。
      */
     @JvmStatic
     @JvmOverloads
     fun connectUiAutomation(
         onLog: (String) -> Unit = {},
-        onResult: (success: Boolean, reason: String?) -> Unit = { _, _ -> }
+        onResult: (success: Boolean, reason: String?) -> Unit = { _, _ -> },
+        activity: Activity? = null
     ) {
         use(EngineMode.UIAUTOMATION)
         val main = Handler(Looper.getMainLooper())
         val log: (String) -> Unit = { s -> main.post { onLog(s) } }
+        // 失败统一收尾：回调 onResult + （传了 activity 时）弹引导对话框
+        val fail: (String) -> Unit = { reason ->
+            main.post {
+                onResult(false, reason)
+                activity?.let { showUiAutomationFailDialog(it, reason) }
+            }
+        }
         // 连接成功后的统一收尾：触发就绪初始化（如灵动岛，等价无障碍 onServiceConnected）+ 回调结果
         val finishConnect: (Boolean) -> Unit = { ok ->
             if (ok) {
                 runCatching { DynamicIslandFloatWindow.autoInit() }
+                main.post { onResult(true, null) }
+            } else {
+                fail(UiAutomationDriver.lastError ?: "连接失败")
             }
-            main.post { onResult(ok, if (ok) null else (UiAutomationDriver.lastError ?: "连接失败")) }
         }
         Thread {
             // 连接前先清理旧连接，避免 system_server 残留注册导致 "already registered" 失败
             runCatching { disconnect() }
             if (!isShizukuRunning()) {
                 log("✗ Shizuku 未运行，请先启动 Shizuku")
-                main.post { onResult(false, "Shizuku 未运行") }
+                fail("Shizuku 未运行")
                 return@Thread
             }
             if (!isShizukuPermissionGranted()) {
@@ -138,7 +152,7 @@ object XpqAcc {
                             Thread { finishConnect(connect(log)) }.start()
                         } else {
                             log("✗ Shizuku 授权被拒绝")
-                            main.post { onResult(false, "Shizuku 授权被拒绝") }
+                            fail("Shizuku 授权被拒绝")
                         }
                     }
                 }
@@ -248,20 +262,54 @@ object XpqAcc {
     fun showEngineModeDialog(activity: Activity) {
         val items = arrayOf("无障碍模式", "Shizuku 模式")
         val current = loadEngineMode().ordinal
+
+        // 说明文字放到标题区（setMessage 与 setSingleChoiceItems 互斥，用了 setMessage 选项列表就不显示）
+        val density = activity.resources.displayMetrics.density
+        val titleView = TextView(activity).apply {
+            text = "选择自动化通道\n\n" +
+                    "Shizuku 模式需要额外下载一个免费开源的 Shizuku 软件。\n" +
+                    "为什么引入该模式：\n" +
+                    "部分应用会检测设备上启用的无障碍服务，并可能限制自动化功能。" +
+                    "Shizuku 模式使用不同的系统权限通道，可以作为另一种自动化方案"
+            textSize = 14f
+            setPadding(
+                (20 * density).toInt(),
+                (16 * density).toInt(),
+                (20 * density).toInt(),
+                (8 * density).toInt()
+            )
+        }
+
         AlertDialog.Builder(activity)
-            .setTitle("选择自动化通道")
-            .setMessage("Shizuku模式需要额外下载一个免费开源的Shizuku软件。" +
-                    "\n为什么引入了该模式：越来越多的软件会检测本设备上已开启了哪些无障碍服务，目前为止，还不检测Shizuku")
+            .setCustomTitle(titleView)
             .setSingleChoiceItems(items, current) { dialog, which ->
                 dialog.dismiss()
                 val mode = if (which == 0) EngineMode.ACCESSIBILITY_SERVICE else EngineMode.UIAUTOMATION
                 applyEngineMode(mode) { success, reason ->
-                    val msg = when {
-                        success -> "已切换到 ${items[mode.ordinal]}"
-                        reason != null -> reason
-                        else -> "切换失败"
+                    when {
+                        success -> AliveUtils.toast(msg = "已切换到 ${items[mode.ordinal]}")
+                        mode == EngineMode.UIAUTOMATION -> showUiAutomationFailDialog(activity, reason)
+                        else -> AliveUtils.toast(msg = reason ?: "切换失败")
                     }
-                    AliveUtils.toast(msg = msg)
+                }
+            }
+            .setNegativeButton("取消", null)
+            .show()
+    }
+
+    /**
+     * UiAutomation 模式切换失败时弹引导对话框（无论失败原因，一律弹窗而非 toast）。
+     * 内容显示真实失败原因；若原因涉及 Shizuku（未运行/未授权/残留注册），带「打开 Shizuku」按钮跳转。
+     */
+    private fun showUiAutomationFailDialog(activity: Activity, reason: String?) {
+        val msg = reason ?: "未知错误"
+        val needShizuku = msg.contains("Shizuku", ignoreCase = true)
+        AlertDialog.Builder(activity)
+            .setTitle("Shizuku 模式连接失败")
+            .setMessage(msg)
+            .setPositiveButton(if (needShizuku) "打开 Shizuku" else "确定") { _, _ ->
+                if (needShizuku && !AutomationShizuku.openShizuku(activity)) {
+                    AliveUtils.toast(msg = "未找到 Shizuku 应用")
                 }
             }
             .setNegativeButton("取消", null)

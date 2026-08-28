@@ -99,6 +99,13 @@ object InvisibleAutomation {
         context: Context,
         timeoutMs: Long = 15_000L,
         onLog: (String) -> Unit = {}
+    ): Boolean = connectRetry(context, timeoutMs, onLog, 0)
+
+    private fun connectRetry(
+        context: Context,
+        timeoutMs: Long,
+        onLog: (String) -> Unit,
+        attempt: Int
     ): Boolean {
         lastError = null
         uiLog = onLog
@@ -219,9 +226,32 @@ object InvisibleAutomation {
             onLog("[3/3] 连接成功 ✅（UiAutomation 已就绪，可用 getRoot/performGlobalAction）")
             true
         } catch (e: Throwable) {
-            lastError = "${e.javaClass.simpleName}: ${e.message}"
+            // 只解包 InvocationTargetException（反射 invoke 的壳）。注意：**不要**解包 RuntimeException——
+            // IllegalStateException / SecurityException 等真实异常都继承 RuntimeException，继续解包会一路解到
+            // cause 链里的 RemoteException("Remote stack trace")，反而丢失真实原因。
+            // handleConnect 抛的 RuntimeException 的 message 已含真实信息（如 "registerUiTestAutomationService 失败: already registered"）。
+            var root: Throwable = e
+            var guard = 0
+            while (guard++ < 10 && root is java.lang.reflect.InvocationTargetException && root.cause != null) {
+                root = root.cause!!
+            }
+            val isAlreadyRegistered = root.message?.contains("already registered", ignoreCase = true) == true
+            // already registered：system_server 残留旧注册（上次 disconnect 未及时注销）。
+            // 先清理后延迟重试一次，等旧 client binder 被 GC、system_server 自动注销。
+            if (attempt < 1 && isAlreadyRegistered) {
+                onLog("检测到 UiAutomationService 残留注册，清理后重试一次…")
+                cleanup()
+                SystemClock.sleep(500)
+                return connectRetry(context, timeoutMs, onLog, attempt + 1)
+            }
+            // 最终失败：残留注册重试后仍失败（App 进程被杀、旧 client binder 拿不到），只能重启 Shizuku
+            lastError = if (isAlreadyRegistered) {
+                "UiAutomationService 残留注册无法自动清理，请重启 Shizuku（或重启手机）后重试"
+            } else {
+                "${root.javaClass.simpleName}: ${root.message}"
+            }
             onLog("✗ 连接异常: $lastError")
-            e.printStackTrace()
+            root.printStackTrace()
             cleanup()
             false
         }

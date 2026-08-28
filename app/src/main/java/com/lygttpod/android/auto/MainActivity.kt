@@ -202,9 +202,11 @@ class MainActivity : XpqBaseActivity<ActivityMainBinding>(
                         AliveUtils.toast(msg = "连接成功，取根节点=${root != null}，isConnected=${XpqAcc.isConnected}")
   
                     }else{
+                        Log.e("失败原因：", ""+reason)
                         AliveUtils.toast(msg = "失败"+reason)
                     }
-                }
+                },
+                activity = this
             )
 
 
@@ -215,7 +217,7 @@ class MainActivity : XpqBaseActivity<ActivityMainBinding>(
             //openWeChatToFollowInterface(getWCField[6].first.restoreAllIllusion())
         }
         binding.btnAddFriend.setOnClickListener{
-            //XpqAcc.showEngineModeDialog(this)
+            XpqAcc.showEngineModeDialog(this)
             val ok = accessibilityService?.clickByText("赞赏")
             AliveUtils.toast(msg = "clickByText=$ok")
             //好友微信号

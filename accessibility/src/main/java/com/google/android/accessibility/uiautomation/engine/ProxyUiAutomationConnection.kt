@@ -188,8 +188,8 @@ class ProxyUiAutomationConnection(
         } catch (t: Throwable) {
             Log.e(tag, "handleConnect 失败", t)
             runCatching { onLog("    [proxy] handleConnect THROW: ${t.javaClass.name}: ${t.message}") }
-            // 包成 RuntimeException 抛给 framework connect()，UI 可见真实原因
-            throw RuntimeException("registerUiTestAutomationService 失败: ${t.message}", t)
+            // 包成 RuntimeException 抛给 framework connect()，UI 可见真实原因（类名 + message）
+            throw RuntimeException("registerUiTestAutomationService 失败: ${t.javaClass.name}: ${t.message}", t)
         }
     }
 

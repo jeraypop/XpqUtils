@@ -1,7 +1,9 @@
 package com.google.android.accessibility.uiautomation.shizuku
 
+import android.app.Activity
 import android.content.ComponentName
 import android.content.Context
+import android.content.Intent
 import android.content.ServiceConnection
 import android.content.pm.PackageManager
 import android.os.IBinder
@@ -104,5 +106,22 @@ object AutomationShizuku {
         boundArgs = null
         boundConn = null
         userService = null
+    }
+
+    /** 打开 Shizuku 主界面（引导用户重启 Shizuku）。成功打开返回 true。 */
+    fun openShizuku(context: Context): Boolean {
+        // 兼容新旧包名：新版 moe.shizuku.privileged.api，旧版 rikka.shizuku
+        val candidates = arrayOf("moe.shizuku.privileged.api", "rikka.shizuku")
+        for (pkg in candidates) {
+            val intent = context.packageManager.getLaunchIntentForPackage(pkg) ?: continue
+            return try {
+                if (context !is Activity) intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                context.startActivity(intent)
+                true
+            } catch (_: Throwable) {
+                false
+            }
+        }
+        return false
     }
 }

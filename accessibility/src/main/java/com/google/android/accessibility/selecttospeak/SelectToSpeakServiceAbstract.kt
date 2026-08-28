@@ -23,6 +23,7 @@ import androidx.savedstate.SavedStateRegistry
 import androidx.savedstate.SavedStateRegistryController
 import androidx.savedstate.SavedStateRegistryOwner
 import com.android.accessibility.ext.R
+import com.google.android.accessibility.ext.acc.EngineMode
 import com.google.android.accessibility.ext.acc.XpqAcc
 import com.google.android.accessibility.ext.AssistsServiceListener
 import com.google.android.accessibility.ext.utils.AliveUtils
@@ -237,7 +238,10 @@ abstract class SelectToSpeakServiceAbstract : AccessibilityService(),
         runCatching { listeners.forEach { it.onUnbind() } }
         //手动在设置中关闭 走这里
         instance = null
-        accessibilityServiceLiveData.value = null
+        // 若已切到 UiAutomation 模式，disableSelf 的异步回调不应覆盖 proxyService
+        if (XpqAcc.mode != EngineMode.UIAUTOMATION) {
+            accessibilityServiceLiveData.value = null
+        }
         return super.onUnbind(intent)
     }
     override fun onInterrupt() {
@@ -262,7 +266,10 @@ abstract class SelectToSpeakServiceAbstract : AccessibilityService(),
 
         Log.e("监听屏幕啊", "无障碍服务：onDestroy" )
         instance = null
-        accessibilityServiceLiveData.value = null
+        // 若已切到 UiAutomation 模式，disableSelf 的异步回调不应覆盖 proxyService
+        if (XpqAcc.mode != EngineMode.UIAUTOMATION) {
+            accessibilityServiceLiveData.value = null
+        }
         if (AliveUtils.getKeepAliveByNotification()){
             //前台保活服务   如果放在子类中 可传入 class了
             AliveUtils.keepAliveByNotification_CLS(this,false,null)
