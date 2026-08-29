@@ -125,6 +125,13 @@ abstract class SelectToSpeakServiceAbstract : AccessibilityService(),
      */
     open fun onUiAutomationReady(service: AccessibilityService?) {}
 
+    /**
+     * UiAutomation 通道「销毁」回调（对称 [onUiAutomationReady]，等价无障碍模式 onDestroy 的宿主扩展点）。
+     * 断开 UiAutomation 连接（disconnect / 切走 UiAutomation 模式）时由 [XpqAcc] 触发，宿主在此释放资源
+     * （如注销广播接收器等）。
+     */
+    open fun onUiAutomationDestroy() {}
+
     @CallSuper
     override fun onCreate() {
 

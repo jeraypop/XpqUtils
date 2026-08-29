@@ -69,6 +69,18 @@ open class FirstAccessibility : SelectToSpeakServiceAbstract() {
         )
     }
 
+    override fun onUiAutomationDestroy() {
+        super.onUiAutomationDestroy()
+        // 释放屏幕广播 + 清强引用
+        UnifiedBroadcastManager.unregister(
+            channel = CHANNEL_SCREEN,
+            owner = this,
+            context = appContext
+        )
+        uiAutomationScreenCallback = null
+        worker.shutdownNow()
+    }
+
     override fun asyncHandleAccessibilityEvent(event: AccessibilityEvent) {
 //        HBTaskHelper.hbTask(event)
         val s = getTextById(this, "com.tencent.mm:id/obn")

@@ -37,6 +37,17 @@ object XpqAcc {
     private val uiDriver: AccDriver = UiAutomationDriver
     private val proxyService by lazy { ProxyAccessibilityService() }
 
+    /** 事件桥接的宿主服务实例（UiAutomation 模式手动 new），用于断开时触发销毁回调释放资源。 */
+    @Volatile
+    private var bridgedHandler: SelectToSpeakServiceAbstract? = null
+
+    /** 断开 UiAutomation 连接时统一收尾：触发宿主销毁回调并清引用。 */
+    private fun teardownUiAutomationBridge() {
+        val h = bridgedHandler
+        bridgedHandler = null
+        h?.let { runCatching { it.onUiAutomationDestroy() } }
+    }
+
     @Volatile
     @JvmStatic
     var driver: AccDriver = a11yDriver
@@ -62,6 +73,7 @@ object XpqAcc {
                 }
             }
             EngineMode.UIAUTOMATION -> {
+                teardownUiAutomationBridge()
                 runCatching { driver.disconnect() }
             }
         }
@@ -176,7 +188,10 @@ object XpqAcc {
     fun connect(onLog: (String) -> Unit = {}) = driver.connect(onLog)
 
     @JvmStatic
-    fun disconnect() = driver.disconnect()
+    fun disconnect() {
+        teardownUiAutomationBridge()
+        driver.disconnect()
+    }
 
     /**
      * 探测 system_server 是否已有 UiAutomation 注册（被其它 App/进程占用）。
@@ -259,6 +274,8 @@ object XpqAcc {
         }
         // 手动 new 的实例不会被系统绑定（onServiceConnected 不回调），这里手动触发宿主的
         // 就绪钩子，把通道无关的初始化（如屏幕广播接收器）补上。service 传 proxyService。
+        // 同时保存引用，供断开连接时触发 onUiAutomationDestroy 释放资源。
+        bridgedHandler = handler
         runCatching { handler.onUiAutomationReady(currentService()) }
         bridgeAccessibilityEvent(handler)
         android.util.Log.i("XpqAcc", "自动事件桥接成功：${handler.javaClass.name}")
