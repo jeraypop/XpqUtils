@@ -34,6 +34,9 @@ object UiAutomationDriver : AccDriver {
 
     override fun disconnect() = InvisibleAutomation.disconnect()
 
+    /** 探测 system_server 是否已有 UiAutomation 注册（被其它 App/进程占用）。 */
+    fun isUiAutomationOccupied(): Boolean = InvisibleAutomation.isUiAutomationOccupied()
+
     override fun rootInActiveWindow(): AccessibilityNodeInfo? = InvisibleAutomation.getRoot()
     override fun windows(): List<AccessibilityWindowInfo>? = InvisibleAutomation.getWindows()
     override fun findFocus(focusType: Int): AccessibilityNodeInfo? = InvisibleAutomation.findFocus(focusType)

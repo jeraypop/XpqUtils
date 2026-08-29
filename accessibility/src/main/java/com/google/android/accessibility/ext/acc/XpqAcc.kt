@@ -4,6 +4,7 @@ import android.accessibilityservice.AccessibilityService
 import android.accessibilityservice.GestureDescription
 import android.app.Activity
 import android.app.AlertDialog
+import android.content.pm.PackageManager
 import android.os.Build
 import android.os.Handler
 import android.os.Looper
@@ -13,9 +14,11 @@ import android.view.accessibility.AccessibilityWindowInfo
 import android.widget.TextView
 import android.widget.Toast
 import com.google.android.accessibility.ext.utils.AliveUtils
+import com.google.android.accessibility.ext.utils.LibCtxProvider
 import com.google.android.accessibility.ext.utils.MMKVConst
 import com.google.android.accessibility.ext.utils.MMKVUtil
 import com.google.android.accessibility.ext.window.DynamicIslandFloatWindow
+import com.google.android.accessibility.notification.AppExecutors
 import com.google.android.accessibility.selecttospeak.SelectToSpeakServiceAbstract
 import com.google.android.accessibility.selecttospeak.accessibilityServiceLiveData
 import com.google.android.accessibility.uiautomation.shizuku.AutomationShizuku
@@ -107,13 +110,17 @@ object XpqAcc {
      *
      * @param activity 可选；传入时，连接失败会自动弹出引导对话框（而非仅靠 onResult 回调），
      *                 失败原因涉及 Shizuku 时带「打开 Shizuku」按钮。
+     * @param bridgeFallback 可选；事件桥接的兜底实例。连接成功后优先反射从 Manifest 实例化宿主的
+     *                       无障碍服务子类；反射找不到时，若传了本参数则用它的实例桥接事件。
+     *                       不传则跳过（不桥接）。
      */
     @JvmStatic
     @JvmOverloads
     fun connectUiAutomation(
         onLog: (String) -> Unit = {},
         onResult: (success: Boolean, reason: String?) -> Unit = { _, _ -> },
-        activity: Activity? = null
+        activity: Activity? = null,
+        bridgeFallback: SelectToSpeakServiceAbstract? = null
     ) {
         use(EngineMode.UIAUTOMATION)
         val main = Handler(Looper.getMainLooper())
@@ -129,6 +136,7 @@ object XpqAcc {
         val finishConnect: (Boolean) -> Unit = { ok ->
             if (ok) {
                 runCatching { DynamicIslandFloatWindow.autoInit() }
+                runCatching { autoBridgeAccessibilityEvent(bridgeFallback) }
                 main.post { onResult(true, null) }
             } else {
                 fail(UiAutomationDriver.lastError ?: "连接失败")
@@ -169,6 +177,15 @@ object XpqAcc {
 
     @JvmStatic
     fun disconnect() = driver.disconnect()
+
+    /**
+     * 探测 system_server 是否已有 UiAutomation 注册（被其它 App/进程占用）。
+     * 仅 UiAutomation 通道有意义；借 shell `dumpsys accessibility` 判断，未注册/失败均返回 false。
+     * 注意：只能判断"是否被占用"，无法得知占用者是谁。
+     */
+    @JvmStatic
+    fun isUiAutomationOccupied(): Boolean =
+        if (driver is UiAutomationDriver) (driver as UiAutomationDriver).isUiAutomationOccupied() else false
 
     @JvmStatic
     fun rootInActiveWindow(): AccessibilityNodeInfo? = driver.rootInActiveWindow()
@@ -213,7 +230,52 @@ object XpqAcc {
      */
     @JvmStatic
     fun bridgeAccessibilityEvent(handler: SelectToSpeakServiceAbstract) {
-        setOnAccessibilityEventListener { event -> handler.onAccessibilityEvent(event) }
+        setOnAccessibilityEventListener { event ->
+            // 事件回调发生在 UiAutomation 线程（InvisibleAutoThread）；handler.onAccessibilityEvent
+            // → dealEvent 内是跨进程 getRoot + copyNodeCompat 遍历整棵树的【重活】。若在此线程同步执行，
+            // 会阻塞 UiAutomation 回调线程，进而拖慢主线程业务的 UiAutomation 同步接口 → ANR。
+            // 改为提交到后台单线程池：保持事件顺序，且不阻塞回调线程（重活与系统回调解耦）。
+            AppExecutors.executors5.execute {
+                runCatching { handler.onAccessibilityEvent(event) }
+            }
+        }
+    }
+
+    /**
+     * 自动事件桥接：从宿主 App 的 Manifest 反射找到声明了 `BIND_ACCESSIBILITY_SERVICE` 的
+     * 无障碍服务子类并实例化，再桥接事件。宿主无需手动 new + bridgeAccessibilityEvent。
+     *
+     * 反射找不到子类时，若传了 [fallback] 则用它桥接；否则返回 false。
+     * 已在 [connectUiAutomation] 连接成功后自动调用；宿主也可手动调用本方法。
+     * 找不到子类且无兜底时返回 false（不抛异常，不影响连接本身）。
+     */
+    @JvmStatic
+    @JvmOverloads
+    fun autoBridgeAccessibilityEvent(fallback: SelectToSpeakServiceAbstract? = null): Boolean {
+        val handler = findAccessibilityServiceSubclass() ?: fallback
+        if (handler == null) {
+            android.util.Log.w("XpqAcc", "自动事件桥接失败：未找到宿主无障碍服务子类，且无兜底实例")
+            return false
+        }
+        bridgeAccessibilityEvent(handler)
+        android.util.Log.i("XpqAcc", "自动事件桥接成功：${handler.javaClass.name}")
+        return true
+    }
+
+    /** 从宿主 App 的 Manifest 反射实例化声明了 BIND_ACCESSIBILITY_SERVICE 的服务子类。 */
+    private fun findAccessibilityServiceSubclass(): SelectToSpeakServiceAbstract? {
+        return try {
+            val ctx = runCatching { LibCtxProvider.Companion.appContext }.getOrNull() ?: return null
+            val pkgInfo = ctx.packageManager.getPackageInfo(ctx.packageName, PackageManager.GET_SERVICES)
+            val serviceName = pkgInfo.services?.firstOrNull {
+                it.permission == android.Manifest.permission.BIND_ACCESSIBILITY_SERVICE
+            }?.name ?: return null
+            val cls = Class.forName(serviceName)
+            val instance = cls.getDeclaredConstructor().apply { isAccessible = true }.newInstance()
+            instance as? SelectToSpeakServiceAbstract
+        } catch (_: Throwable) {
+            null
+        }
     }
 
     // ---- 引擎模式选择 + 持久化 ----

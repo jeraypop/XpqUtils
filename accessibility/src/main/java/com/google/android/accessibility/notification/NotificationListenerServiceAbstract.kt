@@ -87,6 +87,9 @@ object AppExecutors {
     // ✅ 单线程守护执行器 4
     val executors4: ExecutorService =
         Executors.newSingleThreadExecutor(daemonThreadFactory("notif-exec-4"))
+    // ✅ 单线程守护执行器 5
+    val executors5: ExecutorService =
+        Executors.newSingleThreadExecutor(daemonThreadFactory("notif-exec-5"))
 
 }
 

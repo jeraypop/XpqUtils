@@ -193,6 +193,9 @@ class MainActivity : XpqBaseActivity<ActivityMainBinding>(
         binding.btnGZH.setOnClickListener{
             // App 启动时切到 UiAutomation（免开无障碍，需 Shizuku）
             // 直接在主线程调用，不会卡
+            if (XpqAcc.isUiAutomationOccupied()) {
+                AliveUtils.toast(msg = "检测到 UiAutomation 已被其它 App 占用")
+            }
             XpqAcc.connectUiAutomation(
                 onLog = { Log.d("XpqAcc", it) },
                 onResult = { success, reason ->
@@ -217,9 +220,12 @@ class MainActivity : XpqBaseActivity<ActivityMainBinding>(
             //openWeChatToFollowInterface(getWCField[6].first.restoreAllIllusion())
         }
         binding.btnAddFriend.setOnClickListener{
-            XpqAcc.showEngineModeDialog(this)
-            val ok = accessibilityService?.clickByText("赞赏")
-            AliveUtils.toast(msg = "clickByText=$ok")
+            //XpqAcc.showEngineModeDialog(this)
+            Thread {
+                val ok = accessibilityService?.clickByText("赞赏")
+                AliveUtils.toast(msg = "clickByText=$ok")
+            }.start()
+
             //好友微信号
             //openWeChatToFollowInterface(getWCField[6].second.restoreAllIllusion())
             //openAccessibilitySetting()

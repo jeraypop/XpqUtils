@@ -603,6 +603,21 @@ object InvisibleAutomation {
     fun exec(command: String): com.google.android.accessibility.uiautomation.shizuku.ShellResult? =
         mSvc?.exec(command)
 
+    /**
+     * 探测 system_server 是否已有 UiAutomation 注册（被其它 App/进程占用）。
+     * 借 shell `dumpsys accessibility` 输出判断：UiAutomationManager 仅在已注册时才会 dump
+     * 出 `Ui Automation[...]` 这行。只能判断"是否被占用"，无法得知占用者是谁。
+     * dumpsys 失败/未注册时均返回 false（保守）。
+     */
+    fun isUiAutomationOccupied(): Boolean {
+        return try {
+            val r = mSvc?.exec("dumpsys accessibility | grep 'Ui Automation'") ?: return false
+            !r.stdout.isNullOrBlank()
+        } catch (_: Throwable) {
+            false
+        }
+    }
+
     fun disconnect() = cleanup()
 
     private fun cleanup() {
