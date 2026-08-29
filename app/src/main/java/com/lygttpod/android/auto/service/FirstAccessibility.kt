@@ -12,6 +12,13 @@ import com.google.android.accessibility.notification.AccessibilityNInfo
 import com.google.android.accessibility.selecttospeak.SelectToSpeakServiceAbstract
 import com.google.android.accessibility.selecttospeak.XPQEventData
 import com.google.android.accessibility.selecttospeak.accessibilityService
+import com.google.android.accessibility.ext.utils.LibCtxProvider.Companion.appContext
+import com.google.android.accessibility.ext.utils.broadcastutil.BroadcastOwnerType
+import com.google.android.accessibility.ext.utils.broadcastutil.ScreenStateCallback
+import com.google.android.accessibility.ext.utils.broadcastutil.ScreenStateReceiver
+import com.google.android.accessibility.ext.utils.broadcastutil.UnifiedBroadcastManager
+import com.google.android.accessibility.ext.utils.broadcastutil.UnifiedBroadcastManager.CHANNEL_SCREEN
+import com.google.android.accessibility.ext.utils.broadcastutil.UnifiedBroadcastManager.screenFilter
 import java.util.concurrent.Executors
 
 //import com.lygttpod.android.auto.wx.helper.ToastUtil.keepAliveByNotification_CLS
@@ -38,6 +45,28 @@ open class FirstAccessibility : SelectToSpeakServiceAbstract() {
     override fun onServiceConnected() {
         super.onServiceConnected()
         //7/0
+    }
+
+    // UiAutomation 模式下的屏幕状态回调（强引用，避免 ScreenStateReceiver 的 WeakReference 导致被 GC 收不到回调）
+    private var uiAutomationScreenCallback: ScreenStateCallback? = null
+
+    override fun onUiAutomationReady(service: AccessibilityService?) {
+        super.onUiAutomationReady(service)
+        // 手动 new 的实例未经系统 attach、Context 受限，屏幕广播改用 appContext 注册
+        val callback = object : ScreenStateCallback {
+            override fun onScreenOff() { Log.e("监听屏幕啊", "UiAutomation屏幕已关闭") }
+            override fun onScreenOn() { Log.e("监听屏幕啊", "UiAutomation屏幕点亮") }
+            override fun onUserPresent() { Log.e("监听屏幕啊", "UiAutomation真正解锁完成") }
+        }
+        uiAutomationScreenCallback = callback
+        UnifiedBroadcastManager.register(
+            channel = CHANNEL_SCREEN,
+            owner = this,
+            ownerType = BroadcastOwnerType.ACCESSIBILITY_SERVICE,
+            context = appContext,
+            receiver = ScreenStateReceiver(callback),
+            filter = screenFilter
+        )
     }
 
     override fun asyncHandleAccessibilityEvent(event: AccessibilityEvent) {

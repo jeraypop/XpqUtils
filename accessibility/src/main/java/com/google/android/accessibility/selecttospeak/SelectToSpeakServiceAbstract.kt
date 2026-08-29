@@ -82,6 +82,9 @@ abstract class SelectToSpeakServiceAbstract : AccessibilityService(),
     @Volatile
     private var destroyed = false
 
+    // 屏幕状态回调（字段强引用，避免 ScreenStateReceiver 的 WeakReference 导致被 GC 收不到回调）
+    private lateinit var screenStateCallback: ScreenStateCallback
+
     //=====================
 
     private val TAG = this::class.java.simpleName
@@ -110,6 +113,18 @@ abstract class SelectToSpeakServiceAbstract : AccessibilityService(),
     open fun asyncHandle_VIEW_SCROLLED(data: XPQEventData){}
     open fun asyncHandle_WINDOWS_CHANGED(event: AccessibilityEvent){}
     open fun onSetOverlay(){}
+
+    /**
+     * UiAutomation 通道「就绪」回调（等价无障碍模式 onServiceConnected 的宿主扩展点）。
+     * 手动 new 的实例不会被系统绑定、不会回调 onServiceConnected，故由 [XpqAcc.autoBridgeAccessibilityEvent]
+     * 在连接成功后手动触发；宿主可在此做通道无关的初始化（如屏幕广播接收器）。
+     *
+     * @param service 通道感知的 service（UiAutomation 模式为 proxyService）。手动 new 实例未经系统 attach，
+     *                Context 能力受限，需要 Context 请用 LibCtxProvider.appContext；
+     *                performGlobalAction / dispatchGesture 等 final 能力请走 [XpqAcc] 门面。
+     */
+    open fun onUiAutomationReady(service: AccessibilityService?) {}
+
     @CallSuper
     override fun onCreate() {
 
@@ -187,8 +202,8 @@ abstract class SelectToSpeakServiceAbstract : AccessibilityService(),
 
         //registerReceiver(screenReceiver, filter)
 
-        // 创建匿名内部类实现 ScreenStateCallback 接口
-        val screenStateCallback = object : ScreenStateCallback {
+        // 创建匿名内部类实现 ScreenStateCallback 接口（赋给字段强引用，避免被 GC）
+        screenStateCallback = object : ScreenStateCallback {
             override fun onScreenOff() {
                 // 1️⃣ 屏幕熄灭
                 // 一定 = 锁屏即将发生 / 已发生

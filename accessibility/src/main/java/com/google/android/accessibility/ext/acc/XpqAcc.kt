@@ -257,6 +257,9 @@ object XpqAcc {
             android.util.Log.w("XpqAcc", "自动事件桥接失败：未找到宿主无障碍服务子类，且无兜底实例")
             return false
         }
+        // 手动 new 的实例不会被系统绑定（onServiceConnected 不回调），这里手动触发宿主的
+        // 就绪钩子，把通道无关的初始化（如屏幕广播接收器）补上。service 传 proxyService。
+        runCatching { handler.onUiAutomationReady(currentService()) }
         bridgeAccessibilityEvent(handler)
         android.util.Log.i("XpqAcc", "自动事件桥接成功：${handler.javaClass.name}")
         return true
