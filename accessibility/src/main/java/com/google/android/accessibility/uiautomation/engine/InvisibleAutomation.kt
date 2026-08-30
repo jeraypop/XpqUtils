@@ -246,7 +246,7 @@ object InvisibleAutomation {
             }
             // 最终失败：残留注册重试后仍失败（App 进程被杀、旧 client binder 拿不到），只能重启 Shizuku
             lastError = if (isAlreadyRegistered) {
-                "UiAutomationService 残留注册无法自动清理，请重启 Shizuku（或重启手机）后重试"
+                "可能有其它应用占用了该模式，请关闭其它应用的该模式，还是不行的话， 再重启 Shizuku（或重启手机）后重试"
             } else {
                 "${root.javaClass.simpleName}: ${root.message}"
             }

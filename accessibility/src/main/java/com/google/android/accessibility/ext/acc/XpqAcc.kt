@@ -8,15 +8,25 @@ import android.content.pm.PackageManager
 import android.os.Build
 import android.os.Handler
 import android.os.Looper
+import android.text.SpannableString
+import android.text.Spanned
+import android.text.method.LinkMovementMethod
+import android.text.style.ClickableSpan
+import android.text.util.Linkify
+import android.view.View
 import android.view.accessibility.AccessibilityEvent
 import android.view.accessibility.AccessibilityNodeInfo
 import android.view.accessibility.AccessibilityWindowInfo
 import android.widget.TextView
-import android.widget.Toast
+import com.android.accessibility.ext.R
+import com.google.android.accessibility.ext.acc.XpqAcc.connectUiAutomation
+import com.google.android.accessibility.ext.acc.XpqAcc.use
 import com.google.android.accessibility.ext.utils.AliveUtils
+import com.google.android.accessibility.ext.utils.AliveUtils.showCheckDialog
 import com.google.android.accessibility.ext.utils.LibCtxProvider
 import com.google.android.accessibility.ext.utils.MMKVConst
 import com.google.android.accessibility.ext.utils.MMKVUtil
+import com.google.android.accessibility.ext.utils.NotificationUtilXpq
 import com.google.android.accessibility.ext.window.DynamicIslandFloatWindow
 import com.google.android.accessibility.notification.AppExecutors
 import com.google.android.accessibility.selecttospeak.SelectToSpeakServiceAbstract
@@ -337,22 +347,41 @@ object XpqAcc {
     }
 
     /**
-     * 弹窗选择自动化通道（无障碍 / UiAutomation），选择后持久化并立即应用。
-     * 宿主可把它挂在某个按钮/设置项上，App 启动时再调 [loadEngineMode] + [applyEngineMode] 恢复上次选择。
+     * 弹窗选择自动化通道（无障碍 / UiAutomation）。
+     *
+     * @param onConfirm 点击「确定」后的回调，参数为选中的 [EngineMode]。
+     *                  仅在无障碍模式下生效；Shizuku 模式始终走内置默认逻辑（持久化并立即应用、toast 结果、失败弹窗）。
+     *                  为 null 时无障碍模式同样走内置默认逻辑。
+     * @param imgRes    无障碍模式跳转设置后弹出的引导对话框图片资源。
      */
     @JvmStatic
-    fun showEngineModeDialog(activity: Activity) {
+    @JvmOverloads
+    fun showEngineModeDialog(
+        activity: Activity,
+        onConfirm: ((mode: EngineMode) -> Unit)? = null,
+        imgRes: Int = R.drawable.backgroundshow_xpq
+    ) {
         val items = arrayOf("无障碍模式", "Shizuku 模式")
         val current = loadEngineMode().ordinal
+
+        // 每个模式对应的说明文字，切换选项时动态更新到标题区
+        fun describeMode(index: Int): String = if (index == 0) {
+            "无障碍模式\n\n" +
+                    "无需额外安装软件,但是部分软件(比如：银行类软件)检测设备上有无障碍服务开启时，可能出现安全提示\n" +
+                    "请跳转到：https://settings.设置 "
+        } else {
+            "Shizuku 模式\n\n" +
+                    "需要额外下载一个免费开源的 Shizuku 软件。\n" +
+                    "官方下载地址：https://github.com/RikkaApps/Shizuku/releases\n" +
+                    "备用下载地址：https://apt.izzysoft.de/fdroid/index/apk/moe.shizuku.privileged.api\n\n" +
+                    "为什么引入该模式：\n" +
+                    "由于部分应用会检测设备上启用的无障碍服务，并可能可能出现安全提示。" +
+                    "Shizuku 模式使用不同的系统权限通道，可以作为另一种自动化方案"
+        }
 
         // 说明文字放到标题区（setMessage 与 setSingleChoiceItems 互斥，用了 setMessage 选项列表就不显示）
         val density = activity.resources.displayMetrics.density
         val titleView = TextView(activity).apply {
-            text = "选择自动化通道\n\n" +
-                    "Shizuku 模式需要额外下载一个免费开源的 Shizuku 软件。\n" +
-                    "为什么引入该模式：\n" +
-                    "部分应用会检测设备上启用的无障碍服务，并可能限制自动化功能。" +
-                    "Shizuku 模式使用不同的系统权限通道，可以作为另一种自动化方案"
             textSize = 14f
             setPadding(
                 (20 * density).toInt(),
@@ -362,21 +391,94 @@ object XpqAcc {
             )
         }
 
-        AlertDialog.Builder(activity)
+        // 渲染指定模式的说明文字：
+        // 无障碍模式 —— 「系统设置 - 无障碍」做成可点击，跳转到无障碍开启界面
+        // Shizuku 模式 —— 官方/备用下载地址用 Linkify 识别为可点击跳转
+        fun renderMode(index: Int) {
+            if (index == 0) {
+                val text = describeMode(index)
+                val spannable = SpannableString(text)
+                val target = "https://settings.设置"
+                val start = text.indexOf(target)
+                if (start >= 0) {
+                    val end = start + target.length
+                    // 点击跳转到无障碍开启界面；外观复用系统链接样式（与 Shizuku 下载地址一致）
+                    spannable.setSpan(object : ClickableSpan() {
+                        override fun onClick(widget: View) {
+                            showCheckDialog(
+                                activity,
+                                R.string.wzaxpq,
+                                imgRes,
+                                R.string.quanxian0,
+                                MMKVConst.BTN_ACCESSIBILITY
+                            )
+                        }
+                    }, start, end, Spanned.SPAN_EXCLUSIVE_EXCLUSIVE)
+                }
+                titleView.movementMethod = LinkMovementMethod.getInstance()
+                titleView.text = spannable
+            } else {
+                titleView.text = describeMode(index)
+                Linkify.addLinks(titleView, Linkify.WEB_URLS)
+            }
+        }
+        renderMode(current)
+
+        // 记录当前选中项；点击「确定」时才真正切换并持久化
+        var selected = current
+
+        val dialog = AlertDialog.Builder(activity)
             .setCustomTitle(titleView)
-            .setSingleChoiceItems(items, current) { dialog, which ->
-                dialog.dismiss()
-                val mode = if (which == 0) EngineMode.ACCESSIBILITY_SERVICE else EngineMode.UIAUTOMATION
-                applyEngineMode(mode) { success, reason ->
-                    when {
-                        success -> AliveUtils.toast(msg = "已切换到 ${items[mode.ordinal]}")
-                        mode == EngineMode.UIAUTOMATION -> showUiAutomationFailDialog(activity, reason)
-                        else -> AliveUtils.toast(msg = reason ?: "切换失败")
+            .setSingleChoiceItems(items, current) { _, which ->
+                selected = which
+            }
+            .setPositiveButton("确定") { _, _ ->
+                val mode = if (selected == 0) EngineMode.ACCESSIBILITY_SERVICE else EngineMode.UIAUTOMATION
+                if (mode == EngineMode.ACCESSIBILITY_SERVICE && onConfirm != null) {
+                    onConfirm(mode)
+                } else {
+                    applyEngineMode(mode) { success, reason ->
+                        when {
+                            success -> AliveUtils.toast(msg = "已成功切换到 ${items[mode.ordinal]}")
+                            mode == EngineMode.UIAUTOMATION -> showUiAutomationFailDialog(activity, reason)
+                            else -> AliveUtils.toast(msg = reason ?: "切换失败")
+                        }
+                    }
+                    // 无障碍模式：跳转系统无障碍设置页引导用户开启
+                    if (mode == EngineMode.ACCESSIBILITY_SERVICE) {
+                        //NotificationUtilXpq.gotoAccessibilitySetting(activity)
+                        showCheckDialog(
+                            activity,
+                            R.string.wzaxpq,
+                            imgRes,
+                            R.string.quanxian0,
+                            MMKVConst.BTN_ACCESSIBILITY
+                        )
                     }
                 }
             }
             .setNegativeButton("取消", null)
-            .show()
+            .setNeutralButton(activity.getString(R.string.sxzxpq)) { _, _ ->
+                AliveUtils.shouxianzhi(activity)
+            }
+            .create()
+
+        // 覆盖单选列表默认的「点击即关闭」行为：点击只更新选中项与标题说明，不关闭对话框
+        // 「受限制?」按钮仅在无障碍模式下显示（Shizuku 模式无受限设置问题）
+        fun updateNeutralVisibility(index: Int) {
+            dialog.getButton(AlertDialog.BUTTON_NEUTRAL)?.visibility =
+                if (index == 0) View.GONE else View.GONE //暂时都不显示
+        }
+        dialog.setOnShowListener {
+            updateNeutralVisibility(current)
+            dialog.listView?.setOnItemClickListener { _, _, position, _ ->
+                selected = position
+                renderMode(position)
+                updateNeutralVisibility(position)
+                dialog.listView?.setItemChecked(position, true)
+            }
+        }
+        dialog.show()
     }
 
     /**
@@ -387,7 +489,7 @@ object XpqAcc {
         val msg = reason ?: "未知错误"
         val needShizuku = msg.contains("Shizuku", ignoreCase = true)
         AlertDialog.Builder(activity)
-            .setTitle("Shizuku 模式连接失败")
+            .setTitle("Shizuku 模式 连接失败")
             .setMessage(msg)
             .setPositiveButton(if (needShizuku) "打开 Shizuku" else "确定") { _, _ ->
                 if (needShizuku && !AutomationShizuku.openShizuku(activity)) {
