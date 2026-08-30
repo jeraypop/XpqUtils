@@ -449,6 +449,7 @@ object XpqAcc {
                 }
                 // 无障碍模式：跳转系统无障碍设置页引导用户开启
                 if (mode == EngineMode.ACCESSIBILITY_SERVICE) {
+                    onConfirm?.invoke(mode)
                     //NotificationUtilXpq.gotoAccessibilitySetting(activity)
                     showCheckDialog(
                         activity,
