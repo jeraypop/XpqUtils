@@ -440,25 +440,24 @@ object XpqAcc {
                 applyEngineMode(mode) { success, reason ->
                     when {
                         success -> AliveUtils.toast(msg = "已成功切换到 ${items[mode.ordinal]}")
-                        mode == EngineMode.UIAUTOMATION -> showUiAutomationFailDialog(activity, reason)
+                        mode == EngineMode.UIAUTOMATION ->{
+                            showUiAutomationFailDialog(activity, reason)
+                            onConfirm?.invoke(mode)
+                        }
                         else -> AliveUtils.toast(msg = reason ?: "切换失败")
                     }
                 }
                 // 无障碍模式：跳转系统无障碍设置页引导用户开启
                 if (mode == EngineMode.ACCESSIBILITY_SERVICE) {
-                    if (onConfirm != null ){
-                        // 切换始终生效，onConfirm 仅在无障碍模式下作为切换后的额外回调
-                        onConfirm?.invoke(mode)
-                    }else{
-                        //NotificationUtilXpq.gotoAccessibilitySetting(activity)
-                        showCheckDialog(
-                            activity,
-                            R.string.wzaxpq,
-                            imgRes,
-                            R.string.quanxian0,
-                            MMKVConst.BTN_ACCESSIBILITY
-                        )
-                    }
+                    //NotificationUtilXpq.gotoAccessibilitySetting(activity)
+                    showCheckDialog(
+                        activity,
+                        R.string.wzaxpq,
+                        imgRes,
+                        R.string.quanxian0,
+                        MMKVConst.BTN_ACCESSIBILITY
+                    )
+
                 }
             }
             .setNegativeButton("取消") { _, _ ->
