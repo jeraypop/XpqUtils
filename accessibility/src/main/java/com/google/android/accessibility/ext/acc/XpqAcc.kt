@@ -370,11 +370,20 @@ object XpqAcc {
         onConfirm: ((mode: EngineMode) -> Unit)? = null,
         onCancel: (() -> Unit)? = null
     ) {
-        val items = arrayOf("无障碍模式", "Shizuku 模式")
-        val current = loadEngineMode().ordinal
+        // 清单未声明无障碍服务时（tools:node="remove" 或未注册），不显示无障碍选项
+        val hasAccessibility = findAccessibilityServiceSubclass() != null
+        val items = if (hasAccessibility) arrayOf("无障碍模式", "Shizuku 模式") else arrayOf("Shizuku 模式")
+        val current = if (hasAccessibility) loadEngineMode().ordinal else 0
+
+        // 选项下标 -> 实际引擎模式；无无障碍选项时恒为 UiAutomation
+        fun indexToMode(index: Int): EngineMode = when {
+            !hasAccessibility -> EngineMode.UIAUTOMATION
+            index == 0 -> EngineMode.ACCESSIBILITY_SERVICE
+            else -> EngineMode.UIAUTOMATION
+        }
 
         // 每个模式对应的说明文字，切换选项时动态更新到标题区
-        fun describeMode(index: Int): String = if (index == 0) {
+        fun describeMode(mode: EngineMode): String = if (mode == EngineMode.ACCESSIBILITY_SERVICE) {
             "无障碍模式\n\n" +
                     "无需额外安装软件,但是部分软件(比如：银行类软件)检测设备上有无障碍服务开启时，可能出现安全提示\n" +
                     "请跳转到：https://settings.设置 "
@@ -404,8 +413,9 @@ object XpqAcc {
         // 无障碍模式 —— 「系统设置 - 无障碍」做成可点击，跳转到无障碍开启界面
         // Shizuku 模式 —— 官方/备用下载地址用 Linkify 识别为可点击跳转
         fun renderMode(index: Int) {
-            if (index == 0) {
-                val text = describeMode(index)
+            val mode = indexToMode(index)
+            if (mode == EngineMode.ACCESSIBILITY_SERVICE) {
+                val text = describeMode(mode)
                 val spannable = SpannableString(text)
                 val target = "https://settings.设置"
                 val start = text.indexOf(target)
@@ -427,7 +437,7 @@ object XpqAcc {
                 titleView.movementMethod = LinkMovementMethod.getInstance()
                 titleView.text = spannable
             } else {
-                titleView.text = describeMode(index)
+                titleView.text = describeMode(mode)
                 Linkify.addLinks(titleView, Linkify.WEB_URLS)
             }
         }
@@ -442,10 +452,10 @@ object XpqAcc {
                 selected = which
             }
             .setPositiveButton("确定") { _, _ ->
-                val mode = if (selected == 0) EngineMode.ACCESSIBILITY_SERVICE else EngineMode.UIAUTOMATION
+                val mode = indexToMode(selected)
                 applyEngineMode(mode, bridgeFallback) { success, reason ->
                     when {
-                        success -> AliveUtils.toast(msg = "已成功切换到 ${items[mode.ordinal]}")
+                        success -> AliveUtils.toast(msg = "已成功切换到 ${items[selected]}")
                         mode == EngineMode.UIAUTOMATION ->{
                             showUiAutomationFailDialog(activity, reason)
                             onConfirm?.invoke(mode)
