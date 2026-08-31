@@ -370,31 +370,31 @@ object XpqAcc {
         onConfirm: ((mode: EngineMode) -> Unit)? = null,
         onCancel: (() -> Unit)? = null
     ) {
-        // 清单未声明无障碍服务时（tools:node="remove" 或未注册），不显示无障碍选项
+        // 清单未声明无障碍服务（tools:node="remove" 或未注册）时，选项仍保留，但切换到无障碍模式会提示不支持
         val hasAccessibility = findAccessibilityServiceSubclass() != null
-        val items = if (hasAccessibility) arrayOf("无障碍模式", "Shizuku 模式") else arrayOf("Shizuku 模式")
-        val current = if (hasAccessibility) loadEngineMode().ordinal else 0
+        val items = arrayOf("无障碍模式", "Shizuku 模式")
+        val current = loadEngineMode().ordinal
 
-        // 选项下标 -> 实际引擎模式；无无障碍选项时恒为 UiAutomation
-        fun indexToMode(index: Int): EngineMode = when {
-            !hasAccessibility -> EngineMode.UIAUTOMATION
-            index == 0 -> EngineMode.ACCESSIBILITY_SERVICE
-            else -> EngineMode.UIAUTOMATION
-        }
+        // 选项下标 -> 实际引擎模式
+        fun indexToMode(index: Int): EngineMode =
+            if (index == 0) EngineMode.ACCESSIBILITY_SERVICE else EngineMode.UIAUTOMATION
 
         // 每个模式对应的说明文字，切换选项时动态更新到标题区
-        fun describeMode(mode: EngineMode): String = if (mode == EngineMode.ACCESSIBILITY_SERVICE) {
-            "无障碍模式\n\n" +
-                    "无需额外安装软件,但是部分软件(比如：银行类软件)检测设备上有无障碍服务开启时，可能出现安全提示\n" +
-                    "请跳转到：https://settings.设置 "
-        } else {
-            "Shizuku 模式\n\n" +
-                    "需要额外下载一个免费开源的 Shizuku 软件。\n" +
-                    "官方下载地址：https://github.com/RikkaApps/Shizuku/releases\n" +
-                    "备用下载地址：https://apt.izzysoft.de/fdroid/index/apk/moe.shizuku.privileged.api\n\n" +
-                    "为什么引入该模式：\n" +
-                    "由于部分应用会检测设备上启用的无障碍服务，并可能可能出现安全提示。" +
-                    "Shizuku 模式使用不同的系统权限通道，可以作为另一种自动化方案"
+        fun describeMode(mode: EngineMode): String = when {
+            mode == EngineMode.ACCESSIBILITY_SERVICE && !hasAccessibility ->
+                "无障碍模式\n\n当前版本不支持无障碍模式,如果确定需要无障碍的版本，可下载支持无障碍的版本使用"
+            mode == EngineMode.ACCESSIBILITY_SERVICE ->
+                "无障碍模式\n\n" +
+                        "无需额外安装软件,但是部分软件(比如：银行类软件)检测设备上有无障碍服务开启时，可能出现安全提示\n" +
+                        "请跳转到：https://settings.设置 "
+            else ->
+                "Shizuku 模式\n\n" +
+                        "需要额外下载一个免费开源的 Shizuku 软件。\n" +
+                        "官方下载地址：https://github.com/RikkaApps/Shizuku/releases\n" +
+                        "备用下载地址：https://apt.izzysoft.de/fdroid/index/apk/moe.shizuku.privileged.api\n\n" +
+                        "为什么引入该模式：\n" +
+                        "由于部分应用会检测设备上启用的无障碍服务，并可能可能出现安全提示。" +
+                        "Shizuku 模式使用不同的系统权限通道，可以作为另一种自动化方案"
         }
 
         // 说明文字放到标题区（setMessage 与 setSingleChoiceItems 互斥，用了 setMessage 选项列表就不显示）
@@ -453,6 +453,11 @@ object XpqAcc {
             }
             .setPositiveButton("确定") { _, _ ->
                 val mode = indexToMode(selected)
+                // 清单未声明无障碍服务时，不支持切换到无障碍模式，仅提示、不切换
+                if (mode == EngineMode.ACCESSIBILITY_SERVICE && !hasAccessibility) {
+                    AliveUtils.toast(msg = "当前版本不支持无障碍模式")
+                    return@setPositiveButton
+                }
                 applyEngineMode(mode, bridgeFallback) { success, reason ->
                     when {
                         success -> AliveUtils.toast(msg = "已成功切换到 ${items[selected]}")
