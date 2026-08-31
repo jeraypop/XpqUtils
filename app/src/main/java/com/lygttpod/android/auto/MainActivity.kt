@@ -205,11 +205,11 @@ class MainActivity : XpqBaseActivity<ActivityMainBinding>(
                         AliveUtils.toast(msg = "连接成功，取根节点=${root != null}，isConnected=${XpqAcc.isConnected}")
   
                     }else{
-                        Log.e("失败原因：", ""+reason)
                         AliveUtils.toast(msg = "失败"+reason)
                     }
                 },
-                activity = this
+                activity = this,
+                SelectToSpeakService()
             )
 
 

@@ -10,22 +10,20 @@ import android.net.Uri
 import android.os.Build
 import android.os.Bundle
 import android.os.PowerManager
-import android.provider.Settings
 import android.service.notification.NotificationListenerService
-import android.util.Log
 import android.view.View
-import android.view.inputmethod.InputMethodManager
 import android.widget.TableRow
 import androidx.annotation.RequiresApi
 import androidx.appcompat.app.AlertDialog
 import androidx.core.content.ContextCompat
 import com.android.accessibility.ext.R
 import com.android.accessibility.ext.databinding.ActivityAliveXpqBinding
-
+import com.google.android.accessibility.ext.acc.EngineMode
+import com.google.android.accessibility.ext.acc.XpqAcc
 import com.google.android.accessibility.ext.activity.AliveFGService.Companion.fgs_ison
 import com.google.android.accessibility.ext.utils.AliveUtils
-import com.google.android.accessibility.ext.utils.AliveUtils.isServiceDeclared
 import com.google.android.accessibility.ext.utils.AliveUtils.closeTaskHidePlus
+import com.google.android.accessibility.ext.utils.AliveUtils.isServiceDeclared
 import com.google.android.accessibility.ext.utils.AliveUtils.shouxianzhi
 import com.google.android.accessibility.ext.utils.LibCtxProvider.Companion.appContext
 import com.google.android.accessibility.ext.utils.MMKVConst
@@ -34,7 +32,6 @@ import com.google.android.accessibility.ext.utils.NotificationUtilXpq.isNotifica
 import com.google.android.accessibility.inputmethod.KeepAliveInputMethod
 import com.google.android.accessibility.inputmethod.KeepAliveInputMethod.Companion.ensureImeEnabledAndDefault
 import com.google.android.accessibility.notification.ClearNotificationListenerServiceImp
-import com.google.android.accessibility.selecttospeak.accessibilityService
 import com.hjq.permissions.permission.PermissionLists
 
 class AliveActivity : XpqBaseActivity<ActivityAliveXpqBinding>(
@@ -119,16 +116,36 @@ class AliveActivity : XpqBaseActivity<ActivityAliveXpqBinding>(
         binding.buttonAccessibilityPermission.setOnClickListener {
             closeTaskHidePlus(binding.imageRecentTaskHidePermissionPlus)
             //  打开让用户设置
-            if (NotificationUtilXpq.isAccessibilityEnabled()) {
+            if (XpqAcc.isConnected) {
                 AliveUtils.toast(applicationContext, getString(R.string.qxykqxpq))
-                NotificationUtilXpq.gotoAccessibilitySetting()
-            } else {
+                if (XpqAcc.mode == EngineMode.ACCESSIBILITY_SERVICE) {
+                    NotificationUtilXpq.gotoAccessibilitySetting()
+                }
 
-                AliveUtils.showCheckDialog(this@AliveActivity,
-                    R.string.wzaxpq,
-                    resourceId,
-                    R.string.quanxian0,
-                    MMKVConst.BTN_ACCESSIBILITY)
+            } else {
+                if (XpqAcc.mode == EngineMode.ACCESSIBILITY_SERVICE) {
+                    AliveUtils.showCheckDialog(this@AliveActivity,
+                        R.string.wzaxpq,
+                        resourceId,
+                        R.string.quanxian0,
+                        MMKVConst.BTN_ACCESSIBILITY)
+                } else if (XpqAcc.mode == EngineMode.UIAUTOMATION) {
+                    XpqAcc.connectUiAutomation(
+                        onLog = {  },
+                        onResult = { success, reason ->
+                            if (success) {
+                                // 连接成功后立刻验证
+                                AliveUtils.toast(msg = "连接成功")
+
+                            }else{
+                                AliveUtils.toast(msg = "连接失败")
+                            }
+                        },
+                        activity = this@AliveActivity
+                    )
+                }
+
+
 
             }
         }
@@ -439,10 +456,15 @@ class AliveActivity : XpqBaseActivity<ActivityAliveXpqBinding>(
 
 
     private fun updateUI() {
+        if (XpqAcc.mode == EngineMode.ACCESSIBILITY_SERVICE) {
+            binding.textAccessibilityPermission.text = getString(R.string.quanxian0)
+        } else if (XpqAcc.mode == EngineMode.UIAUTOMATION) {
+            binding.textAccessibilityPermission.text = getString(R.string.quanxian0_szk)
+        }
         //图形开关监测
 
         //无障碍服务
-        binding.imageAccessibilityPermission.setImageDrawable(if (accessibilityService!=null){drawableYes}else{drawableNo})
+        binding.imageAccessibilityPermission.setImageDrawable(if (XpqAcc.isConnected){drawableYes}else{drawableNo})
 
         //电池优化
         val packageName = this@AliveActivity.packageName

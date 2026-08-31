@@ -3,6 +3,7 @@
     <string name="quanxiantip1">第6,7项也非常重要,但是软件无法判断是否成功开启
         \n务必按照上方教程指导仔细设置哦</string>
     <string name="quanxian0">0.无障碍服务</string>
+    <string name="quanxian0_szk">0.Shizuku服务</string>
     <string name="quanxian1">1.不优化电池</string>
     <string name="quanxiansetting">设置</string>
     <string name="quanxian2">2.通知栏保活</string>

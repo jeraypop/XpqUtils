@@ -5,11 +5,13 @@ import android.os.SystemClock
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.ProcessLifecycleOwner
+import com.google.android.accessibility.ext.acc.XpqAcc
 import com.google.android.accessibility.ext.activity.TaskByJieSuoHelper
 import com.google.android.accessibility.ext.activity.TaskByJieSuoHelperDefault
 import com.google.android.accessibility.ext.utils.AliveUtils
 import com.google.android.accessibility.ext.utils.NotificationUtilXpq
 import com.google.android.accessibility.ext.utils.XpqUncaughtExceptionHandler
+import com.google.android.accessibility.selecttospeak.SelectToSpeakService
 import com.lygttpod.android.auto.notification.MyJieSuoHelper
 import com.lygttpod.android.auto.notification.MyJieSuoHelperDefault
 import com.lygttpod.android.auto.notification.NotificationListenerServiceImp
@@ -26,6 +28,8 @@ class App : Application() {
     override fun onCreate() {
         super.onCreate()
         instance = this
+        //当清单文件中没有注册无障碍服务，主动注册
+        XpqAcc.setBridgeFallbackProvider { SelectToSpeakService() }
         UpdateManager.init(
             context = this,
             fallbackUrl = "https://520821.cn/rule/wxzhuli.json",

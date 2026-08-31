@@ -51,6 +51,19 @@ object XpqAcc {
     @Volatile
     private var bridgedHandler: SelectToSpeakServiceAbstract? = null
 
+    /**
+     * 宿主注册的桥接实例工厂。宿主未在清单声明 BIND_ACCESSIBILITY_SERVICE 服务时，
+     * 反射找不到子类，此时由 [autoBridgeAccessibilityEvent] 从该工厂取兜底实例（通常 `{ SelectToSpeakService() }`）。
+     */
+    @Volatile
+    private var bridgeFallbackProvider: (() -> SelectToSpeakServiceAbstract?)? = null
+
+    /** 宿主注册桥接实例工厂，供库在无法反射到无障碍服务子类时兜底创建实例。 */
+    @JvmStatic
+    fun setBridgeFallbackProvider(provider: (() -> SelectToSpeakServiceAbstract?)?) {
+        bridgeFallbackProvider = provider
+    }
+
     /** 断开 UiAutomation 连接时统一收尾：触发宿主销毁回调并清引用。 */
     private fun teardownUiAutomationBridge() {
         val h = bridgedHandler
@@ -277,7 +290,7 @@ object XpqAcc {
     @JvmStatic
     @JvmOverloads
     fun autoBridgeAccessibilityEvent(fallback: SelectToSpeakServiceAbstract? = null): Boolean {
-        val handler = findAccessibilityServiceSubclass() ?: fallback
+        val handler = findAccessibilityServiceSubclass() ?: fallback ?: bridgeFallbackProvider?.invoke()
         if (handler == null) {
             android.util.Log.w("XpqAcc", "自动事件桥接失败：未找到宿主无障碍服务子类，且无兜底实例")
             return false
