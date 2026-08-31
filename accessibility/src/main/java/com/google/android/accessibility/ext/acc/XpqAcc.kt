@@ -385,7 +385,7 @@ object XpqAcc {
                 "无障碍模式\n\n当前版本不支持无障碍模式,如果确定需要无障碍的版本，可下载支持无障碍的版本使用"
             mode == EngineMode.ACCESSIBILITY_SERVICE ->
                 "无障碍模式\n\n" +
-                        "无需额外安装软件,但是部分软件(比如：银行类软件)检测设备上有无障碍服务开启时，可能出现安全提示\n" +
+                        "无需额外安装软件,但是部分软件(比如：银行类软件)检测设备上无障碍服务开启时，可能出现安全提示\n" +
                         "请跳转到：https://settings.设置 "
             else ->
                 "Shizuku 模式\n\n" +
@@ -393,7 +393,7 @@ object XpqAcc {
                         "官方下载地址：https://github.com/RikkaApps/Shizuku/releases\n" +
                         "备用下载地址：https://apt.izzysoft.de/fdroid/index/apk/moe.shizuku.privileged.api\n\n" +
                         "为什么引入该模式：\n" +
-                        "由于部分应用会检测设备上启用的无障碍服务，并可能可能出现安全提示。" +
+                        "由于部分应用会检测设备上启用的无障碍服务，并可能出现安全提示。" +
                         "Shizuku 模式使用不同的系统权限通道，可以作为另一种自动化方案"
         }
 
