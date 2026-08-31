@@ -327,11 +327,14 @@ object XpqAcc {
      * 应用引擎模式：持久化 + 切换通道 + （UiAutomation）自动连接。
      * 结果经 [onResult] 回调：无障碍模式仅切换（需用户已在系统设置开启无障碍服务）；
      * UiAutomation 模式内部会检测/请求 Shizuku 授权并连接。
+     *
+     * @param bridgeFallback 事件桥接兜底实例，仅 UiAutomation 模式使用；透传给 [connectUiAutomation]。
      */
     @JvmStatic
     fun applyEngineMode(
         mode: EngineMode,
-        onResult: (success: Boolean, reason: String?) -> Unit = { _, _ -> }
+        bridgeFallback: SelectToSpeakServiceAbstract? = null,
+        onResult: (success: Boolean, reason: String?) -> Unit = { _, _ -> },
     ) {
         saveEngineMode(mode)
         when (mode) {
@@ -341,7 +344,7 @@ object XpqAcc {
                 onResult(ok, if (ok) null else "请先在系统设置开启无障碍服务")
             }
             EngineMode.UIAUTOMATION -> {
-                connectUiAutomation(onLog = {}, onResult = onResult)
+                connectUiAutomation(onLog = {}, onResult = onResult, bridgeFallback = bridgeFallback)
             }
         }
     }
@@ -355,14 +358,16 @@ object XpqAcc {
      * @param onCancel  点击「取消」后的回调，参数无。
      *                  为 null 时不回调。
      * @param imgRes    无障碍模式跳转设置后弹出的引导对话框图片资源。
+     * @param bridgeFallback 事件桥接兜底实例，仅 UiAutomation 模式使用；透传给 [applyEngineMode]。
      */
     @JvmStatic
     @JvmOverloads
     fun showEngineModeDialog(
         activity: Activity,
+        bridgeFallback: SelectToSpeakServiceAbstract? = null,
         imgRes: Int = R.drawable.backgroundshow_xpq,
         onConfirm: ((mode: EngineMode) -> Unit)? = null,
-        onCancel: (() -> Unit)? = null,
+        onCancel: (() -> Unit)? = null
     ) {
         val items = arrayOf("无障碍模式", "Shizuku 模式")
         val current = loadEngineMode().ordinal
@@ -437,7 +442,7 @@ object XpqAcc {
             }
             .setPositiveButton("确定") { _, _ ->
                 val mode = if (selected == 0) EngineMode.ACCESSIBILITY_SERVICE else EngineMode.UIAUTOMATION
-                applyEngineMode(mode) { success, reason ->
+                applyEngineMode(mode, bridgeFallback) { success, reason ->
                     when {
                         success -> AliveUtils.toast(msg = "已成功切换到 ${items[mode.ordinal]}")
                         mode == EngineMode.UIAUTOMATION ->{
