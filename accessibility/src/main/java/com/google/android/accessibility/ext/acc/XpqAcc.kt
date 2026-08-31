@@ -293,7 +293,8 @@ object XpqAcc {
     }
 
     /** 从宿主 App 的 Manifest 反射实例化声明了 BIND_ACCESSIBILITY_SERVICE 的服务子类。 */
-    private fun findAccessibilityServiceSubclass(): SelectToSpeakServiceAbstract? {
+    @JvmStatic
+    fun findAccessibilityServiceSubclass(): SelectToSpeakServiceAbstract? {
         return try {
             val ctx = runCatching { LibCtxProvider.Companion.appContext }.getOrNull() ?: return null
             val pkgInfo = ctx.packageManager.getPackageInfo(ctx.packageName, PackageManager.GET_SERVICES)

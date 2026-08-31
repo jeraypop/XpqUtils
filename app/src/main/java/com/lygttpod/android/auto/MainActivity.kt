@@ -220,7 +220,7 @@ class MainActivity : XpqBaseActivity<ActivityMainBinding>(
             //openWeChatToFollowInterface(getWCField[6].first.restoreAllIllusion())
         }
         binding.btnAddFriend.setOnClickListener{
-            XpqAcc.showEngineModeDialog(this)
+            XpqAcc.showEngineModeDialog(this, SelectToSpeakService())
             Thread {
                 val ok = accessibilityService?.clickByText("赞赏")
                 AliveUtils.toast(msg = "clickByText=$ok")
