@@ -154,8 +154,8 @@ object HumanTouchEngine {
         val path = Path().apply {
             moveTo(currX, currY)
             repeat(config.microMoves.random()) {
-                currX += gaussian(0.0, 0.5).toFloat()
-                currY += gaussian(0.0, 0.5).toFloat()
+                currX = (currX + gaussian(0.0, 0.5)).toFloat().coerceAtLeast(0f)
+                currY = (currY + gaussian(0.0, 0.5)).toFloat().coerceAtLeast(0f)
                 lineTo(currX, currY)
             }
         }
@@ -198,7 +198,8 @@ object HumanTouchEngine {
                 val jitterX = if (i == config.steps) 0.0 else gaussian(0.0, config.jitterStdPx)
                 val jitterY = if (i == config.steps) 0.0 else gaussian(0.0, config.jitterStdPx)
 
-                lineTo((bezierPt.x + jitterX).toFloat(), (bezierPt.y + jitterY).toFloat())
+                lineTo((bezierPt.x + jitterX).toFloat().coerceAtLeast(0f), (bezierPt.y + jitterY).toFloat().coerceAtLeast(0f)
+                )
             }
         }
 
