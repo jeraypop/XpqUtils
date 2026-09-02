@@ -607,10 +607,6 @@ object JieSuoUtils {
                 }
                 //===========================
                 inputSuccess = HumanTouchEngine.click(cx = x.toFloat(), cy = y.toFloat())
-                // 可视化点击点
-                if (KeyguardUnLock.getShowClickIndicator()) {
-                    KeyguardUnLock.showClickIndicator( x = x, y = y)
-                }
                 //=
             }
 
@@ -697,10 +693,6 @@ object JieSuoUtils {
                 }
                 //===========================
                 inputSuccess = HumanTouchEngine.click(cx = x.toFloat(), cy = y.toFloat())
-                // 可视化点击点
-                if (KeyguardUnLock.getShowClickIndicator()) {
-                    KeyguardUnLock.showClickIndicator( x = x, y = y)
-                }
                 //=
             }
 

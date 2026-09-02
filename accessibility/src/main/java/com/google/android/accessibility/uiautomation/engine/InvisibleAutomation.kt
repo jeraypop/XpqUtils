@@ -11,13 +11,19 @@ import android.view.accessibility.AccessibilityWindowInfo
 import com.google.android.accessibility.uiautomation.shizuku.AutomationShizuku
 import com.google.android.accessibility.uiautomation.shizuku.IAutomationUserService
 import com.google.android.accessibility.uiautomation.util.HiddenApi
-import android.graphics.Point
+import android.graphics.PointF
 import android.os.Bundle
 import android.os.SystemClock
 import android.view.accessibility.AccessibilityEvent
+import com.google.android.accessibility.ext.utils.gestureUtils.HumanTouchEngine.ClickConfig
+import com.google.android.accessibility.ext.utils.gestureUtils.HumanTouchEngine.SwipeConfig
+import com.google.android.accessibility.ext.utils.gestureUtils.HumanTouchEngine.gaussian
+import com.google.android.accessibility.ext.utils.gestureUtils.HumanTouchEngine.randomHit
 import java.lang.reflect.InvocationHandler
 import java.lang.reflect.Method
 import java.lang.reflect.Proxy
+import kotlin.math.pow
+import kotlin.random.Random
 
 /**
  * 隐形自动化引擎（公开 API）。
@@ -551,20 +557,19 @@ object InvisibleAutomation {
      *
      * points 为屏幕坐标轨迹；durationMs 为整段手势时长；单点等价于点击。失败时返回 false。
      */
-    fun dispatchGesture(points: List<Point>, durationMs: Long = 300): Boolean {
+    fun dispatchGesture(points: List<PointF>, durationMs: Long = 300): Boolean {
         if (points.isEmpty()) return false
         val first = points.first()
         val last = points.last()
+        Log.e("调用栈", "dispatchGesture =起点：(${first.x}, ${first.y})，终点： (${last.x}, ${last.y})")
         val isClick = points.size == 1 ||
                 (kotlin.math.abs(first.x - last.x) < 5 && kotlin.math.abs(first.y - last.y) < 5)
         return if (isClick) {
             tap(first.x, first.y)
         } else {
             // shell `input swipe` 匀速、抬起无 fling 惯性；无障碍 dispatchGesture 有加速度+fling。
-            // 锁屏上划解锁需快速 fling 才识别为「解锁」，故减半时长提高松手速度（终点不变）。
-            val flingMs = (durationMs / 2).coerceIn(600L, 1000L).toInt()
             SystemClock.sleep(1000L)
-            swipe(first.x, first.y, last.x, last.y, flingMs)
+            swipe(first.x, first.y, last.x, last.y)
         }
     }
 
@@ -580,8 +585,15 @@ object InvisibleAutomation {
         }
     }
 
+    fun addRandomDecimal(value: Int): Float {
+        val decimalDigits = Random.nextInt(4, 6) // 4 或 5
+        val scale = 10.0.pow(decimalDigits).toInt()
+        val decimal = Random.nextInt(1, scale).toFloat() / scale
+        return value + decimal
+    }
     /** 坐标点击：经 shell `input tap`（shell 权限，无需 INJECT_EVENTS）。 */
-    fun tap(x: Int, y: Int): Boolean {
+    fun tapDan(x: Float, y: Float): Boolean {
+        //机器特征太明显，不建议用
         val r = mSvc?.exec("input tap $x $y") ?: return false
         val ok = r.exitCode == 0
         diag("[tap] input tap $x $y → exit=${r.exitCode} ${
@@ -590,8 +602,73 @@ object InvisibleAutomation {
         return ok
     }
 
+    private fun sendMotionEvent(
+        action: String,
+        x: Float,
+        y: Float
+    ): Boolean {
+        val cmd = "input motionevent $action $x $y"
+        val r = mSvc?.exec(cmd) ?: return false
+        val ok = r.exitCode == 0
+        diag("[motion] $cmd → exit=${r.exitCode}" +
+                    if (ok) "" else { " stdout=${r.stdout.take(200)}" + " stderr=${r.stderr.take(200)}" }
+        )
+        return ok
+    }
+    //中间的move 自定义填充
+    fun tapNew(x: Float, y: Float, config: ClickConfig = ClickConfig()): Boolean {
+        var currX = x
+        var currY = y
+        // ACTION_DOWN
+        if (!sendMotionEvent("DOWN", currX, currY)) {
+            return false
+        }
+        // 多个 ACTION_MOVE
+        repeat(config.microMoves.random()) {
+            currX = (currX + gaussian(std = 0.5, maxOffset = 2.0)).toFloat().coerceAtLeast(0f)
+            currY = (currY + gaussian(std = 0.5, maxOffset = 2.0)).toFloat().coerceAtLeast(0f)
+            if (!sendMotionEvent("MOVE", currX, currY)) {
+                return false
+            }
+        }
+
+        // ACTION_UP
+        return sendMotionEvent("UP", currX, currY)
+    }
+    //中间的move 为系统自动填充
+    fun tap(ax: Float, ay: Float, config: ClickConfig = ClickConfig()): Boolean {
+        var x1 = ax
+        var y1 = ay
+        var x2 = x1
+        var y2 = y1
+        if (randomHit()){
+           x2 = x1
+           y2 = y1
+        }else{
+            x2 = (x2 + gaussian(std = 0.5, maxOffset = 2.0)).toFloat().coerceAtLeast(0f)
+            y2 = (y2 + gaussian(std = 0.5, maxOffset = 2.0)).toFloat().coerceAtLeast(0f)
+        }
+        val durationMs = gaussian(config.pressMeanMs, config.pressStdMs).toLong().coerceIn(50L, 200L)
+        val r = mSvc?.exec("input swipe $x1 $y1 $x2 $y2 $durationMs") ?: return false
+        val ok = r.exitCode == 0
+        diag("[swipe] input swipe $x1 $y1 $x2 $y2 $durationMs → exit=${r.exitCode} ${
+            if (ok) "" else "stdout=${r.stdout.take(200)} stderr=${r.stderr.take(200)}"
+        }")
+        return ok
+    }
+
     /** 坐标滑动：经 shell `input swipe`。 */
-    fun swipe(x1: Int, y1: Int, x2: Int, y2: Int, durationMs: Int = 300): Boolean {
+    fun swipe(ax1: Float, ay1: Float, ax2: Float, ay2: Float, config: SwipeConfig = SwipeConfig()): Boolean {
+        var x1 = ax1
+        var y1 = ay1
+        x1 = (x1 + gaussian()).toFloat().coerceAtLeast(0f)
+        y1 = (y1 + gaussian()).toFloat().coerceAtLeast(0f)
+        var x2 = ax2
+        var y2 = ay2
+        x2 = (x2 + gaussian()).toFloat().coerceAtLeast(0f)
+        y2 = (y2 + gaussian()).toFloat().coerceAtLeast(0f)
+
+        val durationMs = gaussian(config.durationMeanMs, config.durationStdMs).toLong().coerceIn(200L, 1200L)
         val r = mSvc?.exec("input swipe $x1 $y1 $x2 $y2 $durationMs") ?: return false
         val ok = r.exitCode == 0
         diag("[swipe] input swipe $x1 $y1 $x2 $y2 $durationMs → exit=${r.exitCode} ${

@@ -7,7 +7,6 @@ import android.graphics.Rect
 import android.os.Build
 import android.view.accessibility.AccessibilityNodeInfo
 import androidx.annotation.RequiresApi
-import com.google.android.accessibility.ext.utils.KeyguardUnLock
 import com.google.android.accessibility.ext.utils.gestureUtils.HumanTouchEngine
 
 /**
@@ -18,41 +17,14 @@ import com.google.android.accessibility.ext.utils.gestureUtils.HumanTouchEngine
 fun AccessibilityService?.gestureClick(node: AccessibilityNodeInfo): Boolean {
     this ?: return false
     //===
-
-    //===
     val nodeBounds = Rect().apply(node::getBoundsInScreen)
-//    val x = nodeBounds.centerX().toFloat()
-//    val y = nodeBounds.centerY().toFloat()
     // 确保边界值非负
     val x = Math.max(0, nodeBounds.centerX()).toFloat()
     val y = Math.max(0, nodeBounds.centerY()).toFloat()
-
-    //===
-    if (KeyguardUnLock.getShowClickIndicator()){
-        //点击轨迹提示
-        KeyguardUnLock.showClickIndicator(this, x.toInt(), y.toInt())
-    }
     //===
     HumanTouchEngine.click(x,y)
     return true
     //===
-  /*  return dispatchGesture(
-        GestureDescription.Builder().apply {
-            addStroke(
-                GestureDescription.StrokeDescription(
-                    Path().apply { moveTo(x, y) },
-                    0L,
-                    200L
-                )
-            )
-        }.build(),
-        object : AccessibilityService.GestureResultCallback() {
-            override fun onCompleted(gestureDescription: GestureDescription?) {
-                super.onCompleted(gestureDescription)
-            }
-        },
-        null
-    )*/
 }
 
 data class ClickResult(
@@ -75,27 +47,8 @@ fun AccessibilityService?.gestureClickResult(
     val x = maxOf(0, bounds.centerX()).toFloat()
     val y = maxOf(0, bounds.centerY()).toFloat()
 
-    // 可视化点击点
-    if (KeyguardUnLock.getShowClickIndicator()) {
-        KeyguardUnLock.showClickIndicator(this, x.toInt(), y.toInt())
-    }
-
     HumanTouchEngine.click(x,y)
     val success = true
-        /*  val success = dispatchGesture(
-              GestureDescription.Builder().apply {
-                  addStroke(
-                      GestureDescription.StrokeDescription(
-                          Path().apply { moveTo(x, y) },
-                          0L,
-                          200L
-                      )
-                  )
-              }.build(),
-              null,
-              null
-          )*/
-
     return ClickResult(
         success = success,
         x = x,

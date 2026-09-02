@@ -8,6 +8,7 @@ package com.lygttpod.android.auto
 import android.content.Intent
 import android.os.Bundle
 import android.util.Log
+import android.view.MotionEvent
 import android.view.WindowManager
 import androidx.activity.enableEdgeToEdge
 import androidx.core.view.ViewCompat
@@ -37,6 +38,7 @@ import com.google.android.accessibility.ext.utils.JieSuoUtils
 import com.google.android.accessibility.ext.utils.LibCtxProvider.Companion.appBuildTime
 import com.google.android.accessibility.ext.music.MusicPlayer
 import com.google.android.accessibility.ext.music.MusicStore
+import com.google.android.accessibility.ext.utils.KeyguardUnLock.setShowClickIndicator
 import com.google.android.accessibility.ext.utils.LoginDialog
 import com.google.android.accessibility.ext.utils.NetworkHelperFullSmart
 import com.google.android.accessibility.ext.utils.NetworkHelperFullSmart.intervalIsDuan
@@ -44,6 +46,10 @@ import com.google.android.accessibility.ext.utils.NumberInputSDK
 import com.google.android.accessibility.ext.utils.NumberPickerDialog
 import com.google.android.accessibility.ext.utils.XPQAccUtils.show_AC_Warn_Dialog
 import com.google.android.accessibility.ext.utils.broadcastutil.ScreenStateCallback
+import com.google.android.accessibility.ext.utils.safecheck.SafeTouchListener
+import com.google.android.accessibility.ext.utils.safecheck.ScriptTouchDetector
+import com.google.android.accessibility.ext.utils.safecheck.TouchBehaviorAnalyzer
+import com.google.android.accessibility.ext.utils.safecheck.TouchGuardDelegate
 import com.google.android.accessibility.ext.view.FabMenuItem
 import com.google.android.accessibility.ext.view.TaichiFabMenuView
 
@@ -81,7 +87,52 @@ class MainActivity : XpqBaseActivity<ActivityMainBinding>(
     private val accServiceLiveData = MutableLiveData<Boolean>()
 
     private var windowManager: WindowManager? = null
+    // 第一道：全局兜底，覆盖所有 View（包括没单独包装 onTouch 的）
+    private val touchGuard = TouchGuardDelegate()
 
+    //① 全局 第一道拦截：事件刚进 Activity 就判定，命中即吞掉，不再向下分发
+    override fun dispatchTouchEvent(ev: MotionEvent): Boolean {
+        return if (touchGuard.shouldIntercept(ev)) {
+            true                       // 脚本触摸，截断；下面 onTouch/onClick 都不触发
+        } else {
+            super.dispatchTouchEvent(ev)
+        }
+    }
+    /**
+     *  行为时序分析：喂入事件，UP 时判定是否像脚本注入。
+     *
+     * 返回语义与 OnTouchListener 对齐：
+     *   - DOWN / MOVE  返回 false，继续放行（MOVE 会走 SafeTouchListener 的 else 分支进来）
+     *   - UP 且疑似脚本 返回 true，消费事件 → onClick 不触发
+     *   - UP 且真人     返回 false，放行 → onClick 触发
+     */
+    private fun traceTouch(event: MotionEvent): Boolean {
+        val session = TouchBehaviorAnalyzer.dealOnTouchEvent(event)
+
+        when (event.action) {
+            MotionEvent.ACTION_DOWN -> {
+                Log.e("调用栈", "DOWN  屏幕坐标=(${event.rawX}, ${event.rawY})")
+            }
+            MotionEvent.ACTION_UP -> {
+                session?.let {
+                    val moved = it.moveCount > 0 || it.distance > 0f
+                    Log.e(
+                        "调用栈",
+                        "UP  屏幕坐标=(${event.rawX}, ${event.rawY}) | " +
+                                "时长=${it.durationMs}ms | " +
+                                "MOVE次数=${it.moveCount} | " +
+                                "位移=${String.format("%.1f", it.distance)}px | " +
+                                "是否移动=$moved | " +
+                                "疑似脚本=${TouchBehaviorAnalyzer.isSuspicious(it)}"
+                    )
+                }
+            }
+            // MOVE 不打印（太频繁），已由 moveCount 累计，UP 时统一汇总
+        }
+
+        // 真正的拦截逻辑不变
+        return session != null && TouchBehaviorAnalyzer.isSuspicious(session)
+    }
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
 
@@ -164,7 +215,29 @@ class MainActivity : XpqBaseActivity<ActivityMainBinding>(
 
         }
 
+        //② 局部 第二道：关键按钮做局部 onTouch 精确拦截（与全局叠加，双保险）
+        binding.btnZan.setOnTouchListener(
+            SafeTouchListener { v, event ->
+                // 能走到这里说明已被判定为真人触摸、SafeTouchListener 已放行。
+                // real 返回 false = 不消费事件，让 onClick 正常触发。
+                // 若原来有 onTouch 逻辑，就把原逻辑写在这里。
+                traceTouch(event)
+                false
+            }
+        )
+
+        //③ 兜底 第三道：onClick 兜底。无障碍 performAction(16) 不产生 MotionEvent，
+        // 两道触摸拦截都拦不到它，只能在这里用「当前栈」判定。
         binding.btnZan.setOnClickListener{
+
+            val frames = Throwable().stackTrace
+                .joinToString("\n") { it.className + "." + it.methodName }
+            //Log.d("调用栈", "stack:\n$frames")
+            if (ScriptTouchDetector.isEvilTraceNow()) {
+                AliveUtils.toast(msg = "疑似无障碍/脚本点击，拒绝执行")
+                // 疑似无障碍/脚本点击，拒绝执行
+                return@setOnClickListener
+            }
             openDonate(
                 PayConfig()
 //                PayConfig(
@@ -179,6 +252,7 @@ class MainActivity : XpqBaseActivity<ActivityMainBinding>(
 ////                DonateConfig.Builder("fkx11204qu3e298yblfpx51", R.mipmap.ic_zhifubao, R.mipmap.ic_weixin).build()
 //            )
         }
+    
 
         binding.btnAlive.setOnClickListener{
             AliveUtils.openAliveActivity(true,false,NotificationListenerServiceImp::class.java)
@@ -193,6 +267,8 @@ class MainActivity : XpqBaseActivity<ActivityMainBinding>(
         binding.btnGZH.setOnClickListener{
             // App 启动时切到 UiAutomation（免开无障碍，需 Shizuku）
             // 直接在主线程调用，不会卡
+            XpqAcc.showEngineModeDialog(this, SelectToSpeakService())
+            if (true)return@setOnClickListener
             if (XpqAcc.isUiAutomationOccupied()) {
                 AliveUtils.toast(msg = "检测到 UiAutomation 已被其它 App 占用")
             }
@@ -220,10 +296,11 @@ class MainActivity : XpqBaseActivity<ActivityMainBinding>(
             //openWeChatToFollowInterface(getWCField[6].first.restoreAllIllusion())
         }
         binding.btnAddFriend.setOnClickListener{
-            XpqAcc.showEngineModeDialog(this, SelectToSpeakService())
+            setShowClickIndicator(true)
+            val ok = accessibilityService?.clickByText("赞赏",true)
+            AliveUtils.toast(msg = "clickByText=$ok")
             Thread {
-                val ok = accessibilityService?.clickByText("赞赏")
-                AliveUtils.toast(msg = "clickByText=$ok")
+
             }.start()
 
             //好友微信号

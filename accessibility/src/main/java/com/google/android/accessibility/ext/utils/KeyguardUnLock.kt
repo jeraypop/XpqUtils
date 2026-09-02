@@ -2285,7 +2285,7 @@ isDeviceSecure = 这台设备“有没有任何安全门槛”
     }
 
     @JvmStatic
-    fun showGestureIndicator(service: AccessibilityService? = accessibilityService, path: Path, duration: Long) {
+    fun showGestureIndicator(service: AccessibilityService? = accessibilityService, path: Path, duration: Long = 600L) {
         service?: return
         val showguiji = MMKVUtil.get(MMKVConst.SHOW_DO_GUIJI, false)
         if (showguiji){
@@ -2373,10 +2373,6 @@ isDeviceSecure = 这台设备“有没有任何安全门槛”
                 centerX.toFloat(),
                 centerY.toFloat()
             )
-            // 可视化点击点
-            if (KeyguardUnLock.getShowClickIndicator()) {
-                KeyguardUnLock.showClickIndicator( x = centerX, y = centerY)
-            }
             return clicked
         }
 
@@ -2427,11 +2423,6 @@ isDeviceSecure = 这台设备“有没有任何安全门槛”
             centerX.toFloat(),
             centerY.toFloat()
         )
-        // 可视化点击点
-        if (KeyguardUnLock.getShowClickIndicator()) {
-            KeyguardUnLock.showClickIndicator( x = centerX, y = centerY)
-        }
-
         return clicked
     }
 
@@ -2507,11 +2498,6 @@ isDeviceSecure = 这台设备“有没有任何安全门槛”
                 centerX.toFloat(),
                 centerY.toFloat()
             )
-            // 可视化点击点
-            if (KeyguardUnLock.getShowClickIndicator()) {
-                KeyguardUnLock.showClickIndicator( x = centerX, y = centerY)
-            }
-
             return clicked
         }
 
@@ -2562,11 +2548,6 @@ isDeviceSecure = 这台设备“有没有任何安全门槛”
             centerX.toFloat(),
             centerY.toFloat()
         )
-        // 可视化点击点
-        if (KeyguardUnLock.getShowClickIndicator()) {
-            KeyguardUnLock.showClickIndicator( x = centerX, y = centerY)
-        }
-
         return clicked
     }
 

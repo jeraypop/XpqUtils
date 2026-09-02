@@ -4,9 +4,12 @@ import android.accessibilityservice.AccessibilityService
 import android.accessibilityservice.GestureDescription
 import android.graphics.Path
 import android.graphics.PointF
+import android.graphics.RectF
 import android.os.Build
+import android.util.Log
 import androidx.annotation.RequiresApi
 import com.google.android.accessibility.ext.acc.XpqAcc
+import com.google.android.accessibility.ext.utils.KeyguardUnLock
 import kotlinx.coroutines.*
 import java.lang.ref.WeakReference
 import kotlin.coroutines.resume
@@ -31,7 +34,7 @@ object HumanTouchEngine {
         val posStdPx: Double = 3.0,          // 落点高斯抖动标准差 (2~4px 最佳)
         val pressMeanMs: Double = 95.0,      // 按压时长期望值 (ms)
         val pressStdMs: Double = 15.0,       // 按压时长标准差 (ms)
-        val microMoves: IntRange = 2..4,     // 按压停留期间的微观微移次数
+        val microMoves: IntRange = 1..4,     // 按压停留期间的微观微移次数
     )
 
     /** 滑动/拖拽配置 */
@@ -76,7 +79,17 @@ object HumanTouchEngine {
     }
 
     fun isAttached(): Boolean = serviceRef?.get() != null
+    fun addRandomDecimal(value: Float): Float {
+        val decimalDigits = Random.nextInt(4, 6) // 4 或 5
+        val scale = 10.0.pow(decimalDigits)
 
+        val decimal = Random.nextInt(
+            1,
+            scale.toInt()
+        ) / scale
+
+        return value.toInt() + decimal.toFloat()
+    }
     // =========================================================================
     // 外部调用入口：点击 (Click)
     // =========================================================================
@@ -94,7 +107,9 @@ object HumanTouchEngine {
         config: ClickConfig = ClickConfig(),
         onDone: ((Boolean) -> Unit)? = null
     ): Boolean {
-        return dispatchAsync({ buildClickGesture(PointF(cx, cy), config) }, onDone)
+        val randomCx = addRandomDecimal(cx)
+        val randomCy = addRandomDecimal(cy)
+        return dispatchAsync({ buildClickGesture(PointF(randomCx, randomCy), config) }, onDone)
     }
 
     /**
@@ -103,7 +118,9 @@ object HumanTouchEngine {
      */
     @RequiresApi(Build.VERSION_CODES.N)
     suspend fun clickAsync(cx: Float, cy: Float, config: ClickConfig = ClickConfig()): Boolean {
-        val gesture = buildClickGesture(PointF(cx, cy), config)
+        val randomCx = addRandomDecimal(cx)
+        val randomCy = addRandomDecimal(cy)
+        val gesture = buildClickGesture(PointF(randomCx, randomCy), config)
         return performGesture(gesture)
     }
 
@@ -150,16 +167,25 @@ object HumanTouchEngine {
     fun buildClickGesture(target: PointF, config: ClickConfig = ClickConfig()): GestureDescription {
         var currX = (target.x + gaussian(0.0, config.posStdPx)).toFloat().coerceAtLeast(1f)
         var currY = (target.y + gaussian(0.0, config.posStdPx)).toFloat().coerceAtLeast(1f)
-
+        var finalX = currX
+        var finalY = currY
+        Log.e("调用栈", "buildClickGesture =原始：(${target.x}, ${target.y})，高斯后： (${currX}, ${currY})")
         val path = Path().apply {
             moveTo(currX, currY)
             repeat(config.microMoves.random()) {
-                currX = (currX + gaussian(0.0, 0.5)).toFloat().coerceAtLeast(0f)
-                currY = (currY + gaussian(0.0, 0.5)).toFloat().coerceAtLeast(0f)
-                lineTo(currX, currY)
+                if (randomHit()){
+                    finalX = currX
+                    finalY = currY
+                }else{
+                    finalX = (currX + gaussian(0.0, 0.5)).toFloat().coerceAtLeast(0f)
+                    finalY = (currY + gaussian(0.0, 0.5)).toFloat().coerceAtLeast(0f)
+                }
+
+                lineTo(finalX, finalY)
             }
         }
-
+        // 统一显示点击指示器：用高斯偏移 + 微移后的最终落点，保证与实际点击位置一致
+        KeyguardUnLock.showClickIndicator(x = finalX.toInt(), y = finalY.toInt())
         val duration = gaussian(config.pressMeanMs, config.pressStdMs).toLong().coerceIn(50L, 200L)
         return GestureDescription.Builder().addStroke(GestureDescription.StrokeDescription(path, 0L, duration)).build()
     }
@@ -178,14 +204,24 @@ object HumanTouchEngine {
 
         val dx = realEnd.x - realStart.x
         val dy = realEnd.y - realStart.y
+        val dist = sqrt(dx * dx + dy * dy)
+
+        // 真实滑动是朝单一方向弯的弧线（手腕/拇指圆弧），而非 x/y 两轴各自随机偏移。
+        // 用垂直于滑动方向的单位法向量，让两个控制点朝同一侧一致偏置，形成自然弧线。
+        val nx = if (dist > 0f) -dy / dist else 0f
+        val ny = if (dist > 0f) dx / dist else 0f
+
+        // 弯曲幅度：σ=controlOffsetPx/3、边界=controlOffsetPx 的高斯。
+        // 之前 gaussian(0.0, 60.0) 会因默认 maxOffset=10 被钳到 ±10，弧线几乎消失。
+        val bend = gaussian(0.0, config.controlOffsetPx / 3.0, config.controlOffsetPx).toFloat()
 
         val p1 = PointF(
-            (realStart.x + dx * 0.25f + gaussian(0.0, config.controlOffsetPx)).toFloat(),
-            (realStart.y + dy * 0.25f + gaussian(0.0, config.controlOffsetPx)).toFloat()
+            realStart.x + dx * 0.25f + nx * bend,
+            realStart.y + dy * 0.25f + ny * bend
         )
         val p2 = PointF(
-            (realStart.x + dx * 0.75f + gaussian(0.0, config.controlOffsetPx)).toFloat(),
-            (realStart.y + dy * 0.75f + gaussian(0.0, config.controlOffsetPx)).toFloat()
+            realStart.x + dx * 0.75f + nx * bend,
+            realStart.y + dy * 0.75f + ny * bend
         )
 
         val path = Path().apply {
@@ -279,11 +315,22 @@ object HumanTouchEngine {
         if (x < 0.5f) 4f * x * x * x else 1f - (-2f * x + 2f).pow(3) / 2f
 
     /** 高斯分布（Box-Muller 变换） */
-    private fun gaussian(mean: Double, std: Double): Double {
+    @JvmStatic
+    fun gaussian(mean: Double = 0.0, std: Double = 3.0, maxOffset: Double = 10.0): Double {
         val u1 = Random.nextDouble().coerceAtLeast(1e-9)
         val u2 = Random.nextDouble()
-        return mean + std * sqrt(-2.0 * ln(u1)) * cos(2.0 * PI * u2)
+        val value = mean + std * sqrt(-2.0 * ln(u1)) * cos(2.0 * PI * u2)
+        return value.coerceIn(mean - maxOffset, mean + maxOffset)
     }
+
+    /**
+     * 概率命中：生成 1~100 整数，<= factor 即命中。
+     * factor >= 100 恒命中；factor == 0 恒不命中（由调用方前置短路提前返回）。
+     */
+    @JvmStatic
+    @JvmOverloads
+    fun randomHit(factor: Int = 36): Boolean = factor >= 100 || Random.nextInt(1, 101) <= factor
+
 
     /** 拟人高斯随机延迟 (ms) */
     @JvmStatic
