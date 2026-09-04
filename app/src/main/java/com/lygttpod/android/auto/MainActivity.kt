@@ -25,6 +25,9 @@ import com.android.accessibility.ext.BuildConfig
 import com.google.android.accessibility.ext.acc.EngineMode
 import com.google.android.accessibility.ext.acc.XpqAcc
 import com.google.android.accessibility.ext.acc.clickByText
+import com.google.android.accessibility.ext.acc.findNodesById
+import com.google.android.accessibility.ext.acc.inputText
+import com.google.android.accessibility.ext.acc.isEditText
 
 import com.google.android.accessibility.ext.activity.XpqBaseActivity
 import com.google.android.accessibility.ext.fragment.SensitiveNotificationBottomSheet
@@ -39,6 +42,7 @@ import com.google.android.accessibility.ext.utils.LibCtxProvider.Companion.appBu
 import com.google.android.accessibility.ext.music.MusicPlayer
 import com.google.android.accessibility.ext.music.MusicStore
 import com.google.android.accessibility.ext.utils.KeyguardUnLock.setShowClickIndicator
+import com.google.android.accessibility.ext.utils.LibCtxProvider.Companion.appContext
 import com.google.android.accessibility.ext.utils.LoginDialog
 import com.google.android.accessibility.ext.utils.NetworkHelperFullSmart
 import com.google.android.accessibility.ext.utils.NetworkHelperFullSmart.intervalIsDuan
@@ -123,6 +127,10 @@ class MainActivity : XpqBaseActivity<ActivityMainBinding>(
                                 "MOVE次数=${it.moveCount} | " +
                                 "位移=${String.format("%.1f", it.distance)}px | " +
                                 "是否移动=$moved | " +
+                                "压力波动=${it.pressureRange} 面积波动=${it.sizeRange} " +
+                                "(压${it.minPressure}~${it.maxPressure}/积${it.minSize}~${it.maxSize}) " +
+                                "toolType=${it.toolType} source=${it.source} | " +
+                                "deviceId=${event.deviceId} isVirtual=${event.device?.isVirtual ?: "null"} | " +
                                 "疑似脚本=${TouchBehaviorAnalyzer.isSuspicious(it)}"
                     )
                 }
@@ -295,10 +303,22 @@ class MainActivity : XpqBaseActivity<ActivityMainBinding>(
             //公众号ID
             //openWeChatToFollowInterface(getWCField[6].first.restoreAllIllusion())
         }
+
+
+        binding.input.onInjectionIntercept = { Log.e("调用栈", "拦截到脚本 setText") }
         binding.btnAddFriend.setOnClickListener{
             setShowClickIndicator(true)
-            val ok = accessibilityService?.clickByText("赞赏",true)
-            AliveUtils.toast(msg = "clickByText=$ok")
+           
+            if (false){
+                val ok = accessibilityService?.clickByText("赞赏",true)
+                AliveUtils.toast(msg = "clickByText=$ok")
+            }else{
+                val tagEdit = accessibilityService
+                    ?.findNodesById(appContext.packageName+":id/input")
+                    ?.firstOrNull{ it.isEditText() }
+                    ?.inputText("你啊你啊你啊")
+                    ?: false
+            }
             Thread {
 
             }.start()

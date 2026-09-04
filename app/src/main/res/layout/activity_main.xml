@@ -51,6 +51,11 @@ android:fitsSystemWindows="true"
             android:layout_height="wrap_content"
             android:orientation="vertical">
 
+            <com.google.android.accessibility.ext.utils.safecheck.GuardedEditText
+                android:id="@+id/input"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content" />
+
             <Button
                 android:id="@+id/btnZan"
                 android:layout_width="wrap_content"

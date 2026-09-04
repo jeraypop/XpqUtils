@@ -94,6 +94,14 @@ object InvisibleAutomation {
     var lastError: String? = null
         private set
 
+    /**
+     * tap 注入方式开关：
+     * - true  = 反射 `InputManager.injectInputEvent`（可自定 pressure/size 时序，模拟真人起伏）
+     * - false = shell `input swipe`（机器特征明显：压力恒定）
+     */
+    @Volatile
+    var tapReflectMode: Boolean = true
+
     /** UiAutomation.FLAG_DONT_SUPPRESS_ACCESSIBILITY_SERVICES = 1（公开常量）。 */
     private val flagDontSuppress: Int
         get() = runCatching {
@@ -573,6 +581,33 @@ object InvisibleAutomation {
         }
     }
 
+    /**
+     * shell `input text` 注入文本：仅 ASCII，空格需转义成 %s（`input` 命令约定）。
+     * 中文/多字节字符会被 `input` 丢弃或报错，此类场景请用 [shellPaste]（剪贴板方案）。
+     */
+    fun shellInputText(text: String): Boolean {
+        val escaped = text.replace(" ", "%s")
+        val r = mSvc?.exec("input text \"$escaped\"") ?: return false
+        val ok = r.exitCode == 0
+        diag("[inputText] input text \"$escaped\" → exit=${r.exitCode} ${
+            if (ok) "" else "stdout=${r.stdout.take(200)} stderr=${r.stderr.take(200)}"
+        }")
+        return ok
+    }
+
+    /**
+     * shell `input keyevent 279`(KEYCODE_PASTE)：把系统剪贴板当前内容粘贴到聚焦输入框。
+     * 需先由调用方写入剪贴板 + 点击聚焦输入框。KEYCODE_PASTE 为 API 24+。
+     */
+    fun shellPaste(): Boolean {
+        val r = mSvc?.exec("input keyevent 279") ?: return false
+        val ok = r.exitCode == 0
+        diag("[paste] input keyevent 279 → exit=${r.exitCode} ${
+            if (ok) "" else "stdout=${r.stdout.take(200)} stderr=${r.stderr.take(200)}"
+        }")
+        return ok
+    }
+
     private fun dfsCollect(
         node: AccessibilityNodeInfo?,
         predicate: (AccessibilityNodeInfo) -> Boolean,
@@ -649,12 +684,30 @@ object InvisibleAutomation {
             y2 = (y2 + gaussian(std = 0.5, maxOffset = 2.0)).toFloat().coerceAtLeast(0f)
         }
         val durationMs = gaussian(config.pressMeanMs, config.pressStdMs).toLong().coerceIn(50L, 200L)
-        val r = mSvc?.exec("input swipe $x1 $y1 $x2 $y2 $durationMs") ?: return false
-        val ok = r.exitCode == 0
-        diag("[swipe] input swipe $x1 $y1 $x2 $y2 $durationMs → exit=${r.exitCode} ${
-            if (ok) "" else "stdout=${r.stdout.take(200)} stderr=${r.stderr.take(200)}"
-        }")
-        return ok
+        if (!tapReflectMode) {
+            // 开关关闭：回退 shell `input swipe`
+            val r = mSvc?.exec("input swipe $x1 $y1 $x2 $y2 $durationMs") ?: return false
+            val ok = r.exitCode == 0
+            diag("[tap] input swipe $x1 $y1 $x2 $y2 $durationMs → exit=${r.exitCode} ${
+                if (ok) "" else "stdout=${r.stdout.take(200)} stderr=${r.stderr.take(200)}"
+            }")
+            return ok
+        }else{
+            val svc = mSvc
+            if (svc == null) {
+                diag("[tap] mSvc 为空（Shizuku 未连接）", Log.WARN)
+                return false
+            }
+            // 压力/面积带随机起伏模拟真人按压，规避「波动≈0」反注入规则
+            val pDown = 0.7f + Random.nextFloat() * 0.3f                    // 0.7 ~ 1.0
+            val pUp = pDown - (0.15f + Random.nextFloat() * 0.2f)           // 抬手压力略降
+            val sDown = 0.15f + Random.nextFloat() * 0.15f                  // 0.15 ~ 0.3
+            val sUp = sDown - (0.05f + Random.nextFloat() * 0.1f)           // 抬手面积略缩
+            val ok = svc.injectTap(x2, y2, durationMs, pDown, pUp, sDown, sUp)
+            diag("[tap] injectTap($x2, $y2, ${durationMs}ms, p$pDown→$pUp, s$sDown→$sUp) → $ok")
+            return ok
+        }
+
     }
 
     /** 坐标滑动：经 shell `input swipe`。 */

@@ -1,18 +1,10 @@
 package com.google.android.accessibility.ext.acc
 
-import android.content.ClipData
-import android.content.ClipboardManager
-import android.content.Context
 import android.graphics.Rect
-import android.os.Bundle
-import android.os.SystemClock
 import android.view.accessibility.AccessibilityNodeInfo
 import com.google.android.accessibility.ext.utils.KeyguardUnLock
-import com.google.android.accessibility.ext.utils.NotificationUtilXpq.copyToClipboard
-import com.google.android.accessibility.ext.utils.verificationcode.LoginConfig
 import com.google.android.accessibility.selecttospeak.accessibilityService
 import kotlinx.coroutines.delay
-import kotlin.random.Random
 
 /**
  * 点击事件
@@ -71,13 +63,10 @@ fun AccessibilityNodeInfo.inputText(input: String): Boolean {
 
     }
     //===
-    val arguments = Bundle().apply {
-        putCharSequence(AccessibilityNodeInfo.ACTION_ARGUMENT_SET_TEXT_CHARSEQUENCE, input)
-    }
-    return performAction(AccessibilityNodeInfo.ACTION_SET_TEXT, arguments)
+    return XpqAcc.inputText(this, input)
 }
 
-fun AccessibilityNodeInfo.inputTextPaste(byClipboard: Boolean = false,input: String): Boolean {
+fun AccessibilityNodeInfo.inputTextPaste(byClipboard: Boolean = false, input: String): Boolean {
     //===
     if (KeyguardUnLock.getShowClickIndicator()){
         val nodeBounds = Rect().apply(this::getBoundsInScreen)
@@ -86,51 +75,12 @@ fun AccessibilityNodeInfo.inputTextPaste(byClipboard: Boolean = false,input: Str
         val y = Math.max(0, nodeBounds.centerY()).toFloat()
         //点击轨迹提示
         accessibilityService?.let { KeyguardUnLock.showClickIndicator(it, x.toInt(), y.toInt()) }
-
-    }
-    val bundle = Bundle()
-    //1如果是已经粘贴过,或者edittext有内容,则先清空
-    bundle.apply {
-        putCharSequence(AccessibilityNodeInfo.ACTION_ARGUMENT_SET_TEXT_CHARSEQUENCE, "")
-    }
-    performAction(AccessibilityNodeInfo.ACTION_SET_TEXT, bundle)
-    //复制到系统剪贴板 byClipboard=false时,不需要,但为了统一能复制到系统剪贴板
-    copyToClipboard(text = input)
-    val c = when (LoginConfig.getScheme()) {
-        1 -> {
-            //方案1
-            //将输入焦点设置到指定的辅助功能节点上
-            performAction(AccessibilityNodeInfo.FOCUS_INPUT)
-            //将系统剪贴板中的内容粘贴到该节点
-            performAction(AccessibilityNodeInfo.ACTION_PASTE) //粘贴
-        }
-
-        2 -> {
-            //方案2
-            //复制到bundle
-            bundle.apply {
-                putCharSequence(AccessibilityNodeInfo.ACTION_ARGUMENT_SET_TEXT_CHARSEQUENCE, input)
-            }
-            //将bundle的内容粘贴到该节点
-            performAction(AccessibilityNodeInfo.ACTION_SET_TEXT, bundle)
-        }
-
-        else -> {
-            //复制到bundle
-            bundle.apply {
-                putCharSequence(AccessibilityNodeInfo.ACTION_ARGUMENT_SET_TEXT_CHARSEQUENCE, input)
-            }
-            //将bundle的内容粘贴到该节点
-            performAction(AccessibilityNodeInfo.ACTION_SET_TEXT, bundle)
-            
-        }
     }
     //===
-    return c
+    return XpqAcc.inputTextPaste(this, byClipboard, input)
 }
 
 fun AccessibilityNodeInfo.inputTextNew(input: String): Boolean {
-
     //===
     if (KeyguardUnLock.getShowClickIndicator()){
         val nodeBounds = Rect().apply(this::getBoundsInScreen)
@@ -139,16 +89,9 @@ fun AccessibilityNodeInfo.inputTextNew(input: String): Boolean {
         val y = Math.max(0, nodeBounds.centerY()).toFloat()
         //点击轨迹提示
         accessibilityService?.let { KeyguardUnLock.showClickIndicator(it, x.toInt(), y.toInt()) }
-
     }
     //===
-
-    SystemClock.sleep(250 + Random.nextLong(200))// 250~450ms 随机
-    //delay(250 + Random.nextLong(200)) // 250~450ms 随机
-    val arguments = Bundle().apply {
-        putCharSequence(AccessibilityNodeInfo.ACTION_ARGUMENT_SET_TEXT_CHARSEQUENCE, input)
-    }
-    return performAction(AccessibilityNodeInfo.ACTION_SET_TEXT, arguments)
+    return XpqAcc.inputTextNew(this, input)
 }
 
 /**

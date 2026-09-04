@@ -4,10 +4,12 @@ import android.accessibilityservice.AccessibilityService
 import android.accessibilityservice.GestureDescription
 import android.app.Activity
 import android.app.AlertDialog
+import android.content.Intent
 import android.content.pm.PackageManager
 import android.os.Build
 import android.os.Handler
 import android.os.Looper
+import android.provider.Settings
 import android.text.SpannableString
 import android.text.Spanned
 import android.text.method.LinkMovementMethod
@@ -27,6 +29,7 @@ import com.google.android.accessibility.ext.utils.LibCtxProvider
 import com.google.android.accessibility.ext.utils.MMKVConst
 import com.google.android.accessibility.ext.utils.MMKVUtil
 import com.google.android.accessibility.ext.utils.NotificationUtilXpq
+import com.google.android.accessibility.ext.utils.safecheck.AccIsOpenUtil
 import com.google.android.accessibility.ext.window.DynamicIslandFloatWindow
 import com.google.android.accessibility.notification.AppExecutors
 import com.google.android.accessibility.selecttospeak.SelectToSpeakServiceAbstract
@@ -245,6 +248,26 @@ object XpqAcc {
     ): Boolean = driver.dispatchGesture(gesture, callback, handler)
 
     @JvmStatic
+    fun inputText(node: AccessibilityNodeInfo?, text: String): Boolean = driver.inputText(node, text)
+
+    @JvmStatic
+    fun inputTextPaste(node: AccessibilityNodeInfo?, byClipboard: Boolean, text: String): Boolean =
+        driver.inputTextPaste(node, byClipboard, text)
+
+    @JvmStatic
+    fun inputTextNew(node: AccessibilityNodeInfo?, text: String): Boolean = driver.inputTextNew(node, text)
+
+    /**
+     * 切换坐标点击（tap）的注入方式：
+     * - true  = 反射 InputManager.injectInputEvent（pressure/size 拟人起伏）
+     * - false = shell `input swipe`（机器特征明显）
+     */
+    @JvmStatic
+    fun setTapReflectMode(enabled: Boolean) {
+        com.google.android.accessibility.uiautomation.engine.InvisibleAutomation.tapReflectMode = enabled
+    }
+
+    @JvmStatic
     fun setOnAccessibilityEventListener(listener: ((AccessibilityEvent) -> Unit)?) =
         driver.setOnAccessibilityEventListener(listener)
 
@@ -401,12 +424,13 @@ object XpqAcc {
                         "无需额外安装软件,但是部分软件(比如：银行类软件)检测设备上无障碍服务开启时，可能出现安全提示\n" +
                         "请跳转到：https://settings.设置 "
             else ->
-                "Shizuku 模式\n\n" +
-                        "需要额外下载一个免费开源的 Shizuku 软件。\n" +
+                "Shizuku 模式(推荐用该模式)\n\n" +
+                        "1.需要额外下载一个免费开源的 Shizuku 软件\n" +
                         "官方下载地址：https://github.com/RikkaApps/Shizuku/releases\n" +
                         "备用下载地址：https://apt.izzysoft.de/fdroid/index/apk/moe.shizuku.privileged.api\n\n" +
-                        "为什么引入该模式：\n" +
-                        "由于部分应用会检测设备上启用的无障碍服务，并可能出现安全提示。" +
+                        "2.开启设备自带的： https://settings随选朗读" +
+                        "\n为什么引入该模式：\n" +
+                        "由于部分应用会检测设备上启用的第三方无障碍服务，并可能出现安全提示。" +
                         "Shizuku 模式使用不同的系统权限通道，可以作为另一种自动化方案"
         }
 
@@ -450,7 +474,28 @@ object XpqAcc {
                 titleView.movementMethod = LinkMovementMethod.getInstance()
                 titleView.text = spannable
             } else {
-                titleView.text = describeMode(mode)
+                // Shizuku 模式：让「随选朗读」与无障碍模式的「https://settings.设置」同款链接样式，
+                // 点击跳转到系统无障碍设置（「随选朗读」开关所在页）；下载地址继续走 Linkify 识别。
+                val text = describeMode(mode)
+                val spannable = SpannableString(text)
+                val target = "https://settings随选朗读"
+                val start = text.indexOf(target)
+                if (start >= 0) {
+                    val end = start + target.length
+                    spannable.setSpan(object : ClickableSpan() {
+                        override fun onClick(widget: View) {
+                            if (AccIsOpenUtil.isAccessibilityEnabled()){
+                                AliveUtils.toast(msg = "随选朗读已开启")
+                            }else{
+                                AliveUtils.toast(msg = "请开启随选朗读")
+                            }
+                            NotificationUtilXpq.gotoAccessibilitySetting(activity)
+
+                        }
+                    }, start, end, Spanned.SPAN_EXCLUSIVE_EXCLUSIVE)
+                }
+                titleView.movementMethod = LinkMovementMethod.getInstance()
+                titleView.text = spannable
                 Linkify.addLinks(titleView, Linkify.WEB_URLS)
             }
         }

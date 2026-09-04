@@ -33,15 +33,36 @@ object TouchBehaviorAnalyzer {
         val upX: Float,         // UP 相对坐标
         val upY: Float,
         val moveCount: Int,     // 对齐微信 a.c：DOWN~UP 之间的 MOVE 次数
+        val minPressure: Float, // DOWN~UP 过程最小压力（含 MOVE）
+        val maxPressure: Float, // DOWN~UP 过程最大压力（含 MOVE）
+        val minSize: Float,     // DOWN~UP 过程最小接触面积（含 MOVE）
+        val maxSize: Float,     // DOWN~UP 过程最大接触面积（含 MOVE）
+        val toolType: Int,      // UP 时的工具类型（手指/未知等，仅供诊断定标）
+        val source: Int,        // UP 时的 input source（触摸屏/鼠标等，仅供诊断定标）
     ) {
         val durationMs: Long get() = upTime - downTime
         val distance: Float get() = hypot(upX - downX, upY - downY)
+
+        /** 压力波动幅度：真人从接触到压实再到离开必然起伏；shell 注入恒定死值 ≈ 0。 */
+        val pressureRange: Float get() = maxPressure - minPressure
+
+        /** 接触面积波动幅度：同上，shell 注入恒定 ≈ 0。 */
+        val sizeRange: Float get() = maxSize - minSize
     }
 
     /** 判定阈值（本地启发式；微信为 native 引擎内模型参数，可服务端下发）。 */
     private const val INSTANT_DURATION_MS = 30L    // 低于此值几乎不可能是真人物理点击
     private const val INJECT_DURATION_MS = 100L    // 直接 inject DOWN+UP 的典型时长上限
     private const val MIN_HUMAN_DISTANCE = 0f      // 位移下限（px），可按业务调大
+
+    /**
+     * shell `input tap/swipe` 注入识别阈值：
+     * system_server 合成 MotionEvent 时给 pressure / size 一个恒定值（本机实测为 1.0），
+     * 全程无任何波动；真人物理触摸的压力与接触面积在 DOWN→MOVE→UP 全过程必然起伏。
+     * 故用「压力波动 ∧ 面积波动」近乎为 0 作为指纹（而非绝对值等于 0，避免 ROM 差异漏拦）。
+     */
+    private const val SHELL_PRESSURE_RANGE_EPS = 0.001f  // 压力波动判定容差
+    private const val SHELL_SIZE_RANGE_EPS = 0.001f      // 接触面积波动判定容差
 
     /** 进行中的采集会话（对齐微信在 DOWN 时初始化、UP 时产出结果）。 */
     private var pending: Pending? = null
@@ -53,6 +74,12 @@ object TouchBehaviorAnalyzer {
         var moveCount: Int,
         var lastX: Float,
         var lastY: Float,
+        var minPressure: Float,
+        var maxPressure: Float,
+        var minSize: Float,
+        var maxSize: Float,
+        var toolType: Int,
+        var source: Int,
     )
 
     /**
@@ -66,7 +93,12 @@ object TouchBehaviorAnalyzer {
     fun dealOnTouchEvent(event: MotionEvent): Session? {
         return when (event.action) {
             MotionEvent.ACTION_DOWN -> {
-                pending = Pending(event.eventTime, event.x, event.y, 0, event.x, event.y)
+                val p = event.pressure
+                val s = event.size
+                pending = Pending(
+                    event.eventTime, event.x, event.y, 0, event.x, event.y,
+                    p, p, s, s, event.getToolType(0), event.source,
+                )
                 null
             }
             MotionEvent.ACTION_MOVE -> {
@@ -74,15 +106,29 @@ object TouchBehaviorAnalyzer {
                     it.moveCount++                       // 对齐 a.c++
                     it.lastX = event.x
                     it.lastY = event.y
+                    // 记录压力/面积的极值区间：真人按压有起伏（区间明显），
+                    // shell 注入恒定死值（区间≈0），据此与真人区分。
+                    if (event.pressure > it.maxPressure) it.maxPressure = event.pressure
+                    if (event.pressure < it.minPressure) it.minPressure = event.pressure
+                    if (event.size > it.maxSize) it.maxSize = event.size
+                    if (event.size < it.minSize) it.minSize = event.size
                 }
                 null
             }
             MotionEvent.ACTION_UP -> {
                 val p = pending ?: return null
                 pending = null
+                val upPressure = event.pressure
+                val upSize = event.size
+                if (upPressure > p.maxPressure) p.maxPressure = upPressure
+                if (upPressure < p.minPressure) p.minPressure = upPressure
+                if (upSize > p.maxSize) p.maxSize = upSize
+                if (upSize < p.minSize) p.minSize = upSize
                 Session(
                     p.downTime, p.downX, p.downY,
                     event.eventTime, event.x, event.y, p.moveCount,
+                    p.minPressure, p.maxPressure, p.minSize, p.maxSize,
+                    event.getToolType(0), event.source,
                 )
             }
             else -> null
@@ -94,7 +140,9 @@ object TouchBehaviorAnalyzer {
      *
      * 启发式规则：
      *   1. 时长 < [INSTANT_DURATION_MS]：真人手指接触→离开发送事件的间隔几乎不可能这么短；
-     *   2. 时长 < [INJECT_DURATION_MS] 且无任何 MOVE/位移：脚本直接 inject DOWN+UP 的典型特征。
+     *   2. 时长 < [INJECT_DURATION_MS] 且无任何 MOVE/位移：脚本直接 inject DOWN+UP 的典型特征；
+     *   3. 压力与接触面积全程无波动：shell `input tap/swipe`（system_server 合成、
+     *      pressure/size 恒定死值）的指纹，真人物理触摸的按压与面积必随接触过程起伏。
      */
     fun isSuspicious(session: Session): Boolean {
         if (session.durationMs < INSTANT_DURATION_MS) return true
@@ -103,6 +151,11 @@ object TouchBehaviorAnalyzer {
             && session.distance < MIN_HUMAN_DISTANCE
         ) {
             return true
+        }
+        if (session.pressureRange < SHELL_PRESSURE_RANGE_EPS
+            && session.sizeRange < SHELL_SIZE_RANGE_EPS
+        ) {
+            //return true
         }
         return false
     }

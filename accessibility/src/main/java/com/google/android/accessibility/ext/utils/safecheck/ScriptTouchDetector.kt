@@ -1,5 +1,6 @@
 package com.google.android.accessibility.ext.utils.safecheck
 
+import android.util.Log
 import kotlin.random.Random
 
 /**
@@ -74,6 +75,7 @@ object ScriptTouchDetector {
     fun isEvilTraces(stack: Array<StackTraceElement>): Boolean {
         if (!hasEvilConfig()) return false
         val frames = stack.map { it.className + "." + it.methodName }
+        //Log.e("调用栈", "isEvilTraces: "+frames )
         return isEvilTraceStrings(frames)
     }
 

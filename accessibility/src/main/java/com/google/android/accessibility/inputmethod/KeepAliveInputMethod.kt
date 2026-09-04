@@ -9,9 +9,9 @@ import android.os.Looper
 import android.provider.Settings
 import android.util.Log
 import android.util.TypedValue
-import android.view.Gravity
 import android.view.View
 import android.view.inputmethod.EditorInfo
+import android.view.inputmethod.ExtractedTextRequest
 import android.view.inputmethod.InputMethodManager
 import android.widget.Button
 import android.widget.ImageButton
@@ -19,7 +19,6 @@ import android.widget.ImageView
 import android.widget.LinearLayout
 import android.widget.TextView
 import androidx.appcompat.app.AlertDialog
-import androidx.core.content.ContextCompat
 import com.android.accessibility.ext.R
 import com.google.android.accessibility.ext.utils.AliveUtils
 import com.google.android.accessibility.ext.utils.LibCtxProvider.Companion.appContext
@@ -50,6 +49,7 @@ class KeepAliveInputMethod : InputMethodService() {
         AliveUtils.startFGAlive(enable = true)
         //从系统输入法选择器中 切换到该输入法
         imeContext = this
+        imeIsActive = this
         Handler(Looper.getMainLooper()).postDelayed({
             // 延时执行的代码
 
@@ -67,6 +67,7 @@ class KeepAliveInputMethod : InputMethodService() {
 
     override fun onDestroy() {
         super.onDestroy()
+        imeIsActive = null
         //从系统输入法选择器中 切换到其它输入法
         Log.e("KeepAliveIME", "输入法服务销毁")
         if (canFloating()) {
@@ -99,7 +100,7 @@ class KeepAliveInputMethod : InputMethodService() {
                     setBackgroundColor(Color.TRANSPARENT)
                     setTextColor(Color.BLACK)
                     setOnClickListener {
-                        currentInputConnection?.commitText(phrase, 1)
+                        commitTextInternal(phrase)
                         flexPhrases.visibility = View.GONE
                     }
                 }
@@ -125,7 +126,7 @@ class KeepAliveInputMethod : InputMethodService() {
         ).forEach { (buttonId, char) ->
             val btn = inputView.findViewById<Button>(buttonId)
             btn.setOnClickListener {
-                commitText(char)
+                commitTextInternal(char)
                 tvHint.text = char
             }
         }
@@ -146,7 +147,7 @@ class KeepAliveInputMethod : InputMethodService() {
         ).forEach { (buttonId, num) ->
             val btn = inputView.findViewById<Button>(buttonId)
             btn.setOnClickListener {
-                commitText(num)
+                commitTextInternal(num)
                 tvHint.text = num
             }
         }
@@ -196,8 +197,12 @@ class KeepAliveInputMethod : InputMethodService() {
     // dp 转 px
     fun Int.dp(): Int =
         TypedValue.applyDimension(TypedValue.COMPLEX_UNIT_DIP, this.toFloat(), resources.displayMetrics).toInt()
-    private fun commitText(text: String) {
-        currentInputConnection?.commitText(text, 1)
+    private fun commitTextInternal(text: String) {
+        val ic = currentInputConnection ?: return
+        val extracted = ic.getExtractedText(ExtractedTextRequest(), 0) ?: return
+        val length = extracted.text?.length ?: 0
+        ic.setSelection(0, length)
+        ic.commitText(text, 1)
     }
 
     private fun canFloating(): Boolean {
@@ -207,6 +212,25 @@ class KeepAliveInputMethod : InputMethodService() {
 
     companion object {
         var imeContext : Context? = null
+
+        /** 输入法服务实例（onCreate 赋值 / onDestroy 置空），供外部静态提交文本。 */
+        @Volatile
+        var imeIsActive: KeepAliveInputMethod? = null
+
+        /**
+         * 任意地方可调用的文本提交入口，转回当前输入法的输入连接。
+         * 仅在输入法处于激活且持有输入连接时生效，否则无副作用。
+         */
+        @JvmStatic
+        fun commitText(text: String) {
+            val ime = imeIsActive ?: return
+            if (Looper.myLooper() == Looper.getMainLooper()) {
+                ime.commitTextInternal(text)
+            } else {
+                Handler(Looper.getMainLooper()).post { ime.commitTextInternal(text) }
+            }
+        }
+
         const val XPQ_IME_SETTINGS = "xpq_ime_settings"
         const val XPQ_IME_FLOATING = "xpq_ime_enable_floating_window"
         val className = KeepAliveInputMethod::class.java.name

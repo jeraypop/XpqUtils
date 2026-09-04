@@ -34,6 +34,24 @@ interface AccDriver {
     ): Boolean
 
     /**
+     * 文本输入原子能力：把 [text] 写入 [node] 命中的输入框。
+     * 无障碍通道 = FOCUS + ACTION_SET_TEXT；UiAutomation 通道 = 点击聚焦后走 shell 输入/粘贴。
+     * 与 [dispatchGesture] 一样由 [XpqAcc] 门面按当前通道分流。
+     */
+    fun inputText(node: AccessibilityNodeInfo?, text: String): Boolean
+
+    /**
+     * 粘贴式输入：无障碍通道 = 清空后 FOCUS + PASTE（或按 scheme 走 SET_TEXT）；
+     * UiAutomation 通道 = 点击聚焦后走剪贴板粘贴。
+     */
+    fun inputTextPaste(node: AccessibilityNodeInfo?, byClipboard: Boolean, text: String): Boolean
+
+    /**
+     * 延迟输入：无障碍通道 = sleep 后 SET_TEXT；UiAutomation 通道 = 点击聚焦后走 shell 注入。
+     */
+    fun inputTextNew(node: AccessibilityNodeInfo?, text: String): Boolean
+
+    /**
      * 事件桥接：UiAutomation 通道把无障碍事件转发到宿主回调；
      * 无障碍通道由系统直接回调 SelectToSpeakServiceAbstract，此方法留空。
      */
@@ -41,3 +59,15 @@ interface AccDriver {
 }
 
 enum class EngineMode { ACCESSIBILITY_SERVICE, UIAUTOMATION }
+
+/**
+ * UiAutomation 模式下输入文本的底层策略（仅 UiAutomation 通道有意义；无障碍通道固定用 ACTION_SET_TEXT）。
+ * 两种方案均先点击输入框获取 IME 焦点，再注入文本，用于测试后选定最终方案。
+ */
+enum class InputTextStrategy {
+    /** 剪贴板 + shell `input keyevent 279`(KEYCODE_PASTE)：支持中文/任意字符。 */
+    CLIPBOARD_PASTE,
+
+    /** shell `input text`：最简单，但仅支持 ASCII（中文会失败，空格需转义 %s）。 */
+    SHELL_INPUT_TEXT,
+}

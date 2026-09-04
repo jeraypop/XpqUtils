@@ -8,6 +8,7 @@ import android.os.Bundle
 import android.view.accessibility.AccessibilityNodeInfo
 import com.google.android.accessibility.ext.utils.LibCtxProvider.Companion.appContext
 import com.google.android.accessibility.ext.utils.gestureUtils.HumanTouchEngine
+import com.google.android.accessibility.inputmethod.KeepAliveInputMethod
 import com.google.android.accessibility.selecttospeak.accessibilityService
 import kotlinx.coroutines.delay
 
@@ -190,6 +191,7 @@ object XpqAccessibilityUtil {
 
         node.performAction(AccessibilityNodeInfo.ACTION_FOCUS)
         HumanTouchEngine.randomDelayMs()
+        KeepAliveInputMethod.imeIsActive
         if (node.performAction(AccessibilityNodeInfo.ACTION_SET_TEXT, args)) {
             delay(delayMs)
             val sig = node.nodeSignature()

@@ -2,8 +2,12 @@ package com.google.android.accessibility.ext.acc
 
 import android.accessibilityservice.AccessibilityService
 import android.accessibilityservice.GestureDescription
+import android.content.ClipData
+import android.content.ClipboardManager
+import android.content.Context
 import android.graphics.PathMeasure
 import android.graphics.PointF
+import android.graphics.Rect
 import android.graphics.RectF
 import android.os.Handler
 import android.util.Log
@@ -11,7 +15,14 @@ import android.view.accessibility.AccessibilityEvent
 import android.view.accessibility.AccessibilityNodeInfo
 import android.view.accessibility.AccessibilityWindowInfo
 import com.google.android.accessibility.ext.utils.LibCtxProvider
+import com.google.android.accessibility.ext.utils.gestureUtils.HumanTouchEngine.gaussian
 import com.google.android.accessibility.uiautomation.engine.InvisibleAutomation
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
+import kotlin.random.Random
 
 /**
  * UiAutomation 通道：包装移植自 accessibilityLibs 的 [InvisibleAutomation]。
@@ -24,6 +35,16 @@ object UiAutomationDriver : AccDriver {
 
     /** 最近一次连接的失败原因（简短），连接成功时为空。 */
     val lastError: String? get() = InvisibleAutomation.lastError
+
+    /**
+     * UiAutomation 模式输入文本的底层策略，测试后可收敛定稿。
+     * [InputTextStrategy.CLIPBOARD_PASTE] 支持中文，[InputTextStrategy.SHELL_INPUT_TEXT] 仅 ASCII。
+     */
+    @Volatile
+    var inputTextStrategy: InputTextStrategy = InputTextStrategy.CLIPBOARD_PASTE
+
+    /** UiAutomation 输入文本在后台协程执行（shell RPC + sleep 均为阻塞操作，严禁占用主线程）。 */
+    private val inputScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
 
     override fun connect(onLog: (String) -> Unit): Boolean {
         val ctx = runCatching { LibCtxProvider.Companion.appContext }.getOrNull()
@@ -59,6 +80,71 @@ object UiAutomationDriver : AccDriver {
         val ok = InvisibleAutomation.dispatchGesture(points, maxOf(1L, duration))
         if (ok) callback?.onCompleted(gesture) else callback?.onCancelled(gesture)
         return ok
+    }
+
+    override fun inputText(node: AccessibilityNodeInfo?, text: String): Boolean =
+        inputTextAsync(node, text, null)
+
+    override fun inputTextPaste(node: AccessibilityNodeInfo?, byClipboard: Boolean, text: String): Boolean =
+        // 粘贴语义固定走剪贴板方案；byClipboard 为无障碍通道的历史遗留参数，此处忽略
+        inputTextAsync(node, text, InputTextStrategy.CLIPBOARD_PASTE)
+
+    override fun inputTextNew(node: AccessibilityNodeInfo?, text: String): Boolean =
+        inputTextAsync(node, text, null)
+
+    /** 三个输入入口共用的异步实现：点击聚焦 → 延迟 → 按策略注入。[strategy] 为 null 时走 [inputTextStrategy]。 */
+    private fun inputTextAsync(node: AccessibilityNodeInfo?, text: String, strategy: InputTextStrategy?): Boolean {
+        if (node == null) {
+            Log.e("调用栈", "inputText: node 为空")
+            return false
+        }
+
+        // 先在当前调用线程取出输入框中心坐标（node 随后可能被系统回收，不宜再在后台线程访问）
+        val rect = Rect()
+        node.getBoundsInScreen(rect)
+        var cx = rect.centerX().toFloat()
+        var cy = rect.centerY().toFloat()
+        cx = (cx + gaussian(std = 0.5, maxOffset = 2.0)).toFloat().coerceAtLeast(0f)
+        cy = (cy + gaussian(std = 0.5, maxOffset = 2.0)).toFloat().coerceAtLeast(0f)
+        val effective = strategy ?: inputTextStrategy
+        Log.e("调用栈", "inputText: 点击输入框中心 ($cx, $cy) 策略=$effective text=$text")
+
+        // shell `input` 命令为跨进程阻塞 RPC，且需 sleep 等待 IME 焦点；若在主线程同步执行必然 ANR。
+        // 故整体下沉到后台协程，方法立即返回 true 表示已提交任务。
+        inputScope.launch {
+            // 1️⃣ 真实点击输入框中心唤起 IME 焦点（shell tap，与点击通道一致）
+            if (!InvisibleAutomation.tap(cx, cy)) {
+                Log.e("调用栈", "inputText: 聚焦点击失败（mSvc 是否为空 / shell 不可用）")
+                return@launch
+            }
+            // 等待 IME 焦点到位（点击后输入法弹出需要时间）
+            delay(300L+Random.nextLong(200))
+
+            // 2️⃣ 按策略注入文本
+            when (effective) {
+                InputTextStrategy.SHELL_INPUT_TEXT -> {
+                    Log.e("调用栈", "inputText: 走 shell input text")
+                    InvisibleAutomation.shellInputText(text)
+                }
+
+                InputTextStrategy.CLIPBOARD_PASTE -> {
+                    val ctx = runCatching { LibCtxProvider.Companion.appContext }.getOrNull()
+                    if (ctx == null) {
+                        Log.e("调用栈", "inputText: appContext 为空")
+                        return@launch
+                    }
+                    val cm = ctx.getSystemService(Context.CLIPBOARD_SERVICE) as? ClipboardManager
+                    if (cm == null) {
+                        Log.e("调用栈", "inputText: ClipboardManager 为空")
+                        return@launch
+                    }
+                    cm.setPrimaryClip(ClipData.newPlainText("label", text))
+                    Log.e("调用栈", "inputText: 已写剪贴板，执行 shell 粘贴")
+                    InvisibleAutomation.shellPaste()
+                }
+            }
+        }
+        return true
     }
 
     override fun setOnAccessibilityEventListener(listener: ((AccessibilityEvent) -> Unit)?) {

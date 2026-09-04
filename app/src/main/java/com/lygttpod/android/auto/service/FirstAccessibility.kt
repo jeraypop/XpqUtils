@@ -6,7 +6,7 @@ import android.content.Intent
 import android.content.IntentFilter
 import android.util.Log
 import android.view.accessibility.AccessibilityEvent
-import android.view.accessibility.AccessibilityNodeInfo
+
 
 import com.google.android.accessibility.notification.AccessibilityNInfo
 import com.google.android.accessibility.selecttospeak.SelectToSpeakServiceAbstract
@@ -83,8 +83,11 @@ open class FirstAccessibility : SelectToSpeakServiceAbstract() {
 
     override fun asyncHandleAccessibilityEvent(event: AccessibilityEvent) {
 //        HBTaskHelper.hbTask(event)
-        val s = getTextById(this, "com.tencent.mm:id/obn")
-//        Log.e("文本内容", "=: "+s )
+        //val s = getTextById(this, "com.tencent.mm:id/obn")
+
+
+
+        
     }
 
      override fun asyncHandle_WINDOW_STATE_CHANGED(

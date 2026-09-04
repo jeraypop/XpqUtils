@@ -22,6 +22,12 @@ interface IAutomationUserService {
     /** 反注册（对应 IUiAutomationConnection.disconnect / shutdown）。 */
     void unregisterUiAutomation(IBinder client) = 4;
 
+    /**
+     * 以 shell 身份反射 InputManager.injectInputEvent 注入一次带自定义 pressure/size 的点击。
+     * 用于验证「压力波动 ≈ 0」反注入规则是否可被更高阶注入绕过（pressure 由注入方伪造）。
+     */
+    boolean injectTap(float x, float y, long durationMs, float pressureDown, float pressureUp, float sizeDown, float sizeUp) = 5;
+
     void destroy() = 16777114; // Shizuku server 定义的销毁方法
     void exit() = 1;           // 用户自定义的退出方法
 }
