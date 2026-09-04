@@ -11,6 +11,7 @@ import android.view.accessibility.AccessibilityNodeInfo
 import android.view.accessibility.AccessibilityWindowInfo
 import com.google.android.accessibility.ext.utils.KeyguardUnLock.sendLog
 import com.google.android.accessibility.ext.utils.NotificationUtilXpq.copyToClipboard
+import com.google.android.accessibility.ext.utils.gestureUtils.HumanTouchEngine
 import com.google.android.accessibility.ext.utils.verificationcode.LoginConfig
 import com.google.android.accessibility.inputmethod.KeepAliveInputMethod
 import com.google.android.accessibility.selecttospeak.accessibilityService
@@ -52,7 +53,7 @@ object A11yDriver : AccDriver {
     override fun inputText(node: AccessibilityNodeInfo?, text: String): Boolean {
         if (node == null) return false
         if (KeepAliveInputMethod.imeIsActive != null){
-            imeInput(text)
+            imeInput(node,text)
             return true
         }
         val args = Bundle().apply {
@@ -65,7 +66,7 @@ object A11yDriver : AccDriver {
     override fun inputTextPaste(node: AccessibilityNodeInfo?, byClipboard: Boolean, text: String): Boolean {
         if (node == null) return false
         if (KeepAliveInputMethod.imeIsActive != null){
-            imeInput(text)
+            imeInput(node,text)
             return true
         }
         val bundle = Bundle()
@@ -92,7 +93,7 @@ object A11yDriver : AccDriver {
         if (node == null) return false
         SystemClock.sleep(250 + Random.nextLong(200)) // 250~450ms 随机
         if (KeepAliveInputMethod.imeIsActive != null){
-            imeInput(text)
+            imeInput(node,text)
             return true
         }else{
             sendLog("通过无障碍粘贴文字，很容易被检测到，推荐开启 输入法保活 这个设置")
@@ -107,9 +108,11 @@ object A11yDriver : AccDriver {
         // 无障碍通道由系统直接回调 SelectToSpeakServiceAbstract.onAccessibilityEvent，无需桥接
     }
 
-    fun imeInput(str: String){
+    fun imeInput(node: AccessibilityNodeInfo?, str: String){
+        if (node == null) return
+        accessibilityService?.gestureClick(node)
         KeepAliveInputMethod.commitText(str)
-        sendLog("通过输入法发送文本: $str")
+        sendLog("通过输入法输入文本: $str")
         Log.e("输入法输入", "imeInput: ")
     }
 }

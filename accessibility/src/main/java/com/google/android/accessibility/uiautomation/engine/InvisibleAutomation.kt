@@ -15,6 +15,7 @@ import android.graphics.PointF
 import android.os.Bundle
 import android.os.SystemClock
 import android.view.accessibility.AccessibilityEvent
+import com.google.android.accessibility.ext.utils.KeyguardUnLock.sendLog
 import com.google.android.accessibility.ext.utils.gestureUtils.HumanTouchEngine.ClickConfig
 import com.google.android.accessibility.ext.utils.gestureUtils.HumanTouchEngine.SwipeConfig
 import com.google.android.accessibility.ext.utils.gestureUtils.HumanTouchEngine.gaussian
@@ -586,6 +587,7 @@ object InvisibleAutomation {
      * 中文/多字节字符会被 `input` 丢弃或报错，此类场景请用 [shellPaste]（剪贴板方案）。
      */
     fun shellInputText(text: String): Boolean {
+        sendLog("shizuku模式下 直接 输入：$text")
         val escaped = text.replace(" ", "%s")
         val r = mSvc?.exec("input text \"$escaped\"") ?: return false
         val ok = r.exitCode == 0
@@ -600,6 +602,7 @@ object InvisibleAutomation {
      * 需先由调用方写入剪贴板 + 点击聚焦输入框。KEYCODE_PASTE 为 API 24+。
      */
     fun shellPaste(): Boolean {
+        sendLog("shizuku模式下 通过剪贴板输入")
         val r = mSvc?.exec("input keyevent 279") ?: return false
         val ok = r.exitCode == 0
         diag("[paste] input keyevent 279 → exit=${r.exitCode} ${
@@ -620,12 +623,6 @@ object InvisibleAutomation {
         }
     }
 
-    fun addRandomDecimal(value: Int): Float {
-        val decimalDigits = Random.nextInt(4, 6) // 4 或 5
-        val scale = 10.0.pow(decimalDigits).toInt()
-        val decimal = Random.nextInt(1, scale).toFloat() / scale
-        return value + decimal
-    }
     /** 坐标点击：经 shell `input tap`（shell 权限，无需 INJECT_EVENTS）。 */
     fun tapDan(x: Float, y: Float): Boolean {
         //机器特征太明显，不建议用
