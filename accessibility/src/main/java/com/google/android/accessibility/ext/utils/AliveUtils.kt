@@ -1687,7 +1687,7 @@ object AliveUtils {
     fun shouxianzhi(ctx: Context = appContext) {
         ctx ?: return
         val intent = Intent()
-        intent.setAction("android.intent.action.VIEW")
+        intent.setAction(Intent.ACTION_VIEW)
         val content_url = Uri.parse("https://mp.weixin.qq.com/s/CbRFGUrqoKJie3JTdRmWPA")
         intent.setData(content_url)
         // 添加 FLAG_ACTIVITY_NEW_TASK 标志以确保能从 application context 启动

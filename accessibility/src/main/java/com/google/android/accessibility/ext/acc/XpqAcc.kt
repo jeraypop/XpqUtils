@@ -4,8 +4,10 @@ import android.accessibilityservice.AccessibilityService
 import android.accessibilityservice.GestureDescription
 import android.app.Activity
 import android.app.AlertDialog
+import android.content.Context
 import android.content.Intent
 import android.content.pm.PackageManager
+import android.net.Uri
 import android.os.Build
 import android.os.Handler
 import android.os.Looper
@@ -26,6 +28,7 @@ import com.google.android.accessibility.ext.acc.XpqAcc.use
 import com.google.android.accessibility.ext.utils.AliveUtils
 import com.google.android.accessibility.ext.utils.AliveUtils.showCheckDialog
 import com.google.android.accessibility.ext.utils.LibCtxProvider
+import com.google.android.accessibility.ext.utils.LibCtxProvider.Companion.appContext
 import com.google.android.accessibility.ext.utils.MMKVConst
 import com.google.android.accessibility.ext.utils.MMKVUtil
 import com.google.android.accessibility.ext.utils.NotificationUtilXpq
@@ -427,11 +430,13 @@ object XpqAcc {
                 "Shizuku 模式(推荐用该模式)\n\n" +
                         "1.需要额外下载一个免费开源的 Shizuku 软件\n" +
                         "官方下载地址：https://github.com/RikkaApps/Shizuku/releases\n" +
-                        "备用下载地址：https://apt.izzysoft.de/fdroid/index/apk/moe.shizuku.privileged.api\n\n" +
-                        "2.开启设备自带的： https://settings随选朗读" +
-                        "\n为什么引入该模式：\n" +
-                        "由于部分应用会检测设备上启用的第三方无障碍服务，并可能出现安全提示。" +
-                        "Shizuku 模式使用不同的系统权限通道，可以作为另一种自动化方案"
+                        "备用下载地址：https://apt.izzysoft.de/fdroid/index/apk/moe.shizuku.privileged.api\n" +
+                        "shizuku 使用教程：https://mp.weixin.qq.com/s/qG3znEmRgtOkfmktM2mxrA\n\n" +
+                        "2.需开启设备自带的： https://settings随选朗读" +
+                        "\n\n为什么引入该模式：" +
+                        "\n由于部分应用会检测设备上启用的第三方无障碍服务，并可能出现安全提示。" +
+                        "\n所以，现在采用无障碍模式的应用在wx上已经不推荐再用了，用了被检测到是早几天晚几天的事" +
+                        "\nShizuku 模式使用不同的系统权限通道，可以作为另一种自动化方案"
         }
 
         // 说明文字放到标题区（setMessage 与 setSingleChoiceItems 互斥，用了 setMessage 选项列表就不显示）
@@ -489,8 +494,7 @@ object XpqAcc {
                             }else{
                                 AliveUtils.toast(msg = "请开启随选朗读")
                             }
-                            NotificationUtilXpq.gotoAccessibilitySetting(activity)
-
+                            showSXLDDialog(activity)
                         }
                     }, start, end, Spanned.SPAN_EXCLUSIVE_EXCLUSIVE)
                 }
@@ -583,5 +587,33 @@ object XpqAcc {
             }
             .setNegativeButton("取消", null)
             .show()
+    }
+    @JvmStatic
+    fun showSXLDDialog(activity: Activity) {
+        val msg = "随着ai的爆发，几乎人人都能写软件了，故wx加强了对自动化软件的检测，它能获取到设备上已开启自动化(主要是无障碍)的所有软件" +
+                "但总不能一刀切的都不让其工作吧，于是分为了黑名单和白名单，其中 系统自带的 随选朗读 就在白名单中，" +
+                "简单说，在wx中，黑名单中的软件无法正常工作，只有白名单中的软件才能正常工作，所以我们要开启系统自带的 随选朗读"
+        AlertDialog.Builder(activity)
+            .setTitle("为何需要 随选朗读")
+            .setMessage(msg)
+            .setPositiveButton("确定") { _, _ ->
+                NotificationUtilXpq.gotoAccessibilitySetting(activity)
+            }
+            .setNegativeButton("教程"){ _, _ ->
+                viewUrl()
+            }
+            .show()
+    }
+    @JvmStatic
+    @JvmOverloads
+    fun viewUrl(url: String = "https://mp.weixin.qq.com/s/DJ4_laTtiQKgYxByyreQ0Q", ctx: Context = appContext) {
+        val intent = Intent(
+            Intent.ACTION_VIEW,
+            Uri.parse(url)
+        ).apply {
+            addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+        }
+
+        ctx.startActivity(intent)
     }
 }
