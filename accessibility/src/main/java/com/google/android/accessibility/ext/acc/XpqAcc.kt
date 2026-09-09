@@ -616,4 +616,16 @@ object XpqAcc {
 
         ctx.startActivity(intent)
     }
+
+    @JvmOverloads
+    @JvmStatic
+    fun setSMSMode(sms: Boolean = false) {
+        MMKVUtil.put(MMKVConst.KEY_SENDSMS_MODE, sms)
+    }
+    @JvmOverloads
+    @JvmStatic
+    fun getSMSMode(default: Boolean = false): Boolean {
+        return MMKVUtil.get(MMKVConst.KEY_SENDSMS_MODE,default)
+    }
+
 }
