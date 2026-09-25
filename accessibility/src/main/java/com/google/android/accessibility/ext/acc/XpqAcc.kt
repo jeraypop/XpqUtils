@@ -429,8 +429,9 @@ object XpqAcc {
             else ->
                 "Shizuku 模式(推荐用该模式)\n\n" +
                         "1.需要额外下载一个免费开源的 Shizuku 软件\n" +
-                        "官方下载地址：https://github.com/RikkaApps/Shizuku/releases\n" +
-                        "备用下载地址：https://apt.izzysoft.de/fdroid/index/apk/moe.shizuku.privileged.api\n" +
+                        "官方原版下载地址：https://github.com/RikkaApps/Shizuku/releases\n" +
+                        "备用原版下载地址：https://apt.izzysoft.de/fdroid/index/apk/moe.shizuku.privileged.api\n" +
+                        "最新修改版下载地址（推荐下载这个）：https://github.com/thedjchi/Shizuku/releases\n" +
                         "shizuku 使用教程：https://mp.weixin.qq.com/s/qG3znEmRgtOkfmktM2mxrA\n\n" +
                         "2.需开启设备自带的： https://settings随选朗读" +
                         "\n\n为什么引入该模式：" +

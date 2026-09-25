@@ -53,6 +53,7 @@ import androidx.core.content.ContextCompat
 import androidx.fragment.app.Fragment
 import com.android.accessibility.ext.R
 import com.android.accessibility.ext.databinding.ForgroundserviceDialogXpqBinding
+import com.google.android.accessibility.ext.acc.EngineMode
 import com.google.android.accessibility.ext.acc.XpqAcc
 import com.google.android.accessibility.ext.activity.AliveActivity
 import com.google.android.accessibility.ext.activity.AliveFGService
@@ -1482,7 +1483,16 @@ object AliveUtils {
             .setMessage(appContext.getString(R.string.xiangsuxpq))
             .setPositiveButton(appContext.getString(R.string.accessxpq)) { _, _ ->
                 //无障碍
-                AliveUtils.openAccessibility(activity,null)
+                if (XpqAcc.getSMSMode()){
+                    AliveUtils.easyRequestPermission(activity, PermissionLists.getSystemAlertWindowPermission(),"悬浮窗")
+                }else{
+                    if (XpqAcc.mode == EngineMode.ACCESSIBILITY_SERVICE){
+                        AliveUtils.openAccessibility(activity,null)
+                    }else if (XpqAcc.mode == EngineMode.ACCESSIBILITY_SERVICE){
+                        AliveUtils.easyRequestPermission(activity, PermissionLists.getSystemAlertWindowPermission(),"悬浮窗")
+                    }
+                }
+
             }
             .setNegativeButton(appContext.getString(R.string.floatxpq)) { _, _ ->
                 //悬浮窗
