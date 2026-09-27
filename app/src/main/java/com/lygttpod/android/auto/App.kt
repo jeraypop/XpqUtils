@@ -9,6 +9,7 @@ import com.google.android.accessibility.ext.acc.XpqAcc
 import com.google.android.accessibility.ext.activity.TaskByJieSuoHelper
 import com.google.android.accessibility.ext.activity.TaskByJieSuoHelperDefault
 import com.google.android.accessibility.ext.utils.AliveUtils
+import com.google.android.accessibility.ext.utils.LibCtxProvider
 import com.google.android.accessibility.ext.utils.NotificationUtilXpq
 import com.google.android.accessibility.ext.utils.XpqUncaughtExceptionHandler
 import com.google.android.accessibility.selecttospeak.SelectToSpeakService
@@ -29,6 +30,11 @@ class App : Application() {
     override fun onCreate() {
         super.onCreate()
         instance = this
+
+        // :AccessibilityService 等子进程不会创建 ContentProvider（LibCtxProvider 只在主进程
+        // 实例化），appContext 等 lateinit 未初始化，而本 onCreate 每个进程都会执行，
+        // 后面任何触及它们的调用都会 UninitializedPropertyAccessException 崩溃。这里兜底。
+        runCatching { LibCtxProvider.manualInit(this) }
 
         // Shizuku 多进程支持：Shizuku binder 只会送达主进程（provider 所在进程），
         // :AccessibilityService 等子进程需要通过"拉取 + 广播"两条路拿到 binder。

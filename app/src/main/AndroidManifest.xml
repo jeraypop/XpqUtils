@@ -97,6 +97,8 @@
     <queries>
         <package android:name="com.tencent.mm" />
     </queries>
+    <!-- Shizuku 相关的 <queries>（两个官方包名 + MAIN/LAUNCHER 广域 intent）已移入
+         accessibility 库 manifest，随清单合并自动生效，库的使用方无需自行声明 -->
     
     <!-- 显式移除 INTERNET 权限 -->
  <!--   <uses-permission

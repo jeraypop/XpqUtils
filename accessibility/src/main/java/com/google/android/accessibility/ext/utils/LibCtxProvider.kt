@@ -49,6 +49,57 @@ class LibCtxProvider : ContentProvider() {
         //全局 Application
         lateinit var appContext: Context
         lateinit var contentProviderAuthority: String
+
+        /**
+         * 子进程手动初始化。
+         *
+         * ContentProvider（即本类）默认只在主进程创建，android:process 声明的子进程
+         * （如 :AccessibilityService）里 onCreate 不会执行，appContext 等仍是未初始化状态；
+         * 而宿主 Application.onCreate 在每个进程都会跑，一旦触及这些 lateinit 就会崩溃
+         * （UninitializedPropertyAccessException）。宿主需在 onCreate 最前面调用本方法兜底。
+         *
+         * 只做最小初始化（context / authority / SP / 版本信息）；主进程仍走 onCreate 全量流程。
+         */
+        fun manualInit(context: Context) {
+            if (::appContext.isInitialized) return
+            val app = context.applicationContext
+            appContext = app
+            contentProviderAuthority = "content://" + app.packageName + ".xpqutilsProvider"
+            SPUtils.init(app)
+            runCatching {
+                val info = app.packageManager.getPackageInfo(app.packageName, 0)
+                appVersionName = info.versionName.toString()
+                appVersionCode = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
+                    info.longVersionCode
+                } else {
+                    @Suppress("DEPRECATION")
+                    info.versionCode.toLong()
+                }
+            }
+            runCatching { appBuildTime = tryGetAppBuildTimeStatic(app) }
+            runCatching { appMyName = getAppNameStatic(app) }
+        }
+
+        private fun tryGetAppBuildTimeStatic(context: Context): Long {
+            return try {
+                val ai = context.packageManager
+                    .getApplicationInfo(context.packageName, PackageManager.GET_META_DATA)
+                ai.metaData?.getString("APP_BUILD_TIME")?.toLongOrNull() ?: -1L
+            } catch (_: Exception) {
+                -1L
+            }
+        }
+
+        private fun getAppNameStatic(context: Context): String {
+            val pm = context.packageManager
+            val ai = context.applicationInfo
+            return when {
+                ai.nonLocalizedLabel != null -> ai.nonLocalizedLabel.toString()
+                ai.labelRes != 0 -> context.getString(ai.labelRes)
+                else -> context.packageName
+            }
+        }
+
         var appMyName: String =""
         var appVersionName: String =""
         var appVersionCode: Long = -1L

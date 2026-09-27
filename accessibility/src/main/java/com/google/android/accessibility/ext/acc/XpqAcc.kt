@@ -418,22 +418,34 @@ object XpqAcc {
         fun indexToMode(index: Int): EngineMode =
             if (index == 0) EngineMode.ACCESSIBILITY_SERVICE else EngineMode.UIAUTOMATION
 
-        // 每个模式对应的说明文字，切换选项时动态更新到标题区
+        // 每个模式对应的说明文字，切换选项时动态更新到标题区。
+        // Shizuku 模式的下载段按导入形态分流：manager 已并入宿主时无需下载独立 App，
+        // 隐藏 3 个下载地址，替换为可点击的「打开 manager 主界面」。
         fun describeMode(mode: EngineMode): String = when {
             mode == EngineMode.ACCESSIBILITY_SERVICE && !hasAccessibility ->
                 "无障碍模式\n\n当前版本不支持无障碍模式,如果确定需要无障碍的版本，可下载支持无障碍的版本使用"
             mode == EngineMode.ACCESSIBILITY_SERVICE ->
                 "无障碍模式\n\n" +
                         "无需额外安装软件,但是部分软件(比如：银行类软件)检测设备上无障碍服务开启时，可能出现安全提示\n" +
-                        "请跳转到：https://settings.设置 "
+                        "请跳转到☞☞：https://settings.设置 "
+            AutomationShizuku.isManagerMergedIntoHost() ->
+                "Shizuku 模式(推荐用该模式)\n\n" +
+                        "1.本软件已内置 Shizuku 管理器，无需额外下载\n" +
+                        "打开 Shizuku 服务☞☞：https://ettings.开启Shizuku服务\n\n" +
+                        "shizuku 使用教程☞☞：https://mp.weixin.qq.com/s/qG3znEmRgtOkfmktM2mxrA\n\n" +
+                        "2.需开启设备自带的☞☞： https://settings随选朗读" +
+                        "\n\n为什么引入该模式：" +
+                        "\n由于部分应用会检测设备上启用的第三方无障碍服务，并可能出现安全提示。" +
+                        "\n所以，现在采用无障碍模式的应用在wx上已经不推荐再用了，用了被检测到是早几天晚几天的事" +
+                        "\nShizuku 模式使用不同的系统权限通道，可以作为另一种自动化方案"
             else ->
                 "Shizuku 模式(推荐用该模式)\n\n" +
                         "1.需要额外下载一个免费开源的 Shizuku 软件\n" +
-                        "官方原版下载地址：https://github.com/RikkaApps/Shizuku/releases\n" +
-                        "备用原版下载地址：https://apt.izzysoft.de/fdroid/index/apk/moe.shizuku.privileged.api\n" +
-                        "最新修改版下载地址（推荐下载这个）：https://github.com/thedjchi/Shizuku/releases\n" +
-                        "shizuku 使用教程：https://mp.weixin.qq.com/s/qG3znEmRgtOkfmktM2mxrA\n\n" +
-                        "2.需开启设备自带的： https://settings随选朗读" +
+                        "官方原版下载地址☞☞：https://github.com/RikkaApps/Shizuku/releases\n" +
+                        "备用原版下载地址☞☞：https://apt.izzysoft.de/fdroid/index/apk/moe.shizuku.privileged.api\n" +
+                        "最新修改版下载地址（推荐下载这个）☞☞：https://github.com/thedjchi/Shizuku/releases\n" +
+                        "shizuku 使用教程☞☞：https://mp.weixin.qq.com/s/qG3znEmRgtOkfmktM2mxrA\n\n" +
+                        "2.需开启设备自带的☞☞： https://settings随选朗读" +
                         "\n\n为什么引入该模式：" +
                         "\n由于部分应用会检测设备上启用的第三方无障碍服务，并可能出现安全提示。" +
                         "\n所以，现在采用无障碍模式的应用在wx上已经不推荐再用了，用了被检测到是早几天晚几天的事" +
@@ -482,6 +494,7 @@ object XpqAcc {
             } else {
                 // Shizuku 模式：让「随选朗读」与无障碍模式的「https://settings.设置」同款链接样式，
                 // 点击跳转到系统无障碍设置（「随选朗读」开关所在页）；下载地址继续走 Linkify 识别。
+                // manager 已并入宿主时，「https://settings打开manager」为占位链接，点击打开宿主内 manager 主界面。
                 val text = describeMode(mode)
                 val spannable = SpannableString(text)
                 val target = "https://settings随选朗读"
@@ -498,6 +511,18 @@ object XpqAcc {
                             showSXLDDialog(activity)
                         }
                     }, start, end, Spanned.SPAN_EXCLUSIVE_EXCLUSIVE)
+                }
+                val managerTarget = "https://settings打开manager"
+                val mStart = text.indexOf(managerTarget)
+                if (mStart >= 0) {
+                    val end = mStart + managerTarget.length
+                    spannable.setSpan(object : ClickableSpan() {
+                        override fun onClick(widget: View) {
+                            if (!AutomationShizuku.openShizuku(activity)) {
+                                AliveUtils.toast(msg = "未能打开 Shizuku 管理界面")
+                            }
+                        }
+                    }, mStart, end, Spanned.SPAN_EXCLUSIVE_EXCLUSIVE)
                 }
                 titleView.movementMethod = LinkMovementMethod.getInstance()
                 titleView.text = spannable
