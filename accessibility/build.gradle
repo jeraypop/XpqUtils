@@ -91,5 +91,5 @@ dependencies {
     //implementation(libs.dev.rikka.shizuku.provider)
 
     // 2 Shizuku Manager 以库形式并入宿主 App
-    api(libs.com.github.jeraypop.shizukulib) {exclude group: "dev.rikka.rikkax.appcompat", module: "appcompat"}
+    implementation(libs.com.github.jeraypop.shizukulib) {exclude group: "dev.rikka.rikkax.appcompat", module: "appcompat"}
 }
