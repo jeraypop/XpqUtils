@@ -512,7 +512,7 @@ object XpqAcc {
                         }
                     }, start, end, Spanned.SPAN_EXCLUSIVE_EXCLUSIVE)
                 }
-                val managerTarget = "https://settings打开manager"
+                val managerTarget = "https://ettings.开启Shizuku服务"
                 val mStart = text.indexOf(managerTarget)
                 if (mStart >= 0) {
                     val end = mStart + managerTarget.length

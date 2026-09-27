@@ -71,6 +71,7 @@ import com.google.android.accessibility.privacypolicy.XpqPrivacyDialog.Companion
 import com.google.android.accessibility.privacypolicy.XpqPrivacyDialog.Companion.default_Privacy
 import com.google.android.accessibility.selecttospeak.SelectToSpeakService
 import com.google.android.accessibility.selecttospeak.accessibilityService
+import com.google.android.accessibility.uiautomation.shizuku.AutomationShizuku
 import com.lygttpod.android.auto.notification.NotificationListenerServiceImp
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -272,6 +273,7 @@ class MainActivity : XpqBaseActivity<ActivityMainBinding>(
 
             //AliveUtils.openNotificationListener(this, NotificationListenerServiceImp::class.java)
             //startActivity(Intent(this, moe.shizuku.manager.MainActivity::class.java))
+            AutomationShizuku.openShizuku()
         }
         binding.btnGZH.setOnClickListener{
             // App 启动时切到 UiAutomation（免开无障碍，需 Shizuku）

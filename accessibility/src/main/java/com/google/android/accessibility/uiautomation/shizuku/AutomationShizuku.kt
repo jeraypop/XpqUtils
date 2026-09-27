@@ -7,6 +7,7 @@ import android.content.Intent
 import android.content.ServiceConnection
 import android.content.pm.PackageManager
 import android.os.IBinder
+import com.google.android.accessibility.ext.utils.LibCtxProvider.Companion.appContext
 import rikka.shizuku.Shizuku
 import java.util.concurrent.CountDownLatch
 import java.util.concurrent.TimeUnit
@@ -133,7 +134,9 @@ object AutomationShizuku {
      *
      * @return 成功拉起任一界面返回 true，都失败返回 false。
      */
-    fun openShizuku(context: Context): Boolean {
+    @JvmStatic
+    @JvmOverloads
+    fun openShizuku(context: Context = appContext): Boolean {
         // 1) manager 已并入宿主 APK：打开自己包内的 manager 主界面（同 UID，不受 exported 限制）
         val managerActivity = runCatching {
             Class.forName(MANAGER_MAIN_ACTIVITY)
