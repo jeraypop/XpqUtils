@@ -27,7 +27,8 @@ android {
         buildConfigField "long", "BUILD_TIME", "${buildTime}L"
 
         manifestPlaceholders = [
-                APP_BUILD_TIME: "${buildTime}"
+                APP_BUILD_TIME: "${buildTime}",
+                shizukuApplicationId: applicationId
         ]
     }
 
@@ -94,7 +95,7 @@ android {
             }
         }
     }
-
+    packagingOptions { jniLibs { useLegacyPackaging = true } }// libshizuku.so 要解压
     compileOptions {
         sourceCompatibility JavaVersion.VERSION_17
         targetCompatibility JavaVersion.VERSION_17
@@ -152,10 +153,5 @@ dependencies {
     //implementation(libs.updatelib)
     implementation(libs.update.lib)
     //implementation(libs.update.compose)
-
-
-
-
-
 
 }

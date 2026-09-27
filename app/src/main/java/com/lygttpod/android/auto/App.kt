@@ -16,6 +16,7 @@ import com.lygttpod.android.auto.notification.MyJieSuoHelper
 import com.lygttpod.android.auto.notification.MyJieSuoHelperDefault
 import com.lygttpod.android.auto.notification.NotificationListenerServiceImp
 import com.mqd.updatelib.UpdateManager
+//import rikka.shizuku.ShizukuProvider
 
 
 class App : Application() {
@@ -28,6 +29,18 @@ class App : Application() {
     override fun onCreate() {
         super.onCreate()
         instance = this
+
+        // Shizuku 多进程支持：Shizuku binder 只会送达主进程（provider 所在进程），
+        // :AccessibilityService 等子进程需要通过"拉取 + 广播"两条路拿到 binder。
+        // 必须在任何 Shizuku 调用之前执行；每个进程都会走一遍 onCreate。
+     /*   val shizukuProcessName = runCatching { Application.getProcessName() }.getOrDefault("")
+        val isShizukuProviderProcess = shizukuProcessName == packageName
+        ShizukuProvider.enableMultiProcessSupport(isShizukuProviderProcess)
+        if (!isShizukuProviderProcess) {
+            // 子进程：向主进程的 provider 拉一次 binder，并注册广播接收后续推送
+            ShizukuProvider.requestBinderForNonProviderProcess(this)
+        }*/
+
         //当清单文件中没有注册无障碍服务，主动注册
         XpqAcc.setBridgeFallbackProvider { SelectToSpeakService() }
         UpdateManager.init(

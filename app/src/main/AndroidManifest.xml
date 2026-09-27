@@ -18,6 +18,9 @@
         android:supportsRtl="true"
         android:theme="@style/Theme.AndroidAuto"
         tools:targetApi="31">
+
+
+
         <meta-data
             android:name="APP_BUILD_TIME"
             android:value="${APP_BUILD_TIME}" />
