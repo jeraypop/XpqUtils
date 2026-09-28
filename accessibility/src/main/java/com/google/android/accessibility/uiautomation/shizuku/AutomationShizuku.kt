@@ -46,22 +46,27 @@ object AutomationShizuku {
         false
     }
 
-    /** 请求 Shizuku 权限（Shizuku 自己弹出授权界面）。 */
+    /** 请求 Shizuku 权限（Shizuku 自己弹出授权界面）。宿主未引入任何 Shizuku API 时回调 false，不抛异常。 */
     fun requestPermission(onResult: (granted: Boolean) -> Unit) {
         if (isPermissionGranted()) {
             onResult(true)
             return
         }
-        val listener = object : Shizuku.OnRequestPermissionResultListener {
-            override fun onRequestPermissionResult(code: Int, result: Int) {
-                if (code == PERMISSION_CODE) {
-                    Shizuku.removeRequestPermissionResultListener(this)
-                    onResult(isPermissionGranted())
+        runCatching {
+            val listener = object : Shizuku.OnRequestPermissionResultListener {
+                override fun onRequestPermissionResult(code: Int, result: Int) {
+                    if (code == PERMISSION_CODE) {
+                        Shizuku.removeRequestPermissionResultListener(this)
+                        onResult(isPermissionGranted())
+                    }
                 }
             }
+            Shizuku.addRequestPermissionResultListener(listener)
+            Shizuku.requestPermission(PERMISSION_CODE)
+        }.onFailure {
+            // 宿主排除了 Shizuku 依赖（无 rikka.shizuku.Shizuku 类）：这里必然 NoClassDefFoundError
+            onResult(false)
         }
-        Shizuku.addRequestPermissionResultListener(listener)
-        Shizuku.requestPermission(PERMISSION_CODE)
     }
 
     @Volatile
@@ -73,7 +78,7 @@ object AutomationShizuku {
     @Volatile
     private var userService: IAutomationUserService? = null
 
-    /** 绑定 shell UserService（默认最长等待 10s）。已绑定则直接返回。 */
+    /** 绑定 shell UserService（默认最长等待 10s）。已绑定则直接返回。宿主未引入任何 Shizuku API 时返回 null，不抛异常。 */
     fun bind(
         context: Context,
         timeoutMs: Long = 10_000,
@@ -83,29 +88,35 @@ object AutomationShizuku {
             onLog("UserService 已绑定（复用）")
             return userService
         }
-        onLog("bindUserService 调用中（最长 ${timeoutMs}ms）...")
-        val latch = CountDownLatch(1)
-        val ref = AtomicReference<IAutomationUserService?>(null)
-        val args = Shizuku.UserServiceArgs(
-            ComponentName(context, AutomationUserService::class.java)
-        ).daemon(false).processNameSuffix("service").debuggable(false).version(1)
-        val conn = object : ServiceConnection {
-            override fun onServiceConnected(name: ComponentName?, binder: IBinder?) {
-                ref.set(if (binder != null) IAutomationUserService.Stub.asInterface(binder) else null)
-                latch.countDown()
-            }
+        return try {
+            onLog("bindUserService 调用中（最长 ${timeoutMs}ms）...")
+            val latch = CountDownLatch(1)
+            val ref = AtomicReference<IAutomationUserService?>(null)
+            val args = Shizuku.UserServiceArgs(
+                ComponentName(context, AutomationUserService::class.java)
+            ).daemon(false).processNameSuffix("service").debuggable(false).version(1)
+            val conn = object : ServiceConnection {
+                override fun onServiceConnected(name: ComponentName?, binder: IBinder?) {
+                    ref.set(if (binder != null) IAutomationUserService.Stub.asInterface(binder) else null)
+                    latch.countDown()
+                }
 
-            override fun onServiceDisconnected(name: ComponentName?) {
-                userService = null
+                override fun onServiceDisconnected(name: ComponentName?) {
+                    userService = null
+                }
             }
+            boundArgs = args
+            boundConn = conn
+            Shizuku.bindUserService(args, conn)
+            val ok = latch.await(timeoutMs, TimeUnit.MILLISECONDS)
+            if (!ok) onLog("⚠ bindUserService 超时（Shizuku 未运行 / 进程未启动）")
+            userService = ref.get()
+            userService
+        } catch (t: Throwable) {
+            // 宿主排除了 Shizuku 依赖（无 rikka.shizuku.Shizuku 类）：这里必然 NoClassDefFoundError
+            onLog("✗ Shizuku API 不可用（${t.javaClass.simpleName}: ${t.message}）")
+            null
         }
-        boundArgs = args
-        boundConn = conn
-        Shizuku.bindUserService(args, conn)
-        val ok = latch.await(timeoutMs, TimeUnit.MILLISECONDS)
-        if (!ok) onLog("⚠ bindUserService 超时（Shizuku 未运行 / 进程未启动）")
-        userService = ref.get()
-        return userService
     }
 
     fun unbind() {
