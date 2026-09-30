@@ -128,7 +128,7 @@ object LogWrapper_NoNet {
             val clip = ClipData.newPlainText("Log Content", logContent)
             clipboard.setPrimaryClip(clip)
             AliveUtils.toast(msg = "已复制日志到剪贴板")
-            OverlayLog.hide()
+            OverlayLog_NoNet.hide()
         } catch (e: Exception){
             AliveUtils.toast(msg = "复制日志出现错误!"+e.message)
         }
@@ -150,7 +150,7 @@ object LogWrapper_NoNet {
                 copyLogToClipboard_NoNet(logContent)
             }
             .setPositiveButton("txt文件") { _, _ ->
-                OverlayLog.hide()
+                OverlayLog_NoNet.hide()
                 shareLogFile_NoNet(logContent)
             }
             .setOnDismissListener {
