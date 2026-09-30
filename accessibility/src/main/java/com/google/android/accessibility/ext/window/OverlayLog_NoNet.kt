@@ -24,7 +24,7 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.withContext
 
 @SuppressLint("StaticFieldLeak")
-object OverlayLog : AssistsServiceListener {
+object OverlayLog_NoNet : AssistsServiceListener {
 
     private var runAutoScrollListJob: Job? = null
     private var logCollectJob: Job? = null
@@ -60,21 +60,17 @@ object OverlayLog : AssistsServiceListener {
                 field = LogOverlayXpqBinding.inflate(LayoutInflater.from(context)).apply {
                     scrollView.setOnTouchListener(onScrollTouchListener)
                     btnCopy.setOnClickListener {
-                        CoroutineWrapper.launch { LogWrapper.copyLogMethod() }
+                        CoroutineWrapper.launch { LogWrapper_NoNet.copyLogMethod_NoNet() }
                     }
                     btnClean.setOnClickListener {
-                        CoroutineWrapper.launch { LogWrapper.clearLog() }
+                        CoroutineWrapper.launch { LogWrapper_NoNet.clearLog_NoNet() }
                     }
                     btnStop.setOnClickListener {
                         CoroutineWrapper.launch {
                             hide()
                         }
                     }
-                    btnUpload.setOnClickListener {
-                        CoroutineWrapper.launch {
-                            LogWrapper.showUploadDialog()
-                        }
-                    }
+                    btnUpload.visibility = View.GONE
                 }
             }
             return field
@@ -177,34 +173,6 @@ object OverlayLog : AssistsServiceListener {
         runAutoScrollListJob = null
     }
 
-/*    fun show() {
-        if (!SelectToSpeakServiceAbstract.listeners.contains(this)) {
-            SelectToSpeakServiceAbstract.listeners.add(this)
-        }
-        if (!AssistsWindowManager.contains(assistWindowWrapper?.getView())) {
-            AssistsWindowManager.add(assistWindowWrapper)
-            initLogCollect()
-            runAutoScrollList(delay = 0)
-        }
-    }
-
-    fun hide() {
-        AssistsWindowManager.removeView(assistWindowWrapper?.getView())
-        logCollectJob?.cancel()
-        logCollectJob = null
-        runAutoScrollListJob?.cancel()
-        runAutoScrollListJob = null
-    }
-
-    override fun onUnbind() {
-        viewBinding = null
-        assistWindowWrapper = null
-        logCollectJob?.cancel()
-        logCollectJob = null
-        runAutoScrollListJob?.cancel()
-        runAutoScrollListJob = null
-    }*/
-
 
     private fun runAutoScrollList(delay: Long = 5000) {
         runAutoScrollListJob?.cancel()
@@ -224,14 +192,14 @@ object OverlayLog : AssistsServiceListener {
         logCollectJob = CoroutineWrapper.launch {
             withContext(Dispatchers.Main) {
                 viewBinding?.apply {
-                    tvLog.text = LogWrapper.logCache
+                    tvLog.text = LogWrapper_NoNet.logCache_NoNet
                     tvLength.text = "${tvLog.length()}"
                 }
             }
-            LogWrapper.logAppendValue.collect {
+            LogWrapper_NoNet.logAppendValue_NoNet.collect {
                 withContext(Dispatchers.Main) {
                     viewBinding?.apply {
-                        tvLog.text = LogWrapper.logCache
+                        tvLog.text = LogWrapper_NoNet.logCache_NoNet
                         tvLength.text = "${tvLog.length()}"
                     }
                 }
