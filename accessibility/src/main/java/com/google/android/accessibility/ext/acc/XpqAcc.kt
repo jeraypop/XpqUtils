@@ -407,7 +407,8 @@ object XpqAcc {
         bridgeFallback: SelectToSpeakServiceAbstract? = null,
         imgRes: Int = R.drawable.backgroundshow_xpq,
         onConfirm: ((mode: EngineMode) -> Unit)? = null,
-        onCancel: (() -> Unit)? = null
+        onCancel: (() -> Unit)? = null,
+        onUIASuccess: (() -> Unit)? = null
     ) {
         // 清单未声明无障碍服务（tools:node="remove" 或未注册）时，选项仍保留，但切换到无障碍模式会提示不支持
         val hasAccessibility = findAccessibilityServiceSubclass() != null
@@ -548,7 +549,12 @@ object XpqAcc {
                 }
                 applyEngineMode(mode, bridgeFallback) { success, reason ->
                     when {
-                        success -> AliveUtils.toast(msg = "已成功切换到 ${items[selected]}")
+                        success ->{
+                            AliveUtils.toast(msg = "已成功切换到 ${items[selected]}")
+                            runCatching {
+                                onUIASuccess?.invoke()
+                            }
+                        }
                         mode == EngineMode.UIAUTOMATION ->{
                             showUiAutomationFailDialog(activity, reason)
                             onConfirm?.invoke(mode)
