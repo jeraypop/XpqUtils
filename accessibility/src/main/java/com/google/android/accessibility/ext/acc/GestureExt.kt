@@ -102,7 +102,8 @@ private fun AccessibilityService?.gestureScroll(
     distance: Int = 500,
 ): Boolean {
     val service = this ?: return false
-    val node = service.rootInActiveWindow
+    val node = XpqAcc.rootInActiveWindow()
+    node ?: return false
     try {
         val nodeBounds = Rect().apply(node::getBoundsInScreen)
         val x = nodeBounds.centerX().toFloat()

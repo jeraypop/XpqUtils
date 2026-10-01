@@ -20,7 +20,7 @@ import kotlinx.coroutines.delay
 //    return rootInActiveWindow?.findNodesById(id)?.firstOrNull()
 //}
 fun AccessibilityService.findById(id: String): AccessibilityNodeInfo? {
-    val raw = rootInActiveWindow
+    val raw = XpqAcc.rootInActiveWindow()
         ?.findNodesById(id)
         ?.firstOrNull()
         ?: return null
@@ -38,7 +38,7 @@ fun AccessibilityService.findById(id: String): AccessibilityNodeInfo? {
 //}
 fun AccessibilityService?.findNodesById(id: String): List<AccessibilityNodeInfo> {
     this ?: return emptyList()
-    val rawList = rootInActiveWindow?.findNodesById(id) ?: return emptyList()
+    val rawList = XpqAcc.rootInActiveWindow()?.findNodesById(id) ?: return emptyList()
 
     if (rawList.isEmpty()) return emptyList()
 
@@ -57,7 +57,7 @@ fun AccessibilityService?.findNodesById(id: String): List<AccessibilityNodeInfo>
 //}
 
 fun AccessibilityService.findByText(text: String): AccessibilityNodeInfo? {
-    val raw = rootInActiveWindow
+    val raw = XpqAcc.rootInActiveWindow()
         ?.findNodeByText(text)
         ?: return null
 
@@ -79,7 +79,7 @@ fun AccessibilityService.findByContainsText(
     isPrint: Boolean = true,
     textList: List<String>
 ): AccessibilityNodeInfo? {
-    val raw = rootInActiveWindow
+    val raw = XpqAcc.rootInActiveWindow()
         ?.findNodeWrapperByContainsText(isPrint, textList)
         ?.nodeInfo
         ?: return null
@@ -92,11 +92,11 @@ fun AccessibilityService.findByContainsText(
 
 
 //fun AccessibilityService.findByIdAndText(id: String, text: String): AccessibilityNodeInfo? {
-//    return rootInActiveWindow?.findNodesById(id)?.firstOrNull { it.text == text }
+//    return XpqAcc.rootInActiveWindow()?.findNodesById(id)?.firstOrNull { it.text == text }
 //}
 
 fun AccessibilityService.findByIdAndText(id: String, text: String): AccessibilityNodeInfo? {
-    val raw = rootInActiveWindow
+    val raw = XpqAcc.rootInActiveWindow()
         ?.findNodesById(id)
         ?.firstOrNull { it.text == text }
         ?: return null
@@ -107,7 +107,7 @@ fun AccessibilityService.findByIdAndText(id: String, text: String): Accessibilit
 }
 
 fun AccessibilityService.findByIdAndTextToUser(id: String, text: String): AccessibilityNodeInfo? {
-    val raw = rootInActiveWindow
+    val raw = XpqAcc.rootInActiveWindow()
         ?.findNodesById(id)
         ?.firstOrNull { it.text == text && it.isVisibleToUser }
         ?: return null
@@ -136,7 +136,7 @@ fun AccessibilityService?.clickById(
 ): Boolean {
     this ?: return false
 
-    val raw = rootInActiveWindow
+    val raw = XpqAcc.rootInActiveWindow()
         ?.findNodesById(id)
         ?.getOrNull(position)
         ?: return false
@@ -163,7 +163,7 @@ fun AccessibilityService?.clickById_XY(
 
     this ?: return ClickResult(false, reason = "service_null")
 
-    val raw = rootInActiveWindow
+    val raw = XpqAcc.rootInActiveWindow()
         ?.findNodesById(id)
         ?.firstOrNull()
         ?: return ClickResult(false, reason = "node_not_found")
@@ -187,7 +187,7 @@ fun AccessibilityService?.clickById_XY(
 
 //fun AccessibilityService?.clickByText(text: String, gestureClick: Boolean = true): Boolean {
 //    this ?: return false
-//    val find = rootInActiveWindow?.findNodesByText(text)?.firstOrNull() ?: return false
+//    val find = XpqAcc.rootInActiveWindow()?.findNodesByText(text)?.firstOrNull() ?: return false
 //    return if (gestureClick) {
 //        gestureClick(find).takeIf { it } ?: find.click()
 //    } else {
@@ -201,7 +201,7 @@ fun AccessibilityService?.clickByText(
 ): Boolean {
     this ?: return false
 
-    val raw = rootInActiveWindow
+    val raw = XpqAcc.rootInActiveWindow()
         ?.findNodesByText(text)
         ?.firstOrNull()
         ?: return false
@@ -231,7 +231,7 @@ fun AccessibilityService.clickByTextOrDesc(
     useGesture: Boolean = true,
     mode: MatchMode = MatchMode.EXACT
 ): Boolean {
-    val root = rootInActiveWindow ?: return false
+    val root = XpqAcc.rootInActiveWindow() ?: return false
 
     val raw = root.findNodeByTextOrDesc(keyword,mode) ?: return false
     val node = copyNodeCompat(raw)
@@ -252,7 +252,7 @@ fun AccessibilityService.clickByTextOrDesc_XY(
     keyword: String,
     mode: MatchMode = MatchMode.EXACT
 ): ClickResult {
-    val root = rootInActiveWindow ?: return ClickResult(false, reason = "root_null")
+    val root = XpqAcc.rootInActiveWindow() ?: return ClickResult(false, reason = "root_null")
 
     val raw = root.findNodeByTextOrDesc(keyword,mode) ?: return ClickResult(false, reason = "node_null")
 
@@ -367,7 +367,7 @@ private fun AccessibilityService.clickByGesture(
         .addStroke(stroke)
         .build()
 
-    return dispatchGesture(gesture, null, null)
+    return XpqAcc.dispatchGesture(gesture, null, null)
 }
 
 
@@ -390,7 +390,7 @@ fun AccessibilityService?.clickByCustomRule(
 ): Boolean {
     this ?: return false
 
-    val raw = rootInActiveWindow
+    val raw = XpqAcc.rootInActiveWindow()
         ?.findNodeWithCustomRule(isPrint = false) { customRule(it) }
         ?: return false
 
@@ -417,7 +417,7 @@ fun AccessibilityService?.clickByCustomRule(
 //    gestureClick: Boolean = true
 //): Boolean {
 //    this ?: return false
-//    rootInActiveWindow?.findNodesById(id)?.firstOrNull { it.text.default() == text }?.let { find ->
+//    XpqAcc.rootInActiveWindow()?.findNodesById(id)?.firstOrNull { it.text.default() == text }?.let { find ->
 //        return if (gestureClick) {
 //            gestureClick(find).takeIf { it } ?: find.click()
 //        } else {
@@ -434,7 +434,7 @@ fun AccessibilityService?.clickByIdAndText(
 ): Boolean {
     this ?: return false
 
-    val raw = rootInActiveWindow
+    val raw = XpqAcc.rootInActiveWindow()
         ?.findNodesById(id)
         ?.firstOrNull { it.text.default() == text }
         ?: return false
@@ -461,7 +461,7 @@ fun AccessibilityService?.clickByIdAndText(
 //    gestureClick: Boolean = true
 //): Boolean {
 //    this ?: return false
-//    rootInActiveWindow?.findNodesById(id)?.firstOrNull { it.contentDescription.default().matches(regex.toRegex())
+//    XpqAcc.rootInActiveWindow()?.findNodesById(id)?.firstOrNull { it.contentDescription.default().matches(regex.toRegex())
 //    }?.let { find ->
 //        return if (gestureClick) {
 //            gestureClick(find).takeIf { it } ?: find.click()
@@ -481,7 +481,7 @@ fun AccessibilityService?.clickByIdAndDesc(
 ): Boolean {
 
     this ?: return false
-    val root = rootInActiveWindow ?: return false
+    val root = XpqAcc.rootInActiveWindow() ?: return false
 
     val nodes = root.findNodesById(id)
     if (nodes.isEmpty()) return false
@@ -551,7 +551,7 @@ fun AccessibilityService?.clickByIdAndDesc(
 //): Boolean {
 //    this ?: return false
 //    // 获取前N个匹配元素
-//    val targets = rootInActiveWindow?.findNodesById(id)
+//    val targets = XpqAcc.rootInActiveWindow()?.findNodesById(id)
 //        ?.filter { it.text.default() == text }
 //        ?.drop(startIndex)  //
 //        ?.take(count)
@@ -578,7 +578,7 @@ suspend fun AccessibilityService?.clickMultipleByIdAndText(
 ): Boolean {
     this ?: return false
 
-    val rawList = rootInActiveWindow
+    val rawList = XpqAcc.rootInActiveWindow()
         ?.findNodesById(id)
         ?.filter { it.text.default() == text }
         ?.drop(startIndex)
@@ -618,7 +618,7 @@ suspend fun AccessibilityService?.clickMultipleByIdAndText(
 //    gestureClick: Boolean = true
 //): Boolean {
 //    this ?: return false
-//    rootInActiveWindow?.findNodesById(id)?.firstOrNull {
+//    XpqAcc.rootInActiveWindow()?.findNodesById(id)?.firstOrNull {
 //        it.text.default(filter = true) == text }?.let { find ->
 //        return if (gestureClick) {
 //            gestureClick(find).takeIf { it } ?: find.click()
@@ -636,12 +636,12 @@ fun AccessibilityService?.clickByIdAndTextFilter(
 ): Boolean {
     this ?: return false
 
-//    val raw = rootInActiveWindow
+//    val raw = XpqAcc.rootInActiveWindow()
 //        ?.findNodesById(id)
 //        ?.firstOrNull { it.text.default(filter = true).removeTrailingNumber() == text }
 //        ?: return false
 
-    val raw = rootInActiveWindow
+    val raw = XpqAcc.rootInActiveWindow()
         ?.findNodesById(id)
         ?.firstOrNull { it.text.default(filter = true).removeTrailingNumber() == text.default(filter = true).removeTrailingNumber() }
         ?: return false
@@ -667,9 +667,9 @@ fun AccessibilityService?.clickByIdAndTextFilter(
 //    text: String
 //): Boolean {
 //    this ?: return false
-//    val find = rootInActiveWindow?.findNodeByText(text)
+//    val find = XpqAcc.rootInActiveWindow()?.findNodeByText(text)
 //    return if (find == null) {
-//        rootInActiveWindow?.findNodesById(scrollViewId)?.firstOrNull()?.scrollForward()
+//        XpqAcc.rootInActiveWindow()?.findNodesById(scrollViewId)?.firstOrNull()?.scrollForward()
 //        delay(200)
 //        scrollToClickByText(scrollViewId, text)
 //    } else {
@@ -683,7 +683,7 @@ suspend fun AccessibilityService?.scrollToClickByText(
 ): Boolean {
     this ?: return false
 
-    val raw = rootInActiveWindow?.findNodeByText(text)
+    val raw = XpqAcc.rootInActiveWindow()?.findNodeByText(text)
 
     if (raw != null) {
         val node = copyNodeCompat(raw)
@@ -697,7 +697,7 @@ suspend fun AccessibilityService?.scrollToClickByText(
         }
     }
 
-    val scrollRaw = rootInActiveWindow
+    val scrollRaw = XpqAcc.rootInActiveWindow()
         ?.findNodesById(scrollViewId)
         ?.firstOrNull()
 
@@ -728,7 +728,7 @@ suspend fun AccessibilityService?.scrollToFindNextNodeByCurrentText(
     var isEnd = false
     while (find == null && !isEnd) {
         val parent: AccessibilityNodeInfo =
-            rootInActiveWindow?.findNodeById(scrollViewId) ?: return null
+            XpqAcc.rootInActiveWindow()?.findNodeById(scrollViewId) ?: return null
         parent.scrollForward()
         delay(200)
         Log.d("FindNextNodeByCurrentText", "滚动一屏后继续去查找【$lastText】的 next")
@@ -772,7 +772,7 @@ suspend fun AccessibilityService?.scrollToFindNextNodeByCurrentText_Tag(
     var isEnd = false
     while (find == null && !isEnd) {
         val parent: AccessibilityNodeInfo =
-            rootInActiveWindow?.findNodeById(scrollViewId) ?: return null
+            XpqAcc.rootInActiveWindow()?.findNodeById(scrollViewId) ?: return null
         parent.scrollForward()
         delay(200)
         Log.d("FindNextNodeByCurrentText", "滚动一屏后继续去查找【$lastText】的 next")
@@ -809,7 +809,7 @@ private fun AccessibilityService?.getNextNodeByCurrentText_Tag(
     filterTexts: List<String> = listOf()
 ): AccessibilityNodeInfo? {
     this ?: return null
-    val parent: AccessibilityNodeInfo = rootInActiveWindow?.findNodeById(scrollViewId) ?: return null
+    val parent: AccessibilityNodeInfo = XpqAcc.rootInActiveWindow()?.findNodeById(scrollViewId) ?: return null
     val find =
         parent.findNodesById(childViewId).filterNot { filterTexts.contains(it.text.default().trim()) }
     return if (lastText.isNullOrBlank()) {
@@ -840,7 +840,7 @@ private fun AccessibilityService?.getNextNodeByCurrentText(
     filterTexts: List<String> = listOf()
 ): AccessibilityNodeInfo? {
     this ?: return null
-    val parent: AccessibilityNodeInfo = rootInActiveWindow?.findNodeById(scrollViewId) ?: return null
+    val parent: AccessibilityNodeInfo = XpqAcc.rootInActiveWindow()?.findNodeById(scrollViewId) ?: return null
     val find =
         parent.findNodesById(childViewId).filterNot { filterTexts.contains(it.text.default().trim()) }
     return if (lastText.isNullOrBlank()) {
@@ -870,9 +870,9 @@ suspend fun AccessibilityService?.scrollToFindByText(
     text: String
 ): AccessibilityNodeInfo? {
     this ?: return null
-    val find = rootInActiveWindow?.findNodeByText(text)
+    val find = XpqAcc.rootInActiveWindow()?.findNodeByText(text)
     return if (find == null) {
-        rootInActiveWindow?.findNodeById(scrollViewId)?.scrollForward()
+        XpqAcc.rootInActiveWindow()?.findNodeById(scrollViewId)?.scrollForward()
         delay(200)
         scrollToFindByText(scrollViewId, text)
     } else {
@@ -888,7 +888,7 @@ suspend fun AccessibilityService?.scrollToFindByText(
 
 fun AccessibilityService?.printNodeInfo(simplePrint: Boolean = true): String {
     this ?: return ""
-    return rootInActiveWindow?.printNodeInfo(simplePrint = simplePrint).toString()
+    return XpqAcc.rootInActiveWindow()?.printNodeInfo(simplePrint = simplePrint).toString()
 }
 
 
@@ -898,7 +898,7 @@ suspend fun AccessibilityService?.findAllChildByScroll(
     childViewId: String,
 ): List<AccessibilityNodeInfo> {
     this ?: return listOf()
-    val rootNode = rootInActiveWindow
+    val rootNode = XpqAcc.rootInActiveWindow()
     val list = mutableListOf<AccessibilityNodeInfo>()
     val finds = findAllChildByFilter(parentViewId, childViewId) { filter ->
         //倒叙查找可以提示查找效率，因为新增的数据是在列表后边的
@@ -964,7 +964,7 @@ fun AccessibilityService?.findChildNodes(
     childViewId: String
 ): List<AccessibilityNodeInfo> {
     this ?: return listOf()
-    val rootNode = rootInActiveWindow
+    val rootNode = XpqAcc.rootInActiveWindow()
     val parentNode: AccessibilityNodeInfo =
         rootNode?.findNodesById(parentViewId)?.firstOrNull() ?: return listOf()
     val findList = mutableListOf<AccessibilityNodeInfo>()
@@ -1013,7 +1013,7 @@ suspend fun AccessibilityService?.selectChildByScroll(
     lastText: String? = null,
 ): List<String> {
     this ?: return listOf()
-    val rootNode = rootInActiveWindow
+    val rootNode = XpqAcc.rootInActiveWindow()
     val findTexts = mutableListOf<String>()
     val select = if (lastText.isNullOrBlank()) {
         selectChild(parentViewId, childViewId, maxSelectCount, lastText)

@@ -46,6 +46,18 @@ object HumanTouchEngine {
         val steps: Int = 35                  // 采样步数 (决定轨迹平滑度)
     )
 
+    /**
+     * 长按配置：按住时长必须越过系统长按阈值
+     * [android.view.ViewConfiguration.getLongPressTimeout]()（默认 500ms）才会触发长按。
+     * 不能复用 [ClickConfig]——它的时长在 buildClickGesture 里被钳到 ≤200ms。
+     */
+    data class LongClickConfig(
+        val posStdPx: Double = 3.0,          // 落点高斯抖动标准差 (px)
+        val pressMeanMs: Double = 700.0,     // 长按时长期望值 (ms)，须 > 500
+        val pressStdMs: Double = 60.0,       // 长按时长标准差 (ms)
+        val microMoves: IntRange = 0..2,     // 按住期间的微观微移次数（长按不宜多动）
+    )
+
     // =========================================================================
     // 生命与作用域管理
     // =========================================================================
@@ -125,6 +137,44 @@ object HumanTouchEngine {
     }
 
     // =========================================================================
+    // 外部调用入口：长按 (LongClick)
+    // =========================================================================
+
+    /**
+     * 单次长按（带回调）
+     * @return true 表示成功提交手势任务；false 表示服务未绑定或构建失败
+     */
+    @RequiresApi(Build.VERSION_CODES.N)
+    @JvmStatic
+    @JvmOverloads
+    fun longClick(
+        cx: Float,
+        cy: Float,
+        config: LongClickConfig = LongClickConfig(),
+        onDone: ((Boolean) -> Unit)? = null
+    ): Boolean {
+        val randomCx = addRandomDecimal(cx)
+        val randomCy = addRandomDecimal(cy)
+        return dispatchAsync({ buildLongClickGesture(PointF(randomCx, randomCy), config) }, onDone)
+    }
+
+    /**
+     * 单次长按（协程挂起版）
+     * @return true 表示手势派发成功且已完成（onCompleted）；false 表示被取消或派发失败
+     */
+    @RequiresApi(Build.VERSION_CODES.N)
+    suspend fun longClickAsync(
+        cx: Float,
+        cy: Float,
+        config: LongClickConfig = LongClickConfig()
+    ): Boolean {
+        val randomCx = addRandomDecimal(cx)
+        val randomCy = addRandomDecimal(cy)
+        val gesture = buildLongClickGesture(PointF(randomCx, randomCy), config)
+        return performGesture(gesture)
+    }
+
+    // =========================================================================
     // 外部调用入口：滑动/拖拽 (Swipe)
     // =========================================================================
 
@@ -187,6 +237,36 @@ object HumanTouchEngine {
         // 统一显示点击指示器：用高斯偏移 + 微移后的最终落点，保证与实际点击位置一致
         KeyguardUnLock.showClickIndicator(x = finalX.toInt(), y = finalY.toInt())
         val duration = gaussian(config.pressMeanMs, config.pressStdMs).toLong().coerceIn(50L, 200L)
+        return GestureDescription.Builder().addStroke(GestureDescription.StrokeDescription(path, 0L, duration)).build()
+    }
+
+    /**
+     * 构建长按 Path 与 GestureDescription（结构同点击：落点高斯抖动 + 微移 + 指示器）。
+     * 与点击的区别：时长钳制为 550~3000ms——下限越过系统长按阈值 500ms，上限给足长按余量。
+     * 微移幅度仍 ≤1px（远小于 touch slop），不会打断长按判定。
+     */
+    @RequiresApi(Build.VERSION_CODES.N)
+    fun buildLongClickGesture(target: PointF, config: LongClickConfig = LongClickConfig()): GestureDescription {
+        var currX = (target.x + gaussian(0.0, config.posStdPx)).toFloat().coerceAtLeast(1f)
+        var currY = (target.y + gaussian(0.0, config.posStdPx)).toFloat().coerceAtLeast(1f)
+        var finalX = currX
+        var finalY = currY
+        val path = Path().apply {
+            moveTo(currX, currY)
+            repeat(config.microMoves.random()) {
+                if (randomHit()) {
+                    finalX = currX
+                    finalY = currY
+                } else {
+                    finalX = (currX + gaussian(0.0, 0.5)).toFloat().coerceAtLeast(0f)
+                    finalY = (currY + gaussian(0.0, 0.5)).toFloat().coerceAtLeast(0f)
+                }
+                lineTo(finalX, finalY)
+            }
+        }
+        // 统一显示点击指示器：用最终落点，保证与实际按压位置一致
+        KeyguardUnLock.showClickIndicator(x = finalX.toInt(), y = finalY.toInt())
+        val duration = gaussian(config.pressMeanMs, config.pressStdMs).toLong().coerceIn(550L, 3000L)
         return GestureDescription.Builder().addStroke(GestureDescription.StrokeDescription(path, 0L, duration)).build()
     }
 
@@ -332,12 +412,12 @@ object HumanTouchEngine {
     fun randomHit(factor: Int = 36): Boolean = factor >= 100 || Random.nextInt(1, 101) <= factor
 
 
-    /** 拟人高斯随机延迟 (ms) */
+    /** 拟人高斯随机延迟 (ms) 1000 ～ 1800 ms*/
     @JvmStatic
     @JvmOverloads
     fun randomDelayMs(base: Long = 1000, jitter: Long = 800): Long {
         val mean = base + jitter / 2.0
         val std = jitter / 4.0
-        return gaussian(mean, std).toLong().coerceAtLeast(base)
+        return gaussian(mean, std).toLong().coerceIn(base, base + jitter)
     }
 }
