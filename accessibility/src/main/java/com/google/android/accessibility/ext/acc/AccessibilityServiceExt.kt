@@ -12,6 +12,7 @@ import androidx.annotation.RequiresApi
 import com.google.android.accessibility.ext.default
 import com.google.android.accessibility.ext.removeTrailingNumber
 import com.google.android.accessibility.ext.utils.KeyguardUnLock
+import com.google.android.accessibility.ext.utils.gestureUtils.HumanTouchEngine
 import com.google.android.accessibility.selecttospeak.SelectToSpeakServiceAbstract.Companion.copyNodeCompat
 import com.google.android.accessibility.selecttospeak.SelectToSpeakServiceAbstract.Companion.recycleCompat
 import kotlinx.coroutines.delay
@@ -997,7 +998,7 @@ suspend fun AccessibilityService?.selectChild(
                     findTexts.add(text)
                     Log.d("selectChildByScroll", "click: 点击 $text")
                 }
-                delay(50)
+                delay(500+ HumanTouchEngine.randomDelayMs(50,50))
             } else {
                 return@forEach
             }
