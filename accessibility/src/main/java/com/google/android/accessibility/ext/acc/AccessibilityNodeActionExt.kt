@@ -1,5 +1,6 @@
 package com.google.android.accessibility.ext.acc
 
+import android.graphics.Path
 import android.graphics.PointF
 import android.graphics.Rect
 import android.view.accessibility.AccessibilityNodeInfo
@@ -129,13 +130,19 @@ suspend fun AccessibilityNodeInfo.scrollBackward(
     useGesture: Boolean = false,
     gestureDurationMs: Long = 300 + HumanTouchEngine.randomDelayMs(50,50),
 ): Boolean {
+    val bounds = Rect().also(this::getBoundsInScreen)
+    if (bounds.isEmpty) return false
+    val cx = bounds.centerX().toFloat()
+    // 手指由上往下滑 = 内容向上（向后）滚动；起止点各留 30% 边距避免滑出节点边界
+    val startY = bounds.top + bounds.height() * 0.3f
+    val endY = bounds.bottom - bounds.height() * 0.3f
+    //构造轨迹路径
+    val path = Path().apply {
+        moveTo(cx, startY)
+        lineTo(cx,endY)
+    }
+    KeyguardUnLock.showGestureIndicator(path = path)
     if (useGesture) {
-        val bounds = Rect().also(this::getBoundsInScreen)
-        if (bounds.isEmpty) return false
-        val cx = bounds.centerX().toFloat()
-        // 手指由上往下滑 = 内容向上（向后）滚动；起止点各留 20% 边距避免滑出节点边界
-        val startY = bounds.top + bounds.height() * 0.2f
-        val endY = bounds.bottom - bounds.height() * 0.2f
         return HumanTouchEngine.swipeAsync(
             PointF(cx, startY),
             PointF(cx, endY),
@@ -157,13 +164,19 @@ suspend fun AccessibilityNodeInfo.scrollForward(
     useGesture: Boolean = false,
     gestureDurationMs: Long = 300 + HumanTouchEngine.randomDelayMs(50,50),
 ): Boolean {
+    val bounds = Rect().also(this::getBoundsInScreen)
+    if (bounds.isEmpty) return false
+    val cx = bounds.centerX().toFloat()
+    // 手指由下往上滑 = 内容向下（向前）滚动；起止点各留 30% 边距避免滑出节点边界
+    val startY = bounds.bottom - bounds.height() * 0.3f
+    val endY = bounds.top + bounds.height() * 0.3f
+    //构造轨迹路径
+    val path = Path().apply {
+        moveTo(cx, startY)
+        lineTo(cx,endY)
+    }
+    KeyguardUnLock.showGestureIndicator(path = path)
     if (useGesture) {
-        val bounds = Rect().also(this::getBoundsInScreen)
-        if (bounds.isEmpty) return false
-        val cx = bounds.centerX().toFloat()
-        // 手指由下往上滑 = 内容向下（向前）滚动；起止点各留 20% 边距避免滑出节点边界
-        val startY = bounds.bottom - bounds.height() * 0.3f
-        val endY = bounds.top + bounds.height() * 0.3f
         // 复用拟人化引擎：贝塞尔弧线 + 变速 + 噪点，经 XpqAcc.dispatchGesture 双通道派发
         return HumanTouchEngine.swipeAsync(
             PointF(cx, startY),

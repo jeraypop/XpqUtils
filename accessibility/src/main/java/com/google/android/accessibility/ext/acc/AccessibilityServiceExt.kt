@@ -1027,6 +1027,7 @@ suspend fun AccessibilityService?.selectChildByScroll(
     val rootNode = XpqAcc.rootInActiveWindow()
     val findTexts = mutableListOf<String>()
     val select = if (lastText.isNullOrBlank()) {
+        delay(1000)
         selectChild(parentViewId, childViewId, maxSelectCount, lastText,gesture)
     } else {
         scrollToFindByText(parentViewId, lastText,gesture)
