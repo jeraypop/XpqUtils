@@ -984,6 +984,7 @@ suspend fun AccessibilityService?.selectChild(
     childViewId: String,
     maxSelectCount: Int = Int.MAX_VALUE,
     lastText: String? = null,
+    gesture: Boolean = false
 ): List<String> {
     this ?: return listOf()
     val findTexts = mutableListOf<String>()
@@ -993,12 +994,17 @@ suspend fun AccessibilityService?.selectChild(
         val text = it.text.default()
         if (!findTexts.contains(text)) {
             if (findTexts.size < maxSelectCount) {
-                val clicked = it.click()
+                val clicked = it.click(gesture)
                 if (clicked) {
                     findTexts.add(text)
                     Log.d("selectChildByScroll", "click: 点击 $text")
                 }
-                delay(500+ HumanTouchEngine.randomDelayMs(50,50))
+                //if (gesture){
+                    delay(500+ HumanTouchEngine.randomDelayMs(50,50))
+                //}else{
+                //    delay(200+ HumanTouchEngine.randomDelayMs(50,50))
+                //}
+
             } else {
                 return@forEach
             }
@@ -1012,15 +1018,16 @@ suspend fun AccessibilityService?.selectChildByScroll(
     childViewId: String,
     maxSelectCount: Int = Int.MAX_VALUE,
     lastText: String? = null,
+    gesture: Boolean = false
 ): List<String> {
     this ?: return listOf()
     val rootNode = XpqAcc.rootInActiveWindow()
     val findTexts = mutableListOf<String>()
     val select = if (lastText.isNullOrBlank()) {
-        selectChild(parentViewId, childViewId, maxSelectCount, lastText)
+        selectChild(parentViewId, childViewId, maxSelectCount, lastText,gesture)
     } else {
         scrollToFindByText(parentViewId, lastText)
-        selectChild(parentViewId, childViewId, maxSelectCount, lastText)
+        selectChild(parentViewId, childViewId, maxSelectCount, lastText,gesture)
     }
     findTexts.addAll(select)
     if (findTexts.size == maxSelectCount) return findTexts
@@ -1032,12 +1039,12 @@ suspend fun AccessibilityService?.selectChildByScroll(
         parentNode.scrollForward()
         Log.d("selectChildByScroll", "滚动了一屏")
         delay(timeL)
-        var findNextNodes = findNextNodeSelect(parentViewId, childViewId, maxSelectCount, findTexts, lastText)
+        var findNextNodes = findNextNodeSelect(parentViewId, childViewId, maxSelectCount, findTexts, lastText,gesture)
 
         for (i in 1..attempts) {
             if (findNextNodes.isEmpty()) {
                 delay(timeL)
-                findNextNodes = findNextNodeSelect(parentViewId, childViewId, maxSelectCount, findTexts, lastText)
+                findNextNodes = findNextNodeSelect(parentViewId, childViewId, maxSelectCount, findTexts, lastText,gesture)
             } else {
                 break // 如果findNextNodes不为空，则跳出循环
             }
@@ -1056,12 +1063,14 @@ private suspend fun AccessibilityService.findNextNodeSelect(
     childViewId: String,
     maxSelectCount: Int,
     findTexts: MutableList<String>,
-    lastText: String?
+    lastText: String?,
+    gesture: Boolean = false
 ) = selectChild(
     parentViewId,
     childViewId,
     maxSelectCount - findTexts.size,
-    findTexts.lastOrNull() ?: lastText
+    findTexts.lastOrNull() ?: lastText,
+    gesture
 )
 
 
