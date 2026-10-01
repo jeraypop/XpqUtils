@@ -680,7 +680,8 @@ fun AccessibilityService?.clickByIdAndTextFilter(
 
 suspend fun AccessibilityService?.scrollToClickByText(
     scrollViewId: String,
-    text: String
+    text: String,
+    gesture: Boolean = false
 ): Boolean {
     this ?: return false
 
@@ -702,7 +703,7 @@ suspend fun AccessibilityService?.scrollToClickByText(
         ?.findNodesById(scrollViewId)
         ?.firstOrNull()
 
-    val scrolled = scrollRaw?.scrollForward() ?: false
+    val scrolled = scrollRaw?.scrollForward(gesture) ?: false
     recycleCompat(scrollRaw)
 
     if (!scrolled) return false
@@ -868,14 +869,15 @@ private fun AccessibilityService?.getNextNodeByCurrentText(
 
 suspend fun AccessibilityService?.scrollToFindByText(
     scrollViewId: String,
-    text: String
+    text: String,
+    gesture: Boolean = false
 ): AccessibilityNodeInfo? {
     this ?: return null
     val find = XpqAcc.rootInActiveWindow()?.findNodeByText(text)
     return if (find == null) {
-        XpqAcc.rootInActiveWindow()?.findNodeById(scrollViewId)?.scrollForward()
+        XpqAcc.rootInActiveWindow()?.findNodeById(scrollViewId)?.scrollForward(gesture)
         delay(200)
-        scrollToFindByText(scrollViewId, text)
+        scrollToFindByText(scrollViewId, text,gesture)
     } else {
         val result = copyNodeCompat(find)
         recycleCompat(find)
@@ -897,6 +899,7 @@ fun AccessibilityService?.printNodeInfo(simplePrint: Boolean = true): String {
 suspend fun AccessibilityService?.findAllChildByScroll(
     parentViewId: String,
     childViewId: String,
+    gesture: Boolean = false
 ): List<AccessibilityNodeInfo> {
     this ?: return listOf()
     val rootNode = XpqAcc.rootInActiveWindow()
@@ -911,9 +914,9 @@ suspend fun AccessibilityService?.findAllChildByScroll(
     val timeL = 600L
     val attempts = 4
     while (parentNode.isScrollable && !isStop) {
-        parentNode.scrollForward()
+        parentNode.scrollForward(gesture)
 
-        delay(timeL)//时间太短的话有时候会获取不到节点信息
+        delay(timeL + HumanTouchEngine.randomDelayMs(50,50))//时间太短的话有时候会获取不到节点信息
         //==================
         //==================
 
@@ -921,7 +924,7 @@ suspend fun AccessibilityService?.findAllChildByScroll(
 
         for (i in 1..attempts) {
             if (findNextNodes.isEmpty()) {
-                delay(timeL) // 时间太短的话有时候会获取不到节点信息 如果findNextNodes为空，则延迟timeL毫秒
+                delay(timeL + HumanTouchEngine.randomDelayMs(50,50)) // 时间太短的话有时候会获取不到节点信息 如果findNextNodes为空，则延迟timeL毫秒
                 findNextNodes = findNextNodeInfos(parentViewId, childViewId, list)
             } else {
                 break // 如果findNextNodes非空，则退出循环
@@ -999,11 +1002,11 @@ suspend fun AccessibilityService?.selectChild(
                     findTexts.add(text)
                     Log.d("selectChildByScroll", "click: 点击 $text")
                 }
-                //if (gesture){
+                if (gesture){
                     delay(500+ HumanTouchEngine.randomDelayMs(50,50))
-                //}else{
-                //    delay(200+ HumanTouchEngine.randomDelayMs(50,50))
-                //}
+                }else{
+                    delay(160+ HumanTouchEngine.randomDelayMs(50,50))
+                }
 
             } else {
                 return@forEach
@@ -1026,7 +1029,7 @@ suspend fun AccessibilityService?.selectChildByScroll(
     val select = if (lastText.isNullOrBlank()) {
         selectChild(parentViewId, childViewId, maxSelectCount, lastText,gesture)
     } else {
-        scrollToFindByText(parentViewId, lastText)
+        scrollToFindByText(parentViewId, lastText,gesture)
         selectChild(parentViewId, childViewId, maxSelectCount, lastText,gesture)
     }
     findTexts.addAll(select)
@@ -1036,7 +1039,7 @@ suspend fun AccessibilityService?.selectChildByScroll(
     val timeL = 1000L
     val attempts = 5
     while (parentNode.isScrollable && findTexts.size < maxSelectCount && !isEnd) {
-        parentNode.scrollForward()
+        parentNode.scrollForward(gesture)
         Log.d("selectChildByScroll", "滚动了一屏")
         delay(timeL)
         var findNextNodes = findNextNodeSelect(parentViewId, childViewId, maxSelectCount, findTexts, lastText,gesture)

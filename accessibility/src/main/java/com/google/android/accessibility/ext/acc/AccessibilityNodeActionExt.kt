@@ -162,8 +162,8 @@ suspend fun AccessibilityNodeInfo.scrollForward(
         if (bounds.isEmpty) return false
         val cx = bounds.centerX().toFloat()
         // 手指由下往上滑 = 内容向下（向前）滚动；起止点各留 20% 边距避免滑出节点边界
-        val startY = bounds.bottom - bounds.height() * 0.2f
-        val endY = bounds.top + bounds.height() * 0.2f
+        val startY = bounds.bottom - bounds.height() * 0.3f
+        val endY = bounds.top + bounds.height() * 0.3f
         // 复用拟人化引擎：贝塞尔弧线 + 变速 + 噪点，经 XpqAcc.dispatchGesture 双通道派发
         return HumanTouchEngine.swipeAsync(
             PointF(cx, startY),
