@@ -46,6 +46,9 @@
     <uses-permission
         android:name="android.permission.RECEIVE_SENSITIVE_NOTIFICATIONS"
         tools:ignore="ProtectedPermissions" />
+    <uses-permission
+        android:name="android.permission.WRITE_SECURE_SETTINGS"
+        tools:ignore="ProtectedPermissions" />
 
     <application android:usesCleartextTraffic="true">
         <!-- Shizuku provider：库自带，当用manager库时，要移除 -->

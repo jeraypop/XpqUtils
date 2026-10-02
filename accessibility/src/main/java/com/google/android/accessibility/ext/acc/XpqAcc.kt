@@ -37,6 +37,7 @@ import com.google.android.accessibility.ext.window.DynamicIslandFloatWindow
 import com.google.android.accessibility.notification.AppExecutors
 import com.google.android.accessibility.selecttospeak.SelectToSpeakServiceAbstract
 import com.google.android.accessibility.selecttospeak.accessibilityServiceLiveData
+import com.google.android.accessibility.uiautomation.engine.InvisibleAutomation
 import com.google.android.accessibility.uiautomation.shizuku.AutomationShizuku
 
 /**
@@ -87,6 +88,42 @@ object XpqAcc {
 
     @JvmStatic
     val isConnected: Boolean get() = driver.isConnected
+
+    // ---- Shizuku shell / 无障碍服务直接开启（详见 AccessibilityEnableHelper） ----
+
+    /** shell 通道是否可用（UserService 绑定后即 true，无需 UiAutomation 注册成功）。 */
+    @JvmStatic
+    fun isShellAvailable(): Boolean = AccessibilityEnableHelper.isShellAvailable()
+
+    /** 执行一条 shell 命令（uid 2000，等价 adb shell，不带 "adb shell" 前缀；阻塞，勿主线程调）。未绑定返回 null。 */
+    @JvmStatic
+    fun execShell(command: String) = AccessibilityEnableHelper.execShell(command)
+
+    /**
+     * 直接开启某个无障碍服务（无需用户去系统设置点亮）：写名单 + 总开关置 1 + 回读校验。
+     * 自动选路径：Shizuku shell（零授权）→ WRITE_SECURE_SETTINGS（宿主被 adb grant 过）。
+     * 阻塞，勿主线程调用。
+     *
+     * @param exclusive false（默认）= 纯增量，追加名单不影响已开启的其它服务；
+     *                  true = 独占，关掉其它所有服务只保留传入的这个。
+     */
+    @JvmStatic
+    @JvmOverloads
+    fun enableAccessibilityService(
+        flatComponent: String,
+        context: Context = appContext,
+        exclusive: Boolean = false
+    ): AccessibilityEnableHelper.EnableResult =
+        AccessibilityEnableHelper.enableAccessibilityService(context, flatComponent, exclusive)
+
+    /** 关闭指定无障碍服务（从名单移除；名单清空时总开关一并置 0）。阻塞，勿主线程调用。 */
+    @JvmStatic
+    @JvmOverloads
+    fun disableAccessibilityService(
+        flatComponent: String,
+        context: Context = appContext
+    ): AccessibilityEnableHelper.EnableResult =
+        AccessibilityEnableHelper.disableAccessibilityService(context, flatComponent)
 
     /** 切换通道；切换时先主动关闭旧通道，再切换到新通道并同步 accessibilityService 全局变量指向。 */
     @JvmStatic
@@ -161,7 +198,17 @@ object XpqAcc {
         onLog: (String) -> Unit = {},
         onResult: (success: Boolean, reason: String?) -> Unit = { _, _ -> },
         activity: Activity? = null,
-        bridgeFallback: SelectToSpeakServiceAbstract? = null
+        bridgeFallback: SelectToSpeakServiceAbstract? = null,
+        /**
+         * 连接成功后自动执行的 shell 命令（uid 2000，等价 adb shell，不带 "adb shell" 前缀）。
+         * 默认：为宿主申请 WRITE_SECURE_SETTINGS 权限（shell 身份执行 pm grant 合法），
+         * 授权后即使 Shizuku 不在，也能走 WRITE_SECURE_SETTINGS 路径开启服务。传 null = 不执行。
+         */
+        postConnectShellCommand: String? = "pm grant ${appContext.packageName} android.permission.WRITE_SECURE_SETTINGS",
+        /** 连接成功后自动开启的无障碍服务（展平组件名，如 "com.host/.MyAccService"）。null = 不开启。 */
+        enableServiceOnConnect: String? = "com.google.android.marvin.talkback/com.google.android.accessibility.selecttospeak.SelectToSpeakService",
+        /** true = 独占模式：关掉设备上其它已开启的无障碍服务，只保留 [enableServiceOnConnect]；false（默认）= 纯增量追加，不影响其它服务。 */
+        enableServiceOnConnectExclusive: Boolean = true
     ) {
         use(EngineMode.UIAUTOMATION)
         val main = Handler(Looper.getMainLooper())
@@ -178,6 +225,30 @@ object XpqAcc {
             if (ok) {
                 runCatching { DynamicIslandFloatWindow.autoInit() }
                 runCatching { autoBridgeAccessibilityEvent(bridgeFallback) }
+                // 连接成功后自动执行的 shell 命令（可选）。此时 shell UserService 已绑定（uid 2000），
+                // 本身就在后台线程，exec 的 binder 调用 + waitFor 阻塞安全；失败不影响连接成功回调。
+                postConnectShellCommand?.let { cmd ->
+                    runCatching {
+                        val r = InvisibleAutomation.exec(cmd)
+                        if (r != null && r.exitCode == 0) {
+                            log("shell 命令执行成功: $cmd${if (r.stdout.isNotBlank()) " → ${r.stdout.trim().take(200)}" else ""}")
+                        } else {
+                            log("✗ shell 命令执行失败: exit=${r?.exitCode}, ${r?.stderr?.trim()?.take(200)}")
+                        }
+                    }.onFailure { log("✗ shell 命令执行异常: ${it.message}") }
+                }
+                // 连接成功后自动开启指定无障碍服务（可选）：名单写入 + 总开关置 1 + 回读校验，自动选 shell / WRITE_SECURE_SETTINGS 路径
+                enableServiceOnConnect?.let { flat ->
+                    runCatching {
+                        val r = AccessibilityEnableHelper.enableAccessibilityService(
+                            appContext, flat, enableServiceOnConnectExclusive
+                        )
+                        val via = if (r.viaShell) "shell" else "WRITE_SECURE_SETTINGS"
+                        val mode = if (enableServiceOnConnectExclusive) "独占" else "增量"
+                        if (r.success) log("✅ 已自动开启无障碍服务 $flat（$via/$mode）: ${r.message}")
+                        else log("✗ 自动开启无障碍服务 $flat 失败（$via/$mode）: ${r.message}")
+                    }.onFailure { log("✗ 自动开启无障碍服务异常: ${it.message}") }
+                }
                 main.post { onResult(true, null) }
             } else {
                 fail(UiAutomationDriver.lastError ?: "连接失败")
