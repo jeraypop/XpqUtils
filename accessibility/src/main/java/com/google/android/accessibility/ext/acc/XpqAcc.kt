@@ -412,7 +412,7 @@ object XpqAcc {
     ) {
         // 清单未声明无障碍服务（tools:node="remove" 或未注册）时，选项仍保留，但切换到无障碍模式会提示不支持
         val hasAccessibility = findAccessibilityServiceSubclass() != null
-        val items = arrayOf("无障碍模式", "Shizuku 模式")
+        val items = arrayOf("无障碍模式", "Shizuku 模式(推荐)")
         val current = loadEngineMode().ordinal
 
         // 选项下标 -> 实际引擎模式
@@ -432,9 +432,9 @@ object XpqAcc {
             AutomationShizuku.isManagerMergedIntoHost() ->
                 "Shizuku 模式(推荐用该模式)\n\n" +
                         "1.本软件已内置 Shizuku 管理器，无需额外下载\n" +
-                        "打开 Shizuku 服务☞☞：https://ettings.开启Shizuku服务\n\n" +
+                        "打开 Shizuku 服务☞☞：https://settings.开启Shizuku服务\n\n" +
                         "shizuku 使用教程☞☞：https://mp.weixin.qq.com/s/qG3znEmRgtOkfmktM2mxrA\n\n" +
-                        "2.需开启设备自带的☞☞： https://settings随选朗读" +
+                        "2.关闭其它所有的无障碍服务，只保留开启设备自带的☞☞： https://settings随选朗读" +
                         "\n\n为什么引入该模式：" +
                         "\n由于部分应用会检测设备上启用的第三方无障碍服务，并可能出现安全提示。" +
                         "\n所以，现在采用无障碍模式的应用在wx上已经不推荐再用了，用了被检测到是早几天晚几天的事" +
@@ -446,7 +446,7 @@ object XpqAcc {
                         "备用原版下载地址☞☞：https://apt.izzysoft.de/fdroid/index/apk/moe.shizuku.privileged.api\n" +
                         "最新修改版下载地址（推荐下载这个）☞☞：https://github.com/thedjchi/Shizuku/releases\n" +
                         "shizuku 使用教程☞☞：https://mp.weixin.qq.com/s/qG3znEmRgtOkfmktM2mxrA\n\n" +
-                        "2.需开启设备自带的☞☞： https://settings随选朗读" +
+                        "2.关闭其它所有的无障碍服务，只保留开启设备自带的☞☞： https://settings随选朗读" +
                         "\n\n为什么引入该模式：" +
                         "\n由于部分应用会检测设备上启用的第三方无障碍服务，并可能出现安全提示。" +
                         "\n所以，现在采用无障碍模式的应用在wx上已经不推荐再用了，用了被检测到是早几天晚几天的事" +
@@ -513,7 +513,7 @@ object XpqAcc {
                         }
                     }, start, end, Spanned.SPAN_EXCLUSIVE_EXCLUSIVE)
                 }
-                val managerTarget = "https://ettings.开启Shizuku服务"
+                val managerTarget = "https://settings.开启Shizuku服务"
                 val mStart = text.indexOf(managerTarget)
                 if (mStart >= 0) {
                     val end = mStart + managerTarget.length
@@ -624,7 +624,7 @@ object XpqAcc {
     fun showSXLDDialog(activity: Activity) {
         val msg = "随着ai的爆发，几乎人人都能写软件了，故wx加强了对自动化软件的检测，它能获取到设备上已开启自动化(主要是无障碍)的所有软件" +
                 "但总不能一刀切的都不让其工作吧，于是分为了黑名单和白名单，其中 系统自带的 随选朗读 就在白名单中，" +
-                "简单说，在wx中，黑名单中的软件无法正常工作，只有白名单中的软件才能正常工作，所以我们要开启系统自带的 随选朗读"
+                "简单说，在wx中，黑名单中的软件无法正常工作，只有白名单中的软件才能正常工作，所以我们要开启系统自带的 随选朗读 并且 关闭其它所有的无障碍服务"
         AlertDialog.Builder(activity)
             .setTitle("为何需要 随选朗读")
             .setMessage(msg)
