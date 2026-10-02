@@ -1002,8 +1002,8 @@ suspend fun AccessibilityService?.selectChild(
 
         val itemBounds = Rect()
         it.getBoundsInScreen(itemBounds)
-        // 距离列表底部 50px 以内，不点击
-        if (itemBounds.bottom > parentBounds.bottom - 50) {
+        // 距离列表底部 100px 以内，不点击
+        if (itemBounds.bottom > parentBounds.bottom - 100) {
             Log.d(
                 "selectChildByScroll",
                 "跳过靠近底部的条目: $text"
@@ -1043,7 +1043,7 @@ suspend fun AccessibilityService?.selectChildByScroll(
     val findTexts = mutableListOf<String>()
     val select = if (lastText.isNullOrBlank()) {
         delay(1000 + HumanTouchEngine.randomDelayMs(50,50))
-        selectChild(parentViewId, childViewId, maxSelectCount, lastText,gesture)
+        selectChild(parentViewId, childViewId, maxSelectCount, lastText,false)
     } else {
         scrollToFindByText(parentViewId, lastText,gesture)
         delay(1000 + HumanTouchEngine.randomDelayMs(50,50))
