@@ -37,19 +37,28 @@ interface AccDriver {
      * 文本输入原子能力：把 [text] 写入 [node] 命中的输入框。
      * 无障碍通道 = FOCUS + ACTION_SET_TEXT；UiAutomation 通道 = 点击聚焦后走 shell 输入/粘贴。
      * 与 [dispatchGesture] 一样由 [XpqAcc] 门面按当前通道分流。
+     *
+     * @param clearFirst true = 输入前先清空原内容（两通道语义对齐）：
+     *                   无障碍通道走节点级 SET_TEXT ""；UiAutomation 通道走 shell 全选+DEL。
      */
-    fun inputText(node: AccessibilityNodeInfo?, text: String): Boolean
+    fun inputText(node: AccessibilityNodeInfo?, text: String, clearFirst: Boolean = true): Boolean
 
     /**
-     * 粘贴式输入：无障碍通道 = 清空后 FOCUS + PASTE（或按 scheme 走 SET_TEXT）；
-     * UiAutomation 通道 = 点击聚焦后走剪贴板粘贴。
+     * 粘贴式输入：无障碍通道 = 清空后 FOCUS + PASTE（或按 scheme 走 SET_TEXT，本来就先清空）；
+     * UiAutomation 通道 = 点击聚焦后走剪贴板粘贴（[clearFirst]=true 时粘贴前先 shell 清空）。
      */
-    fun inputTextPaste(node: AccessibilityNodeInfo?, byClipboard: Boolean, text: String): Boolean
+    fun inputTextPaste(
+        node: AccessibilityNodeInfo?,
+        byClipboard: Boolean,
+        text: String,
+        clearFirst: Boolean = true
+    ): Boolean
 
     /**
      * 延迟输入：无障碍通道 = sleep 后 SET_TEXT；UiAutomation 通道 = 点击聚焦后走 shell 注入。
+     * [clearFirst] 语义同 [inputText]。
      */
-    fun inputTextNew(node: AccessibilityNodeInfo?, text: String): Boolean
+    fun inputTextNew(node: AccessibilityNodeInfo?, text: String, clearFirst: Boolean = true): Boolean
 
     /**
      * 事件桥接：UiAutomation 通道把无障碍事件转发到宿主回调；

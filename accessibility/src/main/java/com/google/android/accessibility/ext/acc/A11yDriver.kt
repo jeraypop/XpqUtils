@@ -50,8 +50,9 @@ object A11yDriver : AccDriver {
         handler: Handler?
     ): Boolean = svc()?.dispatchGesture(gesture, callback, handler) ?: false
 
-    override fun inputText(node: AccessibilityNodeInfo?, text: String): Boolean {
+    override fun inputText(node: AccessibilityNodeInfo?, text: String, clearFirst: Boolean): Boolean {
         if (node == null) return false
+        if (clearFirst) clearNode(node)
         if (KeepAliveInputMethod.imeIsActive != null){
             imeInput(node,text)
             return true
@@ -63,8 +64,14 @@ object A11yDriver : AccDriver {
         return node.performAction(AccessibilityNodeInfo.ACTION_SET_TEXT, args)
     }
 
-    override fun inputTextPaste(node: AccessibilityNodeInfo?, byClipboard: Boolean, text: String): Boolean {
+    override fun inputTextPaste(
+        node: AccessibilityNodeInfo?,
+        byClipboard: Boolean,
+        text: String,
+        clearFirst: Boolean
+    ): Boolean {
         if (node == null) return false
+        // 本通道粘贴语义固定"先清空再粘贴"，clearFirst 参数为 no-op（恒清空）
         if (KeepAliveInputMethod.imeIsActive != null){
             imeInput(node,text)
             return true
@@ -89,9 +96,10 @@ object A11yDriver : AccDriver {
         }
     }
 
-    override fun inputTextNew(node: AccessibilityNodeInfo?, text: String): Boolean {
+    override fun inputTextNew(node: AccessibilityNodeInfo?, text: String, clearFirst: Boolean): Boolean {
         if (node == null) return false
         SystemClock.sleep(250 + Random.nextLong(200)) // 250~450ms 随机
+        if (clearFirst) clearNode(node)
         if (KeepAliveInputMethod.imeIsActive != null){
             imeInput(node,text)
             return true
@@ -102,6 +110,14 @@ object A11yDriver : AccDriver {
             putCharSequence(AccessibilityNodeInfo.ACTION_ARGUMENT_SET_TEXT_CHARSEQUENCE, text)
         }
         return node.performAction(AccessibilityNodeInfo.ACTION_SET_TEXT, arguments)
+    }
+
+    /** 节点级清空：SET_TEXT 置空串（无障碍通道自身就是节点操作链路，无额外暴露）。 */
+    private fun clearNode(node: AccessibilityNodeInfo): Boolean {
+        val args = Bundle().apply {
+            putCharSequence(AccessibilityNodeInfo.ACTION_ARGUMENT_SET_TEXT_CHARSEQUENCE, "")
+        }
+        return node.performAction(AccessibilityNodeInfo.ACTION_SET_TEXT, args)
     }
 
     override fun setOnAccessibilityEventListener(listener: ((AccessibilityEvent) -> Unit)?) {

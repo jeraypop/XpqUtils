@@ -321,15 +321,30 @@ object XpqAcc {
         handler: Handler?
     ): Boolean = driver.dispatchGesture(gesture, callback, handler)
 
+    /**
+     * 输入文本。[clearFirst]=true 时输入前先清空原内容（两通道语义对齐：
+     * 无障碍走节点级 SET_TEXT ""，UiAutomation 走 shell 全选+DEL）。
+     */
     @JvmStatic
-    fun inputText(node: AccessibilityNodeInfo?, text: String): Boolean = driver.inputText(node, text)
+    @JvmOverloads
+    fun inputText(node: AccessibilityNodeInfo?, text: String, clearFirst: Boolean = true): Boolean =
+        driver.inputText(node, text, clearFirst)
 
     @JvmStatic
-    fun inputTextPaste(node: AccessibilityNodeInfo?, byClipboard: Boolean, text: String): Boolean =
-        driver.inputTextPaste(node, byClipboard, text)
+    @JvmOverloads
+    fun inputTextPaste(
+        node: AccessibilityNodeInfo?,
+        byClipboard: Boolean,
+        text: String,
+        clearFirst: Boolean = true
+    ): Boolean =
+        driver.inputTextPaste(node, byClipboard, text, clearFirst)
 
+    /** 延迟输入，[clearFirst] 语义同 [inputText]。 */
     @JvmStatic
-    fun inputTextNew(node: AccessibilityNodeInfo?, text: String): Boolean = driver.inputTextNew(node, text)
+    @JvmOverloads
+    fun inputTextNew(node: AccessibilityNodeInfo?, text: String, clearFirst: Boolean = true): Boolean =
+        driver.inputTextNew(node, text, clearFirst)
 
     /**
      * 切换坐标点击（tap）的注入方式：

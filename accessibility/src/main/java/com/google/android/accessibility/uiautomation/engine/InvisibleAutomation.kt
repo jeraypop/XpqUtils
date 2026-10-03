@@ -611,6 +611,28 @@ object InvisibleAutomation {
         return ok
     }
 
+    /**
+     * 清空当前聚焦输入框的内容（纯 shell 键盘事件，与注入链路同源，无节点级自动化痕迹）。
+     * Android 11+：`keycombination 113 29`（CTRL_LEFT+A 全选）→ DEL；
+     * 更低版本：`keyevent 123`（MOVE_END 光标移到末尾）→ 循环 DEL。
+     * 需先由调用方点击聚焦输入框。mSvc 未绑定返回 false。
+     */
+    fun clearFocusedText(): Boolean {
+        if (mSvc == null) return false
+        return if (android.os.Build.VERSION.SDK_INT >= 30) {
+            val sel = exec("input keycombination 113 29")
+            val del = exec("input keyevent 67")
+            val ok = sel?.exitCode == 0 && del?.exitCode == 0
+            diag("[clear] keycombination 113 29 + keyevent 67 → ${if (ok) "ok" else "exit=${sel?.exitCode}/${del?.exitCode}"}")
+            ok
+        } else {
+            exec("input keyevent 123")
+            // 循环删除（上限 120 次，覆盖常规输入框最大长度），每次都是正常键盘事件
+            repeat(120) { exec("input keyevent 67") }
+            true
+        }
+    }
+
     private fun dfsCollect(
         node: AccessibilityNodeInfo?,
         predicate: (AccessibilityNodeInfo) -> Boolean,

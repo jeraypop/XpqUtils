@@ -82,18 +82,28 @@ object UiAutomationDriver : AccDriver {
         return ok
     }
 
-    override fun inputText(node: AccessibilityNodeInfo?, text: String): Boolean =
-        inputTextAsync(node, text, null)
+    override fun inputText(node: AccessibilityNodeInfo?, text: String, clearFirst: Boolean): Boolean =
+        inputTextAsync(node, text, null, clearFirst)
 
-    override fun inputTextPaste(node: AccessibilityNodeInfo?, byClipboard: Boolean, text: String): Boolean =
+    override fun inputTextPaste(
+        node: AccessibilityNodeInfo?,
+        byClipboard: Boolean,
+        text: String,
+        clearFirst: Boolean
+    ): Boolean =
         // 粘贴语义固定走剪贴板方案；byClipboard 为无障碍通道的历史遗留参数，此处忽略
-        inputTextAsync(node, text, InputTextStrategy.CLIPBOARD_PASTE)
+        inputTextAsync(node, text, InputTextStrategy.CLIPBOARD_PASTE, clearFirst)
 
-    override fun inputTextNew(node: AccessibilityNodeInfo?, text: String): Boolean =
-        inputTextAsync(node, text, null)
+    override fun inputTextNew(node: AccessibilityNodeInfo?, text: String, clearFirst: Boolean): Boolean =
+        inputTextAsync(node, text, null, clearFirst)
 
-    /** 三个输入入口共用的异步实现：点击聚焦 → 延迟 → 按策略注入。[strategy] 为 null 时走 [inputTextStrategy]。 */
-    private fun inputTextAsync(node: AccessibilityNodeInfo?, text: String, strategy: InputTextStrategy?): Boolean {
+    /** 三个输入入口共用的异步实现：点击聚焦 → 延迟 → [clearFirst] 清空 → 按策略注入。[strategy] 为 null 时走 [inputTextStrategy]。 */
+    private fun inputTextAsync(
+        node: AccessibilityNodeInfo?,
+        text: String,
+        strategy: InputTextStrategy?,
+        clearFirst: Boolean = true
+    ): Boolean {
         if (node == null) {
             Log.e("调用栈", "inputText: node 为空")
             return false
@@ -119,6 +129,15 @@ object UiAutomationDriver : AccDriver {
             }
             // 等待 IME 焦点到位（点击后输入法弹出需要时间）
             delay(300L+Random.nextLong(200))
+
+            // 1️⃣.5 可选：先清空原内容（shell 全选+DEL，与注入链路同源，不产生节点级自动化痕迹）
+            if (clearFirst) {
+                if (!InvisibleAutomation.clearFocusedText()) {
+                    Log.e("调用栈", "inputText: 清空失败（shell 不可用）")
+                    return@launch
+                }
+                delay(100L + Random.nextLong(100))  // 清空后留出 IME 状态刷新时间
+            }
 
             // 2️⃣ 按策略注入文本
             when (effective) {
