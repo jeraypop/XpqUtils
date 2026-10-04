@@ -688,6 +688,13 @@ object XpqAcc {
                 if (index == 0) View.GONE else View.GONE //暂时都不显示
         }
         dialog.setOnShowListener {
+            // 部分 ROM（MIUI/EMUI 等）定制主题下按钮文字为浅色，浅底上看不见，显式锁深色
+            val btnColor = 0xFF212121.toInt()
+            runCatching {
+                dialog.getButton(AlertDialog.BUTTON_POSITIVE)?.setTextColor(btnColor)
+                dialog.getButton(AlertDialog.BUTTON_NEGATIVE)?.setTextColor(btnColor)
+                dialog.getButton(AlertDialog.BUTTON_NEUTRAL)?.setTextColor(btnColor)
+            }
             updateNeutralVisibility(current)
             dialog.listView?.setOnItemClickListener { _, _, position, _ ->
                 selected = position
@@ -723,6 +730,12 @@ object XpqAcc {
             }
         }
         dialog.show()
+        // 部分 ROM（MIUI/EMUI 等）定制主题下按钮文字为浅色，浅底上看不见，显式锁深色
+        val btnColor = 0xFF212121.toInt()
+        runCatching {
+            dialog.getButton(AlertDialog.BUTTON_POSITIVE)?.setTextColor(btnColor)
+            dialog.getButton(AlertDialog.BUTTON_NEGATIVE)?.setTextColor(btnColor)
+        }
     }
     @JvmStatic
     fun showSXLDDialog(activity: Activity) {
@@ -746,6 +759,12 @@ object XpqAcc {
             }
         }
         dialog.show()
+        // 部分 ROM（MIUI/EMUI 等）定制主题下按钮文字为浅色，浅底上看不见，显式锁深色
+        val btnColor = 0xFF212121.toInt()
+        runCatching {
+            dialog.getButton(AlertDialog.BUTTON_POSITIVE)?.setTextColor(btnColor)
+            dialog.getButton(AlertDialog.BUTTON_NEGATIVE)?.setTextColor(btnColor)
+        }
     }
     @JvmStatic
     @JvmOverloads

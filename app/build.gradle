@@ -35,6 +35,8 @@ android {
     configurations.all {
         //禁用动态版本（如 latest.release）的缓存，每次都会检查最新版本。
         resolutionStrategy.cacheDynamicVersionsFor 0, 'seconds'
+        //排除shizuku管理器，避免和官方api冲突
+        exclude group: "com.github.jeraypop.Shizuku"
     }
 
     signingConfigs {
@@ -131,6 +133,9 @@ android {
 dependencies {
 
     implementation(project(":accessibility"))
+    implementation(libs.dev.rikka.shizuku.api)
+    implementation(libs.dev.rikka.shizuku.provider)
+    
 //    implementation(libs.xpq.utils) {
         //排除掉特定依赖
            // exclude group: 'com.github.jeraypop', module: 'EasyFloat'
