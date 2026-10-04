@@ -543,6 +543,9 @@ object XpqAcc {
         val density = activity.resources.displayMetrics.density
         val titleView = TextView(activity).apply {
             textSize = 14f
+            // 显式锁定文字颜色：弹窗背景锁定为浅色（见下方 Builder 主题参数），深浅模式下都可读。
+            // 部分机型暗黑模式下默认色会解析成浅色压浅底，导致文字看不清。
+            setTextColor(0xFF212121.toInt())
             setPadding(
                 (20 * density).toInt(),
                 (16 * density).toInt(),
@@ -621,7 +624,8 @@ object XpqAcc {
         // 记录当前选中项；点击「确定」时才真正切换并持久化
         var selected = current
 
-        val dialog = AlertDialog.Builder(activity)
+        // 锁定浅色主题：单选列表/按钮/链接色全部固定，不随系统暗黑模式变化（见 titleView 处注释）
+        val dialog = AlertDialog.Builder(activity, android.R.style.Theme_DeviceDefault_Light_Dialog_Alert)
             .setCustomTitle(titleView)
             .setSingleChoiceItems(items, current) { _, which ->
                 selected = which
@@ -670,6 +674,13 @@ object XpqAcc {
             }
             .create()
 
+        // 部分机型的强制深色（Force Dark）会把浅色弹窗局部反转，同样导致文字看不清，显式禁用
+        runCatching {
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+                dialog.window?.decorView?.isForceDarkAllowed = false
+            }
+        }
+
         // 覆盖单选列表默认的「点击即关闭」行为：点击只更新选中项与标题说明，不关闭对话框
         // 「受限制?」按钮仅在无障碍模式下显示（Shizuku 模式无受限设置问题）
         fun updateNeutralVisibility(index: Int) {
@@ -695,7 +706,7 @@ object XpqAcc {
     private fun showUiAutomationFailDialog(activity: Activity, reason: String?) {
         val msg = reason ?: "未知错误"
         val needShizuku = msg.contains("Shizuku", ignoreCase = true)
-        AlertDialog.Builder(activity)
+        val dialog = AlertDialog.Builder(activity, android.R.style.Theme_DeviceDefault_Light_Dialog_Alert)
             .setTitle("Shizuku 模式 连接失败")
             .setMessage(msg)
             .setPositiveButton(if (needShizuku) "打开 Shizuku" else "确定") { _, _ ->
@@ -704,14 +715,21 @@ object XpqAcc {
                 }
             }
             .setNegativeButton("取消", null)
-            .show()
+            .create()
+        // 部分机型的强制深色（Force Dark）会把浅色弹窗局部反转，导致文字看不清，显式禁用
+        runCatching {
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+                dialog.window?.decorView?.isForceDarkAllowed = false
+            }
+        }
+        dialog.show()
     }
     @JvmStatic
     fun showSXLDDialog(activity: Activity) {
         val msg = "随着ai的爆发，几乎人人都能写软件了，故wx加强了对自动化软件的检测，它能获取到设备上已开启自动化(主要是无障碍)的所有软件" +
                 "但总不能一刀切的都不让其工作吧，于是分为了黑名单和白名单，其中 系统自带的 随选朗读 就在白名单中，" +
                 "简单说，在wx中，黑名单中的软件无法正常工作，只有白名单中的软件才能正常工作，所以我们要开启系统自带的 随选朗读 并且 关闭其它所有的无障碍服务"
-        AlertDialog.Builder(activity)
+        val dialog = AlertDialog.Builder(activity, android.R.style.Theme_DeviceDefault_Light_Dialog_Alert)
             .setTitle("为何需要 随选朗读")
             .setMessage(msg)
             .setPositiveButton("确定") { _, _ ->
@@ -720,7 +738,14 @@ object XpqAcc {
             .setNegativeButton("教程"){ _, _ ->
                 viewUrl()
             }
-            .show()
+            .create()
+        // 部分机型的强制深色（Force Dark）会把浅色弹窗局部反转，导致文字看不清，显式禁用
+        runCatching {
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+                dialog.window?.decorView?.isForceDarkAllowed = false
+            }
+        }
+        dialog.show()
     }
     @JvmStatic
     @JvmOverloads
