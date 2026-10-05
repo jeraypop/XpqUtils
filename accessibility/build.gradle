@@ -93,3 +93,114 @@ dependencies {
     // 2 Shizuku Manager 以库形式并入宿主 App
     implementation(libs.com.github.jeraypop.shizukulib) {exclude group: "dev.rikka.rikkax.appcompat", module: "appcompat"}
 }
+
+// ==================================================================
+// Shizuku UserService 明文 dex（加固兼容，同 rish_shizuku.dex 的入库模式）
+//
+// 背景：宿主 APK 加固后 classes.dex 被壳加密，Shizuku server 在 shell 进程里走
+// createPackageContext/makeApplication 拉起 UserService 会执行加固壳代码而失败。
+// 方案：把本模块编译产物（AutomationUserService + AIDL stub + HiddenApi 及其
+// 依赖闭包）打成明文 dex，作为 assets/shizuku_user_service.dex 随 AAR 进入宿主
+// APK；Shizuku server 探测到该资产后解压到 /data/local/tmp，用 PathClassLoader
+// 直接加载服务类（--dex= 分支），完全绕过加固壳。资产不存在时 server 走原路径。
+// ==================================================================
+def shizukuUserServiceDexFile = file("src/main/assets/shizuku_user_service.dex")
+
+afterEvaluate {
+    // 本模块编译产物（含 AIDL 生成的 IAutomationUserService.Stub），release 变体
+    def moduleJar = layout.buildDirectory.file("intermediates/aar_main_jar/release/syncReleaseLibJars/classes.jar")
+
+    def buildUserServiceDex = tasks.register("buildShizukuUserServiceDex") {
+        dependsOn "syncReleaseLibJars"
+        inputs.file(moduleJar)
+        outputs.file(shizukuUserServiceDexFile)
+        doLast {
+            def mainJar = moduleJar.get().asFile
+            if (!mainJar.isFile()) {
+                throw new GradleException("shizuku_user_service.dex: module classes.jar not found at " + mainJar)
+            }
+
+            // 依赖闭包里非 framework 的少量 jar；其余引用（androidx 等）由宿主 APK
+            // 的 classloader 提供，dex 只放 UserService 进程真正会加载到的类。
+            def wanted = ["kotlin-stdlib", "hiddenapibypass"] as Set
+            def extraJars = configurations.releaseRuntimeClasspath.resolvedConfiguration.resolvedArtifacts
+                    .findAll { wanted.contains(it.name) }
+                    .collect { it.file }
+                    .unique()
+
+            // SDK 定位：local.properties 的 sdk.dir，回退 ANDROID_HOME
+            def sdkDir = null
+            def lp = rootProject.file("local.properties")
+            if (lp.isFile()) {
+                def props = new Properties()
+                lp.withInputStream { props.load(it) }
+                def d = props.getProperty("sdk.dir")
+                if (d != null) sdkDir = new File(d)
+            }
+            if (sdkDir == null || !sdkDir.isDirectory()) {
+                sdkDir = new File(System.getenv("ANDROID_HOME") ?: "")
+            }
+            if (!sdkDir.isDirectory()) {
+                throw new GradleException("shizuku_user_service.dex: cannot locate Android SDK")
+            }
+
+            def androidJar = ["android-37.0", "android-37", "android-36.1", "android-36", "android-35"]
+                    .collect { new File(sdkDir, "platforms/" + it + "/android.jar") }
+                    .find { it.isFile() }
+            if (androidJar == null) {
+                throw new GradleException("shizuku_user_service.dex: android.jar not found under " + sdkDir)
+            }
+
+            def d8Jar = new File(sdkDir, "build-tools/37.0.0/lib/d8.jar")
+            if (!d8Jar.isFile()) {
+                def bt = new File(sdkDir, "build-tools").listFiles()
+                        ?.sort { it.name }?.reverse()
+                        ?.find { new File(it, "lib/d8.jar").isFile() }
+                if (bt == null) {
+                    throw new GradleException("shizuku_user_service.dex: d8.jar not found under " + sdkDir + "/build-tools")
+                }
+                d8Jar = new File(bt, "lib/d8.jar")
+            }
+
+            def isWindows = System.getProperty("os.name").toLowerCase().contains("windows")
+            def javaExe = new File(System.getProperty("java.home"), isWindows ? "bin/java.exe" : "bin/java")
+
+            def outDir = layout.buildDirectory.dir("intermediates/shizuku_user_service_dex").get().asFile
+            // Gradle 9 移除了 Project.exec/copy/delete，这里直接用 ProcessBuilder + java.nio
+            if (outDir.exists()) {
+                outDir.deleteDir()
+            }
+            outDir.mkdirs()
+
+            def cmd = [javaExe.absolutePath, "-cp", d8Jar.absolutePath,
+                       "com.android.tools.r8.D8",
+                       "--release", "--min-api", "24",
+                       "--lib", androidJar.absolutePath,
+                       "--output", outDir.absolutePath,
+                       mainJar.absolutePath,
+                       *extraJars.collect { it.absolutePath }]
+            def proc = new ProcessBuilder(cmd).redirectErrorStream(true).start()
+            def output = new StringBuilder()
+            proc.inputStream.eachLine { output.append(it).append('\n') }
+            def code = proc.waitFor()
+            if (code != 0) {
+                throw new GradleException("shizuku_user_service.dex: d8 failed (exit " + code + "):\n" + output)
+            }
+
+            def produced = new File(outDir, "classes.dex")
+            if (!produced.isFile()) {
+                throw new GradleException("shizuku_user_service.dex: d8 produced no classes.dex")
+            }
+            java.nio.file.Files.copy(produced.toPath(), shizukuUserServiceDexFile.toPath(),
+                    java.nio.file.StandardCopyOption.REPLACE_EXISTING)
+            println "Shizuku UserService dex -> ${shizukuUserServiceDexFile} " +
+                    "(${shizukuUserServiceDexFile.length()} bytes; extra jars: " +
+                    "${extraJars.collect { it.name }})"
+        }
+    }
+
+    // dex 必须先于 assets 合并生成（debug 构建也带上，方便直接验证）
+    tasks.matching { it.name in ["mergeReleaseAssets", "mergeDebugAssets"] }.configureEach {
+        dependsOn buildUserServiceDex
+    }
+}
