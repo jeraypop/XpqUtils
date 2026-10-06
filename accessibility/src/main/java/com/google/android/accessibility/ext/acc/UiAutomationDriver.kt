@@ -46,13 +46,15 @@ object UiAutomationDriver : AccDriver {
     /** UiAutomation 输入文本在后台协程执行（shell RPC + sleep 均为阻塞操作，严禁占用主线程）。 */
     private val inputScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
 
+    // 3000L 是 UserService 后台绑定超时（异步，不阻塞连接本身）；UiAutomation 注册耗时不受其约束。
+    // 取 3s 而非 15s：正常机型绑定在 1s 内完成，3s 足够；加固机上绑定必然失败，早判定早出日志结论。
     override fun connect(onLog: (String) -> Unit): Boolean {
         val ctx = runCatching { LibCtxProvider.Companion.appContext }.getOrNull()
         if (ctx == null) {
             onLog("✗ UiAutomation 连接失败：appContext 未初始化")
             return false
         }
-        return InvisibleAutomation.connect(ctx, 15000L, onLog)
+        return InvisibleAutomation.connect(ctx, 3_000L, onLog)
     }
 
     override fun disconnect() = InvisibleAutomation.disconnect()

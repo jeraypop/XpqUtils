@@ -11,6 +11,7 @@ import com.google.android.accessibility.ext.utils.LibCtxProvider.Companion.appCo
 import rikka.shizuku.Shizuku
 import java.util.concurrent.CountDownLatch
 import java.util.concurrent.TimeUnit
+import java.util.concurrent.atomic.AtomicBoolean
 import java.util.concurrent.atomic.AtomicReference
 
 /**
@@ -78,7 +79,16 @@ object AutomationShizuku {
     @Volatile
     private var userService: IAutomationUserService? = null
 
-    /** 绑定 shell UserService（默认最长等待 10s）。已绑定则直接返回。宿主未引入任何 Shizuku API 时返回 null，不抛异常。 */
+    /** 是否已有可复用的 UserService 实例（纯查询，不触发绑定、不阻塞）。 */
+    fun isUserServiceBound(): Boolean = userService != null
+
+    /**
+     * 绑定 shell UserService（默认最长等待 10s）。已绑定则直接返回。宿主未引入任何 Shizuku API 时返回 null，不抛异常。
+     *
+     * ⚠ Shizuku 的 ServiceConnection 回调由 `ShizukuServiceConnection` 经 **MAIN_HANDLER.post**
+     * 投递到主线程，所以本方法**绝不能在主线程调用**——否则主线程被 `latch.await` 阻塞、回调永远
+     * 排不上队，必然一路等到超时。
+     */
     fun bind(
         context: Context,
         timeoutMs: Long = 10_000,
@@ -92,6 +102,8 @@ object AutomationShizuku {
             onLog("bindUserService 调用中（最长 ${timeoutMs}ms）...")
             val latch = CountDownLatch(1)
             val ref = AtomicReference<IAutomationUserService?>(null)
+            // UserService 进程「还没握手就退出」标记（onServiceDisconnected 先于 onServiceConnected）
+            val diedBeforeConnected = AtomicBoolean(false)
             val args = Shizuku.UserServiceArgs(
                 ComponentName(context, AutomationUserService::class.java)
             ).daemon(false).processNameSuffix("service").debuggable(false).version(1)
@@ -103,15 +115,26 @@ object AutomationShizuku {
 
                 override fun onServiceDisconnected(name: ComponentName?) {
                     userService = null
+                    ref.set(null)
+                    // 关键：进程死亡同样要立即结束等待。否则「启动即崩溃」要白等满整个超时
+                    // （bind 默认 10s / 连接路径 15s）才返回失败。
+                    diedBeforeConnected.set(true)
+                    latch.countDown()
                 }
             }
             boundArgs = args
             boundConn = conn
             Shizuku.bindUserService(args, conn)
-            val ok = latch.await(timeoutMs, TimeUnit.MILLISECONDS)
-            if (!ok) onLog("⚠ bindUserService 超时（Shizuku 未运行 / 进程未启动）")
-            userService = ref.get()
-            userService
+            val completed = latch.await(timeoutMs, TimeUnit.MILLISECONDS)
+            val svc = ref.get()
+            when {
+                !completed ->
+                    onLog("⚠ bindUserService 超时 ${timeoutMs}ms（Shizuku 未运行 / UserService 进程未启动）")
+                svc == null && diedBeforeConnected.get() ->
+                    onLog("⚠ UserService 进程启动后立即退出（onServiceDisconnected）——宿主 Application 在 app_process 环境初始化失败，加固/加壳宿主常见；shell 改走 newProcess 直连")
+            }
+            userService = svc
+            svc
         } catch (t: Throwable) {
             // 宿主排除了 Shizuku 依赖（无 rikka.shizuku.Shizuku 类）：这里必然 NoClassDefFoundError
             onLog("✗ Shizuku API 不可用（${t.javaClass.simpleName}: ${t.message}）")

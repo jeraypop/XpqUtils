@@ -25,6 +25,10 @@ import java.lang.reflect.Method
 import java.lang.reflect.Proxy
 import kotlin.math.pow
 import kotlin.random.Random
+import moe.shizuku.server.IRemoteProcess
+import moe.shizuku.server.IShizukuService
+import rikka.shizuku.Shizuku
+import rikka.shizuku.ShizukuProvider
 
 /**
  * 隐形自动化引擎（公开 API）。
@@ -63,6 +67,13 @@ object InvisibleAutomation {
 
     @Volatile
     private var mSvc: IAutomationUserService? = null
+
+    /**
+     * UserService 曾绑定失败（宿主加固/加壳后该子进程常起不来）。置 true 后后续连接直接跳过
+     * bind（避免每次白等十几秒超时），shell 全部走 [Shizuku.newProcess] 直连。
+     */
+    @Volatile
+    private var userServiceUnavailable = false
 
     @Volatile
     private var mHandlerThread: HandlerThread? = null
@@ -110,9 +121,19 @@ object InvisibleAutomation {
                 .getField("FLAG_DONT_SUPPRESS_ACCESSIBILITY_SERVICES").getInt(null)
         }.getOrElse { 1 }
 
+    /**
+     * 连接 UiAutomation（App 进程内以 shell 身份注册 IAM），阻塞直到注册完成。
+     *
+     * @param timeoutMs 只作用于 UserService 的**后台**绑定超时。绑定已异步化，不再阻塞本方法，
+     *                  因此 UiAutomation 注册本身的耗时不受该参数约束（加固环境也不会再白等）。
+     *                  默认 3s：这是**体感上限**（非平台限制）——正常设备绑定 UserService 在 1s 内
+     *                  完成，3s 足够覆盖冷启动较慢的机型；加固环境下绑定本就会失败，越早判定
+     *                  `userServiceUnavailable`，日志面板就越早出现结论（此前 15s 会让用户误以为
+     *                  连接卡住了，实际连接早已完成）。
+     */
     fun connect(
         context: Context,
-        timeoutMs: Long = 15_000L,
+        timeoutMs: Long = 3_000L,
         onLog: (String) -> Unit = {}
     ): Boolean = connectRetry(context, timeoutMs, onLog, 0)
 
@@ -134,16 +155,21 @@ object InvisibleAutomation {
             onLog("✗ $lastError")
             return false
         }
-        onLog("[1/3] 绑定 Shizuku shell 服务（UserService）...")
-        val svc = AutomationShizuku.bind(context.applicationContext, timeoutMs) {
-            onLog("    $it")
-        } ?: run {
-            lastError = "bind() 返回 null：Shizuku UserService 绑定超时或被拒绝"
-            onLog("✗ $lastError")
-            return false
+        // UserService 是【可选增强】：shell 走它更快（不必每次 fork 进程），tap 的反射注入
+        // （自定 pressure/size）也依赖它。但它的子进程要加载宿主 APK 的 dex 并创建 Application，
+        // 宿主被加固/加壳后常起不来 → 绑定会一直等到超时才失败（默认 15s）。
+        // 因此绑定改为【后台异步】：连接主流程不等它，UiAutomation 注册立即进行；绑定结果晚到
+        // （成功填充 mSvc，失败置 userServiceUnavailable 供后续连接跳过）。此期间 shell 走
+        // Shizuku.newProcess 直连（同样 shell 身份），tap 自动回退 input swipe。
+        if (userServiceUnavailable) {
+            onLog("[1/3] UserService 此前绑定失败，跳过（shell 直连 Shizuku.newProcess）")
+        } else if (AutomationShizuku.isUserServiceBound()) {
+            mSvc = AutomationShizuku.bind(context.applicationContext, 0L) {}
+            onLog("[2/3] Shizuku UserService 复用已绑定实例 ✅")
+        } else {
+            onLog("[1/3] UserService 后台绑定中（可选增强，不阻塞连接；期间 shell 走 newProcess 直连）...")
+            bindUserServiceAsync(context, timeoutMs, onLog)
         }
-        onLog("[2/3] Shizuku 服务已绑定 ✅")
-        mSvc = svc
 
         return try {
             onLog("[3/3] 构造框架 UiAutomation 并 connect（App 进程内以 shell 身份注册 IAM）...")
@@ -270,6 +296,53 @@ object InvisibleAutomation {
             cleanup()
             false
         }
+    }
+
+    /** 后台绑定 UserService 进行中（防重入：重连/重试期间不会并发启动第二个 bind）。 */
+    @Volatile
+    private var userServiceBinding = false
+
+    /**
+     * 后台线程绑定 Shizuku UserService，**不阻塞连接主流程**。
+     *
+     * - 成功 → 填充 [mSvc]，后续 shell 走 UserService（比 newProcess 每次 fork 进程快）；
+     * - 失败 → 置 [userServiceUnavailable]，后续连接直接跳过，不再白等一次超时。
+     *
+     * 绑定耗时长（UserService 要 fork app_process + 加载宿主 dex），加固环境下更可能直接超时，
+     * 因此绝不能摆在做 UiAutomation 注册的关键路径上。
+     */
+    private fun bindUserServiceAsync(
+        context: Context,
+        timeoutMs: Long,
+        onLog: (String) -> Unit
+    ) {
+        if (userServiceBinding) {
+            onLog("    UserService 绑定已在进行中，跳过重复绑定")
+            return
+        }
+        userServiceBinding = true
+        Thread({
+            try {
+                val svc = AutomationShizuku.bind(context.applicationContext, timeoutMs) {
+                    onLog("    $it")
+                }
+                if (svc == null) {
+                    userServiceUnavailable = true
+                    onLog("⚠ UserService 绑定失败（加固/加壳或 ROM 限制常见），shell 已降级为 Shizuku.newProcess 直连；UiAutomation 不受影响")
+                } else if (isConnected) {
+                    mSvc = svc
+                    onLog("[2/3] Shizuku UserService 已就绪 ✅（后台绑定完成，shell 改走 UserService）")
+                } else {
+                    // 绑定期间连接已被断开：实例保留在 AutomationShizuku 内缓存，下次连接直接复用
+                    onLog("UserService 绑定完成（当前未连接，实例已缓存，下次连接复用）")
+                }
+            } catch (t: Throwable) {
+                userServiceUnavailable = true
+                onLog("⚠ UserService 后台绑定异常：${t.javaClass.simpleName}: ${t.message}")
+            } finally {
+                userServiceBinding = false
+            }
+        }, "InvisibleAuto-BindUserService").apply { isDaemon = true }.start()
     }
 
     /**
@@ -577,7 +650,9 @@ object InvisibleAutomation {
             tap(first.x, first.y)
         } else {
             // shell `input swipe` 匀速、抬起无 fling 惯性；无障碍 dispatchGesture 有加速度+fling。
-            SystemClock.sleep(1000L)
+            // 注意：此处曾有一行硬编码 SystemClock.sleep(1000L)（滑动前固定停 1s），无任何依据、
+            // 也不是 shell 命令所需（fork 与执行自带时序），只让每次滑动多等 1 秒，已移除。
+            // 若某个调用方确实需要滑动前的稳定等待，请由调用方自行在业务层控制。
             swipe(first.x, first.y, last.x, last.y)
         }
     }
@@ -589,7 +664,7 @@ object InvisibleAutomation {
     fun shellInputText(text: String): Boolean {
         sendLog("shizuku模式下 直接 输入：$text")
         val escaped = text.replace(" ", "%s")
-        val r = mSvc?.exec("input text \"$escaped\"") ?: return false
+        val r = exec("input text \"$escaped\"") ?: return false
         val ok = r.exitCode == 0
         diag("[inputText] input text \"$escaped\" → exit=${r.exitCode} ${
             if (ok) "" else "stdout=${r.stdout.take(200)} stderr=${r.stderr.take(200)}"
@@ -603,7 +678,7 @@ object InvisibleAutomation {
      */
     fun shellPaste(): Boolean {
         sendLog("shizuku模式下 通过剪贴板输入")
-        val r = mSvc?.exec("input keyevent 279") ?: return false
+        val r = exec("input keyevent 279") ?: return false
         val ok = r.exitCode == 0
         diag("[paste] input keyevent 279 → exit=${r.exitCode} ${
             if (ok) "" else "stdout=${r.stdout.take(200)} stderr=${r.stderr.take(200)}"
@@ -615,10 +690,9 @@ object InvisibleAutomation {
      * 清空当前聚焦输入框的内容（纯 shell 键盘事件，与注入链路同源，无节点级自动化痕迹）。
      * Android 11+：`keycombination 113 29`（CTRL_LEFT+A 全选）→ DEL；
      * 更低版本：`keyevent 123`（MOVE_END 光标移到末尾）→ 循环 DEL。
-     * 需先由调用方点击聚焦输入框。mSvc 未绑定返回 false。
+     * 需先由调用方点击聚焦输入框（shell 不可用时返回 false）。
      */
     fun clearFocusedText(): Boolean {
-        if (mSvc == null) return false
         return if (android.os.Build.VERSION.SDK_INT >= 30) {
             val sel = exec("input keycombination 113 29")
             val del = exec("input keyevent 67")
@@ -626,9 +700,14 @@ object InvisibleAutomation {
             diag("[clear] keycombination 113 29 + keyevent 67 → ${if (ok) "ok" else "exit=${sel?.exitCode}/${del?.exitCode}"}")
             ok
         } else {
-            exec("input keyevent 123")
-            // 循环删除（上限 120 次，覆盖常规输入框最大长度），每次都是正常键盘事件
-            repeat(120) { exec("input keyevent 67") }
+            // 【一次性 shell 脚本】把「移到末尾 + 循环删除」合并进同一条命令，只 fork 一次进程。
+            // 此前是 repeat(120) { exec("input keyevent 67") }，即 120 次独立 exec；UserService
+            // 尚未绑定时每次 exec 都要走 newProcess fork 一个 sh（约 100~300ms），累计可达十几秒，
+            // 表现为「清空输入框时卡死」。上限 120 次覆盖常规输入框最大长度，且每条仍是正常键盘事件。
+            val r = exec(
+                "input keyevent 123; i=0; while [ \$i -lt 120 ]; do input keyevent 67; i=\$((i+1)); done"
+            )
+            diag("[clear] keyevent 123 + 循环 DEL×120（单次 exec）→ exit=${r?.exitCode}")
             true
         }
     }
@@ -648,7 +727,7 @@ object InvisibleAutomation {
     /** 坐标点击：经 shell `input tap`（shell 权限，无需 INJECT_EVENTS）。 */
     fun tapDan(x: Float, y: Float): Boolean {
         //机器特征太明显，不建议用
-        val r = mSvc?.exec("input tap $x $y") ?: return false
+        val r = exec("input tap $x $y") ?: return false
         val ok = r.exitCode == 0
         diag("[tap] input tap $x $y → exit=${r.exitCode} ${
             if (ok) "" else "stdout=${r.stdout.take(200)} stderr=${r.stderr.take(200)}"
@@ -662,7 +741,7 @@ object InvisibleAutomation {
         y: Float
     ): Boolean {
         val cmd = "input motionevent $action $x $y"
-        val r = mSvc?.exec(cmd) ?: return false
+        val r = exec(cmd) ?: return false
         val ok = r.exitCode == 0
         diag("[motion] $cmd → exit=${r.exitCode}" +
                     if (ok) "" else { " stdout=${r.stdout.take(200)}" + " stderr=${r.stderr.take(200)}" }
@@ -705,7 +784,7 @@ object InvisibleAutomation {
         val durationMs = gaussian(config.pressMeanMs, config.pressStdMs).toLong().coerceIn(50L, 200L)
         if (!tapReflectMode) {
             // 开关关闭：回退 shell `input swipe`
-            val r = mSvc?.exec("input swipe $x1 $y1 $x2 $y2 $durationMs") ?: return false
+            val r = exec("input swipe $x1 $y1 $x2 $y2 $durationMs") ?: return false
             val ok = r.exitCode == 0
             diag("[tap] input swipe $x1 $y1 $x2 $y2 $durationMs → exit=${r.exitCode} ${
                 if (ok) "" else "stdout=${r.stdout.take(200)} stderr=${r.stderr.take(200)}"
@@ -714,8 +793,11 @@ object InvisibleAutomation {
         }else{
             val svc = mSvc
             if (svc == null) {
-                diag("[tap] mSvc 为空（Shizuku 未连接）", Log.WARN)
-                return false
+                // 反射注入（自定 pressure/size）必须经 UserService；其不可用（加固/绑定失败）时
+                // 降级为 shell `input swipe`，保证点击依然可用（机器特征略明显）。
+                diag("[tap] UserService 不可用，回退 shell input swipe", Log.WARN)
+                val r = exec("input swipe $x1 $y1 $x2 $y2 $durationMs") ?: return false
+                return r.exitCode == 0
             }
             // 压力/面积带随机起伏模拟真人按压，规避「波动≈0」反注入规则
             val pDown = 0.7f + Random.nextFloat() * 0.3f                    // 0.7 ~ 1.0
@@ -741,7 +823,7 @@ object InvisibleAutomation {
         y2 = (y2 + gaussian()).toFloat().coerceAtLeast(0f)
 
         val durationMs = gaussian(config.durationMeanMs, config.durationStdMs).toLong().coerceIn(200L, 1200L)
-        val r = mSvc?.exec("input swipe $x1 $y1 $x2 $y2 $durationMs") ?: return false
+        val r = exec("input swipe $x1 $y1 $x2 $y2 $durationMs") ?: return false
         val ok = r.exitCode == 0
         diag("[swipe] input swipe $x1 $y1 $x2 $y2 $durationMs → exit=${r.exitCode} ${
             if (ok) "" else "stdout=${r.stdout.take(200)} stderr=${r.stderr.take(200)}"
@@ -749,8 +831,140 @@ object InvisibleAutomation {
         return ok
     }
 
-    fun exec(command: String): com.google.android.accessibility.uiautomation.shizuku.ShellResult? =
-        mSvc?.exec(command)
+    /**
+     * 统一 shell 执行入口（阻塞，勿主线程调用）。
+     *
+     * 优先走已绑定的 UserService（进程可复用、免每次 fork）；不可用时回退 [Shizuku.newProcess]
+     * ——命令由 Shizuku 服务端以 shell 身份 fork，**不加载宿主 APK 的 dex/Application**，
+     * 因此宿主加固/加壳导致 UserService 绑定失败时本路径依然可用。
+     */
+    fun exec(command: String): com.google.android.accessibility.uiautomation.shizuku.ShellResult? {
+        mSvc?.let { return it.exec(command) }
+        return execViaNewProcess(command)
+    }
+
+    /**
+     * 反射缓存 `Shizuku.newProcess(String[], String[], String)`，**仅作最后兜底**。
+     * 该方法在 Shizuku 13.1.5 中是 private static（编译期不可见），Shizuku 是普通库类，
+     * 不受 framework Hidden API 限制，故运行期反射可访问。
+     */
+    private val newProcessMethod: Method? by lazy {
+        runCatching {
+            Shizuku::class.java.getDeclaredMethod(
+                "newProcess",
+                Array<String>::class.java,
+                Array<String>::class.java,
+                String::class.java
+            ).apply { isAccessible = true }
+        }.getOrNull()
+    }
+
+    /** 缓存 Shizuku 服务的 IShizukuService（官方公开 AIDL 接口，稳定性优于反射私有方法）。 */
+    @Volatile
+    private var shizukuService: IShizukuService? = null
+
+    private fun obtainShizukuService(): IShizukuService? {
+        shizukuService?.let { s ->
+            runCatching { if (s.asBinder().pingBinder()) return s }
+        }
+        // ① 反射 ShizukuProvider.getBinder()（该方法在编译期不可见，故走反射）
+        runCatching {
+            val m = ShizukuProvider::class.java
+                .getDeclaredMethod("getBinder").apply { isAccessible = true }
+            val binder = m.invoke(null) as? IBinder ?: return@runCatching
+            if (!binder.pingBinder()) return@runCatching
+            return IShizukuService.Stub.asInterface(binder).also { shizukuService = it }
+        }
+        // ② 反射 Shizuku.requireService()（private static，返回 IShizukuService）
+        return runCatching {
+            val m = Shizuku::class.java
+                .getDeclaredMethod("requireService").apply { isAccessible = true }
+            (m.invoke(null) as? IShizukuService)?.also { shizukuService = it }
+        }.getOrNull()
+    }
+
+    /**
+     * 经 Shizuku 服务端 fork shell 进程执行命令（不依赖宿主 UserService，加固/加壳环境下仍可用）。
+     *
+     * - 路径①（首选）**官方 AIDL**：`ShizukuProvider.getBinder()` → `IShizukuService.newProcess`
+     *   → `IRemoteProcess`。走 Shizuku 官方发布并**单独版本化**的 `dev.rikka.shizuku:aidl` 模块，
+     *   它是 Shizuku server ↔ client 之间的有线协议（改签名会连带升 aar 版本），比反射私有方法稳。
+     * - 路径②（兜底）反射 `Shizuku.newProcess`，防 aidl 模块将来调整 API。
+     */
+    private fun execViaNewProcess(command: String): com.google.android.accessibility.uiautomation.shizuku.ShellResult? {
+        val cmd = arrayOf("sh", "-c", command)
+        // ① 官方 AIDL 路径
+        runCatching {
+            val svc = obtainShizukuService()
+            if (svc != null) {
+                val rp = svc.newProcess(cmd, null, null)
+                if (rp != null) return readRemoteProcess(rp)
+            }
+        }.onFailure {
+            diag("[shell] AIDL newProcess 失败：${it.javaClass.simpleName}: ${it.message}", Log.WARN)
+        }
+        // ② 反射私有方法兜底
+        val m = newProcessMethod ?: run {
+            diag("[shell] Shizuku shell 通道不可用（AIDL 与反射均失败）", Log.WARN)
+            return null
+        }
+        return try {
+            val p = m.invoke(null, cmd, null, null) as? java.lang.Process ?: return null
+            val result = com.google.android.accessibility.uiautomation.shizuku.ShellResult()
+            val out = StringBuilder()
+            val err = StringBuilder()
+            val t1 = Thread { readStreamQuiet(p.inputStream, out) }
+            val t2 = Thread { readStreamQuiet(p.errorStream, err) }
+            t1.start()
+            t2.start()
+            result.exitCode = p.waitFor()
+            t1.join()
+            t2.join()
+            result.stdout = out.toString()
+            result.stderr = err.toString()
+            p.destroy()
+            result
+        } catch (t: Throwable) {
+            diag("[shell] 反射 newProcess 失败：${t.javaClass.simpleName}: ${t.message}", Log.WARN)
+            null
+        }
+    }
+
+    /** 读 AIDL 路径的 IRemoteProcess：stdout/stderr + 退出码（流是 ParcelFileDescriptor）。 */
+    private fun readRemoteProcess(
+        rp: IRemoteProcess
+    ): com.google.android.accessibility.uiautomation.shizuku.ShellResult {
+        val result = com.google.android.accessibility.uiautomation.shizuku.ShellResult()
+        val out = StringBuilder()
+        val err = StringBuilder()
+        val outStream = runCatching {
+            android.os.ParcelFileDescriptor.AutoCloseInputStream(rp.inputStream)
+        }.getOrNull()
+        val errStream = runCatching {
+            android.os.ParcelFileDescriptor.AutoCloseInputStream(rp.errorStream)
+        }.getOrNull()
+        val t1 = outStream?.let { st -> Thread { readStreamQuiet(st, out) } }
+        val t2 = errStream?.let { st -> Thread { readStreamQuiet(st, err) } }
+        t1?.start()
+        t2?.start()
+        result.exitCode = runCatching { rp.waitFor() }.getOrDefault(-1)
+        t1?.join()
+        t2?.join()
+        result.stdout = out.toString()
+        result.stderr = err.toString()
+        runCatching { rp.destroy() }
+        return result
+    }
+
+    private fun readStreamQuiet(input: java.io.InputStream, sb: StringBuilder) {
+        try {
+            java.io.BufferedReader(java.io.InputStreamReader(input)).use { r ->
+                var line: String?
+                while (r.readLine().also { line = it } != null) sb.append(line).append('\n')
+            }
+        } catch (_: Throwable) {
+        }
+    }
 
     /**
      * 探测 system_server 是否已有 UiAutomation 注册（被其它 App/进程占用）。
@@ -760,7 +974,7 @@ object InvisibleAutomation {
      */
     fun isUiAutomationOccupied(): Boolean {
         return try {
-            val r = mSvc?.exec("dumpsys accessibility | grep 'Ui Automation'") ?: return false
+            val r = exec("dumpsys accessibility | grep 'Ui Automation'") ?: return false
             !r.stdout.isNullOrBlank()
         } catch (_: Throwable) {
             false
