@@ -87,9 +87,9 @@ dependencies {
     // UiAutomation 通道（移植自 accessibilityLibs 的 InvisibleAutomation，Shizuku shell 注册）
     implementation(libs.hiddenapibypass)
     // 1 官方api  在清单文件中要注册或者移除 rikka.shizuku.ShizukuProvider
-    implementation(libs.dev.rikka.shizuku.api)
-    implementation(libs.dev.rikka.shizuku.provider)
+    //implementation(libs.dev.rikka.shizuku.api)
+    //implementation(libs.dev.rikka.shizuku.provider)
 
     // 2 Shizuku Manager 以库形式并入宿主 App
-    //implementation(libs.com.github.jeraypop.shizukulib) {exclude group: "dev.rikka.rikkax.appcompat", module: "appcompat"}
+    implementation(libs.com.github.jeraypop.shizukulib) {exclude group: "dev.rikka.rikkax.appcompat", module: "appcompat"}
 }
