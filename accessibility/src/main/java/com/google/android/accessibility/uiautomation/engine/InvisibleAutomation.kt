@@ -653,6 +653,7 @@ object InvisibleAutomation {
             // 注意：此处曾有一行硬编码 SystemClock.sleep(1000L)（滑动前固定停 1s），无任何依据、
             // 也不是 shell 命令所需（fork 与执行自带时序），只让每次滑动多等 1 秒，已移除。
             // 若某个调用方确实需要滑动前的稳定等待，请由调用方自行在业务层控制。
+            SystemClock.sleep(1000L)
             swipe(first.x, first.y, last.x, last.y)
         }
     }
