@@ -1574,6 +1574,7 @@ isDeviceSecure = 这台设备“有没有任何安全门槛”
         val duration = (dist / speedPxPerMs).roundToLong().coerceIn(minMs, maxMs)
         return duration
     }
+    val random1or3 = if (Random.nextBoolean()) 0.25f else 0.75f
     /**
      * 生成一个更自然的上划手势路径（可选曲线 + 轻微随机化）
      *
@@ -1598,9 +1599,9 @@ isDeviceSecure = 这台设备“有没有任何安全门槛”
         val (screenWidth, screenHeight) = getScreenSize(context)
         KeyguardUnLock.sendLog("设备宽度= $screenWidth, 高度= $screenHeight")
 
-        val startXBase = screenWidth / 2f
+        val startXBase = screenWidth * random1or3
         val startYBase = screenHeight * 0.75f
-        val endXBase = screenWidth / 2f + screenWidth * horizontalOffsetRatio
+        val endXBase = screenWidth * random1or3 + screenWidth * horizontalOffsetRatio
         val endYBase = screenHeight * 0.35f
 
         val curveFactor = curveIntensity.coerceIn(0f, 0.5f)

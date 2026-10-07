@@ -271,9 +271,9 @@ class MainActivity : XpqBaseActivity<ActivityMainBinding>(
         }
         binding.btnNotification.setOnClickListener{
 
-            //AliveUtils.openNotificationListener(this, NotificationListenerServiceImp::class.java)
+            AliveUtils.openNotificationListener(this, NotificationListenerServiceImp::class.java)
             //startActivity(Intent(this, moe.shizuku.manager.MainActivity::class.java))
-            AutomationShizuku.openShizuku()
+            //AutomationShizuku.openShizuku()
         }
         binding.btnGZH.setOnClickListener{
             // App 启动时切到 UiAutomation（免开无障碍，需 Shizuku）
