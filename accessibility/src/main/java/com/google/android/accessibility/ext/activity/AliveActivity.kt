@@ -50,6 +50,10 @@ class AliveActivity : XpqBaseActivity<ActivityAliveXpqBinding>(
     private  var resourceId  = -1
     private  var showReadBar = false
     private  var showTskHide = false
+    // 仅 UiAutomation(Shizuku) 模式生效：控制本页 connectUiAutomation() 的行为（由 openAliveActivity 透传）
+    private var uiaEnableHostAcc = false
+    private var uiaDisableHostAcc = false
+    private var uiaEnableServiceString: String? = null
 
    
 
@@ -105,6 +109,9 @@ class AliveActivity : XpqBaseActivity<ActivityAliveXpqBinding>(
         resourceId = intent.getIntExtra(MMKVConst.SEND_IMAGE_ID, -1)
         showReadBar = intent.getBooleanExtra(MMKVConst.SHOW_READ_NOTIFICATION, false)
         showTskHide = intent.getBooleanExtra(MMKVConst.SHOW_TASK_HIDE, false)
+        uiaEnableHostAcc = intent.getBooleanExtra(MMKVConst.UIA_ENABLE_HOST_ACC, false)
+        uiaDisableHostAcc = intent.getBooleanExtra(MMKVConst.UIA_DISABLE_HOST_ACC, false)
+        uiaEnableServiceString = intent.getStringExtra(MMKVConst.UIA_ENABLE_SERVICE_STRING)
         updateUI()
         //====================按钮监测===============================================
         //开启无障碍服务
@@ -130,18 +137,26 @@ class AliveActivity : XpqBaseActivity<ActivityAliveXpqBinding>(
                         R.string.quanxian0,
                         MMKVConst.BTN_ACCESSIBILITY)
                 } else if (XpqAcc.mode == EngineMode.UIAUTOMATION) {
+                    val onResult: (Boolean, String?) -> Unit = { success, _ ->
+                        if (success) {
+                            // 连接成功后立刻验证
+                            AliveUtils.toast(msg = "连接成功")
+
+                        }else{
+                            AliveUtils.toast(msg = "连接失败")
+                        }
+                    }
+                    // 宿主指定了服务组件名，或开启了宿主开关 → 由宿主接管无障碍设置：关掉库默认的「独占开启随选朗读」策略，
                     XpqAcc.connectUiAutomation(
                         onLog = {  },
-                        onResult = { success, reason ->
-                            if (success) {
-                                // 连接成功后立刻验证
-                                AliveUtils.toast(msg = "连接成功")
-
-                            }else{
-                                AliveUtils.toast(msg = "连接失败")
-                            }
-                        },
-                        activity = this@AliveActivity
+                        onResult = onResult,
+                        activity = this@AliveActivity,
+                        // 不传兜底实例：库会反射宿主清单中声明了 BIND_ACCESSIBILITY_SERVICE 的服务子类自动桥接事件
+                        bridgeFallback = null,
+                        // 非空 = 独占开启该服务；null = 不自动开启任何无障碍服务
+                        enableServiceOnConnect = uiaEnableServiceString,
+                        enableHostAccessibilityService = uiaEnableHostAcc,
+                        disableHostAccessibilityService = uiaDisableHostAcc
                     )
                 }
 

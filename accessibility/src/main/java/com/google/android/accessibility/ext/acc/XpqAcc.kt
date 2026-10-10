@@ -4,6 +4,7 @@ import android.accessibilityservice.AccessibilityService
 import android.accessibilityservice.GestureDescription
 import android.app.Activity
 import android.app.AlertDialog
+import android.content.ComponentName
 import android.content.Context
 import android.content.Intent
 import android.content.pm.PackageManager
@@ -180,6 +181,8 @@ object XpqAcc {
     fun requestShizukuPermission(onResult: (granted: Boolean) -> Unit) =
         AutomationShizuku.requestPermission(onResult)
 
+    val WRITE_SECURE = "pm grant ${appContext.packageName} android.permission.WRITE_SECURE_SETTINGS"
+    val SELECTTOSPEAK = "com.google.android.marvin.talkback/com.google.android.accessibility.selecttospeak.SelectToSpeakService"
     /**
      * 一步到位：切 UiAutomation + 检测/请求 Shizuku + 连接。
      *
@@ -204,11 +207,34 @@ object XpqAcc {
          * 默认：为宿主申请 WRITE_SECURE_SETTINGS 权限（shell 身份执行 pm grant 合法），
          * 授权后即使 Shizuku 不在，也能走 WRITE_SECURE_SETTINGS 路径开启服务。传 null = 不执行。
          */
-        postConnectShellCommand: String? = "pm grant ${appContext.packageName} android.permission.WRITE_SECURE_SETTINGS",
-        /** 连接成功后自动开启的无障碍服务（展平组件名，如 "com.host/.MyAccService"）。null = 不开启。 */
-        enableServiceOnConnect: String? = "com.google.android.marvin.talkback/com.google.android.accessibility.selecttospeak.SelectToSpeakService",
-        /** true = 独占模式：关掉设备上其它已开启的无障碍服务，只保留 [enableServiceOnConnect]；false（默认）= 纯增量追加，不影响其它服务。 */
-        enableServiceOnConnectExclusive: Boolean = true
+        postConnectShellCommand: String? = WRITE_SECURE,
+        /**
+         * 连接成功后自动开启的无障碍服务（展平组件名，如 "com.host/.MyAccService"）。null = 不开启。
+         *
+         * 开启方式固定为**独占**：会关掉设备上其它已开启的无障碍服务，只保留本参数指定的服务。
+         * （原 `enableServiceOnConnectExclusive` 开关已移除，不再支持增量追加。）
+         */
+        enableServiceOnConnect: String? = null,
+        /**
+         * 连接成功后是否自动开启【宿主自己】的无障碍服务。
+         *
+         * 组件名由库反射宿主清单里的 `BIND_ACCESSIBILITY_SERVICE` 服务推导（同 [findAccessibilityServiceSubclass] 的查找方式），
+         * 宿主无需自己传；始终以**增量**方式追加，不影响设备上其它无障碍服务。
+         *
+         * 与 [enableServiceOnConnect] 的关系：显式传了 [enableServiceOnConnect] 时以它为准，本参数不生效。
+         * 与 [disableHostAccessibilityService] 同时为 true 时以 [disableHostAccessibilityService] 为准。
+         */
+        enableHostAccessibilityService: Boolean = false,
+        /**
+         * 连接成功后是否自动关闭【宿主自己】的无障碍服务。
+         *
+         * 用途：切到 UiAutomation 通道后，宿主无障碍服务若仍在运行，无障碍通道与 UiAutomation 通道会同时执行
+         * 业务（双跑）。置 true 可在连接成功后把它关掉。只动宿主自己的服务，不影响设备上其它应用的无障碍服务。
+         *
+         * 注意：这与 [use] 里跨进程拿不到 `instance` 而失效的 `disableSelf()` 不同——这里走
+         * [AccessibilityEnableHelper] 的 shell / WRITE_SECURE_SETTINGS 路径写系统名单，跨进程有效。
+         */
+        disableHostAccessibilityService: Boolean = false
     ) {
         use(EngineMode.UIAUTOMATION)
         val main = Handler(Looper.getMainLooper())
@@ -227,7 +253,7 @@ object XpqAcc {
                 runCatching { autoBridgeAccessibilityEvent(bridgeFallback) }
                 // 连接成功后自动执行的 shell 命令（可选）。此时 shell UserService 已绑定（uid 2000），
                 // 本身就在后台线程，exec 的 binder 调用 + waitFor 阻塞安全；失败不影响连接成功回调。
-                postConnectShellCommand?.let { cmd ->
+                postConnectShellCommand?.takeIf { it.isNotBlank() }?.let { cmd ->
                     runCatching {
                         val r = InvisibleAutomation.exec(cmd)
                         if (r != null && r.exitCode == 0) {
@@ -237,17 +263,48 @@ object XpqAcc {
                         }
                     }.onFailure { log("✗ shell 命令执行异常: ${it.message}") }
                 }
-                // 连接成功后自动开启指定无障碍服务（可选）：名单写入 + 总开关置 1 + 回读校验，自动选 shell / WRITE_SECURE_SETTINGS 路径
-                enableServiceOnConnect?.let { flat ->
+                // 连接成功后自动开启指定无障碍服务（可选）：名单写入 + 总开关置 1 + 回读校验，自动选 shell / WRITE_SECURE_SETTINGS 路径。
+                // 固定「独占」方式（exclusive = true）：替换整机无障碍名单，只保留该服务。
+                //字符串非 null、非空且不全是空白字符时，才会执行后续逻辑
+                enableServiceOnConnect?.takeIf { it.isNotBlank() }?.let { flat ->
                     runCatching {
                         val r = AccessibilityEnableHelper.enableAccessibilityService(
-                            appContext, flat, enableServiceOnConnectExclusive
+                            appContext, flat, true
                         )
                         val via = if (r.viaShell) "shell" else "WRITE_SECURE_SETTINGS"
-                        val mode = if (enableServiceOnConnectExclusive) "独占" else "增量"
+                        val mode = "独占"
                         if (r.success) log("✅ 已自动开启无障碍服务 $flat（$via/$mode）: ${r.message}")
                         else log("✗ 自动开启无障碍服务 $flat 失败（$via/$mode）: ${r.message}")
                     }.onFailure { log("✗ 自动开启无障碍服务异常: ${it.message}") }
+                }
+                // 连接成功后自动开启【宿主自己】的无障碍服务（可选）：组件名反射自宿主清单，增量追加、不影响其它服务。
+                // 显式传了 enableServiceOnConnect 时以它为准；disableHostAccessibilityService 优先。
+                if (enableHostAccessibilityService && !disableHostAccessibilityService) {
+                    runCatching {
+                        val flat = hostAccessibilityServiceFlat()
+                        if (flat == null) {
+                            log("✗ 自动开启宿主无障碍服务失败：宿主清单未声明 BIND_ACCESSIBILITY_SERVICE 服务")
+                        } else {
+                            val r = AccessibilityEnableHelper.enableAccessibilityService(appContext, flat, false)
+                            val via = if (r.viaShell) "shell" else "WRITE_SECURE_SETTINGS"
+                            if (r.success) log("✅ 已自动开启宿主无障碍服务 $flat（$via/增量）: ${r.message}")
+                            else log("✗ 自动开启宿主无障碍服务 $flat 失败（$via/增量）: ${r.message}")
+                        }
+                    }.onFailure { log("✗ 自动开启宿主无障碍服务异常: ${it.message}") }
+                }
+                // 连接成功后自动关闭【宿主自己】的无障碍服务（可选）：避免无障碍通道与 UiAutomation 通道双跑。
+                if (disableHostAccessibilityService) {
+                    runCatching {
+                        val flat = hostAccessibilityServiceFlat()
+                        if (flat == null) {
+                            log("✗ 自动关闭宿主无障碍服务失败：宿主清单未声明 BIND_ACCESSIBILITY_SERVICE 服务")
+                        } else {
+                            val r = AccessibilityEnableHelper.disableAccessibilityService(appContext, flat)
+                            val via = if (r.viaShell) "shell" else "WRITE_SECURE_SETTINGS"
+                            if (r.success) log("✅ 已自动关闭宿主无障碍服务 $flat（$via）: ${r.message}")
+                            else log("✗ 自动关闭宿主无障碍服务 $flat 失败（$via）: ${r.message}")
+                        }
+                    }.onFailure { log("✗ 自动关闭宿主无障碍服务异常: ${it.message}") }
                 }
                 main.post { onResult(true, null) }
             } else {
@@ -434,6 +491,25 @@ object XpqAcc {
         }
     }
 
+    /**
+     * 取宿主自己的无障碍服务展平组件名（形如 `pkg/pkg.Cls`），供 [connectUiAutomation] 的
+     * `enableHostAccessibilityService` / `disableHostAccessibilityService`，以及宿主自行开关服务时使用。
+     * 宿主清单未声明 `BIND_ACCESSIBILITY_SERVICE` 服务、或反射失败时返回 null。
+     */
+    @JvmStatic
+    fun hostAccessibilityServiceFlat(): String? {
+        return try {
+            val ctx = runCatching { LibCtxProvider.Companion.appContext }.getOrNull() ?: return null
+            val pkgInfo = ctx.packageManager.getPackageInfo(ctx.packageName, PackageManager.GET_SERVICES)
+            val serviceName = pkgInfo.services?.firstOrNull {
+                it.permission == android.Manifest.permission.BIND_ACCESSIBILITY_SERVICE
+            }?.name ?: return null
+            ComponentName(ctx.packageName, serviceName).flattenToString()
+        } catch (_: Throwable) {
+            null
+        }
+    }
+
     // ---- 引擎模式选择 + 持久化 ----
 
     /** 读取持久化的引擎模式（默认无障碍模式）。 */
@@ -455,12 +531,20 @@ object XpqAcc {
      * UiAutomation 模式内部会检测/请求 Shizuku 授权并连接。
      *
      * @param bridgeFallback 事件桥接兜底实例，仅 UiAutomation 模式使用；透传给 [connectUiAutomation]。
+     * @param enableHostAccessibilityService 仅 UiAutomation 模式使用；连接成功后自动**增量**开启宿主自己的
+     *                                       无障碍服务（组件名反射自宿主清单）。透传给 [connectUiAutomation] 同名参数。
+     * @param disableHostAccessibilityService 仅 UiAutomation 模式使用；连接成功后自动关闭宿主自己的无障碍服务，
+     *                                        避免无障碍通道与 UiAutomation 通道双跑。透传给 [connectUiAutomation] 同名参数。
+     *                                        与上面那个同时为 true 时，以本参数为准。
      */
     @JvmStatic
     fun applyEngineMode(
         mode: EngineMode,
         bridgeFallback: SelectToSpeakServiceAbstract? = null,
         onResult: (success: Boolean, reason: String?) -> Unit = { _, _ -> },
+        enableServiceString: String? = null,
+        enableHostAccessibilityService: Boolean = false,
+        disableHostAccessibilityService: Boolean = false
     ) {
         saveEngineMode(mode)
         when (mode) {
@@ -470,7 +554,17 @@ object XpqAcc {
                 onResult(ok, if (ok) null else "请先在系统设置开启无障碍服务")
             }
             EngineMode.UIAUTOMATION -> {
-                connectUiAutomation(onLog = {}, onResult = onResult, bridgeFallback = bridgeFallback)
+                // 全部参数显式写出（取值即默认），行为与隐式省略一致，便于阅读与后续调整。
+                connectUiAutomation(
+                    onLog = {},
+                    onResult = onResult,
+                    activity = null,
+                    bridgeFallback = bridgeFallback,
+                    postConnectShellCommand = WRITE_SECURE,
+                    enableServiceOnConnect = enableServiceString,
+                    enableHostAccessibilityService = enableHostAccessibilityService,
+                    disableHostAccessibilityService = disableHostAccessibilityService
+                )
             }
         }
     }
@@ -485,6 +579,11 @@ object XpqAcc {
      *                  为 null 时不回调。
      * @param imgRes    无障碍模式跳转设置后弹出的引导对话框图片资源。
      * @param bridgeFallback 事件桥接兜底实例，仅 UiAutomation 模式使用；透传给 [applyEngineMode]。
+     * @param enableHostAccessibilityService 仅 UiAutomation 模式使用；切换到 Shizuku 模式成功后自动**增量**开启
+     *                                       宿主自己的无障碍服务。透传给 [applyEngineMode] 同名参数。
+     * @param disableHostAccessibilityService 仅 UiAutomation 模式使用；切换到 Shizuku 模式成功后自动关闭宿主自己的
+     *                                        无障碍服务，避免无障碍通道与 UiAutomation 通道双跑。透传给 [applyEngineMode] 同名参数。
+     *                                        与上面那个同时为 true 时以本参数为准。
      */
     @JvmStatic
     @JvmOverloads
@@ -494,7 +593,10 @@ object XpqAcc {
         imgRes: Int = R.drawable.backgroundshow_xpq,
         onConfirm: ((mode: EngineMode) -> Unit)? = null,
         onCancel: (() -> Unit)? = null,
-        onUIASuccess: (() -> Unit)? = null
+        onUIASuccess: (() -> Unit)? = null,
+        enableServiceString: String? = null,
+        enableHostAccessibilityService: Boolean = false,
+        disableHostAccessibilityService: Boolean = false
     ) {
         // 清单未声明无障碍服务（tools:node="remove" 或未注册）时，选项仍保留，但切换到无障碍模式会提示不支持
         val hasAccessibility = findAccessibilityServiceSubclass() != null
@@ -637,21 +739,30 @@ object XpqAcc {
                     AliveUtils.toast(msg = "当前版本不支持无障碍模式")
                     return@setPositiveButton
                 }
-                applyEngineMode(mode, bridgeFallback) { success, reason ->
-                    when {
-                        success ->{
-                            AliveUtils.toast(msg = "已成功切换到 ${items[selected]}")
-                            runCatching {
-                                onUIASuccess?.invoke()
+                // 注意：applyEngineMode 末尾新增了 Boolean 参数，最后一个参数不再是 lambda，
+                // 尾随 lambda 语法失效，这里必须改用命名参数传 onResult。
+                applyEngineMode(
+                    mode = mode,
+                    bridgeFallback = bridgeFallback,
+                    onResult = { success, reason ->
+                        when {
+                            success -> {
+                                AliveUtils.toast(msg = "已成功切换到 ${items[selected]}")
+                                runCatching {
+                                    onUIASuccess?.invoke()
+                                }
                             }
+                            mode == EngineMode.UIAUTOMATION -> {
+                                showUiAutomationFailDialog(activity, reason)
+                                onConfirm?.invoke(mode)
+                            }
+                            else -> AliveUtils.toast(msg = reason ?: "切换失败")
                         }
-                        mode == EngineMode.UIAUTOMATION ->{
-                            showUiAutomationFailDialog(activity, reason)
-                            onConfirm?.invoke(mode)
-                        }
-                        else -> AliveUtils.toast(msg = reason ?: "切换失败")
-                    }
-                }
+                    },
+                    enableServiceString = enableServiceString,
+                    enableHostAccessibilityService = enableHostAccessibilityService,
+                    disableHostAccessibilityService = disableHostAccessibilityService
+                )
                 // 无障碍模式：跳转系统无障碍设置页引导用户开启
                 if (mode == EngineMode.ACCESSIBILITY_SERVICE) {
                     onConfirm?.invoke(mode)

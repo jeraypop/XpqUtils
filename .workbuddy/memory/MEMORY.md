@@ -36,6 +36,37 @@
 - 节点级 API（performAction / findNodesById / copyNodeCompat）天然跨通道，节点自带 connectionId。
 - 手势：统一走 `XpqAcc.dispatchGesture` / `HumanTouchEngine`，由门面按当前通道分流。
 - `AccessibilityService` 的扩展（如 findById）**只在无障碍模式有效**，UiAutomation 下无 receiver。
+- **事件分发（dealEvent → asyncHandle_XXX）同样通道相关，但靠「桥接」而非系统绑定**（2026-10-09 定案）：
+  - 无障碍：系统直接回调 `onServiceConnected` / `onAccessibilityEvent`，`instance` 由系统 attach 时赋值。
+  - UiAutomation：`connectUiAutomation` 成功后**自动**调 `XpqAcc.autoBridgeAccessibilityEvent()`（XpqAcc.kt:227）
+    → 反射宿主 manifest 中声明 `BIND_ACCESSIBILITY_SERVICE` 的子类并手动 new（找不到时用 fallback
+    `{ SelectToSpeakService() }`）→ `bridgeAccessibilityEvent(handler)` →
+    `setOnAccessibilityEventListener { executors5.execute { handler.onAccessibilityEvent(it) } }`
+    → `dealEvent` → **`asyncHandle_WINDOW_STATE_CHANGED` 会执行**，前提是「连接成功 + 桥接成功 + 过滤通过」。
+  - 手动 new 的实例**不会**被系统 attach，`onServiceConnected` 不回调 → `SelectToSpeakServiceAbstract.instance`
+    在 UiAutomation 下为 null。一律用 `XpqAcc.currentService()`（该模式返回 `proxyService`），
+    `XPQEventData.service` 已按此填。
+  - 事件源 = UiAutomation 的 `OnAccessibilityEventListener`（回调线程 `InvisibleAutoThread`）；
+    **只有一条 listener 槽且是覆盖式**，宿主自己再 `setOnAccessibilityEventListener` 会顶掉桥接。
+  - 订阅范围：UiAutomation 注册用 `eventTypes = TYPES_ALL_MASK` + `packageNames = null`（全包全类型）。
+    无障碍模式下 `onServiceConnected` 那份 serviceInfo（含 `packageNamesFilter`）被注释掉了
+    （`//serviceInfo = info`），所以**两种模式下 packageNames 过滤实际都没生效**。
+  - `dealEvent` 的 WINDOW_STATE_CHANGED 分支有两道自带过滤：`XpqAcc.rootInActiveWindow()` 非 null、
+    且 `root.packageName == event.packageName`（不等直接 return）。排查「回调没进来」先看这两条。
+- **`XpqAcc.currentService()` 返回的【不是】真实无障碍服务（UiAutomation 模式下）**（2026-10-09 定案）：
+  - 无障碍模式 → `SelectToSpeakServiceAbstract.instance`，**是**系统 attach 的真实实例（服务未开时为 null）。
+  - UiAutomation 模式 → `proxyService = by lazy { ProxyAccessibilityService() }`，是**库内部 new 的空壳**：
+    未被系统 attach、无 Context、`serviceInfo` 为 null；只有 `getRootInActiveWindow/getWindows/findFocus`
+    被 override 并委托给 XpqAcc。`performGlobalAction` / `dispatchGesture` 是 AccessibilityService 的
+    **final 方法无法 override**，必须走 `XpqAcc.performGlobalAction()` / `XpqAcc.dispatchGesture()`；
+    `proxy.context` / `proxy.resources` 会 NPE，需要 Context 请用 `LibCtxProvider.appContext`。
+    它的存在只为「类型兼容」，让宿主既有的 `accessibilityService?.xxx()` 零改动继续编译运行。
+  - 于是 UiAutomation 模式下同时存在 **两个**服务对象：`proxyService`（能力代理，`currentService()` 返回它）
+    与 `bridgedHandler`（手动 new 的宿主子类，只接事件）。排查问题时别把二者混为一谈。
+  - **根因（为什么「拿不到真实实例」不是库的缺陷）**：UiAutomation 注册后，被系统登记的服务对象
+    `UiAutomationService` 活在 **system_server 进程**里；App 进程侧只有 framework 的 `UiAutomation`
+    + binder 代理，`AccessibilityService` 这个类在 UiAutomation 模式下**从未被实例化**。
+    而普通无障碍服务是系统 `bindService` 到 App 进程并 attach 的，实例天然在 App 进程 —— 两者注册路径不同。
 
 ## 弹窗外观（避免暗黑模式踩坑）
 - `XpqAcc` 里的 AlertDialog 一律：Builder 传 `Theme_DeviceDefault_Light_Dialog_Alert` 锁浅色主题

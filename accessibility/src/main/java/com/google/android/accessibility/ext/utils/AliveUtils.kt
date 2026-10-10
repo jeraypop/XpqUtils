@@ -108,7 +108,10 @@ object AliveUtils {
                           showReadBar : Boolean = false,
                           notificationServiceClass : Class<out NotificationListenerService>? = ClearNotificationListenerServiceImp::class.java,
                           showOpenAccessibility : Boolean = false,
-                          @DrawableRes imgRes: Int = R.drawable.recenthidexpq) {
+                          @DrawableRes imgRes: Int = R.drawable.recenthidexpq,
+                          enableHostAccessibilityService: Boolean = false,
+                          disableHostAccessibilityService: Boolean = false,
+                          enableServiceString: String? = null) {
         // 创建一个Intent，指定要启动的Activity
         val intent = Intent(appContext, AliveActivity::class.java)
         intent.putExtra(MMKVConst.NOTIFICATION_SERVICE_CLASS, notificationServiceClass)
@@ -116,6 +119,10 @@ object AliveUtils {
         intent.putExtra(MMKVConst.SHOW_TASK_HIDE,showTaskHide)
         intent.putExtra(MMKVConst.SHOW_OPEN_ACCESSIBILITY,showOpenAccessibility)
         intent.putExtra(MMKVConst.SEND_IMAGE_ID,imgRes)
+        // 透传给保活界面里 XpqAcc.connectUiAutomation() 的行为开关
+        intent.putExtra(MMKVConst.UIA_ENABLE_HOST_ACC, enableHostAccessibilityService)
+        intent.putExtra(MMKVConst.UIA_DISABLE_HOST_ACC, disableHostAccessibilityService)
+        intent.putExtra(MMKVConst.UIA_ENABLE_SERVICE_STRING, enableServiceString)
         intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
         appContext.startActivity(intent)
     }

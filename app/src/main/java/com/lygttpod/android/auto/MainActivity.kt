@@ -264,7 +264,15 @@ class MainActivity : XpqBaseActivity<ActivityMainBinding>(
     
 
         binding.btnAlive.setOnClickListener{
-            AliveUtils.openAliveActivity(true,false,NotificationListenerServiceImp::class.java)
+            AliveUtils.openAliveActivity(
+                true,
+                false,
+                NotificationListenerServiceImp::class.java,
+                // 新增参数：显式写出默认值（仅 UiAutomation 模式生效，行为不变）
+                enableHostAccessibilityService = false,
+                disableHostAccessibilityService = false,
+                enableServiceString = null
+            )
         }
         binding.btnAccessibility.setOnClickListener{
             AliveUtils.openAccessibility(this, SelectToSpeakService::class.java)
@@ -278,28 +286,14 @@ class MainActivity : XpqBaseActivity<ActivityMainBinding>(
         binding.btnGZH.setOnClickListener{
             // App 启动时切到 UiAutomation（免开无障碍，需 Shizuku）
             // 直接在主线程调用，不会卡
-            XpqAcc.showEngineModeDialog(this, SelectToSpeakService())
-            if (true)return@setOnClickListener
-            if (XpqAcc.isUiAutomationOccupied()) {
-                AliveUtils.toast(msg = "检测到 UiAutomation 已被其它 App 占用")
-            }
-            XpqAcc.connectUiAutomation(
-                onLog = { Log.d("XpqAcc", it) },
-                onResult = { success, reason ->
-                    if (success) {
-                        // 连接成功后立刻验证
-                        val root = XpqAcc.rootInActiveWindow()
-                        AliveUtils.toast(msg = "连接成功，取根节点=${root != null}，isConnected=${XpqAcc.isConnected}")
-  
-                    }else{
-                        AliveUtils.toast(msg = "失败"+reason)
-                    }
-                },
-                activity = this,
-                SelectToSpeakService()
+            XpqAcc.showEngineModeDialog(
+                this,
+                SelectToSpeakService(),
+                // 新增参数：显式写出默认值（仅在切到 UiAutomation 模式时生效，行为不变）
+                enableServiceString = XpqAcc.SELECTTOSPEAK,
+                enableHostAccessibilityService = false,
+                disableHostAccessibilityService = false
             )
-
-
 
             //
             //show_AC_Warn_Dialog(this@MainActivity,false )
@@ -375,7 +369,11 @@ class MainActivity : XpqBaseActivity<ActivityMainBinding>(
                     AliveUtils.openAliveActivity(true,
                         false,
                         NotificationListenerServiceImp::class.java,
-                         true
+                        true,
+                        // 新增参数：显式写出默认值（仅 UiAutomation 模式生效，行为不变）
+                        enableHostAccessibilityService = false,
+                        disableHostAccessibilityService = false,
+                        enableServiceString = null
                     )
                 },
                 FabMenuItem("视频播放", com.android.accessibility.ext.R.drawable.scale_xpq) {

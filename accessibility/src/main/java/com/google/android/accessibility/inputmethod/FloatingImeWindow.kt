@@ -50,7 +50,12 @@ class FloatingImeWindow(private val context: Context = appContext) {
             setTextColor(0xFFFFFFFF.toInt())
             setOnClickListener {
                 AliveUtils.toast(msg = "请选择输入法")
-                AliveUtils.openAliveActivity()
+                AliveUtils.openAliveActivity(
+                    // 以下为本次新增参数，显式写出默认值（仅 UiAutomation 模式生效，行为与本改动前一致）
+                    enableHostAccessibilityService = false,
+                    disableHostAccessibilityService = false,
+                    enableServiceString = null
+                )
             }
         }
 
