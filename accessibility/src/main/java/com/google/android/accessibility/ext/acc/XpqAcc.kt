@@ -199,7 +199,6 @@ object XpqAcc {
     @JvmOverloads
     fun connectUiAutomation(
         onLog: (String) -> Unit = {},
-        onResult: (success: Boolean, reason: String?) -> Unit = { _, _ -> },
         activity: Activity? = null,
         bridgeFallback: SelectToSpeakServiceAbstract? = null,
         /**
@@ -234,7 +233,8 @@ object XpqAcc {
          * 注意：这与 [use] 里跨进程拿不到 `instance` 而失效的 `disableSelf()` 不同——这里走
          * [AccessibilityEnableHelper] 的 shell / WRITE_SECURE_SETTINGS 路径写系统名单，跨进程有效。
          */
-        disableHostAccessibilityService: Boolean = false
+        disableHostAccessibilityService: Boolean = false,
+        onResult: (success: Boolean, reason: String?) -> Unit = { _, _ -> },
     ) {
         use(EngineMode.UIAUTOMATION)
         val main = Handler(Looper.getMainLooper())
@@ -541,10 +541,10 @@ object XpqAcc {
     fun applyEngineMode(
         mode: EngineMode,
         bridgeFallback: SelectToSpeakServiceAbstract? = null,
-        onResult: (success: Boolean, reason: String?) -> Unit = { _, _ -> },
         enableServiceString: String? = null,
         enableHostAccessibilityService: Boolean = false,
-        disableHostAccessibilityService: Boolean = false
+        disableHostAccessibilityService: Boolean = false,
+        onResult: (success: Boolean, reason: String?) -> Unit = { _, _ -> }
     ) {
         saveEngineMode(mode)
         when (mode) {
@@ -557,13 +557,13 @@ object XpqAcc {
                 // 全部参数显式写出（取值即默认），行为与隐式省略一致，便于阅读与后续调整。
                 connectUiAutomation(
                     onLog = {},
-                    onResult = onResult,
                     activity = null,
                     bridgeFallback = bridgeFallback,
                     postConnectShellCommand = WRITE_SECURE,
                     enableServiceOnConnect = enableServiceString,
                     enableHostAccessibilityService = enableHostAccessibilityService,
-                    disableHostAccessibilityService = disableHostAccessibilityService
+                    disableHostAccessibilityService = disableHostAccessibilityService,
+                    onResult = onResult
                 )
             }
         }
@@ -744,6 +744,9 @@ object XpqAcc {
                 applyEngineMode(
                     mode = mode,
                     bridgeFallback = bridgeFallback,
+                    enableServiceString = enableServiceString,
+                    enableHostAccessibilityService = enableHostAccessibilityService,
+                    disableHostAccessibilityService = disableHostAccessibilityService,
                     onResult = { success, reason ->
                         when {
                             success -> {
@@ -758,10 +761,7 @@ object XpqAcc {
                             }
                             else -> AliveUtils.toast(msg = reason ?: "切换失败")
                         }
-                    },
-                    enableServiceString = enableServiceString,
-                    enableHostAccessibilityService = enableHostAccessibilityService,
-                    disableHostAccessibilityService = disableHostAccessibilityService
+                    }
                 )
                 // 无障碍模式：跳转系统无障碍设置页引导用户开启
                 if (mode == EngineMode.ACCESSIBILITY_SERVICE) {

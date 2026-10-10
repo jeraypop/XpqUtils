@@ -149,14 +149,14 @@ class AliveActivity : XpqBaseActivity<ActivityAliveXpqBinding>(
                     // 宿主指定了服务组件名，或开启了宿主开关 → 由宿主接管无障碍设置：关掉库默认的「独占开启随选朗读」策略，
                     XpqAcc.connectUiAutomation(
                         onLog = {  },
-                        onResult = onResult,
                         activity = this@AliveActivity,
                         // 不传兜底实例：库会反射宿主清单中声明了 BIND_ACCESSIBILITY_SERVICE 的服务子类自动桥接事件
                         bridgeFallback = null,
                         // 非空 = 独占开启该服务；null = 不自动开启任何无障碍服务
                         enableServiceOnConnect = uiaEnableServiceString,
                         enableHostAccessibilityService = uiaEnableHostAcc,
-                        disableHostAccessibilityService = uiaDisableHostAcc
+                        disableHostAccessibilityService = uiaDisableHostAcc,
+                        onResult = onResult,
                     )
                 }
 
