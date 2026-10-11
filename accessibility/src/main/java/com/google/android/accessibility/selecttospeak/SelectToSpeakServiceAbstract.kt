@@ -82,6 +82,10 @@ abstract class SelectToSpeakServiceAbstract : AccessibilityService(),
     @Volatile
     private var destroyed = false
 
+    // 防止重复 attach 应用 Context（UiAutomation 模式下手动 new 的实例需补齐 mBase）
+    @Volatile
+    private var baseContextAttached = false
+
     // 屏幕状态回调（字段强引用，避免 ScreenStateReceiver 的 WeakReference 导致被 GC 收不到回调）
     private lateinit var screenStateCallback: ScreenStateCallback
 
@@ -113,6 +117,32 @@ abstract class SelectToSpeakServiceAbstract : AccessibilityService(),
     open fun asyncHandle_VIEW_SCROLLED(data: XPQEventData){}
     open fun asyncHandle_WINDOWS_CHANGED(event: AccessibilityEvent){}
     open fun onSetOverlay(){}
+
+    /**
+     * 为「手动 new、未经系统 attach」的实例挂上应用 Context，补齐 ContextWrapper 能力
+     * （getResources / getSystemService / getString / getText / getPackageName / registerReceiver /
+     * unregisterReceiver / startActivity 等，全部直接读 `mBase` 字段，一次挂载即全部生效）。
+     *
+     * UiAutomation 模式下，[XpqAcc.autoBridgeAccessibilityEvent] 反射创建（或宿主兜底提供）的事件
+     * 桥接实例从未被系统 attach，`mBase == null` —— 事件链路里任何一次 Context 调用都会 NPE，
+     * 且往往被上层 `catch (Throwable) {}` 吞掉，外在表现是「什么都没发生」，极难定位。
+     * 由库在桥接前统一补齐，所有接入 XpqUtils 的宿主一同免疫，无需各自修补。
+     *
+     * 幂等 + 安全：
+     * - 已由系统 attach 的实例（无障碍模式正常绑定）`baseContext` 非空，直接跳过，不改动系统行为
+     *   （[android.content.ContextWrapper.attachBaseContext] 对已挂载的实例会抛 IllegalStateException）；
+     * - 应用 Context 尚未就绪（LibCtxProvider 未初始化）时不置位，下次调用自动重试。
+     */
+    fun ensureAppContext() {
+        if (baseContextAttached) return
+        if (baseContext != null) {
+            baseContextAttached = true
+            return
+        }
+        val ctx = runCatching { appContext }.getOrNull() ?: return
+        runCatching { attachBaseContext(ctx) }
+        baseContextAttached = true
+    }
 
     /**
      * UiAutomation 通道「就绪」回调（等价无障碍模式 onServiceConnected 的宿主扩展点）。

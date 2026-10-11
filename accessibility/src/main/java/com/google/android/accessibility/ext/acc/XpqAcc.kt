@@ -462,6 +462,9 @@ object XpqAcc {
      */
     @JvmStatic
     fun bridgeAccessibilityEvent(handler: SelectToSpeakServiceAbstract) {
+        // 兜底：宿主自行 new 实例调用本方法时同样补齐 Context 能力（autoBridge 路径已在更早处
+        // 调用过，[ensureAppContext] 幂等，重复调用无副作用）。
+        runCatching { handler.ensureAppContext() }
         setOnAccessibilityEventListener { event ->
             // 事件回调发生在 UiAutomation 线程（InvisibleAutoThread）；handler.onAccessibilityEvent
             // → dealEvent 内是跨进程 getRoot + copyNodeCompat 遍历整棵树的【重活】。若在此线程同步执行，
@@ -493,6 +496,11 @@ object XpqAcc {
         // 就绪钩子，把通道无关的初始化（如屏幕广播接收器）补上。service 传 proxyService。
         // 同时保存引用，供断开连接时触发 onUiAutomationDestroy 释放资源。
         bridgedHandler = handler
+        // 手动 new 的实例从未被系统 attach，ContextWrapper.mBase 为空 → 事件链路里任何一次
+        // Context 调用（getString / getSystemService / registerReceiver / packageManager ...）都会 NPE，
+        // 且常被上层 catch(Throwable){} 吞掉，外在表现是「什么都没发生」。桥接前统一补齐，让所有
+        // 接入本库的宿主一同免疫（含下面 onUiAutomationReady 里宿主自己用到的 Context）。
+        runCatching { handler.ensureAppContext() }
         runCatching { handler.onUiAutomationReady(currentService()) }
         bridgeAccessibilityEvent(handler)
         android.util.Log.i("XpqAcc", "自动事件桥接成功：${handler.javaClass.name}")
