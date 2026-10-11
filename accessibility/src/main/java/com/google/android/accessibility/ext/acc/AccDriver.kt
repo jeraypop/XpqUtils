@@ -1,6 +1,7 @@
 package com.google.android.accessibility.ext.acc
 
 import android.accessibilityservice.AccessibilityService
+import android.accessibilityservice.AccessibilityServiceInfo
 import android.accessibilityservice.GestureDescription
 import android.os.Handler
 import android.view.accessibility.AccessibilityEvent
@@ -32,6 +33,24 @@ interface AccDriver {
         callback: AccessibilityService.GestureResultCallback?,
         handler: Handler?
     ): Boolean
+
+    // ---- final 能力的通道无关门面（AccessibilityService 的这几个方法为 final，代理实例覆盖不了）----
+
+    /**
+     * 读取当前通道的 [AccessibilityServiceInfo]。
+     * 无障碍通道 = 真实服务的 serviceInfo；UiAutomation 通道没有这个概念，返回 null。
+     */
+    fun getServiceInfo(): AccessibilityServiceInfo?
+
+    /**
+     * 写入 [AccessibilityServiceInfo]（宿主用它做事件订阅/过滤的动态调整）。
+     * 无障碍通道 = 真实服务 setServiceInfo；
+     * UiAutomation 通道 = 无效（事件订阅由 system_server 侧注册决定），实现为空，桥接层仍会收到全量事件。
+     */
+    fun setServiceInfo(info: AccessibilityServiceInfo?)
+
+    /** 关闭自身。无障碍通道 = 真实服务 disableSelf；UiAutomation 通道 = 断开连接。 */
+    fun disableSelf()
 
     /**
      * 文本输入原子能力：把 [text] 写入 [node] 命中的输入框。

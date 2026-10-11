@@ -1,6 +1,7 @@
 package com.google.android.accessibility.ext.acc
 
 import android.accessibilityservice.AccessibilityService
+import android.accessibilityservice.AccessibilityServiceInfo
 import android.accessibilityservice.GestureDescription
 import android.content.ClipData
 import android.content.ClipboardManager
@@ -83,6 +84,18 @@ object UiAutomationDriver : AccDriver {
         if (ok) callback?.onCompleted(gesture) else callback?.onCancelled(gesture)
         return ok
     }
+
+    /** UiAutomation 通道没有 serviceInfo 概念，返回 null。 */
+    override fun getServiceInfo(): AccessibilityServiceInfo? = null
+
+    /**
+     * UiAutomation 通道下 setServiceInfo 不生效：事件订阅由 system_server 侧注册时决定，
+     * 宿主的动态过滤无法下发给系统。此处留空，桥接层仍会收到全量事件（由宿主自行按包名/类型判断）。
+     */
+    override fun setServiceInfo(info: AccessibilityServiceInfo?) {}
+
+    /** UiAutomation 通道下「关闭自身」= 断开连接。 */
+    override fun disableSelf() = disconnect()
 
     override fun inputText(node: AccessibilityNodeInfo?, text: String, clearFirst: Boolean): Boolean =
         inputTextAsync(node, text, null, clearFirst)

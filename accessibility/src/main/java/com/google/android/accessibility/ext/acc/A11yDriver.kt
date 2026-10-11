@@ -1,6 +1,7 @@
 package com.google.android.accessibility.ext.acc
 
 import android.accessibilityservice.AccessibilityService
+import android.accessibilityservice.AccessibilityServiceInfo
 import android.accessibilityservice.GestureDescription
 import android.os.Bundle
 import android.os.Handler
@@ -49,6 +50,16 @@ object A11yDriver : AccDriver {
         callback: AccessibilityService.GestureResultCallback?,
         handler: Handler?
     ): Boolean = svc()?.dispatchGesture(gesture, callback, handler) ?: false
+
+    override fun getServiceInfo(): AccessibilityServiceInfo? = svc()?.serviceInfo
+
+    override fun setServiceInfo(info: AccessibilityServiceInfo?) {
+        svc()?.serviceInfo = info
+    }
+
+    override fun disableSelf() {
+        svc()?.disableSelf()
+    }
 
     override fun inputText(node: AccessibilityNodeInfo?, text: String, clearFirst: Boolean): Boolean {
         if (node == null) return false

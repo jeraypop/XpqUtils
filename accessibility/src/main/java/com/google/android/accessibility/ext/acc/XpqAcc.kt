@@ -1,6 +1,7 @@
 package com.google.android.accessibility.ext.acc
 
 import android.accessibilityservice.AccessibilityService
+import android.accessibilityservice.AccessibilityServiceInfo
 import android.accessibilityservice.GestureDescription
 import android.app.Activity
 import android.app.AlertDialog
@@ -53,7 +54,9 @@ object XpqAcc {
 
     private val a11yDriver: AccDriver = A11yDriver
     private val uiDriver: AccDriver = UiAutomationDriver
-    private val proxyService by lazy { ProxyAccessibilityService() }
+    private val proxyService by lazy {
+        ProxyAccessibilityService().apply { ensureAppContext() }
+    }
 
     /** 事件桥接的宿主服务实例（UiAutomation 模式手动 new），用于断开时触发销毁回调释放资源。 */
     @Volatile
@@ -150,7 +153,7 @@ object XpqAcc {
         }
         val newValue: AccessibilityService? = when (mode) {
             EngineMode.ACCESSIBILITY_SERVICE -> SelectToSpeakServiceAbstract.instance
-            EngineMode.UIAUTOMATION -> proxyService
+            EngineMode.UIAUTOMATION -> proxyService.also { it.ensureAppContext() }
         }
         // setValue 要求主线程；后台线程调用时降级为 postValue，避免崩溃
         if (Looper.myLooper() == Looper.getMainLooper()) {
@@ -379,6 +382,28 @@ object XpqAcc {
     ): Boolean = driver.dispatchGesture(gesture, callback, handler)
 
     /**
+     * 读取当前通道的 [AccessibilityServiceInfo]。
+     * 等价 `AccessibilityService.getServiceInfo()`，但该方法是 final、代理实例无法覆盖，故收敛到本门面。
+     * 无障碍通道 = 真实服务的 serviceInfo；UiAutomation 通道 = null。
+     */
+    @JvmStatic
+    fun getServiceInfo(): AccessibilityServiceInfo? = driver.getServiceInfo()
+
+    /**
+     * 写入 [AccessibilityServiceInfo]，等价 `AccessibilityService.setServiceInfo()`。
+     * 无障碍通道 = 真实服务；UiAutomation 通道 = 无效（事件订阅由 system_server 侧注册决定）。
+     */
+    @JvmStatic
+    fun setServiceInfo(info: AccessibilityServiceInfo?) = driver.setServiceInfo(info)
+
+    /**
+     * 关闭自身，等价 `AccessibilityService.disableSelf()`。
+     * 无障碍通道 = 真实服务 disableSelf；UiAutomation 通道 = 断开 UiAutomation 连接。
+     */
+    @JvmStatic
+    fun disableSelf() = driver.disableSelf()
+
+    /**
      * 输入文本。[clearFirst]=true 时输入前先清空原内容（两通道语义对齐：
      * 无障碍走节点级 SET_TEXT ""，UiAutomation 走 shell 全选+DEL）。
      */
@@ -426,7 +451,7 @@ object XpqAcc {
     @JvmStatic
     fun currentService(): AccessibilityService? = when (driver.mode) {
         EngineMode.ACCESSIBILITY_SERVICE -> SelectToSpeakServiceAbstract.instance
-        EngineMode.UIAUTOMATION -> proxyService
+        EngineMode.UIAUTOMATION -> proxyService.also { it.ensureAppContext() }
     }
 
     /**
