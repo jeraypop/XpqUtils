@@ -614,16 +614,26 @@ object XpqAcc {
      *                  为 null 时不回调。
      * @param imgRes    无障碍模式跳转设置后弹出的引导对话框图片资源。
      * @param bridgeFallback 事件桥接兜底实例，仅 UiAutomation 模式使用；透传给 [applyEngineMode]。
-     * @param enableServiceString 连接成功后要自动开启的无障碍服务组件名（展平形式，独占）。非空时，
-     *                            弹窗内「同时开启无障碍服务」开关与「2.关闭其它所有的无障碍服务…」提示均不显示，
-     *                            宿主无障碍服务的开启完全交给这条独占路径（[connectUiAutomation] 里的
-     *                            持久化开关判断会因它非空而不生效）。
+     * @param enableServiceString 连接成功后要自动开启的无障碍服务组件名（展平形式，独占）。
+     *                            非空时（如 [SELECTTOSPEAK]）弹窗内「开启随选朗读」「同时开启无障碍服务」两个开关
+     *                            与「2.关闭其它所有的无障碍服务…」提示均不显示，取值完全以本参数为准。
+     *                            为 null 时改由弹窗内「开启随选朗读」开关决定（开 = [SELECTTOSPEAK]，关 = 不开启）。
      * @param disableHostAccessibilityService 仅 UiAutomation 模式使用；切换到 Shizuku 模式成功后自动关闭宿主自己的
      *                                        无障碍服务，避免无障碍通道与 UiAutomation 通道双跑。透传给 [applyEngineMode] 同名参数。
      *
      * 宿主无障碍服务的**开启**不需要参数：弹窗内「同时开启无障碍服务」开关即唯一入口，
      * 取值存于 MMKV（`MMKVConst.KEY_UIA_ENABLE_HOST_ACC`），[applyEngineMode] / [connectUiAutomation]
      * 在连接成功后直接读它。
+     *
+     * 「开启随选朗读」开关（仅 Shizuku 模式下显示）：**等价于**调用方把 [enableServiceString] 传成
+     * [SELECTTOSPEAK] —— 为 true 时按「独占开启随选朗读」执行（会关掉设备上其它无障碍服务）；
+     * 为 false 时等价于没传（不开启任何无障碍服务）。取值存于 MMKV
+     * （`MMKVConst.KEY_SELECTTOSPEAK_ENABLE`，默认 false）。开启它时「同时开启无障碍服务」行会自动隐藏
+     * （独占路径下后者的持久化判断本就不生效），说明文字里的「2.关闭其它所有的无障碍服务…」提示也会同步出现。
+     *
+     * 调用方显式传了 [enableServiceString] 时本行**仍然显示**，但转为只读展示：勾选状态 = 传入的是否为
+     * [SELECTTOSPEAK]（传入其它服务时显示为未勾选），**标题与说明文字完全不变**，禁用状态只由开关
+     * 自身置灰表达。这样用户始终能看到「本次到底开不开随选朗读」，而不是整行凭空消失。
      *
      * 无障碍模式的「确定」行为按权限分流：
      * - 宿主已获 `WRITE_SECURE_SETTINGS`（连接 Shizuku 时 shell 执行过 `pm grant`）→ 后台线程调
@@ -653,11 +663,26 @@ object XpqAcc {
         fun indexToMode(index: Int): EngineMode =
             if (index == 0) EngineMode.ACCESSIBILITY_SERVICE else EngineMode.UIAUTOMATION
 
-        // 「关闭其它所有的无障碍服务，只保留开启设备自带的随选朗读」这一段只在
-        // enableServiceString 非空（本次切换会指定并开启某个无障碍服务）时才提示。
-        // 自带前后空行，为空时整段连带空行一起省略，避免多出空行。
-        val closeOtherAccTip: String =
-            if (enableServiceString != null) {
+        // 「开启随选朗读」的状态：未传入 enableServiceString 时由弹窗内开关控制，初值取 MMKV 记忆值
+        // （默认关，等价于"没传进来"）；显式传入时由调用方决定——开关只读展示（勾选状态 = 传入的是否为
+        // [SELECTTOSPEAK]，传了别的服务则显示为未勾选），不受用户操作影响。
+        // ⚠ 必须声明在 describeMode 之前：Kotlin 局部函数不能前向引用，describeMode 要读它。
+        var selectToSpeakOn = if (enableServiceString != null) enableServiceString == SELECTTOSPEAK
+        else MMKVUtil.get(MMKVConst.KEY_SELECTTOSPEAK_ENABLE, false)
+
+        // 调用方显式指定了「独占开启」的服务 → 「开启随选朗读」行只做展示、不参与配置也不可操作。
+        val selectToSpeakLocked = enableServiceString != null
+
+        // 本次实际「独占开启」的无障碍服务组件名：显式传入优先，否则看开关
+        // （开关开 = 等价于传入 [SELECTTOSPEAK]，关 = 等价于没传）。
+        // 决定三处：说明文字里的提示段、【两个开关行的显隐】、以及点「确定」时的实际取值。
+        fun curExclusiveService(): String? =
+            enableServiceString ?: if (selectToSpeakOn) SELECTTOSPEAK else null
+
+        // 「关闭其它所有的无障碍服务，只保留开启设备自带的随选朗读」这一段只在走独占开启路径时才提示。
+        // 自带前后空行，不提示时整段连带空行一起省略，避免多出空行。
+        fun closeOtherAccTip(): String =
+            if (curExclusiveService() != null) {
                 "2.关闭其它所有的无障碍服务，只保留开启设备自带的☞☞： https://settings随选朗读\n\n"
             } else ""
 
@@ -676,7 +701,7 @@ object XpqAcc {
                         "1.本软件已内置 Shizuku 管理器，无需额外下载\n" +
                         "打开 Shizuku 服务☞☞：https://settings.开启Shizuku服务\n\n" +
                         "shizuku 使用教程☞☞：https://mp.weixin.qq.com/s/qG3znEmRgtOkfmktM2mxrA\n\n" +
-                        closeOtherAccTip +
+                        closeOtherAccTip() +
                         "为什么引入该模式：" +
                         "\n由于部分应用会检测设备上启用的第三方无障碍服务，并可能出现安全提示。" +
                         "\n所以，现在采用无障碍模式的应用在wx上已经不推荐再用了，用了被检测到是早几天晚几天的事" +
@@ -688,7 +713,7 @@ object XpqAcc {
                         "备用原版下载地址☞☞：https://apt.izzysoft.de/fdroid/index/apk/moe.shizuku.privileged.api\n" +
                         "最新修改版下载地址（推荐下载这个）☞☞：https://github.com/thedjchi/Shizuku/releases\n" +
                         "shizuku 使用教程☞☞：https://mp.weixin.qq.com/s/qG3znEmRgtOkfmktM2mxrA\n\n" +
-                        closeOtherAccTip +
+                        closeOtherAccTip() +
                         "为什么引入该模式：" +
                         "\n由于部分应用会检测设备上启用的第三方无障碍服务，并可能出现安全提示。" +
                         "\n所以，现在采用无障碍模式的应用在wx上已经不推荐再用了，用了被检测到是早几天晚几天的事" +
@@ -777,6 +802,52 @@ object XpqAcc {
         }
         renderMode(current)
 
+        // 记录当前选中项；点击「确定」时才真正切换并持久化。
+        // 提前声明：下面「开启随选朗读」开关的监听里要重渲染说明文字，需要读它。
+        var selected = current
+
+        // 「开启随选朗读」开关：等价于调用方把 enableServiceString 传成 [SELECTTOSPEAK]——
+        // 开启后切到 Shizuku 模式时会「独占」开启系统的随选朗读（关掉设备上其它无障碍服务）。
+        // 调用方显式传了 enableServiceString 时本行仍显示，但转为只读：勾选状态由传入值决定，
+        // 只有开关自身置灰（文字颜色不变），表示本次配置由调用方决定、用户改不了。
+        val selectToSpeakSwitch = SwitchCompat(activity).apply {
+            isChecked = selectToSpeakOn
+            isEnabled = !selectToSpeakLocked
+        }
+        val selectToSpeakTitleView = TextView(activity).apply {
+            text = "开启随选朗读"
+            textSize = 14f
+            // 与标题区同款：显式锁深色，避免暗黑模式下浅色压浅底。
+            // 只读与否不改变文字颜色——禁用状态完全由右侧开关自身置灰表达。
+            setTextColor(0xFF212121.toInt())
+        }
+        val selectToSpeakDescView = TextView(activity).apply {
+            // 文案与「本次是不是只读」无关：无论配置由谁决定，都展示同一句说明、保持同一颜色。
+            text = "开启后，切换到 Shizuku 模式时会一并开启系统的「随选朗读」无障碍服务和关闭 其它所有无障碍(主要使用场景在WX内时，开启本开关)"
+            textSize = 12f
+            setTextColor(0xFF757575.toInt())
+        }
+        val selectToSpeakLabels = LinearLayout(activity).apply {
+            orientation = LinearLayout.VERTICAL
+            addView(selectToSpeakTitleView)
+            addView(selectToSpeakDescView)
+        }
+        val selectToSpeakRow = LinearLayout(activity).apply {
+            orientation = LinearLayout.HORIZONTAL
+            gravity = Gravity.CENTER_VERTICAL
+            setPadding(
+                (20 * density).toInt(),
+                (4 * density).toInt(),
+                (20 * density).toInt(),
+                (4 * density).toInt()
+            )
+            addView(
+                selectToSpeakLabels,
+                LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f)
+            )
+            addView(selectToSpeakSwitch)
+        }
+
         // 「同时开启无障碍服务」开关：唯一控制宿主无障碍服务是否随 Shizuku 模式一并开启。
         // 仅在 Shizuku 模式下有意义（无障碍模式下隐藏）。取值只来自 MMKV 记忆值（默认关闭），
         // 不再接受调用方入参。自建视图用 setView 挂进弹窗的 custom 面板（与单选列表共存）。
@@ -790,7 +861,7 @@ object XpqAcc {
             setTextColor(0xFF212121.toInt())
         }
         val hostAccDescView = TextView(activity).apply {
-            text = "开启后，切换到 Shizuku 模式时会一并打开本应用的无障碍服务"
+            text = "开启后，切换到 Shizuku 模式时会一并打开本应用的无障碍服务(主要使用场景不在WX内时，开启本开关)"
             textSize = 12f
             setTextColor(0xFF757575.toInt())
         }
@@ -815,14 +886,19 @@ object XpqAcc {
             addView(hostAccSwitch)
         }
 
-        // 记录当前选中项；点击「确定」时才真正切换并持久化
-        var selected = current
+        // 两个开关行合并成一个竖直线性布局，作为 setView 的自定义面板内容
+        // （setView 只能挂一个 View；面板与单选列表共存，custom 面板在列表上方）
+        val switchPanel = LinearLayout(activity).apply {
+            orientation = LinearLayout.VERTICAL
+            addView(selectToSpeakRow)
+            addView(hostAccRow)
+        }
 
         // 锁定浅色主题：单选列表/按钮/链接色全部固定，不随系统暗黑模式变化（见 titleView 处注释）
         val dialog = AlertDialog.Builder(activity, android.R.style.Theme_DeviceDefault_Light_Dialog_Alert)
             .setCustomTitle(titleView)
             // 自定义视图与单选列表分属不同面板，可共存（custom 面板在列表上方）
-            .setView(hostAccRow)
+            .setView(switchPanel)
             .setSingleChoiceItems(items, current) { _, which ->
                 selected = which
             }
@@ -833,11 +909,21 @@ object XpqAcc {
                     AliveUtils.toast(msg = "当前版本不支持无障碍模式")
                     return@setPositiveButton
                 }
+                // 本次实际生效的「独占开启」服务：显式传入 enableServiceString 优先，
+                // 否则由「开启随选朗读」开关决定（开 = SELECTTOSPEAK，关 = null 即不开启）
+                val effectiveEnableServiceString = curExclusiveService()
+
                 // 宿主无障碍服务的开启由持久化开关决定（[connectUiAutomation] 直接读 MMKV，没有参数）。
-                // 这里只负责把开关当前取值写回记忆，必须在 applyEngineMode 之前；开关隐藏时
-                // （enableServiceString 独占指定了服务）不写，避免覆盖用户之前的偏好 + 那条路径下它本就不生效。
+                // 这里只负责把开关当前取值写回记忆，必须在 applyEngineMode 之前；开关被隐藏时不写，
+                // 避免覆盖用户之前的偏好 + 那条路径下它本就不生效：
+                //  - 显式传了 enableServiceString → 「随选朗读」行转为只读、「同时开启无障碍服务」行隐藏，
+                //    两个开关都不写（配置由调用方决定，不覆盖用户既有偏好）；
+                //  - 「随选朗读」开着 → 走独占路径，宿主无障碍行已隐藏，只写「随选朗读」的值。
                 if (enableServiceString == null) {
-                    MMKVUtil.put(MMKVConst.KEY_UIA_ENABLE_HOST_ACC, hostAccSwitch.isChecked)
+                    MMKVUtil.put(MMKVConst.KEY_SELECTTOSPEAK_ENABLE, selectToSpeakSwitch.isChecked)
+                    if (effectiveEnableServiceString == null) {
+                        MMKVUtil.put(MMKVConst.KEY_UIA_ENABLE_HOST_ACC, hostAccSwitch.isChecked)
+                    }
                 }
 
                 // 两种分支共用同一份结果处理（applyEngineMode 的 onResult 是命名参数，非尾随 lambda）。
@@ -863,7 +949,7 @@ object XpqAcc {
                     applyEngineMode(
                         mode = mode,
                         bridgeFallback = bridgeFallback,
-                        enableServiceString = enableServiceString,
+                        enableServiceString = effectiveEnableServiceString,
                         disableHostAccessibilityService = disableHostAccessibilityService,
                         onResult = { success, reason ->
                             if (!success && failToast != null) AliveUtils.toast(msg = failToast)
@@ -918,7 +1004,7 @@ object XpqAcc {
                                 applyEngineMode(
                                     mode = mode,
                                     bridgeFallback = bridgeFallback,
-                                    enableServiceString = enableServiceString,
+                                    enableServiceString = effectiveEnableServiceString,
                                     disableHostAccessibilityService = disableHostAccessibilityService,
                                     onResult = handleModeResult
                                 )
@@ -960,11 +1046,26 @@ object XpqAcc {
                 if (index == 0) View.GONE else View.GONE //暂时都不显示
         }
 
-        // 「同时开启无障碍服务」开关仅对 Shizuku 模式有意义，无障碍模式下整行隐藏；
-        // 指定了 enableServiceString（独占开启某个服务）时同样隐藏，避免两条互斥配置同时出现。
-        fun updateHostAccVisibility(index: Int) {
+        // 两个开关行的显隐（都只对 Shizuku 模式有意义，无障碍模式下整行隐藏）：
+        // - 「开启随选朗读」：Shizuku 模式下**始终显示**——调用方显式指定了 enableServiceString 时改为
+        //   只读展示（见上方 selectToSpeakLocked），让用户仍能看到「本次到底开不开随选朗读」，
+        //   而不是整行凭空消失；
+        // - 「同时开启无障碍服务」：本次走独占开启路径时隐藏（两者互斥，同时出现会给出自相矛盾的配置）。
+        fun updateSwitchRowVisibility(index: Int) {
+            val shizukuMode = index != 0
+            selectToSpeakRow.visibility =
+                if (shizukuMode) View.VISIBLE else View.GONE
             hostAccRow.visibility =
-                if (index == 0 || enableServiceString != null) View.GONE else View.VISIBLE
+                if (shizukuMode && curExclusiveService() == null) View.VISIBLE else View.GONE
+        }
+
+        // 「开启随选朗读」开关联动：改变它等于改变「本次是否走独占开启」
+        // → 需重渲染说明文字（提示段跟着出现/消失）并刷新两个开关行的显隐。
+        // 注意本监听在 isChecked 初值设好之后才挂，避免初始化时触发一次无意义回调。
+        selectToSpeakSwitch.setOnCheckedChangeListener { _, checked ->
+            selectToSpeakOn = checked
+            renderMode(selected)
+            updateSwitchRowVisibility(selected)
         }
 
         dialog.setOnShowListener {
@@ -976,12 +1077,12 @@ object XpqAcc {
                 dialog.getButton(AlertDialog.BUTTON_NEUTRAL)?.setTextColor(btnColor)
             }
             updateNeutralVisibility(current)
-            updateHostAccVisibility(current)
+            updateSwitchRowVisibility(current)
             dialog.listView?.setOnItemClickListener { _, _, position, _ ->
                 selected = position
                 renderMode(position)
                 updateNeutralVisibility(position)
-                updateHostAccVisibility(position)
+                updateSwitchRowVisibility(position)
                 dialog.listView?.setItemChecked(position, true)
             }
         }

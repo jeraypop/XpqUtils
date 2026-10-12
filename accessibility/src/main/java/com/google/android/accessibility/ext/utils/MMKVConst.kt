@@ -63,6 +63,8 @@ object MMKVConst {
     const val UIA_ENABLE_SERVICE_STRING = "UIA_ENABLE_SERVICE_STRING"
     /** 模式选择弹窗里「同时开启无障碍服务」开关的记忆值：唯一控制宿主无障碍服务是否随 Shizuku 模式一并开启。 */
     const val KEY_UIA_ENABLE_HOST_ACC = "KEY_UIA_ENABLE_HOST_ACC"
+    /** 模式选择弹窗里「开启随选朗读」开关的记忆值：等价于调用方把 enableServiceString 传成 XpqAcc.SELECTTOSPEAK。 */
+    const val KEY_SELECTTOSPEAK_ENABLE = "KEY_SELECTTOSPEAK_ENABLE"
 
     const val ALI_KEY = "fkx11204qu3e298yblfpx51"
     const val EXTRA_KEY_PAY_CONFIG = "pay_config"
