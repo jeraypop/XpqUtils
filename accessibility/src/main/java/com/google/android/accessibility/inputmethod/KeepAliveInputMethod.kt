@@ -240,14 +240,11 @@ class KeepAliveInputMethod : InputMethodService() {
 
 
         fun ensureImeEnabledAndDefault(context: Context = appContext, imeId: String = xpqImeId) {
-            val contentResolver = context.contentResolver
             val appName = getAppName(context.packageName)
             // 1️⃣ 检查是否启用
-            val enabledImeList = Settings.Secure.getString(
-                contentResolver,
-                Settings.Secure.ENABLED_INPUT_METHODS
-            ) ?: ""
-            val isEnabled = enabledImeList.contains(imeId)
+            // 注意：Android 14（API 34）起 Settings.Secure.ENABLED_INPUT_METHODS 只对
+            // targetSdk <= 33 的应用可读，直接读会抛 SecurityException。统一走 isImeEnabled。
+            val isEnabled = isImeEnabled(context, imeId)
 
             if (!isEnabled) {
                 // 未启用，提示并打开系统设置让用户启用
@@ -287,6 +284,33 @@ class KeepAliveInputMethod : InputMethodService() {
             }
             // 3️⃣ 已启用且为默认
             AliveUtils.toast(msg = "输入法保活已开启")
+        }
+
+        /**
+         * 本输入法是否处于「已启用」状态。
+         *
+         * Android 14（API 34）起 [Settings.Secure.ENABLED_INPUT_METHODS] 被标注为
+         * `@Readable(maxTargetSdk = 33)`：应用 targetSdk > 33 时读取会抛
+         * `SecurityException: Settings key: <enabled_input_methods> is only readable to apps
+         * with targetSdkVersion lower than or equal to: 33`。该校验在客户端进程内完成
+         * （Settings.NameValueCache），与设备型号 / ROM 无关，命中即崩。
+         *
+         * 官方替代是 [InputMethodManager.getEnabledInputMethodList]。这里以官方 API 为主，
+         * 读系统设置仅作兜底；兜底路径只在旧系统（API < 34）或 targetSdk <= 33 时可用，
+         * 故额外包 runCatching，避免将来再炸一次。
+         */
+        private fun isImeEnabled(context: Context, imeId: String): Boolean {
+            runCatching {
+                val imm = context.getSystemService(Context.INPUT_METHOD_SERVICE) as? InputMethodManager
+                imm?.enabledInputMethodList?.any { it.id == imeId }
+            }.getOrNull()?.let { return it }
+
+            return runCatching {
+                Settings.Secure.getString(
+                    context.contentResolver,
+                    Settings.Secure.ENABLED_INPUT_METHODS
+                )?.contains(imeId) == true
+            }.getOrDefault(false)
         }
 
         fun isDefaultIme(context: Context = appContext,imeId: String = xpqImeId): Boolean {

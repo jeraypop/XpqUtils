@@ -19,11 +19,14 @@ import android.text.Spanned
 import android.text.method.LinkMovementMethod
 import android.text.style.ClickableSpan
 import android.text.util.Linkify
+import android.view.Gravity
 import android.view.View
 import android.view.accessibility.AccessibilityEvent
 import android.view.accessibility.AccessibilityNodeInfo
 import android.view.accessibility.AccessibilityWindowInfo
+import android.widget.LinearLayout
 import android.widget.TextView
+import androidx.appcompat.widget.SwitchCompat
 import com.android.accessibility.ext.R
 import com.google.android.accessibility.ext.acc.XpqAcc.connectUiAutomation
 import com.google.android.accessibility.ext.acc.XpqAcc.use
@@ -192,6 +195,10 @@ object XpqAcc {
      * 连接本身是阻塞操作（绑定 Shizuku UserService 最多等 10s、UiAutomation.connect 最多等 5s），
      * 故本方法内部在后台线程执行连接，onLog / onResult 都切回主线程回调，宿主可放心在主线程调用。
      *
+     * 连接成功后是否**增量**开启【宿主自己】的无障碍服务**没有参数**：唯一数据源是持久化的用户选择
+     * `MMKVConst.KEY_UIA_ENABLE_HOST_ACC`（由 [showEngineModeDialog] 里的「同时开启无障碍服务」开关写入）。
+     * 组件名反射自宿主清单；传了 [enableServiceOnConnect]（独占开启）时该开关不生效。
+     *
      * @param activity 可选；传入时，连接失败会自动弹出引导对话框（而非仅靠 onResult 回调），
      *                 失败原因涉及 Shizuku 时带「打开 Shizuku」按钮。
      * @param bridgeFallback 可选；事件桥接的兜底实例。连接成功后优先反射从 Manifest 实例化宿主的
@@ -217,16 +224,6 @@ object XpqAcc {
          * （原 `enableServiceOnConnectExclusive` 开关已移除，不再支持增量追加。）
          */
         enableServiceOnConnect: String? = null,
-        /**
-         * 连接成功后是否自动开启【宿主自己】的无障碍服务。
-         *
-         * 组件名由库反射宿主清单里的 `BIND_ACCESSIBILITY_SERVICE` 服务推导（同 [findAccessibilityServiceSubclass] 的查找方式），
-         * 宿主无需自己传；始终以**增量**方式追加，不影响设备上其它无障碍服务。
-         *
-         * 与 [enableServiceOnConnect] 的关系：显式传了 [enableServiceOnConnect] 时以它为准，本参数不生效。
-         * 与 [disableHostAccessibilityService] 同时为 true 时以 [disableHostAccessibilityService] 为准。
-         */
-        enableHostAccessibilityService: Boolean = false,
         /**
          * 连接成功后是否自动关闭【宿主自己】的无障碍服务。
          *
@@ -281,8 +278,10 @@ object XpqAcc {
                     }.onFailure { log("✗ 自动开启无障碍服务异常: ${it.message}") }
                 }
                 // 连接成功后自动开启【宿主自己】的无障碍服务（可选）：组件名反射自宿主清单，增量追加、不影响其它服务。
-                // 显式传了 enableServiceOnConnect 时以它为准；disableHostAccessibilityService 优先。
-                if (enableHostAccessibilityService && !disableHostAccessibilityService) {
+                // 取值来自持久化的用户开关（弹窗里的「同时开启无障碍服务」），不再有参数。
+                // 传了 enableServiceOnConnect（独占开启）或 disableHostAccessibilityService 时，本步不生效。
+                val enableHostAcc = MMKVUtil.get(MMKVConst.KEY_UIA_ENABLE_HOST_ACC, false)
+                if (enableHostAcc && !disableHostAccessibilityService && enableServiceOnConnect.isNullOrBlank()) {
                     runCatching {
                         val flat = hostAccessibilityServiceFlat()
                         if (flat == null) {
@@ -443,16 +442,21 @@ object XpqAcc {
         driver.setOnAccessibilityEventListener(listener)
 
     /**
-     * 返回当前通道对应的 service 实例：
-     * 无障碍模式 = 真实无障碍服务实例（服务未开启时为 null）；
-     * UiAutomation 模式 = [ProxyAccessibilityService]（非 null）。
-     * 用于给 XPQEventData.service 等需要 AccessibilityService 的地方提供通道感知的值。
+     * 返回当前可用的 service 实例，**真实无障碍服务优先，与当前通道无关**：
+     * - 真实无障碍服务已被系统绑定（`SelectToSpeakServiceAbstract.instance != null`，含
+     *   「无障碍 + UiAutomation 双活」）→ 返回该真实实例（有 context / serviceInfo，final 动作可用）；
+     * - 否则 → 返回 [ProxyAccessibilityService]（非 null，取根/窗口/焦点委托给 [XpqAcc] 当前通道）。
+     *
+     * 用于给 XPQEventData.service 等需要 AccessibilityService 的地方提供值。
+     *
+     * 注意：本方法**只决定返回哪个实例，不改变点击/手势的通道**——手势仍由 [driver] 决定
+     * （即 [dispatchGesture] 等门面方法）。但拿到真实实例后直接调 `service.xxx()` 会走真实无障碍服务
+     * （`getRootInActiveWindow` / `dispatchGesture` / `performGlobalAction` 都是真实实现），
+     * 所以取根与点击请统一走 [XpqAcc] 门面，本方法供「需要真实 AccessibilityService 对象」的场景使用。
      */
     @JvmStatic
-    fun currentService(): AccessibilityService? = when (driver.mode) {
-        EngineMode.ACCESSIBILITY_SERVICE -> SelectToSpeakServiceAbstract.instance
-        EngineMode.UIAUTOMATION -> proxyService.also { it.ensureAppContext() }
-    }
+    fun currentService(): AccessibilityService? =
+        SelectToSpeakServiceAbstract.instance ?: proxyService.also { it.ensureAppContext() }
 
     /**
      * 事件桥接：把当前通道的无障碍事件转发给指定的事件处理器（宿主继承 [SelectToSpeakServiceAbstract] 的实例）。
@@ -493,7 +497,8 @@ object XpqAcc {
             return false
         }
         // 手动 new 的实例不会被系统绑定（onServiceConnected 不回调），这里手动触发宿主的
-        // 就绪钩子，把通道无关的初始化（如屏幕广播接收器）补上。service 传 proxyService。
+        // 就绪钩子，把通道无关的初始化（如屏幕广播接收器）补上。
+        // service 传 currentService()：真实无障碍服务在绑定时给它、否则给 proxyService。
         // 同时保存引用，供断开连接时触发 onUiAutomationDestroy 释放资源。
         bridgedHandler = handler
         // 手动 new 的实例从未被系统 attach，ContextWrapper.mBase 为空 → 事件链路里任何一次
@@ -526,7 +531,8 @@ object XpqAcc {
 
     /**
      * 取宿主自己的无障碍服务展平组件名（形如 `pkg/pkg.Cls`），供 [connectUiAutomation] 的
-     * `enableHostAccessibilityService` / `disableHostAccessibilityService`，以及宿主自行开关服务时使用。
+     * 持久化开关（`MMKVConst.KEY_UIA_ENABLE_HOST_ACC`）/ `disableHostAccessibilityService`，
+     * 以及宿主自行开关服务时使用。
      * 宿主清单未声明 `BIND_ACCESSIBILITY_SERVICE` 服务、或反射失败时返回 null。
      */
     @JvmStatic
@@ -564,18 +570,15 @@ object XpqAcc {
      * UiAutomation 模式内部会检测/请求 Shizuku 授权并连接。
      *
      * @param bridgeFallback 事件桥接兜底实例，仅 UiAutomation 模式使用；透传给 [connectUiAutomation]。
-     * @param enableHostAccessibilityService 仅 UiAutomation 模式使用；连接成功后自动**增量**开启宿主自己的
-     *                                       无障碍服务（组件名反射自宿主清单）。透传给 [connectUiAutomation] 同名参数。
      * @param disableHostAccessibilityService 仅 UiAutomation 模式使用；连接成功后自动关闭宿主自己的无障碍服务，
      *                                        避免无障碍通道与 UiAutomation 通道双跑。透传给 [connectUiAutomation] 同名参数。
-     *                                        与上面那个同时为 true 时，以本参数为准。
+     *                                        （宿主无障碍服务的**开启**由持久化开关决定，见 [connectUiAutomation]。）
      */
     @JvmStatic
     fun applyEngineMode(
         mode: EngineMode,
         bridgeFallback: SelectToSpeakServiceAbstract? = null,
         enableServiceString: String? = null,
-        enableHostAccessibilityService: Boolean = false,
         disableHostAccessibilityService: Boolean = false,
         onResult: (success: Boolean, reason: String?) -> Unit = { _, _ -> }
     ) {
@@ -594,7 +597,6 @@ object XpqAcc {
                     bridgeFallback = bridgeFallback,
                     postConnectShellCommand = WRITE_SECURE,
                     enableServiceOnConnect = enableServiceString,
-                    enableHostAccessibilityService = enableHostAccessibilityService,
                     disableHostAccessibilityService = disableHostAccessibilityService,
                     onResult = onResult
                 )
@@ -612,11 +614,16 @@ object XpqAcc {
      *                  为 null 时不回调。
      * @param imgRes    无障碍模式跳转设置后弹出的引导对话框图片资源。
      * @param bridgeFallback 事件桥接兜底实例，仅 UiAutomation 模式使用；透传给 [applyEngineMode]。
-     * @param enableHostAccessibilityService 仅 UiAutomation 模式使用；切换到 Shizuku 模式成功后自动**增量**开启
-     *                                       宿主自己的无障碍服务。透传给 [applyEngineMode] 同名参数。
+     * @param enableServiceString 连接成功后要自动开启的无障碍服务组件名（展平形式，独占）。非空时，
+     *                            弹窗内「同时开启无障碍服务」开关与「2.关闭其它所有的无障碍服务…」提示均不显示，
+     *                            宿主无障碍服务的开启完全交给这条独占路径（[connectUiAutomation] 里的
+     *                            持久化开关判断会因它非空而不生效）。
      * @param disableHostAccessibilityService 仅 UiAutomation 模式使用；切换到 Shizuku 模式成功后自动关闭宿主自己的
      *                                        无障碍服务，避免无障碍通道与 UiAutomation 通道双跑。透传给 [applyEngineMode] 同名参数。
-     *                                        与上面那个同时为 true 时以本参数为准。
+     *
+     * 宿主无障碍服务的**开启**不需要参数：弹窗内「同时开启无障碍服务」开关即唯一入口，
+     * 取值存于 MMKV（`MMKVConst.KEY_UIA_ENABLE_HOST_ACC`），[applyEngineMode] / [connectUiAutomation]
+     * 在连接成功后直接读它。
      */
     @JvmStatic
     @JvmOverloads
@@ -628,7 +635,6 @@ object XpqAcc {
         onCancel: (() -> Unit)? = null,
         onUIASuccess: (() -> Unit)? = null,
         enableServiceString: String? = null,
-        enableHostAccessibilityService: Boolean = false,
         disableHostAccessibilityService: Boolean = false
     ) {
         // 清单未声明无障碍服务（tools:node="remove" 或未注册）时，选项仍保留，但切换到无障碍模式会提示不支持
@@ -639,6 +645,14 @@ object XpqAcc {
         // 选项下标 -> 实际引擎模式
         fun indexToMode(index: Int): EngineMode =
             if (index == 0) EngineMode.ACCESSIBILITY_SERVICE else EngineMode.UIAUTOMATION
+
+        // 「关闭其它所有的无障碍服务，只保留开启设备自带的随选朗读」这一段只在
+        // enableServiceString 非空（本次切换会指定并开启某个无障碍服务）时才提示。
+        // 自带前后空行，为空时整段连带空行一起省略，避免多出空行。
+        val closeOtherAccTip: String =
+            if (enableServiceString != null) {
+                "2.关闭其它所有的无障碍服务，只保留开启设备自带的☞☞： https://settings随选朗读\n\n"
+            } else ""
 
         // 每个模式对应的说明文字，切换选项时动态更新到标题区。
         // Shizuku 模式的下载段按导入形态分流：manager 已并入宿主时无需下载独立 App，
@@ -655,8 +669,8 @@ object XpqAcc {
                         "1.本软件已内置 Shizuku 管理器，无需额外下载\n" +
                         "打开 Shizuku 服务☞☞：https://settings.开启Shizuku服务\n\n" +
                         "shizuku 使用教程☞☞：https://mp.weixin.qq.com/s/qG3znEmRgtOkfmktM2mxrA\n\n" +
-                        "2.关闭其它所有的无障碍服务，只保留开启设备自带的☞☞： https://settings随选朗读" +
-                        "\n\n为什么引入该模式：" +
+                        closeOtherAccTip +
+                        "为什么引入该模式：" +
                         "\n由于部分应用会检测设备上启用的第三方无障碍服务，并可能出现安全提示。" +
                         "\n所以，现在采用无障碍模式的应用在wx上已经不推荐再用了，用了被检测到是早几天晚几天的事" +
                         "\nShizuku 模式使用不同的系统权限通道，可以作为另一种自动化方案"
@@ -667,8 +681,8 @@ object XpqAcc {
                         "备用原版下载地址☞☞：https://apt.izzysoft.de/fdroid/index/apk/moe.shizuku.privileged.api\n" +
                         "最新修改版下载地址（推荐下载这个）☞☞：https://github.com/thedjchi/Shizuku/releases\n" +
                         "shizuku 使用教程☞☞：https://mp.weixin.qq.com/s/qG3znEmRgtOkfmktM2mxrA\n\n" +
-                        "2.关闭其它所有的无障碍服务，只保留开启设备自带的☞☞： https://settings随选朗读" +
-                        "\n\n为什么引入该模式：" +
+                        closeOtherAccTip +
+                        "为什么引入该模式：" +
                         "\n由于部分应用会检测设备上启用的第三方无障碍服务，并可能出现安全提示。" +
                         "\n所以，现在采用无障碍模式的应用在wx上已经不推荐再用了，用了被检测到是早几天晚几天的事" +
                         "\nShizuku 模式使用不同的系统权限通道，可以作为另一种自动化方案"
@@ -756,12 +770,52 @@ object XpqAcc {
         }
         renderMode(current)
 
+        // 「同时开启无障碍服务」开关：唯一控制宿主无障碍服务是否随 Shizuku 模式一并开启。
+        // 仅在 Shizuku 模式下有意义（无障碍模式下隐藏）。取值只来自 MMKV 记忆值（默认关闭），
+        // 不再接受调用方入参。自建视图用 setView 挂进弹窗的 custom 面板（与单选列表共存）。
+        val hostAccSwitch = SwitchCompat(activity).apply {
+            isChecked = MMKVUtil.get(MMKVConst.KEY_UIA_ENABLE_HOST_ACC, false)
+        }
+        val hostAccTitleView = TextView(activity).apply {
+            text = "同时开启无障碍服务"
+            textSize = 14f
+            // 与标题区同款：显式锁深色，避免暗黑模式下浅色压浅底
+            setTextColor(0xFF212121.toInt())
+        }
+        val hostAccDescView = TextView(activity).apply {
+            text = "开启后，切换到 Shizuku 模式时会一并打开本应用的无障碍服务"
+            textSize = 12f
+            setTextColor(0xFF757575.toInt())
+        }
+        val hostAccLabels = LinearLayout(activity).apply {
+            orientation = LinearLayout.VERTICAL
+            addView(hostAccTitleView)
+            addView(hostAccDescView)
+        }
+        val hostAccRow = LinearLayout(activity).apply {
+            orientation = LinearLayout.HORIZONTAL
+            gravity = Gravity.CENTER_VERTICAL
+            setPadding(
+                (20 * density).toInt(),
+                (4 * density).toInt(),
+                (20 * density).toInt(),
+                (8 * density).toInt()
+            )
+            addView(
+                hostAccLabels,
+                LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f)
+            )
+            addView(hostAccSwitch)
+        }
+
         // 记录当前选中项；点击「确定」时才真正切换并持久化
         var selected = current
 
         // 锁定浅色主题：单选列表/按钮/链接色全部固定，不随系统暗黑模式变化（见 titleView 处注释）
         val dialog = AlertDialog.Builder(activity, android.R.style.Theme_DeviceDefault_Light_Dialog_Alert)
             .setCustomTitle(titleView)
+            // 自定义视图与单选列表分属不同面板，可共存（custom 面板在列表上方）
+            .setView(hostAccRow)
             .setSingleChoiceItems(items, current) { _, which ->
                 selected = which
             }
@@ -774,11 +828,16 @@ object XpqAcc {
                 }
                 // 注意：applyEngineMode 末尾新增了 Boolean 参数，最后一个参数不再是 lambda，
                 // 尾随 lambda 语法失效，这里必须改用命名参数传 onResult。
+                // 宿主无障碍服务的开启由持久化开关决定（[connectUiAutomation] 直接读 MMKV，没有参数）。
+                // 这里只负责把开关当前取值写回记忆，必须在 applyEngineMode 之前；开关隐藏时
+                // （enableServiceString 独占指定了服务）不写，避免覆盖用户之前的偏好 + 那条路径下它本就不生效。
+                if (enableServiceString == null) {
+                    MMKVUtil.put(MMKVConst.KEY_UIA_ENABLE_HOST_ACC, hostAccSwitch.isChecked)
+                }
                 applyEngineMode(
                     mode = mode,
                     bridgeFallback = bridgeFallback,
                     enableServiceString = enableServiceString,
-                    enableHostAccessibilityService = enableHostAccessibilityService,
                     disableHostAccessibilityService = disableHostAccessibilityService,
                     onResult = { success, reason ->
                         when {
@@ -831,6 +890,14 @@ object XpqAcc {
             dialog.getButton(AlertDialog.BUTTON_NEUTRAL)?.visibility =
                 if (index == 0) View.GONE else View.GONE //暂时都不显示
         }
+
+        // 「同时开启无障碍服务」开关仅对 Shizuku 模式有意义，无障碍模式下整行隐藏；
+        // 指定了 enableServiceString（独占开启某个服务）时同样隐藏，避免两条互斥配置同时出现。
+        fun updateHostAccVisibility(index: Int) {
+            hostAccRow.visibility =
+                if (index == 0 || enableServiceString != null) View.GONE else View.VISIBLE
+        }
+
         dialog.setOnShowListener {
             // 部分 ROM（MIUI/EMUI 等）定制主题下按钮文字为浅色，浅底上看不见，显式锁深色
             val btnColor = 0xFF212121.toInt()
@@ -840,10 +907,12 @@ object XpqAcc {
                 dialog.getButton(AlertDialog.BUTTON_NEUTRAL)?.setTextColor(btnColor)
             }
             updateNeutralVisibility(current)
+            updateHostAccVisibility(current)
             dialog.listView?.setOnItemClickListener { _, _, position, _ ->
                 selected = position
                 renderMode(position)
                 updateNeutralVisibility(position)
+                updateHostAccVisibility(position)
                 dialog.listView?.setItemChecked(position, true)
             }
         }

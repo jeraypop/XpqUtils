@@ -51,8 +51,7 @@ class FloatingImeWindow(private val context: Context = appContext) {
             setOnClickListener {
                 AliveUtils.toast(msg = "请选择输入法")
                 AliveUtils.openAliveActivity(
-                    // 以下为本次新增参数，显式写出默认值（仅 UiAutomation 模式生效，行为与本改动前一致）
-                    enableHostAccessibilityService = false,
+                    // 仅 UiAutomation 模式生效（行为与改动前一致；宿主无障碍服务开关由持久化配置决定）
                     disableHostAccessibilityService = false,
                     enableServiceString = null
                 )

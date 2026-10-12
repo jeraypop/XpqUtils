@@ -268,8 +268,7 @@ class MainActivity : XpqBaseActivity<ActivityMainBinding>(
                 true,
                 false,
                 NotificationListenerServiceImp::class.java,
-                // 新增参数：显式写出默认值（仅 UiAutomation 模式生效，行为不变）
-                enableHostAccessibilityService = false,
+                // 仅 UiAutomation 模式生效（宿主无障碍服务开关由持久化配置决定，不再有入参）
                 disableHostAccessibilityService = false,
                 enableServiceString = null
             )
@@ -289,9 +288,8 @@ class MainActivity : XpqBaseActivity<ActivityMainBinding>(
             XpqAcc.showEngineModeDialog(
                 this,
                 SelectToSpeakService(),
-                // 新增参数：显式写出默认值（仅在切到 UiAutomation 模式时生效，行为不变）
                 enableServiceString = XpqAcc.SELECTTOSPEAK,
-                enableHostAccessibilityService = false,
+                // 宿主无障碍服务的开启改由弹窗内的「同时开启无障碍服务」开关决定，不再有入参
                 disableHostAccessibilityService = false
             )
 
@@ -370,8 +368,7 @@ class MainActivity : XpqBaseActivity<ActivityMainBinding>(
                         false,
                         NotificationListenerServiceImp::class.java,
                         true,
-                        // 新增参数：显式写出默认值（仅 UiAutomation 模式生效，行为不变）
-                        enableHostAccessibilityService = false,
+                        // 仅 UiAutomation 模式生效（宿主无障碍服务开关由持久化配置决定，不再有入参）
                         disableHostAccessibilityService = false,
                         enableServiceString = null
                     )

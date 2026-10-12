@@ -57,12 +57,12 @@ object MMKVConst {
     const val SHOW_READ_NOTIFICATION = "SHOW_READ_NOTIFICATION"
     const val SHOW_TASK_HIDE = "SHOW_TASK_HIDE"
     // ---- 保活界面内 XpqAcc.connectUiAutomation() 的行为开关（仅 UiAutomation 模式生效）----
-    /** 连接成功后自动增量开启【宿主自己】的无障碍服务。 */
-    const val UIA_ENABLE_HOST_ACC = "UIA_ENABLE_HOST_ACC"
     /** 连接成功后自动关闭【宿主自己】的无障碍服务（解无障碍/UiAutomation 双跑）。 */
     const val UIA_DISABLE_HOST_ACC = "UIA_DISABLE_HOST_ACC"
     /** 连接成功后要自动开启的无障碍服务组件名（展平形式，独占）。空 = 不开启。 */
     const val UIA_ENABLE_SERVICE_STRING = "UIA_ENABLE_SERVICE_STRING"
+    /** 模式选择弹窗里「同时开启无障碍服务」开关的记忆值：唯一控制宿主无障碍服务是否随 Shizuku 模式一并开启。 */
+    const val KEY_UIA_ENABLE_HOST_ACC = "KEY_UIA_ENABLE_HOST_ACC"
 
     const val ALI_KEY = "fkx11204qu3e298yblfpx51"
     const val EXTRA_KEY_PAY_CONFIG = "pay_config"
