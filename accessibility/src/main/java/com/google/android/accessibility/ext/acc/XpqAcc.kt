@@ -624,6 +624,13 @@ object XpqAcc {
      * 宿主无障碍服务的**开启**不需要参数：弹窗内「同时开启无障碍服务」开关即唯一入口，
      * 取值存于 MMKV（`MMKVConst.KEY_UIA_ENABLE_HOST_ACC`），[applyEngineMode] / [connectUiAutomation]
      * 在连接成功后直接读它。
+     *
+     * 无障碍模式的「确定」行为按权限分流：
+     * - 宿主已获 `WRITE_SECURE_SETTINGS`（连接 Shizuku 时 shell 执行过 `pm grant`）→ 后台线程调
+     *   [AccessibilityEnableHelper.enableAccessibilityService] 直接写系统 secure 表开启，
+     *   并等系统绑定完成后再切通道，**不弹跳转设置的引导对话框**；
+     * - 无该权限，或写入/回读失败，或写入成功但 **3 秒内未绑定成功（超时也算失败）** →
+     *   保持原逻辑：切换模式 + 弹引导对话框跳转系统无障碍设置。
      */
     @JvmStatic
     @JvmOverloads
@@ -826,47 +833,109 @@ object XpqAcc {
                     AliveUtils.toast(msg = "当前版本不支持无障碍模式")
                     return@setPositiveButton
                 }
-                // 注意：applyEngineMode 末尾新增了 Boolean 参数，最后一个参数不再是 lambda，
-                // 尾随 lambda 语法失效，这里必须改用命名参数传 onResult。
                 // 宿主无障碍服务的开启由持久化开关决定（[connectUiAutomation] 直接读 MMKV，没有参数）。
                 // 这里只负责把开关当前取值写回记忆，必须在 applyEngineMode 之前；开关隐藏时
                 // （enableServiceString 独占指定了服务）不写，避免覆盖用户之前的偏好 + 那条路径下它本就不生效。
                 if (enableServiceString == null) {
                     MMKVUtil.put(MMKVConst.KEY_UIA_ENABLE_HOST_ACC, hostAccSwitch.isChecked)
                 }
-                applyEngineMode(
-                    mode = mode,
-                    bridgeFallback = bridgeFallback,
-                    enableServiceString = enableServiceString,
-                    disableHostAccessibilityService = disableHostAccessibilityService,
-                    onResult = { success, reason ->
-                        when {
-                            success -> {
-                                AliveUtils.toast(msg = "已成功切换到 ${items[selected]}")
-                                runCatching {
-                                    onUIASuccess?.invoke()
-                                }
-                            }
-                            mode == EngineMode.UIAUTOMATION -> {
-                                showUiAutomationFailDialog(activity, reason)
-                                onConfirm?.invoke(mode)
-                            }
-                            else -> AliveUtils.toast(msg = reason ?: "切换失败")
-                        }
-                    }
-                )
-                // 无障碍模式：跳转系统无障碍设置页引导用户开启
-                if (mode == EngineMode.ACCESSIBILITY_SERVICE) {
-                    onConfirm?.invoke(mode)
-                    //NotificationUtilXpq.gotoAccessibilitySetting(activity)
-                    showCheckDialog(
-                        activity,
-                        R.string.wzaxpq,
-                        imgRes,
-                        R.string.quanxian0,
-                        MMKVConst.BTN_ACCESSIBILITY
-                    )
 
+                // 两种分支共用同一份结果处理（applyEngineMode 的 onResult 是命名参数，非尾随 lambda）。
+                val handleModeResult: (Boolean, String?) -> Unit = { success, reason ->
+                    when {
+                        success -> {
+                            AliveUtils.toast(msg = "已成功切换到 ${items[selected]}")
+                            runCatching {
+                                onUIASuccess?.invoke()
+                            }
+                        }
+                        mode == EngineMode.UIAUTOMATION -> {
+                            showUiAutomationFailDialog(activity, reason)
+                            onConfirm?.invoke(mode)
+                        }
+                        else -> AliveUtils.toast(msg = reason ?: "切换失败")
+                    }
+                }
+
+                // 原有逻辑：切换模式 + 弹「跳转系统无障碍设置」引导对话框。
+                // failToast 非空时，用它的文案替代 onResult 里的通用失败提示（调用方更清楚失败原因）。
+                fun applyModeAndGuideToSetting(failToast: String? = null) {
+                    applyEngineMode(
+                        mode = mode,
+                        bridgeFallback = bridgeFallback,
+                        enableServiceString = enableServiceString,
+                        disableHostAccessibilityService = disableHostAccessibilityService,
+                        onResult = { success, reason ->
+                            if (!success && failToast != null) AliveUtils.toast(msg = failToast)
+                            else handleModeResult(success, reason)
+                        }
+                    )
+                    if (mode == EngineMode.ACCESSIBILITY_SERVICE) {
+                        onConfirm?.invoke(mode)
+                        //NotificationUtilXpq.gotoAccessibilitySetting(activity)
+                        showCheckDialog(
+                            activity,
+                            R.string.wzaxpq,
+                            imgRes,
+                            R.string.quanxian0,
+                            MMKVConst.BTN_ACCESSIBILITY
+                        )
+                    }
+                }
+
+                // 代码开启后等待系统 bindService 的时限与轮询步进（超时按失败处理）
+                val readyTimeoutMs = 3_000L
+                val readyPollStepMs = 100L
+
+                // 无障碍模式：宿主若已拿到 WRITE_SECURE_SETTINGS（连接 Shizuku 时由 shell 执行过
+                // `pm grant`），可直接写系统 secure 表把服务开启，无需用户再去设置页手动点亮；
+                // 没有该权限则维持原逻辑（切模式 + 弹跳转设置的引导）。
+                val canEnableAccByCode = mode == EngineMode.ACCESSIBILITY_SERVICE &&
+                        activity.checkSelfPermission(android.Manifest.permission.WRITE_SECURE_SETTINGS) ==
+                        PackageManager.PERMISSION_GRANTED
+
+                if (canEnableAccByCode) {
+                    // 写 secure 表 + 回读校验是阻塞操作，且系统 bindService 是异步的，整体放后台线程；
+                    // 等服务实例真的就绪再切通道，否则 applyEngineMode 会因为 instance 仍为 null 而误报失败。
+                    Thread {
+                        val flat = hostAccessibilityServiceFlat()
+                        val result = flat?.let {
+                            AccessibilityEnableHelper.enableAccessibilityService(
+                                activity.applicationContext, it
+                            )
+                        }
+                        // 写入成功还要等服务被系统绑定；绑定超时一并算失败，退回跳转设置的引导。
+                        if (result?.success == true) {
+                            var waited = 0L
+                            while (SelectToSpeakServiceAbstract.instance == null && waited < readyTimeoutMs) {
+                                android.os.SystemClock.sleep(readyPollStepMs)
+                                waited += readyPollStepMs
+                            }
+                        }
+                        val ready = result?.success == true && SelectToSpeakServiceAbstract.instance != null
+                        activity.runOnUiThread {
+                            if (ready) {
+                                applyEngineMode(
+                                    mode = mode,
+                                    bridgeFallback = bridgeFallback,
+                                    enableServiceString = enableServiceString,
+                                    disableHostAccessibilityService = disableHostAccessibilityService,
+                                    onResult = handleModeResult
+                                )
+                                onConfirm?.invoke(mode)
+                            } else {
+                                applyModeAndGuideToSetting(
+                                    failToast = when {
+                                        result == null -> "未找到宿主无障碍服务组件，请手动开启"
+                                        !result.success -> result.message
+                                        else -> "无障碍服务已写入系统设置，但 ${readyTimeoutMs / 1000} 秒内未连接，请手动开启"
+                                    }
+                                )
+                            }
+                        }
+                    }.start()
+                } else {
+                    applyModeAndGuideToSetting()
                 }
             }
             .setNegativeButton("取消") { _, _ ->
