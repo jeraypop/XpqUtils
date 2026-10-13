@@ -43,6 +43,7 @@ import com.google.android.accessibility.selecttospeak.SelectToSpeakServiceAbstra
 import com.google.android.accessibility.selecttospeak.accessibilityServiceLiveData
 import com.google.android.accessibility.uiautomation.engine.InvisibleAutomation
 import com.google.android.accessibility.uiautomation.shizuku.AutomationShizuku
+import com.google.android.accessibility.uiautomation.shizuku.ShizukuProviderGuard
 
 /**
  * 无障碍能力门面：宿主在 App 启动时一次性调用 [use] 选择通道（无障碍 / UiAutomation），
@@ -53,6 +54,12 @@ import com.google.android.accessibility.uiautomation.shizuku.AutomationShizuku
  * 节点查询/点击天然跨通道，performGlobalAction / dispatchGesture 由库内 3 处封装点走本门面。
  */
 object XpqAcc {
+
+    /** Shizuku 不可用真因①：Shizuku 本身没在运行。文案与历史一致，别改（外部按字符串判断过）。 */
+    private const val REASON_SHIZUKU_NOT_RUNNING = "Shizuku 未运行"
+
+    /** Shizuku 不可用真因②：本应用的 ShizukuProvider 组件被外部禁用（与 Shizuku 开没开无关）。 */
+    private const val REASON_SHIZUKU_COMPONENT_DISABLED = "Shizuku 组件被禁用"
 
     private val a11yDriver: AccDriver = A11yDriver
     private val uiDriver: AccDriver = UiAutomationDriver
@@ -173,9 +180,32 @@ object XpqAcc {
 
     // ---- Shizuku 检测 / 授权（UiAutomation 通道的前置步骤）----
 
-    /** Shizuku 是否在运行（未运行则 UiAutomation 通道无法连接，需引导用户先启动 Shizuku）。 */
+    /**
+     * Shizuku 是否在运行（未运行则 UiAutomation 通道无法连接，需引导用户先启动 Shizuku）。
+     *
+     * 注意：返回 `false` **不等于**「Shizuku 没打开」。它只是 `Shizuku.pingBinder() == false` 的同义词，
+     * 成因至少两种、处置完全不同，需要区分时用 [shizukuUnavailableReason]：
+     * ① Shizuku 确实没在运行；
+     * ② 本应用的 `rikka.shizuku.ShizukuProvider` 组件被外部禁用——此时 server 的
+     *    `getContentProviderExternal("<pkg>.shizuku")` 取不到 provider，只打一行
+     *    `E/Service: provider is null <pkg>.shizuku 0` 就放弃，「打开 Shizuku」毫无作用。
+     */
     @JvmStatic
     fun isShizukuRunning(): Boolean = AutomationShizuku.isInstalled()
+
+    /**
+     * Shizuku 不可用的真因描述；可用时返回 `null`。
+     *
+     * 存在的意义：`pingBinder() == false` 只是一句话，背后却至少两种成因。日志与弹窗都要说清是哪一种，
+     * 否则排障时只能看到「Shizuku 未运行」——既可能是用户没开 Shizuku，也可能是组件被设备上的
+     * 组件管理/精简类工具禁掉了，后者重启 Shizuku 不管用。
+     */
+    @JvmStatic
+    fun shizukuUnavailableReason(): String? = when {
+        isShizukuRunning() -> null
+        ShizukuProviderGuard.isDisabled(appContext) -> REASON_SHIZUKU_COMPONENT_DISABLED
+        else -> REASON_SHIZUKU_NOT_RUNNING
+    }
 
     /** 本 App 是否已获得 Shizuku 授权。 */
     @JvmStatic
@@ -316,8 +346,26 @@ object XpqAcc {
             // 连接前先清理旧连接，避免 system_server 残留注册导致 "already registered" 失败
             runCatching { disconnect() }
             if (!isShizukuRunning()) {
-                log("✗ Shizuku 未运行，请先启动 Shizuku")
-                fail("Shizuku 未运行")
+                // 「Shizuku 未运行」只是 pingBinder()==false 的同义词，成因至少两种，处置完全不同：
+                // ① Shizuku 真没在跑 → 引导用户去开 Shizuku；
+                // ② 本应用的 rikka.shizuku.ShizukuProvider 组件被外部禁用 → server 的
+                //    getContentProviderExternal("<pkg>.shizuku") 返回 null，它只打一行
+                //    "provider is null <pkg>.shizuku 0" 就放弃（不重试、不报错），此时
+                //    「打开 Shizuku」毫无作用，必须把组件恢复回来 + 重启应用。
+                if (ShizukuProviderGuard.isDisabled(appContext)) {
+                    // App 改自己的组件不需要任何权限；恢复后本进程仍拿不到 binder（server 那轮投递已失败），
+                    // 需重启应用让 server 重新投递，见 ShizukuProviderGuard 类注释「关于生效时机」。
+                    val fixed = ShizukuProviderGuard.ensureEnabled(appContext) { log(it) }
+                    val tip = if (fixed) "；已自动恢复，请重新打开应用后重试"
+                    else "; 自动恢复失败，需手工执行 adb shell pm enable " +
+                        "${appContext.packageName}/rikka.shizuku.ShizukuProvider"
+                    log("✗ Shizuku 通道不可用：本应用的 rikka.shizuku.ShizukuProvider 组件被禁用" +
+                        "（并非 Shizuku 没打开）$tip")
+                    fail(REASON_SHIZUKU_COMPONENT_DISABLED)
+                } else {
+                    log("✗ Shizuku 未运行，请先启动 Shizuku")
+                    fail(REASON_SHIZUKU_NOT_RUNNING)
+                }
                 return@Thread
             }
             if (!isShizukuPermissionGranted()) {
@@ -1123,13 +1171,28 @@ object XpqAcc {
      */
     private fun showUiAutomationFailDialog(activity: Activity, reason: String?) {
         val msg = reason ?: "未知错误"
-        val needShizuku = msg.contains("Shizuku", ignoreCase = true)
+        // 组件被禁用与「Shizuku 没开」是两种成因，按钮动作完全不同：
+        // 前者点「打开 Shizuku」毫无作用，只能恢复组件 + 重启应用（组件恢复后 server 会重新投递 binder）。
+        val componentDisabled = msg == REASON_SHIZUKU_COMPONENT_DISABLED
+        val needShizuku = !componentDisabled && msg.contains("Shizuku", ignoreCase = true)
         val dialog = AlertDialog.Builder(activity, android.R.style.Theme_DeviceDefault_Light_Dialog_Alert)
             .setTitle("Shizuku 模式 连接失败")
-            .setMessage(msg)
-            .setPositiveButton(if (needShizuku) "打开 Shizuku" else "确定") { _, _ ->
-                if (needShizuku && !AutomationShizuku.openShizuku(activity)) {
-                    AliveUtils.toast(msg = "未找到 Shizuku 应用")
+            .setMessage(
+                if (componentDisabled)
+                    "$msg\n\n已尝试自动恢复组件，请重新打开应用后再试（重启后 Shizuku 通道即可恢复）。"
+                else msg
+            )
+            .setPositiveButton(
+                when {
+                    componentDisabled -> "重新打开应用"
+                    needShizuku -> "打开 Shizuku"
+                    else -> "确定"
+                }
+            ) { _, _ ->
+                when {
+                    componentDisabled -> ShizukuProviderGuard.restartProcessSoon(activity)
+                    needShizuku && !AutomationShizuku.openShizuku(activity) ->
+                        AliveUtils.toast(msg = "未找到 Shizuku 应用")
                 }
             }
             .setNegativeButton("取消", null)
