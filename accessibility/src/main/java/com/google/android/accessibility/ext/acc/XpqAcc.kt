@@ -611,7 +611,14 @@ object XpqAcc {
      *                  切换始终走内置默认逻辑（持久化并立即应用、toast 结果、失败弹窗），不受 onConfirm 影响。
      *                  为 null 时不回调。
      * @param onCancel  点击「取消」后的回调，参数无。
-     *                  为 null 时不回调。
+     *                  为 null 时不回调。（注意：点对话框外部 / 按返回键关闭**不会**触发它。）
+     * @param onUIASuccess 切换**成功**后的回调（无参数）。两种模式成功都会触发（无障碍模式的代码开启成功、
+     *                     Shizuku 模式连接成功），与 [onUIAFail] 对称；调用前库已 toast「已成功切换到 xxx」。
+     *                     回调包在 `runCatching` 内，抛出异常不会影响弹窗流程。为 null 时不回调。
+     * @param onUIAFail 切换**失败**后的回调，参数为失败原因（可能为 null）。与 [onUIASuccess] 对称，
+     *                  两种模式失败都会触发（Shizuku 连接失败、无障碍模式开启失败/未在系统设置开启）。
+     *                  仅作通知，不改变内置行为（Shizuku 模式仍弹失败引导对话框、其它情况仍 toast）。
+     *                  回调包在 `runCatching` 内，抛异常不影响流程。为 null 时不回调。
      * @param imgRes    无障碍模式跳转设置后弹出的引导对话框图片资源。
      * @param bridgeFallback 事件桥接兜底实例，仅 UiAutomation 模式使用；透传给 [applyEngineMode]。
      * @param enableServiceString 连接成功后要自动开启的无障碍服务组件名（展平形式，独占）。
@@ -648,11 +655,12 @@ object XpqAcc {
         activity: Activity,
         bridgeFallback: SelectToSpeakServiceAbstract? = null,
         imgRes: Int = R.drawable.backgroundshow_xpq,
-        onConfirm: ((mode: EngineMode) -> Unit)? = null,
-        onCancel: (() -> Unit)? = null,
-        onUIASuccess: (() -> Unit)? = null,
+        onConfirm: ((mode: EngineMode) -> Unit)? = null,//点击确定按钮回调
+        onCancel: (() -> Unit)? = null, //点击取消按钮回调
+        onUIASuccess: (() -> Unit)? = null,  //连接成功后的回调 无障碍模式和uiautomation模式都会回调
         enableServiceString: String? = null,
-        disableHostAccessibilityService: Boolean = false
+        disableHostAccessibilityService: Boolean = false,
+        onUIAFail: ((reason: String?) -> Unit)? = null //连接失败后的回调  无障碍模式和uiautomation模式都会回调
     ) {
         // 清单未声明无障碍服务（tools:node="remove" 或未注册）时，选项仍保留，但切换到无障碍模式会提示不支持
         val hasAccessibility = findAccessibilityServiceSubclass() != null
@@ -926,6 +934,14 @@ object XpqAcc {
                     }
                 }
 
+                // 失败统一通知宿主（与 onUIASuccess 对称，两种模式共用）。
+                // 两条失败路径（下面的 handleModeResult / applyModeAndGuideToSetting 的 failToast 分支）
+                // 各只调一次，彼此不重叠，宿主不会收到重复回调。
+                // ⚠ 必须声明在 handleModeResult / applyModeAndGuideToSetting 之前：局部函数不能前向引用。
+                val notifyFail: (String?) -> Unit = { reason ->
+                    runCatching { onUIAFail?.invoke(reason) }
+                }
+
                 // 两种分支共用同一份结果处理（applyEngineMode 的 onResult 是命名参数，非尾随 lambda）。
                 val handleModeResult: (Boolean, String?) -> Unit = { success, reason ->
                     when {
@@ -936,10 +952,14 @@ object XpqAcc {
                             }
                         }
                         mode == EngineMode.UIAUTOMATION -> {
+                            notifyFail(reason)
                             showUiAutomationFailDialog(activity, reason)
                             onConfirm?.invoke(mode)
                         }
-                        else -> AliveUtils.toast(msg = reason ?: "切换失败")
+                        else -> {
+                            notifyFail(reason)
+                            AliveUtils.toast(msg = reason ?: "切换失败")
+                        }
                     }
                 }
 
@@ -952,8 +972,12 @@ object XpqAcc {
                         enableServiceString = effectiveEnableServiceString,
                         disableHostAccessibilityService = disableHostAccessibilityService,
                         onResult = { success, reason ->
-                            if (!success && failToast != null) AliveUtils.toast(msg = failToast)
-                            else handleModeResult(success, reason)
+                            if (!success && failToast != null) {
+                                // 这条路径不走 handleModeResult（用户可见文案换成更具体的 failToast），
+                                // 所以失败通知在这里补一次——无论走哪条失败路径，宿主都能收到 onUIAFail。
+                                notifyFail(reason)
+                                AliveUtils.toast(msg = failToast)
+                            } else handleModeResult(success, reason)
                         }
                     )
                     if (mode == EngineMode.ACCESSIBILITY_SERVICE) {
@@ -1031,6 +1055,11 @@ object XpqAcc {
                 AliveUtils.shouxianzhi(activity)
             }
             .create()
+
+        // 禁止点外部 / 按返回键关闭：关闭只能通过三个按钮，这样「取消」语义才是完整的
+        // （onCancel 只在「取消」按钮里触发，若允许外部关闭，宿主会漏掉一次取消通知）。
+        // 注意 setCancelable(false) 已覆盖「点外部关闭」（setCanceledOnTouchOutside 在不可取消时无效）。
+        dialog.setCancelable(false)
 
         // 部分机型的强制深色（Force Dark）会把浅色弹窗局部反转，同样导致文字看不清，显式禁用
         runCatching {

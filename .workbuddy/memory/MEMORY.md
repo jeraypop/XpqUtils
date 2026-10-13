@@ -48,6 +48,11 @@
   （独占「只留随选朗读」 vs 增量「额外加宿主服务」），互斥是有意的。
 - 无障碍模式「确定」按 `WRITE_SECURE_SETTINGS` 分流：有权限 → 后台 `enableAccessibilityService` +
   轮询等 `instance` 就绪（**超时也算失败**）；无权限/失败 → 跳系统设置引导。重活在后台线程，不阻塞主线程。
+- `showEngineModeDialog` 三个回调的真实语义（与名字不完全一致，改前先看）：`onUIASuccess`/`onUIAFail`
+  是**成功/失败**对称回调，**两种模式**都会触发（无障碍的代码开启成功/失败同样走）；`onConfirm(mode)`
+  只在「无障碍模式（无条件，含失败）」与「Shizuku 模式**失败**」时触发，**Shizuku 成功时不触发**；
+  `onCancel` 只认「取消」按钮（点外部/返回键关闭不触发）。失败通知统一走局部 `notifyFail` 收口
+  （handleModeResult 两个分支 + failToast 分支各一次），新增失败路径时别漏 failToast 那条。
 
 ## Android 14+ `@Readable(maxTargetSdk)` 地雷（2026-10-12 实测）
 - 本项目 targetSdk=37，凡 `maxTargetSdk` 有限的 Secure 键**一律必炸**（检查在客户端进程内做）。
