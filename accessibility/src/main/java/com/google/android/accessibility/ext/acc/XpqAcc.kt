@@ -13,7 +13,6 @@ import android.net.Uri
 import android.os.Build
 import android.os.Handler
 import android.os.Looper
-import android.provider.Settings
 import android.text.SpannableString
 import android.text.Spanned
 import android.text.method.LinkMovementMethod
@@ -612,10 +611,10 @@ object XpqAcc {
      *                  为 null 时不回调。
      * @param onCancel  点击「取消」后的回调，参数无。
      *                  为 null 时不回调。（注意：点对话框外部 / 按返回键关闭**不会**触发它。）
-     * @param onUIASuccess 切换**成功**后的回调（无参数）。两种模式成功都会触发（无障碍模式的代码开启成功、
-     *                     Shizuku 模式连接成功），与 [onUIAFail] 对称；调用前库已 toast「已成功切换到 xxx」。
+     * @param pairSuccess 切换**成功**后的回调（无参数）。两种模式成功都会触发（无障碍模式的代码开启成功、
+     *                     Shizuku 模式连接成功），与 [pairFail] 对称；调用前库已 toast「已成功切换到 xxx」。
      *                     回调包在 `runCatching` 内，抛出异常不会影响弹窗流程。为 null 时不回调。
-     * @param onUIAFail 切换**失败**后的回调，参数为失败原因（可能为 null）。与 [onUIASuccess] 对称，
+     * @param pairFail 切换**失败**后的回调，参数为失败原因（可能为 null）。与 [pairSuccess] 对称，
      *                  两种模式失败都会触发（Shizuku 连接失败、无障碍模式开启失败/未在系统设置开启）。
      *                  仅作通知，不改变内置行为（Shizuku 模式仍弹失败引导对话框、其它情况仍 toast）。
      *                  回调包在 `runCatching` 内，抛异常不影响流程。为 null 时不回调。
@@ -657,10 +656,10 @@ object XpqAcc {
         imgRes: Int = R.drawable.backgroundshow_xpq,
         onConfirm: ((mode: EngineMode) -> Unit)? = null,//点击确定按钮回调
         onCancel: (() -> Unit)? = null, //点击取消按钮回调
-        onUIASuccess: (() -> Unit)? = null,  //连接成功后的回调 无障碍模式和uiautomation模式都会回调
+        pairSuccess: (() -> Unit)? = null,  //连接成功后的回调 无障碍模式和uiautomation模式都会回调
+        pairFail: ((reason: String?) -> Unit)? = null, //连接失败后的回调  无障碍模式和uiautomation模式都会回调
         enableServiceString: String? = null,
         disableHostAccessibilityService: Boolean = false,
-        onUIAFail: ((reason: String?) -> Unit)? = null //连接失败后的回调  无障碍模式和uiautomation模式都会回调
     ) {
         // 清单未声明无障碍服务（tools:node="remove" 或未注册）时，选项仍保留，但切换到无障碍模式会提示不支持
         val hasAccessibility = findAccessibilityServiceSubclass() != null
@@ -939,7 +938,7 @@ object XpqAcc {
                 // 各只调一次，彼此不重叠，宿主不会收到重复回调。
                 // ⚠ 必须声明在 handleModeResult / applyModeAndGuideToSetting 之前：局部函数不能前向引用。
                 val notifyFail: (String?) -> Unit = { reason ->
-                    runCatching { onUIAFail?.invoke(reason) }
+                    runCatching { pairFail?.invoke(reason) }
                 }
 
                 // 两种分支共用同一份结果处理（applyEngineMode 的 onResult 是命名参数，非尾随 lambda）。
@@ -948,7 +947,7 @@ object XpqAcc {
                         success -> {
                             AliveUtils.toast(msg = "已成功切换到 ${items[selected]}")
                             runCatching {
-                                onUIASuccess?.invoke()
+                                pairSuccess?.invoke()
                             }
                         }
                         mode == EngineMode.UIAUTOMATION -> {
