@@ -211,6 +211,71 @@ object XpqAcc {
     ): AccessibilityEnableHelper.EnableResult =
         AccessibilityEnableHelper.disableAccessibilityService(context, flatComponent)
 
+    /**
+     * **独占开启**指定无障碍服务：自动开启它，并把设备上其它所有无障碍服务**一并关闭**
+     * （系统名单整体替换成只留这一个 + 总开关置 1）。
+     *
+     * 语义与 [enableAccessibilityService]`(exclusive = true)` 完全相同，独立命名只是让调用处读起来
+     * 就是「只留这一个」。典型用途：只让宿主自己的无障碍服务在跑，避免设备上其它辅助/自动化工具
+     * 与本库争抢事件与手势。
+     *
+     * ⚠ 副作用：名单整体替换后**原来正在运行的服务会被系统解绑**，包括宿主自己的另一个无障碍服务。
+     * 若被关掉的恰好是本库依赖的那个实例，`SelectToSpeakServiceAbstract.instance` 会置空、通道需重连。
+     * ⚠ 阻塞（binder + settings 命令 + waitFor），**勿在主线程调用**。
+     *
+     * @param flatComponent 服务 ComponentName 展平串，如 `"com.host/.MyAccService"`
+     *                      或全限定 `"com.host/com.host.MyAccService"`。
+     * @return [AccessibilityEnableHelper.EnableResult]；`message` 会额外写明「其它服务是否确实都已移除」
+     *         （部分 ROM 会回填名单）。需要程序化判断时用 [enabledAccessibilityServices] 自行回读。
+     */
+    @JvmStatic
+    @JvmOverloads
+    fun enableAccessibilityServiceOnly(
+        flatComponent: String = SELECTTOSPEAK,
+        context: Context = appContext
+    ): AccessibilityEnableHelper.EnableResult =
+        AccessibilityEnableHelper.enableExclusiveAccessibilityService(context, flatComponent)
+
+    /** 同上，按 Class 传（组件名 = `ComponentName(context.packageName, serviceClass.name)`）。 */
+    @JvmStatic
+    @JvmOverloads
+    fun enableAccessibilityServiceOnly(
+        serviceClass: Class<out AccessibilityService>,
+        context: Context = appContext
+    ): AccessibilityEnableHelper.EnableResult =
+        enableAccessibilityServiceOnly(
+            ComponentName(context.packageName, serviceClass.name).flattenToString(),
+            context
+        )
+
+    /**
+     * **独占开启宿主自己**的无障碍服务（组件名从宿主清单里声明了 `BIND_ACCESSIBILITY_SERVICE` 的服务反射得到），
+     * 其它所有无障碍服务一并关闭。
+     *
+     * 宿主清单里没有这样的服务时返回失败（`success = false`），不会抛异常。
+     */
+    @JvmStatic
+    @JvmOverloads
+    fun enableHostAccessibilityServiceOnly(
+        context: Context = appContext
+    ): AccessibilityEnableHelper.EnableResult {
+        val flat = hostAccessibilityServiceFlat() ?: return AccessibilityEnableHelper.EnableResult(
+            false, false, "宿主清单未声明 BIND_ACCESSIBILITY_SERVICE 服务"
+        )
+        return enableAccessibilityServiceOnly(flat, context)
+    }
+
+    /**
+     * 当前系统名单里的无障碍服务组件（冒号分隔 → List），按名单原顺序返回。
+     *
+     * 优先走 shell（拿到的是真值）；shell 不可用时退回 ContentResolver。
+     * ⚠ 这是「系统名单」，**不代表服务此刻正在运行** —— 名单与总开关缺一不可。
+     */
+    @JvmStatic
+    @JvmOverloads
+    fun enabledAccessibilityServices(context: Context = appContext): List<String> =
+        AccessibilityEnableHelper.listEnabledAccessibilityServices(context)
+
     /** 切换通道；切换时先主动关闭旧通道，再切换到新通道并同步 accessibilityService 全局变量指向。 */
     @JvmStatic
     fun use(mode: EngineMode) {

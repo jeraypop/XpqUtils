@@ -3,6 +3,7 @@ package com.google.android.accessibility.ext.acc
 import android.content.Context
 import android.content.pm.PackageManager
 import android.provider.Settings
+import com.google.android.accessibility.ext.utils.LibCtxProvider.Companion.appContext
 import com.google.android.accessibility.uiautomation.engine.InvisibleAutomation
 import com.google.android.accessibility.uiautomation.shizuku.ShellResult
 
@@ -91,6 +92,42 @@ object AccessibilityEnableHelper {
             return EnableResult(true, true, "已通过 Shizuku shell 关闭，回读校验通过")
         }
         return disableViaWriteSecureSettings(context, flatComponent)
+    }
+
+    /**
+     * **独占开启**：名单整体替换成只保留 [flatComponent]（= 开启它 + 关闭设备上其它所有无障碍服务），
+     * 再把总开关置 1。
+     *
+     * 与 [enableAccessibilityService]`(exclusive = true)` 写的是同一份东西，差别只在返回值：
+     * 这里在写成功后**额外回读一次名单**，把「其它服务是否确实都已移除」写进 message，
+     * 便于宿主与日志区分「开成功」和「开成功但还有服务赖着没走」（部分 ROM 会回填名单，
+     * 而这种回填**不应该**被判成失败 —— 目标服务确实已经生效了）。
+     */
+    @JvmStatic
+    fun enableExclusiveAccessibilityService(context: Context, flatComponent: String): EnableResult {
+        if (flatComponent.isBlank()) return EnableResult(false, false, "组件名为空")
+        val base = enableAccessibilityService(context, flatComponent, exclusive = true)
+        if (!base.success) return base
+        val rest = listEnabledAccessibilityServices(context).filter { it != flatComponent }
+        val tail = if (rest.isEmpty()) "；其它无障碍服务已全部关闭"
+        else "；⚠ 名单里仍有其它服务未能移除：${rest.joinToString(", ")}"
+        return base.copy(message = base.message + tail)
+    }
+
+    /**
+     * 当前系统名单里的无障碍服务（冒号分隔 → List），按名单原顺序返回。
+     *
+     * 优先走 shell（读到的就是真值，且不受 `@Readable(maxTargetSdk)` 影响）；shell 不可用时退回
+     * ContentResolver —— `ENABLED_ACCESSIBILITY_SERVICES` 属于**不受限**的 secure 键，读它不需要额外权限。
+     * 注意返回的是「名单」，不代表服务此刻正在运行（名单 + 总开关两者缺一不可）。
+     */
+    @JvmStatic
+    @JvmOverloads
+    fun listEnabledAccessibilityServices(context: Context = appContext): List<String> {
+        val raw = readListViaShell() ?: runCatching {
+            Settings.Secure.getString(context.contentResolver, listKey)
+        }.getOrNull().orEmpty()
+        return raw.split(SEPARATOR).filter { it.isNotBlank() }
     }
 
     // ---------- 路径 1：Shizuku shell（uid 2000 自带 WRITE_SECURE_SETTINGS） ----------
