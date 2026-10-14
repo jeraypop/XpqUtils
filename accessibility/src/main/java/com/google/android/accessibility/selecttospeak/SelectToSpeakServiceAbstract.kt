@@ -7,6 +7,8 @@ import android.content.Intent
 import android.content.IntentFilter
 import android.graphics.Rect
 import android.os.Build
+import android.os.Handler
+import android.os.Looper
 import android.text.TextUtils
 import android.util.Log
 import android.view.accessibility.AccessibilityEvent
@@ -142,6 +144,64 @@ abstract class SelectToSpeakServiceAbstract : AccessibilityService(),
         val ctx = runCatching { appContext }.getOrNull() ?: return
         runCatching { attachBaseContext(ctx) }
         baseContextAttached = true
+    }
+
+    // UIA 通道生命周期引导标记：一个实例只引导一次（幂等）
+    @Volatile
+    private var uiaLifecycleStarted = false
+
+    /**
+     * UiAutomation 通道下把生命周期补齐到 RESUMED。
+     *
+     * 手动 new 出来的实例永远不会收到 [onCreate] / [onServiceConnected]（那是系统绑定才有的回调），
+     * `lifecycleRegistry` 于是**永远停在 INITIALIZED**，而 [onUiAutomationReady] 前的桥接流程会照常把
+     * 宿主的悬浮窗挂起来 —— 两者叠加出一个极难发现的后果：
+     *
+     * ComposeView 的重组循环由 `createLifecycleAwareWindowRecomposer()` 管理，而它**只在
+     * `Lifecycle.Event.ON_CREATE` 的观察者回调里**才 `runRecomposeAndApplyChanges()`
+     * （`LifecycleRegistry.addObserver` 的状态追赶也只会从 INITIALIZED 往上补发，INITIALIZED 补发不了
+     * 任何事件）。于是「LifecycleOwner = 本实例」的 Compose 悬浮窗会**窗口、layout、触摸全都正常，
+     * 内容却永不合成** —— 点是点不动、滑也滑不动，**且不报任何错**（没有异常、没有日志）。
+     *
+     * 由 [XpqAcc.autoBridgeAccessibilityEvent] 在触发宿主 `onUiAutomationReady` 之前调用，
+     * 事件派发自动投到主线程（[LifecycleRegistry] 强制主线程，否则抛 IllegalStateException）。
+     */
+    fun startUiAutomationLifecycle() {
+        if (uiaLifecycleStarted) return
+        // DESTROYED 是终态，无法再前进（实例被替换时已走过 stop）
+        if (lifecycleRegistry.currentState == Lifecycle.State.DESTROYED) return
+        uiaLifecycleStarted = true
+        runOnMainThread {
+            // 与 [onCreate] 对齐：Compose 的 SavedStateRegistry 要求先 restore 一次
+            runCatching { savedStateRegistryController.performRestore(null) }
+            listOf(
+                Lifecycle.Event.ON_CREATE,
+                Lifecycle.Event.ON_START,
+                Lifecycle.Event.ON_RESUME
+            ).forEach { event -> runCatching { lifecycleRegistry.handleLifecycleEvent(event) } }
+        }
+    }
+
+    /** 对称 [startUiAutomationLifecycle]：UIA 连接断开时把生命周期推到 DESTROYED（幂等）。 */
+    fun stopUiAutomationLifecycle() {
+        if (!uiaLifecycleStarted) return
+        uiaLifecycleStarted = false
+        runOnMainThread {
+            listOf(
+                Lifecycle.Event.ON_PAUSE,
+                Lifecycle.Event.ON_STOP,
+                Lifecycle.Event.ON_DESTROY
+            ).forEach { event -> runCatching { lifecycleRegistry.handleLifecycleEvent(event) } }
+        }
+    }
+
+    /** [LifecycleRegistry] 要求主线程派发；UIA 的桥接流程跑在 Shizuku 连接线程上，这里统一投递。 */
+    private fun runOnMainThread(block: () -> Unit) {
+        if (Looper.myLooper() == Looper.getMainLooper()) {
+            runCatching { block() }
+        } else {
+            Handler(Looper.getMainLooper()).post { runCatching { block() } }
+        }
     }
 
     /**

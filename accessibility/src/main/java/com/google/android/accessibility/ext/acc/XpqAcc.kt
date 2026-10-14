@@ -91,7 +91,10 @@ object XpqAcc {
         unregisterUiAutomationComponentCallbacks()
         val h = bridgedHandler
         bridgedHandler = null
-        h?.let { runCatching { it.onUiAutomationDestroy() } }
+        h?.let {
+            runCatching { it.stopUiAutomationLifecycle() }
+            runCatching { it.onUiAutomationDestroy() }
+        }
     }
 
     /**
@@ -628,6 +631,7 @@ object XpqAcc {
         // 故替换前必须让旧实例先走一遍退役流程，由它自己把窗口与监听收干净。
         val previous = bridgedHandler
         if (previous != null && previous !== handler) {
+            runCatching { previous.stopUiAutomationLifecycle() }
             runCatching { previous.onUiAutomationDestroy() }
         }
         bridgedHandler = handler
@@ -636,6 +640,12 @@ object XpqAcc {
         // 且常被上层 catch(Throwable){} 吞掉，外在表现是「什么都没发生」。桥接前统一补齐，让所有
         // 接入本库的宿主一同免疫（含下面 onUiAutomationReady 里宿主自己用到的 Context）。
         runCatching { handler.ensureAppContext() }
+        // 生命周期也要一起补齐：手动 new 的实例收不到 onCreate/onServiceConnected，LifecycleRegistry
+        // 会永远停在 INITIALIZED，而 ComposeView 的重组循环**只在 ON_CREATE 时启动**
+        // ⇒ LifecycleOwner = 本实例的 Compose 悬浮窗（如手势库的手势条）会「窗口挂上了、
+        //   内容却永不合成」：点不动、滑也不动，且不报任何错。必须在挂悬浮窗（onUiAutomationReady）
+        //   之前补上，让它与真实无障碍模式的生命周期状态一致。
+        runCatching { handler.startUiAutomationLifecycle() }
         runCatching { handler.onUiAutomationReady(currentService()) }
         bridgeAccessibilityEvent(handler)
         // 系统不会回调「未被 attach 的 Service」的 onConfigurationChanged，
