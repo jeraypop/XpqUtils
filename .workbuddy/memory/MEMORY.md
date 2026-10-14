@@ -37,15 +37,43 @@
   （→UIAUTOMATION 会 disableSelf()；→A11Y 会 teardownBridge + disconnect()）。
   唯一被支持的「双活」= Shizuku 模式 + 宿主无障碍在系统侧开着（现由 MMKV `KEY_UIA_ENABLE_HOST_ACC` 决定），
   代价 = **事件双跑**。想做真优先级须改门面透传层（`primary.takeIf{isConnected} ?: fallback`），**尚未实现**。
+- **系统级 Service 回调在 UiAutomation 模式下静默**（2026-10-14 核实）：系统只对**被 attach 的 Service**
+  回调 `onConfigurationChanged` / `onLowMemory` / `onTrimMemory` / `onUnbind`；UiAutomation 模式下 App 进程内
+  没有 attach 的实例（proxyService / bridgedHandler 都是手动 new，不在 ActivityThread 的 mServices 里），
+  宿主 `AccessibilityServiceImp` 里的这些 override **不会被调用**，只有双活（`KEY_UIA_ENABLE_HOST_ACC=true`）
+  时真实实例才收到 → **已实现（2026-10-14）**：库在 `autoBridgeAccessibilityEvent` 成功后把
+  `uiAutomationComponentCallbacks`（**`ComponentCallbacks`**）注册到 Application（进程级），收到后转发给
+  **桥接实例** `bridgedHandler`（宿主自己的类、已 `ensureAppContext`）；注销点 = `teardownUiAutomationBridge`
+  （成对，漏注销会进程级泄漏 + 断开后仍回调）。双活去重：`SelectToSpeakServiceAbstract.instance != null`
+  时不转发。转发的是**服务方法本身**（非自定义钩子）⇒ 宿主已有的 `override fun onConfigurationChanged`
+  零改动即生效，两种模式共用一处。**只订阅 config，刻意不订阅 `onTrimMemory`**（要收须换回
+  `ComponentCallbacks2`）：那个信号宿主从 `Application`/`Activity.onTrimMemory` 直接拿得到，库无消费方
+  （`Application.dispatchTrimMemory` 按 `instanceof ComponentCallbacks2` 过滤 —— 类型上就断开了）。
+  `SelectToSpeakServiceAbstract` 最终**零改动**。
+- **重要事实（2026-10-14 源码核实）**：`Application` **本来就会**收到 `onConfigurationChanged` /
+  `onTrimMemory`，两种通道都收得到 —— `ConfigurationController.handleConfigurationChangedInner:225` 用
+  `collectComponentCallbacks(false)`、`ActivityThread.handleTrimMemory:7390` 用 `(true)`，两者都含
+  **`mAllApplications` + `mServices`**（ActivityThread:6636-6656）。⚠ config 那条 `includeUiContexts=false`
+  ⇒ **不含 Activity**（Activity 走 `performActivityConfigurationChanged`）。
+  ⇒ 库这条链路的唯一能力差异是「把事件送到**宿主服务实例**、复活宿主已有的
+  `AccessibilityServiceImp.onConfigurationChanged`（原本在纯 Shizuku 模式下是死代码且不报错）」，
+  **不是**「宿主本来收不到」。另：`Application.onConfigurationChanged/onTrimMemory/onLowMemory` 都是
+  `@CallSuper`（Application.java:277/282/287）且内部才遍历 `mComponentCallbacks`
+  （ComponentCallbacksController:90/106）⇒ 宿主 override 了 Application 的同名方法却不调 super，
+  别人注册的回调就收不到；库自己注册可绕开这层依赖。
+  另：`Service.onConfigurationChanged` 是**空实现、不读 mBase**，手动 new 实例调 `super` 不会 NPE
+  （`sources/android-36` 的 `android/app/Service.java:540` 原文）。
 
 ## 弹窗（XpqAcc 内的 AlertDialog）
 - 一律传 `Theme_DeviceDefault_Light_Dialog_Alert` + `decorView.isForceDarkAllowed = false`（API 29+）。
 - **按钮文字色必须显式设** `0xFF212121`（MIUI/EMUI 会改成浅色）；`getButton` 在 `show()` 前返回 null。
 - `setView` 与 `setSingleChoiceItems` **可共存**（custom 面板在列表上方）；`setMessage` 与列表互斥。
-- 「开启随选朗读」开关（仅 Shizuku 模式且**调用方未传 enableServiceString** 时显示，取值
-  `KEY_SELECTTOSPEAK_ENABLE`）：true 等价于传 `SELECTTOSPEAK`。它开着时「同时开启无障碍服务」行隐藏，
-  且其值**不写回 MMKV**（保留旧偏好），连接时被 `enableServiceOnConnect` 非空守卫短路 —— 两者语义冲突
-  （独占「只留随选朗读」 vs 增量「额外加宿主服务」），互斥是有意的。
+- 「开启随选朗读」开关（Shizuku 模式下**始终显示**，取值 `KEY_SELECTTOSPEAK_ENABLE`；无障碍模式隐藏）：
+  未传 `enableServiceString` 时可自由切换，true 等价于传 `SELECTTOSPEAK`；调用方传了 `enableServiceString`
+  时本行转**只读**（勾选状态 = 传入的是否为 SELECTTOSPEAK，`isEnabled=false`，文字/颜色不变）。
+  它开着时「同时开启无障碍服务」行隐藏，且其值**不写回 MMKV**（保留旧偏好），连接时被
+  `enableServiceOnConnect` 非空守卫短路 —— 两者语义冲突（独占「只留随选朗读」 vs 增量「额外加宿主服务」），
+  互斥是有意的。
 - 无障碍模式「确定」按 `WRITE_SECURE_SETTINGS` 分流：有权限 → 后台 `enableAccessibilityService` +
   轮询等 `instance` 就绪（**超时也算失败**）；无权限/失败 → 跳系统设置引导。重活在后台线程，不阻塞主线程。
 - `showEngineModeDialog` 三个回调的真实语义（与名字不完全一致，改前先看）：`onUIASuccess`/`onUIAFail`
@@ -53,6 +81,15 @@
   只在「无障碍模式（无条件，含失败）」与「Shizuku 模式**失败**」时触发，**Shizuku 成功时不触发**；
   `onCancel` 只认「取消」按钮（点外部/返回键关闭不触发）。失败通知统一走局部 `notifyFail` 收口
   （handleModeResult 两个分支 + failToast 分支各一次），新增失败路径时别漏 failToast 那条。
+
+## 内存回调在 API 34+ 的现状（2026-10-14 源码核实）
+- `onLowMemory()` 源码注释明写 **"Since API level 34 this is never called"** → 挂上去是死代码。
+- `onTrimMemory`：7 档中 5 档已废弃（`RUNNING_*` 5/10/15、`MODERATE` 60、`COMPLETE` 80），
+  **只剩 `UI_HIDDEN`(20) 与 `BACKGROUND`(40)**；且 `ActivityThread.handleTrimMemory` 对"前台型进程"
+  （`mLastProcessState <= PROCESS_STATE_IMPORTANT_FOREGROUND`）的 `level >= 40` **直接 return 不派发**
+  （`skipBgMemTrimOnFgApp`）→ 无障碍/保活进程实际只能等到 `UI_HIDDEN`。
+- 陷阱：本项目可见面是悬浮窗而非 Activity → `UI_HIDDEN` 来得早（宿主 Activity 一退就来），
+  不能按官方"释放 UI 对象"处理。
 
 ## Android 14+ `@Readable(maxTargetSdk)` 地雷（2026-10-12 实测）
 - 本项目 targetSdk=37，凡 `maxTargetSdk` 有限的 Secure 键**一律必炸**（检查在客户端进程内做）。

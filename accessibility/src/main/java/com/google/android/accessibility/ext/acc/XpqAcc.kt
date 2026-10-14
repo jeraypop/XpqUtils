@@ -6,9 +6,11 @@ import android.accessibilityservice.GestureDescription
 import android.app.Activity
 import android.app.AlertDialog
 import android.content.ComponentName
+import android.content.ComponentCallbacks
 import android.content.Context
 import android.content.Intent
 import android.content.pm.PackageManager
+import android.content.res.Configuration
 import android.net.Uri
 import android.os.Build
 import android.os.Handler
@@ -84,11 +86,79 @@ object XpqAcc {
         bridgeFallbackProvider = provider
     }
 
-    /** 断开 UiAutomation 连接时统一收尾：触发宿主销毁回调并清引用。 */
+    /** 断开 UiAutomation 连接时统一收尾：注销进程级回调、触发宿主销毁回调并清引用。 */
     private fun teardownUiAutomationBridge() {
+        unregisterUiAutomationComponentCallbacks()
         val h = bridgedHandler
         bridgedHandler = null
         h?.let { runCatching { it.onUiAutomationDestroy() } }
+    }
+
+    /**
+     * 进程级「配置变化」回调 —— UiAutomation 模式下 `onConfigurationChanged` 的唯一入口。
+     *
+     * 系统只对**被 attach 的 Service** 回调 `onConfigurationChanged`：UiAutomation 模式下 App 进程内
+     * 没有这样的实例（`proxyService` 与桥接实例都是手动 new，不在 `ActivityThread` 的 mServices 里），
+     * 宿主写在无障碍服务里的 override 等于死代码 —— 旋转后没有任何适配，而且**不报错**。
+     *
+     * `Context.registerComponentCallbacks` 内部落到 **Application（进程级）**，与有没有 Service 实例无关；
+     * 收到后转发给**桥接实例**（宿主自己的类，桥接前已 ensureAppContext），于是宿主只需 override 一次
+     * 无障碍服务的 `onConfigurationChanged`，两种模式同时生效（那个 override 以前在纯 Shizuku 模式下是死的）。
+     *
+     * 注册/注销与 [bridgedHandler] 严格配对：见 [autoBridgeAccessibilityEvent] / [teardownUiAutomationBridge]。
+     * 注册到 Application 是**进程级**的，漏注销会泄漏且断开连接后仍在回调，务必成对。
+     *
+     * ⚠ 刻意**不订阅** `onTrimMemory`：① 现代 Android 上它很稀疏 —— API 34 起 5 个档位
+     * （RUNNING_MODERATE / RUNNING_LOW / RUNNING_CRITICAL / MODERATE / COMPLETE）不再派发、
+     * `onLowMemory()` 永不调用，前台型进程连
+     * `TRIM_MEMORY_BACKGROUND` 都被 `handleTrimMemory` 吞掉，实际只剩 `TRIM_MEMORY_UI_HIDDEN`；
+     * ② 那个档位宿主从 `Application` / `Activity` 的 `onTrimMemory` 本来就能直接拿到，本库没有
+     * 需要它的消费方。所以这里注册 `ComponentCallbacks` 而非 `ComponentCallbacks2`
+     * （`Application.dispatchTrimMemory` 会按 `instanceof ComponentCallbacks2` 过滤 —— 类型上就断开了）。
+     * 将来真有需要时换回 `ComponentCallbacks2` 并加一条转发即可。
+     */
+    private val uiAutomationComponentCallbacks = object : ComponentCallbacks {
+        override fun onConfigurationChanged(newConfig: Configuration) {
+            forwardToBridge { it.onConfigurationChanged(newConfig) }
+        }
+
+        // ComponentCallbacks 的必需成员。API 34 起系统已不再调用它（ComponentCallbacks 源码注释原文：
+        // "Since API level 34 this is never called"），Application.dispatchLowMemory 只会打到这里，故留空。
+        // 父接口已把该方法标记 @Deprecated，故显式抑制 OVERRIDE_DEPRECATION。
+        @Suppress("OVERRIDE_DEPRECATION")
+        override fun onLowMemory() {}
+    }
+
+    /** [uiAutomationComponentCallbacks] 是否已注册（幂等用，避免进程级重复注册）。 */
+    @Volatile
+    private var componentCallbacksRegistered = false
+
+    /**
+     * 把进程级回调转发给宿主桥接实例。
+     *
+     * 双活去重：宿主无障碍服务真实在跑（`KEY_UIA_ENABLE_HOST_ACC=true`）时，系统自己会把
+     * `onConfigurationChanged` 回调到那个**真实实例**上，这里再转一次宿主会收到两遍。
+     */
+    private fun forwardToBridge(action: (SelectToSpeakServiceAbstract) -> Unit) {
+        if (SelectToSpeakServiceAbstract.instance != null) return
+        val h = bridgedHandler ?: return
+        runCatching { action(h) }
+    }
+
+    /** 注册进程级回调（幂等：重复调用先注销旧的）。 */
+    private fun registerUiAutomationComponentCallbacks() {
+        val ctx = runCatching { appContext }.getOrNull() ?: return
+        unregisterUiAutomationComponentCallbacks()
+        runCatching { ctx.registerComponentCallbacks(uiAutomationComponentCallbacks) }
+            .onSuccess { componentCallbacksRegistered = true }
+    }
+
+    /** 注销进程级回调（幂等）。 */
+    private fun unregisterUiAutomationComponentCallbacks() {
+        if (!componentCallbacksRegistered) return
+        componentCallbacksRegistered = false
+        val ctx = runCatching { appContext }.getOrNull() ?: return
+        runCatching { ctx.unregisterComponentCallbacks(uiAutomationComponentCallbacks) }
     }
 
     @Volatile
@@ -555,6 +625,10 @@ object XpqAcc {
         runCatching { handler.ensureAppContext() }
         runCatching { handler.onUiAutomationReady(currentService()) }
         bridgeAccessibilityEvent(handler)
+        // 系统不会回调「未被 attach 的 Service」的 onConfigurationChanged，
+        // 注册到 Application（进程级）后转发给桥接实例 → 宿主两种模式共用一处 override。
+        // 注销点 = teardownUiAutomationBridge（必须成对，否则进程级泄漏 + 断开后仍回调）。
+        registerUiAutomationComponentCallbacks()
         android.util.Log.i("XpqAcc", "自动事件桥接成功：${handler.javaClass.name}")
         return true
     }
