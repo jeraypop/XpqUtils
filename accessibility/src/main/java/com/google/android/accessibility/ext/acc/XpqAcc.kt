@@ -617,6 +617,19 @@ object XpqAcc {
         // 就绪钩子，把通道无关的初始化（如屏幕广播接收器）补上。
         // service 传 currentService()：真实无障碍服务在绑定时给它、否则给 proxyService。
         // 同时保存引用，供断开连接时触发 onUiAutomationDestroy 释放资源。
+        // 本方法每次调用都会反射 newInstance 出一个**新的**宿主服务实例。若直接覆盖
+        // [bridgedHandler]，上一个实例就再也没有任何引用能触达 —— 它注册的接收器、挂上去的
+        // 悬浮窗全部变成无法回收的「野资源」。
+        //
+        // 后果不只是泄漏：UiAutomation 通道下悬浮窗只能用 TYPE_APPLICATION_OVERLAY(2038)，
+        // 它属于**非 trusted overlay**，Android 12+ 会按「遮挡不透明度」丢弃其下方的触摸
+        // （InputDispatcher: Dropping untrusted touch，阈值默认 0.8）。两套全屏悬浮窗叠加即
+        // 1-(1-0.8)^2 = 0.96 > 0.8 ⇒ **整机触摸全部失效**，而且每次重连都会再叠一套。
+        // 故替换前必须让旧实例先走一遍退役流程，由它自己把窗口与监听收干净。
+        val previous = bridgedHandler
+        if (previous != null && previous !== handler) {
+            runCatching { previous.onUiAutomationDestroy() }
+        }
         bridgedHandler = handler
         // 手动 new 的实例从未被系统 attach，ContextWrapper.mBase 为空 → 事件链路里任何一次
         // Context 调用（getString / getSystemService / registerReceiver / packageManager ...）都会 NPE，
