@@ -12,6 +12,7 @@ import com.google.android.accessibility.ext.acc.XpqAcc
 import com.google.android.accessibility.ext.utils.AliveUtils
 import com.google.android.accessibility.ext.utils.KeyguardUnLock.sendLog
 import com.google.android.accessibility.ext.utils.LibCtxProvider.Companion.appContext
+import com.google.android.accessibility.ext.window.LogWrapper_NoNet
 import java.util.concurrent.CopyOnWriteArrayList
 
 /**
@@ -155,9 +156,11 @@ object AccIsOpenUtil {
     @JvmOverloads
     fun checkSelectToSpeak(time: Long = 1500L): Boolean{
         if (XpqAcc.mode == EngineMode.ACCESSIBILITY_SERVICE){
+            LogWrapper_NoNet.logAppend_NoNet("当前工作模式：无障碍服务(在wx中使用无障碍极大概率会被检测到) 建议切换到 Shizuku")
             sendLog("当前工作模式：无障碍服务(在wx中使用无障碍极大概率会被检测到) 建议切换到 Shizuku")
             return false
         }else if (XpqAcc.mode == EngineMode.UIAUTOMATION){
+            LogWrapper_NoNet.logAppend_NoNet("当前工作模式：Shizuku")
             sendLog("当前工作模式：Shizuku")
             val open = "随选朗读已开启「作用：保证shizuku模式下在wx里正常工作」 且 其它无障碍都关闭「作用：降低被检测到概率」"
             val close = "请开启随选朗读「作用：保证shizuku模式下在wx里正常工作」 并 关闭其它所有的无障碍「作用：降低被检测到概率」"
@@ -166,15 +169,18 @@ object AccIsOpenUtil {
                 val result = XpqAcc.enableAccessibilityServiceOnly(XpqAcc.SELECTTOSPEAK)
                 SystemClock.sleep(time)
                 if (AccIsOpenUtil.onlyWhiteAccessibilityIsEnabled()){
+                    LogWrapper_NoNet.logAppend_NoNet(open)
                     sendLog(open)
                     return true
                 }else{
                     AliveUtils.toast(msg = close)
+                    LogWrapper_NoNet.logAppend_NoNet(close)
                     sendLog(close)
                     return false
                 }
             }
             else{
+                LogWrapper_NoNet.logAppend_NoNet(open)
                 sendLog(open)
                 return true
             }
