@@ -153,6 +153,29 @@
   兜底扫「带启动页的可见应用」逐个 `getActivityInfo` 探组件 → 退到候选应用启动页。
   `addStandaloneShizukuPackage` 仅在「fork 把探针 action 也改掉」时才有用。
 
+## 点击扩展函数的既有陷阱（2026-10-16 读码确认，未改动代码）
+- `AccessibilityService?.gestureClick(node)`（GestureExt.kt:17）= **HumanTouchEngine 拟人化点击**：
+  `HumanTouchEngine.click()` 的返回值**被丢弃**、函数**恒 `return true`**（只在 receiver 为 null 时 false）。
+  ⇒ `gestureClick(node) || node.click()` 里的 `node.click()` 是**不可达死代码**（service 已在入口判非空）；
+  `clickByIdAndTextFilter` 的 `.takeIf { it }` 写法同理是摆设。
+- ⇒ `clickMultipleByIdAndText` 的返回值 ≈「是否真的走到过一轮点击」：只要有任意一轮点到就恒 true；
+  `var result` 每轮覆盖 = 只反映**最后一轮**（想表达「全部成功」得写 `result && ok`）。
+- 形参 `gestureClick: Boolean` 与扩展函数**同名**（遮蔽）：调用处 `gestureClick(node)` 解析到函数、不是布尔 → 易误读。
+- `rawList` **只在最开始取一次**：第一轮点击后界面若重排，后续节点已过期 → `copyNodeCompat` 失败被
+  `continue` **静默跳过**。要连点多个元素时应**每轮重新取根再查**。
+- 同族对照：`clickByIdAndTextFilter` 比较时两侧都做 `default(filter = true) + removeTrailingNumber()`
+  （洗掉非中文/ASCII 字符与结尾序号），而 `clickMultipleByIdAndText` 是**原样精确**比较（空白 → ""）。
+
+## 点击族新增函数：照抄同族结构（2026-10-16 用户要求）
+- `ext/acc/AccessibilityServiceExt.kt` 加同族点击函数时，**先照抄已有那一个的骨架**：suspend 与否、
+  参数形状（`startIndex` / `count` / `gestureClick`）、`copyNodeCompat → 点击 → recycleCompat`、
+  每轮 `delay(500)`、返回**最后一轮**结果。
+- ⚠ 反面教训：`clickMultipleByDesc` 第一版写成非 suspend 单点版（多出 `index` / `MatchMode` 参数），
+  被否「风格要和 `clickMultipleByIdAndText` 保持一致」→ **不要自创「更好用」的参数形状**。
+- 定位依据不同时只换数据源：desc 版 = `contentDescription.default() == desc`（与
+  `it.text.default() == text` 对称），**不看 text**；无系统 byDesc API，配套 private
+  `findNodesByDesc`（前序遍历全树收集，子树无命中回收 child）。
+
 ## 编辑工具纪律（补充 2026-10-16）
 - 用 Edit 定位时，**`old_string` 不要跨越到下一个成员声明**（例如顺手带上下一个 `fun xxx(...) {` 当锚点）：
   若 `new_string` 忘了把那几行写回，就会**静默删掉**整个函数签名，函数体悬空在类里。

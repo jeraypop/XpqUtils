@@ -279,6 +279,22 @@ fun AccessibilityService.clickByTextOrDesc_XY(
 * 在节点树中查找 text / desc 匹配的节点
 *
 * */
+/**
+ * 关键词匹配的**唯一实现** —— text 与 desc 共用，[MatchMode] 四个模式都只在这里定义一次。
+ * value 为 null（该节点没有这个字段）一律不匹配；空串是合法值，按 [MatchMode.EXACT] 可被 "" 命中。
+ */
+private fun matchKeyword(value: String?, keyword: String, mode: MatchMode): Boolean {
+    if (value == null) return false
+
+    return when (mode) {
+        MatchMode.EXACT -> value == keyword
+        MatchMode.PREFIX -> value.startsWith(keyword)
+        MatchMode.CONTAINS -> value.contains(keyword)
+        MatchMode.SEND_WITH_COUNT ->
+            value.matches(Regex("^${Regex.escape(keyword)}(\\(\\d+\\))?$"))
+    }
+}
+
 private fun AccessibilityNodeInfo.findNodeByTextOrDesc(
     keyword: String,
     mode: MatchMode = MatchMode.EXACT
@@ -287,27 +303,7 @@ private fun AccessibilityNodeInfo.findNodeByTextOrDesc(
     val text = this.text?.toString()
     val desc = this.contentDescription?.toString()
 
-    fun match(value: String?): Boolean {
-        if (value == null) return false
-
-        return when (mode) {
-            MatchMode.EXACT -> {
-                value == keyword
-            }
-            MatchMode.PREFIX -> {
-                value.startsWith(keyword)
-            }
-            MatchMode.CONTAINS -> {
-                value.contains(keyword)
-            }
-            MatchMode.SEND_WITH_COUNT -> {
-                val pattern = Regex("^${Regex.escape(keyword)}(\\(\\d+\\))?$")
-                value.matches(pattern)
-            }
-        }
-    }
-
-    if (match(text) || match(desc)) {
+    if (matchKeyword(text, keyword, mode) || matchKeyword(desc, keyword, mode)) {
         return if (isClickable) this else findClickableParent()
     }
 
@@ -318,6 +314,37 @@ private fun AccessibilityNodeInfo.findNodeByTextOrDesc(
     }
 
     return null
+}
+
+/*
+* 极端兜底：节点**既没有可用的 viewId、也没有 text**，只有 contentDescription。
+* 典型 = 纯图标按钮（返回 / 关闭 / 更多）、ImageView / ImageButton —— 这类节点
+* findNodesById 拿不到、findNodesByText 也拿不到（text 为 null 或空白），
+* 但无障碍要求控件必须可读，厂商通常把语义写在 contentDescription 上。
+*
+* ⚠ 只认 contentDescription，**不看 text**（两者都认请用 [findNodeByTextOrDesc]）。
+* ⚠ 系统没有「按 desc 找节点」的 API（只有 byId / byText），只能自己前序遍历；
+*    返回**全部**命中节点（树序），由调用方负责回收。
+* */
+private fun AccessibilityNodeInfo.findNodesByDesc(desc: String): List<AccessibilityNodeInfo> {
+    val result = mutableListOf<AccessibilityNodeInfo>()
+
+    fun walk(node: AccessibilityNodeInfo) {
+        if (node.contentDescription.default() == desc) result.add(node)
+
+        // 缓存 childCount：循环内会回收子节点，避免回收后再去跨进程读父节点的子数
+        val count = node.childCount
+        for (i in 0 until count) {
+            val child = node.getChild(i) ?: continue
+            val before = result.size
+            walk(child)
+            // 整棵子树都没有命中 → child 已无外部引用，就地回收（防全树遍历的节点堆积）
+            if (result.size == before) recycleCompat(child)
+        }
+    }
+
+    walk(this)
+    return result
 }
 
 enum class MatchMode {
@@ -541,6 +568,74 @@ fun AccessibilityService?.clickByIdAndDesc(
     }
 }
 
+
+/**
+ * **极端兜底**：节点既没有可用的 viewId、也没有 text，只有 contentDescription 时用它。
+ *
+ * 与 [clickMultipleByIdAndText] **同款风格**：suspend、`startIndex` + `count` 切片、
+ * 逐项 copy → 点击 → 回收、每项之间 `delay(500)`、返回**最后一轮**的结果。
+ * 区别只在定位依据 —— 这个只认 `contentDescription`，**不看 text**
+ * （text / desc 混用、两者都认请用 [clickByTextOrDesc]）。
+ *
+ * 适用场景（[clickMultipleByIdAndText] / [clickByText] 都失效的情况）：
+ * - 纯图标按钮：返回箭头、关闭 ×、更多 ⋮ —— 没有 text，viewId 无或已混淆；
+ * - ImageView / ImageButton：语义只能写在 `contentDescription` 上（无障碍强制要求控件可读）。
+ *
+ * ⚠ 无 id 就用不了系统的索引查找，只能全树前序遍历，大列表页偏慢。
+ * ⚠ 与 [clickMultipleByIdAndText] 一致的既有行为：根**只取一次**，界面在两次点击之间重排时，
+ *   靠后的节点会过期 → copy 失败即 `continue` 跳过；`delay` 在最后一轮之后也会执行。
+ *
+ * @param desc         目标 contentDescription（经 `default()` 归一化后**精确相等**，null / 全空白视为 ""）。
+ * @param startIndex   从第几个匹配开始点，默认 0。
+ * @param count        最多点几个，默认 1。
+ * @param gestureClick true（默认）= 手势点击（拟人坐标）；false = 优先 ACTION_CLICK，失败再补手势。
+ * @return 最后一轮的点击结果（同 [clickMultipleByIdAndText]，**不表示「全部成功」**）。
+ */
+suspend fun AccessibilityService?.clickMultipleByDesc(
+    desc: String,
+    startIndex: Int = 0,
+    count: Int = 1,
+    gestureClick: Boolean = true
+): Boolean {
+    this ?: return false
+
+    val all = XpqAcc.rootInActiveWindow()
+        ?.findNodesByDesc(desc)
+        ?: return false
+
+    if (all.isEmpty()) return false
+
+    val rawList = all.drop(startIndex).take(count)
+
+    // 切片之外、本次不点击的节点先归还，避免全树扫描后的节点堆积
+    all.forEachIndexed { index, node ->
+        if (index < startIndex || index >= startIndex + count) recycleCompat(node)
+    }
+
+    if (rawList.isEmpty()) return false
+
+    var result = false
+
+    for (raw in rawList) {
+        val node = copyNodeCompat(raw)
+        recycleCompat(raw)
+        node ?: continue
+
+        try {
+            result = if (gestureClick) {
+                gestureClick(node) || node.click()
+            } else {
+                node.click() || gestureClick(node)
+            }
+        } finally {
+            recycleCompat(node)
+        }
+
+        delay(500)
+    }
+
+    return result
+}
 
 
 //suspend fun AccessibilityService?.clickMultipleByIdAndText(
