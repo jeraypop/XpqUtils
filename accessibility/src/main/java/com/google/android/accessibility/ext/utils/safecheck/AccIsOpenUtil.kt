@@ -2,10 +2,14 @@ package com.google.android.accessibility.ext.utils.safecheck
 
 import android.accessibilityservice.AccessibilityServiceInfo
 import android.content.Context
+import android.os.SystemClock
 import android.provider.Settings
 import android.util.Log
 import android.view.accessibility.AccessibilityManager
 import com.google.android.accessibility.ext.acc.AccessibilityEnableHelper
+import com.google.android.accessibility.ext.acc.EngineMode
+import com.google.android.accessibility.ext.acc.XpqAcc
+import com.google.android.accessibility.ext.utils.AliveUtils
 import com.google.android.accessibility.ext.utils.KeyguardUnLock.sendLog
 import com.google.android.accessibility.ext.utils.LibCtxProvider.Companion.appContext
 import java.util.concurrent.CopyOnWriteArrayList
@@ -147,6 +151,36 @@ object AccIsOpenUtil {
     /** 当前生效的**全量**白名单特征（[DEFAULT_WHITE_LIST] + 运行时追加项）快照，排查用。 */
     @JvmStatic
     fun whiteListFeatures(): List<String> = allWhiteList.toList()
+    @JvmStatic
+    @JvmOverloads
+    fun checkSelectToSpeak(time: Long = 1500L): Boolean{
+        if (XpqAcc.mode == EngineMode.ACCESSIBILITY_SERVICE){
+            sendLog("当前工作模式：无障碍服务(在wx中使用无障碍极大概率会被检测到) 建议切换到 Shizuku")
+            return false
+        }else if (XpqAcc.mode == EngineMode.UIAUTOMATION){
+            sendLog("当前工作模式：Shizuku")
+            val open = "随选朗读已开启「作用：保证shizuku模式下在wx里正常工作」 且 其它无障碍都关闭「作用：降低被检测到概率」"
+            val close = "请开启随选朗读「作用：保证shizuku模式下在wx里正常工作」 并 关闭其它所有的无障碍「作用：降低被检测到概率」"
+            if (!AccIsOpenUtil.onlyWhiteAccessibilityIsEnabled()){
+                //请开启随选朗读并关闭其它无障碍
+                val result = XpqAcc.enableAccessibilityServiceOnly(XpqAcc.SELECTTOSPEAK)
+                SystemClock.sleep(time)
+                if (AccIsOpenUtil.onlyWhiteAccessibilityIsEnabled()){
+                    sendLog(open)
+                    return true
+                }else{
+                    AliveUtils.toast(msg = close)
+                    sendLog(close)
+                    return false
+                }
+            }
+            else{
+                sendLog(open)
+                return true
+            }
+        }
+        return false
+    }
 
     /**
      * 系统**解析后**认为已启用的无障碍服务（binder 到 system_server 的 AccessibilityManager）。
