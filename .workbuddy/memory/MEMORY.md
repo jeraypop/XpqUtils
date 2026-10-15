@@ -128,3 +128,32 @@
   `ENABLED_NOTIFICATION_LISTENERS`（读法不要顺手改）。
 - 排查手法：`grep -B6 "public static final String <KEY> =" sources/android-36/android/provider/Settings.java`
   看注解（`sources/android-14` 那份缺注解，别用它判断）。
+
+## `<queries>` 清单规则（2026-10-16 踩坑定案）
+- **`<queries>` 内的 `<provider>` 按 authority 匹配**，`android:authorities` 是**必填**属性；
+  只写 `android:name="rikka.shizuku.ShizukuProvider"` 会 AAPT 报
+  `missing required attribute 'android:authorities'`，且**即便补上也毫无作用**（类名在这里不认）。
+  跨包可见性用 `<package>`（已知包名）或 `<intent>`（按 action/category 广域）解决。
+  本库**不需要**任何 Shizuku provider 可见性声明：客户端拿 binder 走**自己包**的 provider
+  （`ShizukuProvider.requestBinderForNonProviderProcess` → `content://<本应用包名>.shizuku`），同包不过滤。
+- **改清单后必须跑到清单/资源阶段验证**：`compileDebugKotlin` **完全不碰清单**，AAPT 错误要到
+  `:xxx:processDebugManifest` / `:xxx:processDebugResources` / `assembleDebug` 才暴露。
+
+## 定位「Shizuku 管理器所在应用」（2026-10-16 定案，零宿主配置）
+- manager 清单（官方 App 与 `com.github.jeraypop.Shizuku:manager` 库同一份）里
+  `moe.shizuku.manager.MainActivity` 是 `exported="true"` 但**没有任何 intent-filter**
+  → 任何 `queryIntentActivities` 都扫不到它，`getLaunchIntentForPackage(宿主)` 拿到的也只是宿主启动页。
+  跳转**只能**靠「已知类名 + 显式 `ComponentName`」。
+- 但**包名可以零配置反查**：manager 恒声明**字面量 action**
+  `rikka.shizuku.intent.action.REQUEST_BINDER`（`ShellRequestHandlerActivity` + `BinderRequestReceiver`，
+  均 exported）→ 谁声明它谁就是管理器所在应用。库自己的 `<queries>` 里加这条 `<intent>`
+  （+ `CATEGORY_DEFAULT`）即可看见它，宿主无需写代码/改清单。
+- `IShizukuService`（aidl 13.1.5）**没有**任何返回管理器包名的方法 → 问不到 server，只能靠上面这条反查。
+- `openShizuku` 顺序：本包 `Class.forName` 直开 → 探针反查包名 + 显式跳转 → 注册候选 + 官方包名 →
+  兜底扫「带启动页的可见应用」逐个 `getActivityInfo` 探组件 → 退到候选应用启动页。
+  `addStandaloneShizukuPackage` 仅在「fork 把探针 action 也改掉」时才有用。
+
+## 编辑工具纪律（补充 2026-10-16）
+- 用 Edit 定位时，**`old_string` 不要跨越到下一个成员声明**（例如顺手带上下一个 `fun xxx(...) {` 当锚点）：
+  若 `new_string` 忘了把那几行写回，就会**静默删掉**整个函数签名，函数体悬空在类里。
+  定位优先用「目标块自身末尾几行」，或把锚点行**原样包含进 `new_string`**。

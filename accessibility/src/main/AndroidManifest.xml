@@ -10,12 +10,28 @@
              否则 queryIntentActivities/getLaunchIntentForPackage 看不见它们 -->
         <package android:name="moe.shizuku.privileged.api" />
         <package android:name="rikka.shizuku" />
+        <!-- 反查「Shizuku 管理器所在应用」的包名（AutomationShizuku.discoverManagerPackage）：
+             官方 App 与所有 fork（含以库形式并入**其它宿主**的 manager）清单里都有这条**固定 action**
+             的导出组件（ShellRequestHandlerActivity / BinderRequestReceiver），action 不带
+             applicationId 占位符 → 谁声明它谁就是管理器所在应用。声明后本库才看得见那个宿主，
+             进而按已知类名直跳它的管理器主界面 —— 宿主无需写任何代码。 -->
+        <intent>
+            <action android:name="rikka.shizuku.intent.action.REQUEST_BINDER" />
+            <category android:name="android.intent.category.DEFAULT" />
+        </intent>
         <!-- 按类名扫描改包名的 Shizuku fork 需要能看到所有带启动页的应用（声明后
              queryIntentActivities 才能扫到任意包名 fork 的 moe.shizuku.manager.MainActivity） -->
         <intent>
             <action android:name="android.intent.action.MAIN" />
             <category android:name="android.intent.category.LAUNCHER" />
         </intent>
+        <!-- 不要在这里声明 ShizukuProvider（即 <queries> 内的 provider 元素）：
+             <queries> 里的 provider 按 **authority** 匹配，android:authorities 是必填属性，
+             缺了 AAPT 直接报 "missing required attribute 'android:authorities'"；
+             只写 android:name="rikka.shizuku.ShizukuProvider" 既编不过、也不起任何作用。
+             本库也**不需要**它：客户端拿 binder 走的是自己包里的 provider
+             （ShizukuProvider.requestBinderForNonProviderProcess → content://<本应用包名>.shizuku），
+             同包不受可见性过滤；跨包（找 Shizuku App / fork）已由上面的 <package> 与 <intent> 覆盖。 -->
     </queries>
     <queries>
 

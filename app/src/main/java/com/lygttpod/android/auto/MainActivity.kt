@@ -288,7 +288,7 @@ class MainActivity : XpqBaseActivity<ActivityMainBinding>(
             XpqAcc.showEngineModeDialog(
                 this,
                 SelectToSpeakService(),
-                enableServiceString = XpqAcc.SELECTTOSPEAK,
+                //enableServiceString = XpqAcc.SELECTTOSPEAK,
                 // 宿主无障碍服务的开启改由弹窗内的「同时开启无障碍服务」开关决定，不再有入参
                 disableHostAccessibilityService = false
             )

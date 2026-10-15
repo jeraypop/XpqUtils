@@ -11,6 +11,7 @@ import android.content.Context
 import android.content.Intent
 import android.content.pm.PackageManager
 import android.content.res.Configuration
+import android.graphics.drawable.GradientDrawable
 import android.net.Uri
 import android.os.Build
 import android.os.Handler
@@ -38,7 +39,6 @@ import com.google.android.accessibility.ext.utils.LibCtxProvider.Companion.appCo
 import com.google.android.accessibility.ext.utils.MMKVConst
 import com.google.android.accessibility.ext.utils.MMKVUtil
 import com.google.android.accessibility.ext.utils.NotificationUtilXpq
-import com.google.android.accessibility.ext.utils.safecheck.AccIsOpenUtil
 import com.google.android.accessibility.ext.window.DynamicIslandFloatWindow
 import com.google.android.accessibility.notification.AppExecutors
 import com.google.android.accessibility.selecttospeak.SelectToSpeakServiceAbstract
@@ -849,8 +849,8 @@ object XpqAcc {
      * @param imgRes    无障碍模式跳转设置后弹出的引导对话框图片资源。
      * @param bridgeFallback 事件桥接兜底实例，仅 UiAutomation 模式使用；透传给 [applyEngineMode]。
      * @param enableServiceString 连接成功后要自动开启的无障碍服务组件名（展平形式，独占）。
-     *                            非空时（如 [SELECTTOSPEAK]）弹窗内「开启随选朗读」「同时开启无障碍服务」两个开关
-     *                            与「2.关闭其它所有的无障碍服务…」提示均不显示，取值完全以本参数为准。
+     *                            非空时（如 [SELECTTOSPEAK]）取值完全以本参数为准 —— 弹窗内那个开关
+     *                            退化为**只读展示**（见下文），不再影响本次配置。
      *                            为 null 时改由弹窗内「开启随选朗读」开关决定（开 = [SELECTTOSPEAK]，关 = 不开启）。
      * @param disableHostAccessibilityService 仅 UiAutomation 模式使用；切换到 Shizuku 模式成功后自动关闭宿主自己的
      *                                        无障碍服务，避免无障碍通道与 UiAutomation 通道双跑。透传给 [applyEngineMode] 同名参数。
@@ -863,7 +863,7 @@ object XpqAcc {
      * [SELECTTOSPEAK] —— 为 true 时按「独占开启随选朗读」执行（会关掉设备上其它无障碍服务）；
      * 为 false 时等价于没传（不开启任何无障碍服务）。取值存于 MMKV
      * （`MMKVConst.KEY_SELECTTOSPEAK_ENABLE`，默认 false）。开启它时「同时开启无障碍服务」行会自动隐藏
-     * （独占路径下后者的持久化判断本就不生效），说明文字里的「2.关闭其它所有的无障碍服务…」提示也会同步出现。
+     * （独占路径下后者的持久化判断本就不生效）。
      *
      * 调用方显式传了 [enableServiceString] 时本行**仍然显示**，但转为只读展示：勾选状态 = 传入的是否为
      * [SELECTTOSPEAK]（传入其它服务时显示为未勾选），**标题与说明文字完全不变**，禁用状态只由开关
@@ -914,44 +914,36 @@ object XpqAcc {
         fun curExclusiveService(): String? =
             enableServiceString ?: if (selectToSpeakOn) SELECTTOSPEAK else null
 
-        // 「关闭其它所有的无障碍服务，只保留开启设备自带的随选朗读」这一段只在走独占开启路径时才提示。
-        // 自带前后空行，不提示时整段连带空行一起省略，避免多出空行。
-        fun closeOtherAccTip(): String =
-            if (curExclusiveService() != null) {
-                "2.关闭其它所有的无障碍服务，只保留开启设备自带的☞☞： https://settings随选朗读\n\n"
-            } else ""
-
         // 每个模式对应的说明文字，切换选项时动态更新到标题区。
         // Shizuku 模式的下载段按导入形态分流：manager 已并入宿主时无需下载独立 App，
-        // 隐藏 3 个下载地址，替换为可点击的「打开 manager 主界面」。
+        // 隐藏 3 个下载地址，替换为可点击的「打开 Shizuku 服务」。
+        // 说明里**不再提示**「关闭其它无障碍 / 保留随选朗读」—— 那件事由点「确定」时的代码独占完成，
+        // 用户无需照着做；相关说明见开关行右侧的「？」帮助按钮（showSXLDDialog）。
         fun describeMode(mode: EngineMode): String = when {
             mode == EngineMode.ACCESSIBILITY_SERVICE && !hasAccessibility ->
                 "无障碍模式\n\n当前版本不支持无障碍模式,如果确定需要无障碍的版本，可下载支持无障碍的版本使用"
             mode == EngineMode.ACCESSIBILITY_SERVICE ->
                 "无障碍模式\n\n" +
-                        "无需额外安装软件,但是部分软件(比如：银行类软件)检测设备上无障碍服务开启时，可能出现安全提示\n" +
-                        "请跳转到☞☞：https://settings.设置 "
+                        "无需额外安装软件,但是部分软件(比如：银行类软件)检测设备上无障碍服务开启时，可能出现安全提示"
             AutomationShizuku.isManagerMergedIntoHost() ->
                 "Shizuku 模式(推荐用该模式)\n\n" +
-                        "1.本软件已内置 Shizuku 管理器，无需额外下载\n" +
+                        "本软件已内置 Shizuku 管理器，无需额外下载\n" +
                         "打开 Shizuku 服务☞☞：https://settings.开启Shizuku服务\n\n" +
                         "shizuku 使用教程☞☞：https://mp.weixin.qq.com/s/qG3znEmRgtOkfmktM2mxrA\n\n" +
-                        closeOtherAccTip() +
                         "为什么引入该模式：" +
                         "\n由于部分应用会检测设备上启用的第三方无障碍服务，并可能出现安全提示。" +
-                        "\n所以，现在采用无障碍模式的应用在wx上已经不推荐再用了，用了被检测到是早几天晚几天的事" +
+                        "\n所以，现在采用无障碍模式的应用在wx上已经不推荐再用了，用了极大概率会被检测到" +
                         "\nShizuku 模式使用不同的系统权限通道，可以作为另一种自动化方案"
             else ->
                 "Shizuku 模式(推荐用该模式)\n\n" +
-                        "1.需要额外下载一个免费开源的 Shizuku 软件\n" +
+                        "需要额外下载一个免费开源的 Shizuku 软件\n" +
                         "官方原版下载地址☞☞：https://github.com/RikkaApps/Shizuku/releases\n" +
                         "备用原版下载地址☞☞：https://apt.izzysoft.de/fdroid/index/apk/moe.shizuku.privileged.api\n" +
                         "最新修改版下载地址（推荐下载这个）☞☞：https://github.com/thedjchi/Shizuku/releases\n" +
                         "shizuku 使用教程☞☞：https://mp.weixin.qq.com/s/qG3znEmRgtOkfmktM2mxrA\n\n" +
-                        closeOtherAccTip() +
                         "为什么引入该模式：" +
                         "\n由于部分应用会检测设备上启用的第三方无障碍服务，并可能出现安全提示。" +
-                        "\n所以，现在采用无障碍模式的应用在wx上已经不推荐再用了，用了被检测到是早几天晚几天的事" +
+                        "\n所以，现在采用无障碍模式的应用在wx上已经不推荐再用了，用了极大概率会被检测到" +
                         "\nShizuku 模式使用不同的系统权限通道，可以作为另一种自动化方案"
         }
 
@@ -971,53 +963,25 @@ object XpqAcc {
         }
 
         // 渲染指定模式的说明文字：
-        // 无障碍模式 —— 「系统设置 - 无障碍」做成可点击，跳转到无障碍开启界面
-        // Shizuku 模式 —— 官方/备用下载地址用 Linkify 识别为可点击跳转
+        // 无障碍模式 —— 纯文字说明，**不放可点击项**（原因见下面的分支注释）
+        // Shizuku 模式 —— 「开启 Shizuku 服务」为 Spannable 链接，下载地址用 Linkify 识别
         fun renderMode(index: Int) {
             val mode = indexToMode(index)
             if (mode == EngineMode.ACCESSIBILITY_SERVICE) {
-                val text = describeMode(mode)
-                val spannable = SpannableString(text)
-                val target = "https://settings.设置"
-                val start = text.indexOf(target)
-                if (start >= 0) {
-                    val end = start + target.length
-                    // 点击跳转到无障碍开启界面；外观复用系统链接样式（与 Shizuku 下载地址一致）
-                    spannable.setSpan(object : ClickableSpan() {
-                        override fun onClick(widget: View) {
-                            showCheckDialog(
-                                activity,
-                                R.string.wzaxpq,
-                                imgRes,
-                                R.string.quanxian0,
-                                MMKVConst.BTN_ACCESSIBILITY
-                            )
-                        }
-                    }, start, end, Spanned.SPAN_EXCLUSIVE_EXCLUSIVE)
-                }
-                titleView.movementMethod = LinkMovementMethod.getInstance()
-                titleView.text = spannable
+                // 无障碍模式**不再放可点击链接**：原来那行「请跳转到☞☞：https://settings.设置」点开的是
+                // showCheckDialog 引导，而点「确定」在失败 / 无权限时弹的是**同一个**引导对话框
+                // （见 applyModeAndGuideToSetting，调用参数一字不差），成功时就更不需要引导 ——
+                // 属于重复入口；且它自己不切模式、只弹引导（"半截操作"），容易让人以为点完就切好了。
+                titleView.movementMethod = null
+                titleView.text = describeMode(mode)
             } else {
-                // Shizuku 模式：让「随选朗读」与无障碍模式的「https://settings.设置」同款链接样式，
-                // 点击跳转到系统无障碍设置（「随选朗读」开关所在页）；下载地址继续走 Linkify 识别。
-                // manager 已并入宿主时，「https://settings打开manager」为占位链接，点击打开宿主内 manager 主界面。
+                // Shizuku 模式：下载地址走 Linkify，manager 已并入宿主时
+                // 「https://settings.开启Shizuku服务」为占位链接，点击打开 Shizuku 管理界面。
+                // 「随选朗读」**不再是链接**：说明里那行「关闭其它无障碍、只保留随选朗读」已删除
+                // （点「确定」时由代码独占开启，本来就不需要用户照着做），
+                // 相关说明改由开关行右侧的「？」帮助按钮（showSXLDDialog）提供。
                 val text = describeMode(mode)
                 val spannable = SpannableString(text)
-                val target = "https://settings随选朗读"
-                val start = text.indexOf(target)
-                if (start >= 0) {
-                    val end = start + target.length
-                    spannable.setSpan(object : ClickableSpan() {
-                        override fun onClick(widget: View) {
-                            if (AccIsOpenUtil.onlyWhiteAccessibilityIsEnabled()){
-                                AliveUtils.toast(msg = "随选朗读已开启")
-                            }else{
-                                AliveUtils.toast(msg = "请开启随选朗读")
-                            }
-                            showSXLDDialog(activity)
-                        }
-                    }, start, end, Spanned.SPAN_EXCLUSIVE_EXCLUSIVE)
-                }
                 val managerTarget = "https://settings.开启Shizuku服务"
                 val mStart = text.indexOf(managerTarget)
                 if (mStart >= 0) {
@@ -1050,12 +1014,46 @@ object XpqAcc {
             isEnabled = !selectToSpeakLocked
         }
         val selectToSpeakTitleView = TextView(activity).apply {
-            text = "开启随选朗读"
+            text = "同时开启 随选朗读"
             textSize = 14f
             // 与标题区同款：显式锁深色，避免暗黑模式下浅色压浅底。
             // 只读与否不改变文字颜色——禁用状态完全由右侧开关自身置灰表达。
             setTextColor(0xFF212121.toInt())
         }
+        // 两个开关行的「？」帮助按钮共用同一套外观与构造：
+        // 18dp 圆环 + 蓝色「?」紧贴标题右侧，点击弹各自的说明对话框。
+        // 常驻可点、不受开关只读/禁用状态影响——它讲的是「为什么要开」，与本次能否改无关。
+        val helpDotSize = (18 * density).toInt()
+        fun buildHelpDot(desc: String, onClick: () -> Unit): TextView = TextView(activity).apply {
+            text = "?"
+            textSize = 12f
+            gravity = Gravity.CENTER
+            setTextColor(0xFF1A73E8.toInt())
+            background = GradientDrawable().apply {
+                shape = GradientDrawable.OVAL
+                setColor(0x00000000)
+                setStroke((1 * density).toInt().coerceAtLeast(1), 0xFF1A73E8.toInt())
+            }
+            isClickable = true
+            isFocusable = true
+            contentDescription = desc
+            setOnClickListener { onClick() }
+        }
+        fun buildTitleRow(title: TextView, dot: TextView): LinearLayout = LinearLayout(activity).apply {
+            orientation = LinearLayout.HORIZONTAL
+            gravity = Gravity.CENTER_VERTICAL
+            addView(title)
+            addView(
+                dot,
+                LinearLayout.LayoutParams(helpDotSize, helpDotSize).apply {
+                    marginStart = (6 * density).toInt()
+                }
+            )
+        }
+        val selectToSpeakTitleRow = buildTitleRow(
+            selectToSpeakTitleView,
+            buildHelpDot("为何需要 随选朗读") { showSXLDDialog(activity) }
+        )
         val selectToSpeakDescView = TextView(activity).apply {
             // 文案与「本次是不是只读」无关：无论配置由谁决定，都展示同一句说明、保持同一颜色。
             text = "开启后，切换到 Shizuku 模式时会一并开启系统的「随选朗读」无障碍服务和关闭 其它所有无障碍(主要使用场景在WX内时，开启本开关)"
@@ -1064,7 +1062,7 @@ object XpqAcc {
         }
         val selectToSpeakLabels = LinearLayout(activity).apply {
             orientation = LinearLayout.VERTICAL
-            addView(selectToSpeakTitleView)
+            addView(selectToSpeakTitleRow)
             addView(selectToSpeakDescView)
         }
         val selectToSpeakRow = LinearLayout(activity).apply {
@@ -1090,7 +1088,7 @@ object XpqAcc {
             isChecked = MMKVUtil.get(MMKVConst.KEY_UIA_ENABLE_HOST_ACC, false)
         }
         val hostAccTitleView = TextView(activity).apply {
-            text = "同时开启无障碍服务"
+            text = "同时开启 本应用无障碍"
             textSize = 14f
             // 与标题区同款：显式锁深色，避免暗黑模式下浅色压浅底
             setTextColor(0xFF212121.toInt())
@@ -1100,9 +1098,13 @@ object XpqAcc {
             textSize = 12f
             setTextColor(0xFF757575.toInt())
         }
+        val hostAccTitleRow = buildTitleRow(
+            hostAccTitleView,
+            buildHelpDot("为何需要 本应用无障碍") { showHostAccDialog(activity) }
+        )
         val hostAccLabels = LinearLayout(activity).apply {
             orientation = LinearLayout.VERTICAL
-            addView(hostAccTitleView)
+            addView(hostAccTitleRow)
             addView(hostAccDescView)
         }
         val hostAccRow = LinearLayout(activity).apply {
@@ -1315,12 +1317,12 @@ object XpqAcc {
                 if (shizukuMode && curExclusiveService() == null) View.VISIBLE else View.GONE
         }
 
-        // 「开启随选朗读」开关联动：改变它等于改变「本次是否走独占开启」
-        // → 需重渲染说明文字（提示段跟着出现/消失）并刷新两个开关行的显隐。
+        // 「开启随选朗读」开关联动：改变它等于改变「本次是否走独占开启」→ 只需刷新两个开关行的显隐。
+        // （说明文字已与开关无关 —— 原来跟着开关出现/消失的「关闭其它无障碍…」提示已删除；
+        //   若日后重新引入开关相关的文案，记得把 renderMode(selected) 加回来。）
         // 注意本监听在 isChecked 初值设好之后才挂，避免初始化时触发一次无意义回调。
         selectToSpeakSwitch.setOnCheckedChangeListener { _, checked ->
             selectToSpeakOn = checked
-            renderMode(selected)
             updateSwitchRowVisibility(selected)
         }
 
@@ -1395,15 +1397,51 @@ object XpqAcc {
     fun showSXLDDialog(activity: Activity) {
         val msg = "随着ai的爆发，几乎人人都能写软件了，故wx加强了对自动化软件的检测，它能获取到设备上已开启自动化(主要是无障碍)的所有软件" +
                 "但总不能一刀切的都不让其工作吧，于是分为了黑名单和白名单，其中 系统自带的 随选朗读 就在白名单中，" +
-                "简单说，在wx中，黑名单中的软件无法正常工作，只有白名单中的软件才能正常工作，所以我们要开启系统自带的 随选朗读 并且 关闭其它所有的无障碍服务"
+                "简单说，在wx中，黑名单中的软件无法正常工作，只有白名单中的软件才能正常工作，所以我们要" +
+                "\n开启系统自带的  \n随选朗读「作用：保证shizuku模式下在wx里正常工作」" +
+                "\n关闭其它所有的无障碍服务「作用：降低被检测到概率」"
         val dialog = AlertDialog.Builder(activity, android.R.style.Theme_DeviceDefault_Light_Dialog_Alert)
             .setTitle("为何需要 随选朗读")
             .setMessage(msg)
-            .setPositiveButton("确定") { _, _ ->
-                NotificationUtilXpq.gotoAccessibilitySetting(activity)
+            .setPositiveButton("知道了") { _, _ ->
+                //NotificationUtilXpq.gotoAccessibilitySetting(activity)
             }
-            .setNegativeButton("教程"){ _, _ ->
-                viewUrl()
+            .setNegativeButton("取消"){ _, _ ->
+                //viewUrl()
+            }
+            .create()
+        // 部分机型的强制深色（Force Dark）会把浅色弹窗局部反转，导致文字看不清，显式禁用
+        runCatching {
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+                dialog.window?.decorView?.isForceDarkAllowed = false
+            }
+        }
+        dialog.show()
+        // 部分 ROM（MIUI/EMUI 等）定制主题下按钮文字为浅色，浅底上看不见，显式锁深色
+        val btnColor = 0xFF212121.toInt()
+        runCatching {
+            dialog.getButton(AlertDialog.BUTTON_POSITIVE)?.setTextColor(btnColor)
+            dialog.getButton(AlertDialog.BUTTON_NEGATIVE)?.setTextColor(btnColor)
+        }
+    }
+    @JvmStatic
+    fun showHostAccDialog(activity: Activity) {
+        val msg = "本开关决定：切换到 Shizuku 模式时，是否同时打开【本应用自己的无障碍服务】。\n\n" +
+                "它和上面的「随选朗读」是两个互斥方案，按主要使用场景二选一即可，不用都开：" +
+                "\n· 主要使用场景在wx内 → 开「随选朗读」：shizuku模式搭配系统自带的随选朗读，" +
+                "保证在wx内正常工作" +
+                "\n· 主要使用场景不在wx内 → 开本开关：本应用的无障碍服务由系统直接绑定，" +
+                "事件通知与界面节点信息最完整\n\n" +
+                "两个都开没有额外收益——只会多出一条已开启的无障碍服务记录，反而提高被检测到的概率；" +
+                "所以本开关只在「随选朗读」关闭时才显示。"
+        val dialog = AlertDialog.Builder(activity, android.R.style.Theme_DeviceDefault_Light_Dialog_Alert)
+            .setTitle("为何需要 本应用无障碍")
+            .setMessage(msg)
+            .setPositiveButton("知道了") { _, _ ->
+                //NotificationUtilXpq.gotoAccessibilitySetting(activity)
+            }
+            .setNegativeButton("取消"){ _, _ ->
+                //viewUrl()
             }
             .create()
         // 部分机型的强制深色（Force Dark）会把浅色弹窗局部反转，导致文字看不清，显式禁用
