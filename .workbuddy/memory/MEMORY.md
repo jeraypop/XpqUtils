@@ -91,6 +91,35 @@
 - 陷阱：本项目可见面是悬浮窗而非 Activity → `UI_HIDDEN` 来得早（宿主 Activity 一退就来），
   不能按官方"释放 UI 对象"处理。
 
+## 无障碍「已启用名单」的两种读法（2026-10-15 源码核实）
+- **写入侧唯一实现 = `AccessibilityEnableHelper`**（2026-10-15 收敛）：`XpqAcc` 门面与
+  `XPQAccUtils.enable/disableAccessibilityServices` 都只委托，库里不再有第二处直接写
+  `ENABLED_ACCESSIBILITY_SERVICES` / `ACCESSIBILITY_ENABLED` 的代码。helper 的写路径是
+  **「目标集合 + 名单只写一次」**（`enableAccessibilityServices(ctx, Collection, exclusive)` /
+  `disableAccessibilityServices(ctx, Collection)`，单元素版只是 `listOf(x)` 重载）——
+  批量时**不要**循环调用单元素版，每次 shell exec 都要 fork。
+- **secure 名单** = 输入，可能含脏数据；解析唯一入口 `AccessibilityEnableHelper.parseEnabledServices`
+  （冒号分隔 + trim + 丢空项）。**AccessibilityManager 列表** = 输出，是「名单 ∩ 已安装」的交集。
+- 形态不同：名单存 `flattenToString()` **长式**，`AccessibilityServiceInfo.getId()` 是
+  `flattenToShortString()` **短式** → 不能直接字符串相等。**已收口（2026-10-15）**：归一化唯一入口 =
+  `AccessibilityEnableHelper.canonicalComponent()`（`ComponentName.unflattenFromString(..)?.flattenToString()
+  ?: this`，解析失败原样保留），输出统一**长式**。**读**侧：`listEnabledAccessibilityServices`
+  （= `XpqAcc.enabledAccessibilityServices`）与 `AccIsOpenUtil.getEnabledServiceIds` /
+  `getEnabledServiceIdsFromSecure` 都 map 过它，可直接互比。**写**侧：`enable/disableAccessibilityService`
+  入口就归一化入参，内部「已在名单 / 已移除 / 回读校验 / merge / 独占残留」全部走 `containsComponent` /
+  `withoutComponent` 归一化比较 —— 否则会重复追加、关不掉、独占回读误报残留。
+- `getEnabledAccessibilityServiceList` 服务端判定含**通配分支**
+  `|| feedbackType == AccessibilityServiceInfo.FEEDBACK_ALL_MASK`（`0xFFFFFFFF`）→ 连 `feedbackType = 0`
+  的服务也返回（该属性缺省值即 0）。⚠ 通配 **Android 14 才加**（13 及更早只有位与 → 静默漏）。
+- 三道会静默清空 AM 列表的闸：① `suppressingAccessibilityServicesLocked()`（注册了 UiAutomation 且 connect
+  flags **未含** `FLAG_DONT_SUPPRESS_ACCESSIBILITY_SERVICES`(0x1)）→ `Collections.emptyList()`；
+  本库传了 0x1（`InvisibleAutomation` 的 `connect(int)` 分支），不受影响；② `getServiceLocked()` 为 null
+  （`AccessibilityManager.java:878`）；③ proxy device（`mProxyManager.isProxyedDeviceId`）走另一条实现。
+- 排查手法：AOSP **服务端**源码不在 SDK 里，用
+  `raw.githubusercontent.com/aosp-mirror/platform_frameworks_base/<branch>/services/accessibility/java/
+  com/android/server/accessibility/*.java`（分支 `android-<ver>.0.0_r1`、`android14-release`、`main`）；
+  逐版本比对可定位「某个行为是哪一代引入的」。
+
 ## Android 14+ `@Readable(maxTargetSdk)` 地雷（2026-10-12 实测）
 - 本项目 targetSdk=37，凡 `maxTargetSdk` 有限的 Secure 键**一律必炸**（检查在客户端进程内做）。
   踩中 `ENABLED_INPUT_METHODS`(33) → 改用 `InputMethodManager.getEnabledInputMethodList()`。

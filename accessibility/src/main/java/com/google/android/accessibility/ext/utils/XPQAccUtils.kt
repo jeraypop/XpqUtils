@@ -28,6 +28,7 @@ import android.widget.TableLayout
 import android.widget.TableRow
 import android.widget.TextView
 import androidx.appcompat.app.AlertDialog
+import com.google.android.accessibility.ext.acc.AccessibilityEnableHelper
 import com.google.android.accessibility.ext.utils.LibCtxProvider.Companion.appContext
 
 /**
@@ -39,7 +40,14 @@ import com.google.android.accessibility.ext.utils.LibCtxProvider.Companion.appCo
 object XPQAccUtils {
 
     /**
-     * 开启指定无障碍服务（保留已开启的其它服务）
+     * 开启指定无障碍服务（保留已开启的其它服务）。
+     *
+     * 实现**完全委托**给 [AccessibilityEnableHelper.enableAccessibilityServices] —— 通道自动选择
+     * （Shizuku shell 优先，无需授权 → 退回 WRITE_SECURE_SETTINGS）、组件串长短式归一化、
+     * 名单只写一次、写后回读校验全都在那边，本函数只是把 [Boolean] 结果剥出来。
+     *
+     * ⚠ 因此失败原因（权限缺失 / ROM 拒写 / 回读不一致）只能从 helper 的 `EnableResult.message` 拿到；
+     * 需要区分时请直接调用 helper。
      *
      * @param context Context
      * @param services 服务名，格式：packageName/className
@@ -53,42 +61,17 @@ object XPQAccUtils {
         context: Context = appContext ,
         vararg services: String
     ): Boolean {
-
         if (services.isEmpty()) {
             return false
         }
-
-        val resolver = context.contentResolver
-
-        val enabledServices = Settings.Secure.getString(
-            resolver,
-            Settings.Secure.ENABLED_ACCESSIBILITY_SERVICES
-        )
-            ?.split(":")
-            ?.map(String::trim)
-            ?.filter(String::isNotEmpty)
-            ?.toMutableSet()
-            ?: mutableSetOf()
-
-        enabledServices.addAll(services)
-
-        val success1 = Settings.Secure.putString(
-            resolver,
-            Settings.Secure.ENABLED_ACCESSIBILITY_SERVICES,
-            enabledServices.joinToString(":")
-        )
-
-        val success2 = Settings.Secure.putInt(
-            resolver,
-            Settings.Secure.ACCESSIBILITY_ENABLED,
-            1
-        )
-
-        return success1 && success2
+        return AccessibilityEnableHelper.enableAccessibilityServices(context, services.toList()).success
     }
 
     /**
-     * 关闭指定无障碍服务（保留其它服务）
+     * 关闭指定无障碍服务（保留其它服务）。
+     *
+     * 实现**完全委托**给 [AccessibilityEnableHelper.disableAccessibilityServices]（同上：通道自动选择、
+     * 归一化比较、单次写入、回读校验）。不在名单里的组件不算失败。
      *
      * @param context Context
      * @param services 服务名，格式：packageName/className
@@ -104,35 +87,13 @@ object XPQAccUtils {
             return false
         }
 
-        val resolver = context.contentResolver
-
-        val enabledServices = Settings.Secure.getString(
-            resolver,
+        // 名单为 null（从未设置过）→ 维持原语义：直接返回 true，不动名单也不动总开关
+        Settings.Secure.getString(
+            context.contentResolver,
             Settings.Secure.ENABLED_ACCESSIBILITY_SERVICES
-        )
-            ?.split(":")
-            ?.map(String::trim)
-            ?.filter(String::isNotEmpty)
-            ?.toMutableSet()
-            ?: return true
+        ) ?: return true
 
-        enabledServices.removeAll(services.toSet())
-
-        val success = Settings.Secure.putString(
-            resolver,
-            Settings.Secure.ENABLED_ACCESSIBILITY_SERVICES,
-            enabledServices.joinToString(":")
-        )
-
-        if (enabledServices.isEmpty()) {
-            Settings.Secure.putInt(
-                resolver,
-                Settings.Secure.ACCESSIBILITY_ENABLED,
-                0
-            )
-        }
-
-        return success
+        return AccessibilityEnableHelper.disableAccessibilityServices(context, services.toList()).success
     }
 
     @JvmStatic

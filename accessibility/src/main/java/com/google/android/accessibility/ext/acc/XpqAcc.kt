@@ -266,7 +266,9 @@ object XpqAcc {
     }
 
     /**
-     * 当前系统名单里的无障碍服务组件（冒号分隔 → List），按名单原顺序返回。
+     * 当前系统名单里的无障碍服务组件，按名单原顺序返回，**已归一化成统一的长式**
+     * `包名/包名.类名`（`AccessibilityEnableHelper.canonicalComponent`）。
+     * 因此可以跟 `AccIsOpenUtil.getEnabledServiceIds`（AMS 侧，同样归一化）直接比较。
      *
      * 优先走 shell（拿到的是真值）；shell 不可用时退回 ContentResolver。
      * ⚠ 这是「系统名单」，**不代表服务此刻正在运行** —— 名单与总开关缺一不可。
@@ -275,6 +277,22 @@ object XpqAcc {
     @JvmOverloads
     fun enabledAccessibilityServices(context: Context = appContext): List<String> =
         AccessibilityEnableHelper.listEnabledAccessibilityServices(context)
+
+    /**
+     * 设备上已启用无障碍的**应用**列表（按应用名排序），**面向展示**用 —— 一个应用一项、带可读应用名，
+     * 与 [enabledAccessibilityServices]（组件维度、返回 `包名/包名.类名` 串）互补。
+     * 实现与边界说明见 [AccessibilityEnableHelper.enabledAccessibilityApps]。
+     *
+     * @param onlyActive true = 只列真正生效的（也不读名单、不走 shell）；默认 false 会连
+     *                   「名单里有、实际没跑」的条目一起返回，由 [AccessibilityEnableHelper.EnabledAccessibilityApp.isActive] 区分。
+     */
+    @JvmStatic
+    @JvmOverloads
+    fun enabledAccessibilityApps(
+        context: Context = appContext,
+        onlyActive: Boolean = false
+    ): List<AccessibilityEnableHelper.EnabledAccessibilityApp> =
+        AccessibilityEnableHelper.enabledAccessibilityApps(context, onlyActive)
 
     /** 切换通道；切换时先主动关闭旧通道，再切换到新通道并同步 accessibilityService 全局变量指向。 */
     @JvmStatic
@@ -991,7 +1009,7 @@ object XpqAcc {
                     val end = start + target.length
                     spannable.setSpan(object : ClickableSpan() {
                         override fun onClick(widget: View) {
-                            if (AccIsOpenUtil.isAccessibilityEnabled()){
+                            if (AccIsOpenUtil.onlyWhiteAccessibilityIsEnabled()){
                                 AliveUtils.toast(msg = "随选朗读已开启")
                             }else{
                                 AliveUtils.toast(msg = "请开启随选朗读")

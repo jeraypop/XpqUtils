@@ -7,8 +7,8 @@ import android.content.Intent
 import android.os.Handler
 import android.os.Looper
 import android.provider.Settings
-import android.text.TextUtils
 import android.widget.Toast
+import com.google.android.accessibility.ext.acc.AccessibilityEnableHelper
 
 /**
  * 打开系统设置中辅助功能
@@ -28,23 +28,15 @@ fun Context.isAccessibilityOpened(serviceClass: Class<out AccessibilityService>)
     } catch (e: Settings.SettingNotFoundException) {
         e.printStackTrace()
     }
-    val ms = TextUtils.SimpleStringSplitter(':')
-    if (accessibilityEnabled == 1) {
-        val settingValue = Settings.Secure.getString(
-            this.contentResolver,
-            Settings.Secure.ENABLED_ACCESSIBILITY_SERVICES
-        )
-        if (settingValue != null) {
-            ms.setString(settingValue)
-            while (ms.hasNext()) {
-                val accessibilityService = ms.next()
-                if (accessibilityService.equals(serviceName, ignoreCase = true)) {
-                    return true
-                }
-            }
-        }
-    }
-    return false
+    if (accessibilityEnabled != 1) return false
+    // 名单解析统一走 AccessibilityEnableHelper.parseEnabledServices（逐项 trim、丢空项）。
+    // 原先用的 TextUtils.SimpleStringSplitter 不做 trim，遇到 `a : b` 这种脏名单会比对失败。
+    val settingValue = Settings.Secure.getString(
+        this.contentResolver,
+        Settings.Secure.ENABLED_ACCESSIBILITY_SERVICES
+    )
+    return AccessibilityEnableHelper.parseEnabledServices(settingValue)
+        .any { it.equals(serviceName, ignoreCase = true) }
 }
 
 /**

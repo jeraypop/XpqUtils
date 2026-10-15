@@ -53,6 +53,7 @@ import androidx.core.content.ContextCompat
 import androidx.fragment.app.Fragment
 import com.android.accessibility.ext.R
 import com.android.accessibility.ext.databinding.ForgroundserviceDialogXpqBinding
+import com.google.android.accessibility.ext.acc.AccessibilityEnableHelper
 import com.google.android.accessibility.ext.acc.EngineMode
 import com.google.android.accessibility.ext.acc.XpqAcc
 import com.google.android.accessibility.ext.activity.AliveActivity
@@ -149,9 +150,9 @@ object AliveUtils {
         val serviceClassName: String? =
             if (PermissionUtils.isClassExist(mAccessibilityServiceClassName)) mAccessibilityServiceClassName else null
         // hello.litiaotiao.app/hello.litiaotiao.app.LttService:com.hjq.permissions.demo/com.hjq.permissions.demo.DemoAccessibilityService
+        // 解析规则与库内其它地方统一（逐项 trim、丢空项），见 AccessibilityEnableHelper.parseEnabledServices
         val allComponentNameArray =
-            enabledNotificationListeners.split(":".toRegex()).dropLastWhile { it.isEmpty() }
-                .toTypedArray()
+            AccessibilityEnableHelper.parseEnabledServices(enabledNotificationListeners)
         for (component in allComponentNameArray) {
             //component 是包含包名的/
             // componentName.className 不包含包名
