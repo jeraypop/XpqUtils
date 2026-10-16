@@ -1353,6 +1353,18 @@ object XpqAcc {
      */
     private fun showUiAutomationFailDialog(activity: Activity, reason: String?) {
         val msg = reason ?: "未知错误"
+
+        // ⚠ 本方法是**异步**回调：要等连接尝试彻底结束才走到这里，中间隔着 permission 弹窗、UIA 连接、
+        // 无障碍名单写入等一堆耗时动作。期间宿主 Activity 完全可能已经 finish 或重建
+        // （用户返回、屏幕旋转、切模式后重启进程…），此时再建 Dialog 会在 show() 抛
+        // WindowManager.BadTokenException("token ... is not valid; is your activity running?")；
+        // 而这又是抛在主线程回调里、外面没有 try/catch —— 直接崩掉整个应用。
+        // Activity 已不可用就降级成 toast，绝不能为了"把提示弹出来"把 App 带崩。
+        if (activity.isFinishing || activity.isDestroyed) {
+            AliveUtils.toast(msg = "Shizuku 模式 连接失败：$msg")
+            return
+        }
+
         // 组件被禁用与「Shizuku 没开」是两种成因，按钮动作完全不同：
         // 前者点「打开 Shizuku」毫无作用，只能恢复组件 + 重启应用（组件恢复后 server 会重新投递 binder）。
         val componentDisabled = msg == REASON_SHIZUKU_COMPONENT_DISABLED
@@ -1385,7 +1397,11 @@ object XpqAcc {
                 dialog.window?.decorView?.isForceDarkAllowed = false
             }
         }
-        dialog.show()
+        // 上面的存活检查与 show() 之间仍存在极小竞态（同一帧内被 finish），兜一层，任何情况下都不许崩
+        if (runCatching { dialog.show() }.isFailure) {
+            AliveUtils.toast(msg = "Shizuku 模式 连接失败：$msg")
+            return
+        }
         // 部分 ROM（MIUI/EMUI 等）定制主题下按钮文字为浅色，浅底上看不见，显式锁深色
         val btnColor = 0xFF212121.toInt()
         runCatching {

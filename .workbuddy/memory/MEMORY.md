@@ -49,6 +49,14 @@
 - `showEngineModeDialog` 回调真实语义：`onUIASuccess`/`onUIAFail` 是**成功/失败**对称回调、**两种模式**都会触发；
   `onConfirm(mode)` 只在「无障碍模式（无条件，含失败）」与「Shizuku 模式**失败**」时触发（成功不触发）；
   `onCancel` 只认「取消」按钮。失败统一走局部 `notifyFail` 收口（别漏 failToast 那条）。
+- **异步回调里弹窗必须先查 Activity 存活**（2026-10-17 定案）：`showUiAutomationFailDialog` 是在连接尝试**结束后**
+  才被调用的（中间隔着 permission 弹窗 / UIA 连接 / 无障碍名单写入），此时宿主传进来的 Activity 可能已 `finish`
+  或重建，`dialog.show()` 会抛 `WindowManager.BadTokenException: token ... is not valid; is your activity running?`，
+  且抛在主线程回调里、外面无 try/catch ⇒ **直接崩应用**（趣安卓 8.0.47 实测崩溃栈就在这）。
+  修法：方法开头 `if (activity.isFinishing || activity.isDestroyed) { AliveUtils.toast(...); return }`，
+  并把 `dialog.show()` 包进 `runCatching`（检查与 show 之间仍有同帧竞态）→ 失败降级 toast。
+  **凡是"捕获 Activity 后延迟使用"的地方都要照此办理**；`LibCtxProvider` 里注册的 `ActivityLifecycleCallbacks`
+  目前是**空实现**（没有全局 current-activity 可回退），`RuntimeTracker` 只统计前后台时长、也不存实例。
 
 ## 内存回调在 API 34+
 - `onLowMemory()` 源码注释明写 **"Since API level 34 this is never called"** → 死代码。
