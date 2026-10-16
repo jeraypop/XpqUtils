@@ -2,6 +2,8 @@ package com.google.android.accessibility.ext.utils.safecheck
 
 import android.accessibilityservice.AccessibilityServiceInfo
 import android.content.Context
+import android.os.Handler
+import android.os.Looper
 import android.os.SystemClock
 import android.provider.Settings
 import android.util.Log
@@ -14,6 +16,8 @@ import com.google.android.accessibility.ext.utils.KeyguardUnLock.sendLog
 import com.google.android.accessibility.ext.utils.LibCtxProvider.Companion.appContext
 import com.google.android.accessibility.ext.window.LogWrapper_NoNet
 import java.util.concurrent.CopyOnWriteArrayList
+import java.util.concurrent.ExecutorService
+import java.util.concurrent.Executors
 
 /**
  * Company    : 
@@ -38,6 +42,19 @@ object AccIsOpenUtil {
      */
     private val remoteWhiteList = CopyOnWriteArrayList<String>()
     private val allWhiteList get() = DEFAULT_WHITE_LIST + remoteWhiteList
+
+    /**
+     * [checkSelectToSpeakAsync] 的专用后台线程池（不借 `AppExecutors` 的共享池，理由见下）：
+     * - **单线程** → 重复调用天然**串行**，不会两次并发去写无障碍名单（独占开启是整表替换，并发写会互相覆盖）；
+     * - **守护线程** → 不阻进程退出（与 `AppExecutors` 同款）；
+     * - **独立池** → 本任务里有最长 `time` 毫秒的 `SystemClock.sleep`，放进共享池会把同池的其它任务堵住。
+     */
+    private val checkWorker: ExecutorService = Executors.newSingleThreadExecutor { r ->
+        Thread(r, "xpq-check-sts").apply {
+            isDaemon = true
+            priority = Thread.NORM_PRIORITY
+        }
+    }
 
     /**
      * **白名单**里的无障碍服务是否已启用。
@@ -152,6 +169,26 @@ object AccIsOpenUtil {
     /** 当前生效的**全量**白名单特征（[DEFAULT_WHITE_LIST] + 运行时追加项）快照，排查用。 */
     @JvmStatic
     fun whiteListFeatures(): List<String> = allWhiteList.toList()
+
+    /**
+     * 检查「随选朗读独占开启」是否就绪，不就绪则**自动尝试开启** —— **这是阻塞方法**：
+     * 内部会走 `XpqAcc.enableAccessibilityServiceOnly`（shell 路径要 fork sh，见 `AccessibilityEnableHelper`）
+     * 并 `SystemClock.sleep(time)` 等系统生效，最长阻塞约 `time` 毫秒。
+     * **不要在 UI 线程直接调**；不想自己起线程就用 [checkSelectToSpeakAsync]。
+     *
+     * 分流：
+     * - **无障碍模式** → 只记日志提示「建议切换到 Shizuku」（wx 里用无障碍极大概率被检测到），返回 false；
+     * - **Shizuku 模式** → 已满足（[onlyWhiteAccessibilityIsEnabled]：**只**开着白名单那一个）直接 true；
+     *   否则独占开启随选朗读：**开启动作本身失败**（无 shell 也无 `WRITE_SECURE_SETTINGS`）时
+     *   直接返回 false，**不再白等 [time]**；动作成功才等 [time] 再**回读校验**，满足 true，
+     *   否则 toast 提示并 false；
+     * - **其它情况**（未连接等）→ false。
+     *
+     * ⚠ 判定用的是严格版 [onlyWhiteAccessibilityIsEnabled]（有且仅有白名单服务），不是宽松版
+     * [whiteAccessibilityIsEnabled] —— 后者「同时还开着别的无障碍」也算 true，与本方法「降低被检测概率」的目的不符。
+     *
+     * @param time 开启后等待系统生效的时长（毫秒），默认 1500。
+     */
     @JvmStatic
     @JvmOverloads
     fun checkSelectToSpeak(time: Long = 1500L): Boolean{
@@ -164,19 +201,26 @@ object AccIsOpenUtil {
             sendLog("当前工作模式：Shizuku")
             val open = "随选朗读已开启「作用：保证shizuku模式下在wx里正常工作」 且 其它无障碍都关闭「作用：降低被检测到概率」"
             val close = "请开启随选朗读「作用：保证shizuku模式下在wx里正常工作」 并 关闭其它所有的无障碍「作用：降低被检测到概率」"
+            // 失败收口：toast（内部已切主线程）+ 双通道日志。新增失败路径时改这一处即可。
+            fun reportFail(): Boolean {
+                AliveUtils.toast(msg = close)
+                LogWrapper_NoNet.logAppend_NoNet(close)
+                sendLog(close)
+                return false
+            }
             if (!AccIsOpenUtil.onlyWhiteAccessibilityIsEnabled()){
                 //请开启随选朗读并关闭其它无障碍
                 val result = XpqAcc.enableAccessibilityServiceOnly(XpqAcc.SELECTTOSPEAK)
+                // 开启动作本身就没成功（既无 shell 也无 WRITE_SECURE_SETTINGS）→ 注定不会生效，
+                // 不必再白等 time 毫秒才回读；直接按失败处理（异步版里也省掉一段无谓延迟）。
+                if (!result.success) return reportFail()
                 SystemClock.sleep(time)
                 if (AccIsOpenUtil.onlyWhiteAccessibilityIsEnabled()){
                     LogWrapper_NoNet.logAppend_NoNet(open)
                     sendLog(open)
                     return true
                 }else{
-                    AliveUtils.toast(msg = close)
-                    LogWrapper_NoNet.logAppend_NoNet(close)
-                    sendLog(close)
-                    return false
+                    return reportFail()
                 }
             }
             else{
@@ -186,6 +230,39 @@ object AccIsOpenUtil {
             }
         }
         return false
+    }
+
+    /**
+     * [checkSelectToSpeak] 的**异步版** —— 检查 + 开启 + 等待全部在库内子线程执行，
+     * 宿主**不必自己包线程**，在主线程直接调用即可（与 [XpqAcc.connectUiAutomation] 同款：
+     * 内部切后台，回调切回主线程）。
+     *
+     * 结果有两条通道，按需要选：
+     * - **界面提示不用管**：[checkSelectToSpeak] 失败时自己会 toast（`AliveUtils.toast` 内部已切主线程），
+     *   日志同理（`sendLog` / `LogWrapper_NoNet` 本来就该在子线程写文件）；
+     * - **要拿结果做后续动作**：用 [onResult]，**保证在主线程**回调（与库内其它回调一致）。
+     *
+     * ⚠ 重复调用会在同一个**单线程池**里排队串行执行（每次都要完整等 `time` 毫秒），
+     *   好处是不会并发改无障碍名单；要防连点请自行节流。
+     *
+     * ```kotlin
+     * // 宿主：主线程直接调，不用 Thread { }
+     * AccIsOpenUtil.checkSelectToSpeakAsync { ok -> if (ok) startWork() else showGuide() }
+     * ```
+     *
+     * @param time     同 [checkSelectToSpeak]：开启后等待系统生效的时长（毫秒）。
+     * @param onResult 可选回调，参数 = [checkSelectToSpeak] 的返回值，**在主线程**回调；
+     *                 不传则纯靠库内 toast / 日志反馈（等价于调同步版，但不阻塞调用线程）。
+     */
+    @JvmStatic
+    @JvmOverloads
+    fun checkSelectToSpeakAsync(time: Long = 1500L, onResult: ((Boolean) -> Unit)? = null) {
+        checkWorker.execute {
+            val ok = runCatching { checkSelectToSpeak(time) }.getOrDefault(false)
+            if (onResult != null) {
+                Handler(Looper.getMainLooper()).post { runCatching { onResult(ok) } }
+            }
+        }
     }
 
     /**
