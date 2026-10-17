@@ -128,6 +128,15 @@
 - 定位依据不同时只换数据源：desc 版 = `contentDescription.default() == desc`，**不看 text**；无系统 byDesc API，
   配套 private `findNodesByDesc`（前序遍历全树收集，未命中子树回收 child）。
 
+## 悬浮窗权限（SYSTEM_ALERT_WINDOW，appops）
+- `Settings.canDrawOverlays()` = 查 `OP_SYSTEM_ALERT_WINDOW` 的 appops 模式 ⇒ `pm grant` 无效（非 dangerous）、
+  Secure 表无此键、无障碍/UiAutomation 无 `MANAGE_APP_OPS_MODES`。**唯一自动通道 = shell**：
+  `appops set <pkg> SYSTEM_ALERT_WINDOW allow`（shell 持有 MANAGE_APP_OPS_MODES，`setMode` 对 S.A.W 无特殊拦截）。
+- 实现 `OverlayPermissionHelper`（`ext/utils/safecheck/`）：已授权短路不 fork；回读用 `Settings.canDrawOverlays`
+  而非再 fork `appops get`。⚠ `OP_SYSTEM_ALERT_WINDOW`(int) 是 `@hide`、`checkOpNoThrow(String,…)` 是 `@FlaggedApi`，都别用。
+- `connectUiAutomation.finishConnect` 中**必须排在 `DynamicIslandFloatWindow.autoInit()` 之前**（autoInit 是
+  `handler.post` 异步）；失败只记日志、不改连接结果。国产 ROM 可能另有开关 ⇒ `canDrawOverlays` 只是必要条件。
+
 ## 库内阻塞型能力的对外形态
 - 凡内部含 shell / `SystemClock.sleep` / binder 连接的**阻塞**能力，库一律**自己切后台线程**
   （先例 = `XpqAcc.connectUiAutomation`）。做法：**保留同步版**（KDoc 标注阻塞）+ 新增
@@ -139,6 +148,5 @@
   不再白等 `time` 毫秒。
 
 ## 编辑工具纪律
-- 用 Edit 定位时 **`old_string` 不要跨越到下一个成员声明**（带上下一个 `fun xxx(..) {` 当锚点却忘了写回 →
-  **静默删掉整个函数签名**）。定位优先用「目标块自身末尾几行」。
-- 同一个文件的多处 Edit **串行提交**，不同文件之间才并行。
+- Edit 的 `old_string` **不要跨越到下一个成员声明**（带上下一个 `fun xxx(..) {` 当锚点却忘了写回 →
+  会**静默删掉整个函数签名**）；定位优先用「目标块自身末尾几行」。同一文件多处修改**串行**、不同文件可并行。

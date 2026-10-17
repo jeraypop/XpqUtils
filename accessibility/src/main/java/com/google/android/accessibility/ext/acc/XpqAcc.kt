@@ -39,6 +39,7 @@ import com.google.android.accessibility.ext.utils.LibCtxProvider.Companion.appCo
 import com.google.android.accessibility.ext.utils.MMKVConst
 import com.google.android.accessibility.ext.utils.MMKVUtil
 import com.google.android.accessibility.ext.utils.NotificationUtilXpq
+import com.google.android.accessibility.ext.utils.safecheck.OverlayPermissionHelper
 import com.google.android.accessibility.ext.window.DynamicIslandFloatWindow
 import com.google.android.accessibility.notification.AppExecutors
 import com.google.android.accessibility.selecttospeak.SelectToSpeakServiceAbstract
@@ -184,6 +185,25 @@ object XpqAcc {
     /** 执行一条 shell 命令（uid 2000，等价 adb shell，不带 "adb shell" 前缀；阻塞，勿主线程调）。未绑定返回 null。 */
     @JvmStatic
     fun execShell(command: String) = AccessibilityEnableHelper.execShell(command)
+
+    // ---- 悬浮窗权限（SYSTEM_ALERT_WINDOW，appops 特殊权限；自动开启只有 shell 一条通道） ----
+
+    /** 当前是否已获得悬浮窗权限。纯进程内查询、零成本，随便调。 */
+    @JvmStatic
+    @JvmOverloads
+    fun canDrawOverlays(context: Context = appContext): Boolean =
+        OverlayPermissionHelper.canDrawOverlays(context)
+
+    /**
+     * 通过 shell 开启悬浮窗权限（`appops set <pkg> SYSTEM_ALERT_WINDOW allow`）—— **阻塞，勿主线程调用**。
+     *
+     * 已授权时直接短路（不 fork）；shell 不可用时 `success = false`，此时只能引导用户去
+     * `Settings.ACTION_MANAGE_OVERLAY_PERMISSION` 手动授权。详见 [OverlayPermissionHelper]。
+     */
+    @JvmStatic
+    @JvmOverloads
+    fun enableOverlayPermission(context: Context = appContext) =
+        OverlayPermissionHelper.enableOverlayPermission(context)
 
     /**
      * 直接开启某个无障碍服务（无需用户去系统设置点亮）：写名单 + 总开关置 1 + 回读校验。
@@ -380,6 +400,11 @@ object XpqAcc {
      * 连接本身是阻塞操作（绑定 Shizuku UserService 最多等 10s、UiAutomation.connect 最多等 5s），
      * 故本方法内部在后台线程执行连接，onLog / onResult 都切回主线程回调，宿主可放心在主线程调用。
      *
+     * 连接成功后还会**自动开启悬浮窗权限**（`appops set <pkg> SYSTEM_ALERT_WINDOW allow`，走 shell 通道）：
+     * UiAutomation 通道下没有真实无障碍实例，悬浮窗只能走 `TYPE_APPLICATION_OVERLAY`，缺这条权限加不上。
+     * 已授权时短路（不 fork）；shell 不可用或厂商拦截时失败，**只记日志、不改变连接成功结果**。
+     * 见 [OverlayPermissionHelper]。
+     *
      * 连接成功后是否**增量**开启【宿主自己】的无障碍服务**没有参数**：唯一数据源是持久化的用户选择
      * `MMKVConst.KEY_UIA_ENABLE_HOST_ACC`（由 [showEngineModeDialog] 里的「同时开启无障碍服务」开关写入）。
      * 组件名反射自宿主清单；传了 [enableServiceOnConnect]（独占开启）时该开关不生效。
@@ -434,6 +459,16 @@ object XpqAcc {
         // 连接成功后的统一收尾：触发就绪初始化（如灵动岛，等价无障碍 onServiceConnected）+ 回调结果
         val finishConnect: (Boolean) -> Unit = { ok ->
             if (ok) {
+                // 悬浮窗权限必须**最先**处理：UiAutomation 通道下没有真实无障碍实例，悬浮窗只能用
+                // TYPE_APPLICATION_OVERLAY(2038)，缺 SYSTEM_ALERT_WINDOW 会直接 addView 失败。
+                // 放在 autoInit() 之前是**必需的**：autoInit 内部是 handler.post 切主线程（这里异步返回），
+                // 只有在当前线程同步跑完 appops，才能保证它真正落地时权限已就绪。
+                // 失败只记日志、不改变连接结果（部分 ROM 另有权限管理，不能因此判定连接失败）。
+                runCatching {
+                    val overlay = OverlayPermissionHelper.enableOverlayPermission(appContext)
+                    if (overlay.success) log("✅ 悬浮窗权限: ${overlay.message}")
+                    else log("✗ 自动开启悬浮窗权限失败: ${overlay.message}")
+                }.onFailure { log("✗ 自动开启悬浮窗权限异常: ${it.message}") }
                 runCatching { DynamicIslandFloatWindow.autoInit() }
                 runCatching { autoBridgeAccessibilityEvent(bridgeFallback) }
                 // 连接成功后自动执行的 shell 命令（可选）。此时 shell UserService 已绑定（uid 2000），
