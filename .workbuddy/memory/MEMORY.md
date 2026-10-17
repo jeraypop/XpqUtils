@@ -136,6 +136,11 @@
   而非再 fork `appops get`。⚠ `OP_SYSTEM_ALERT_WINDOW`(int) 是 `@hide`、`checkOpNoThrow(String,…)` 是 `@FlaggedApi`，都别用。
 - `connectUiAutomation.finishConnect` 中**必须排在 `DynamicIslandFloatWindow.autoInit()` 之前**（autoInit 是
   `handler.post` 异步）；失败只记日志、不改连接结果。国产 ROM 可能另有开关 ⇒ `canDrawOverlays` 只是必要条件。
+- **验证手法**（adb）：`adb shell appops get <pkg> SYSTEM_ALERT_WINDOW` → `allow` 即已授权；
+  `default; rejectTime=…` = 未授权（rejectTime 是**历史**记录，不代表本次）。
+  别在 logcat 里找证据：`finishConnect` 的 `log(...)` 是宿主传入的 `onLog` 回调，不写 logcat。
+  也别指望 `dumpsys window windows` 里看到悬浮窗就代表成功 —— `autoInit()` 第二行
+  `if (!DynamicIslandStore.isEnabled()) return`，灵动岛开关没开时压根不 `addView`。
 
 ## 库内阻塞型能力的对外形态
 - 凡内部含 shell / `SystemClock.sleep` / binder 连接的**阻塞**能力，库一律**自己切后台线程**
