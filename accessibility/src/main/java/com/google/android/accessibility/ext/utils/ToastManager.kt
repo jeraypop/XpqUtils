@@ -3,10 +3,12 @@ package com.google.android.accessibility.ext.utils
 import android.content.Context
 import android.os.Handler
 import android.os.Looper
+import android.provider.Settings
 import android.widget.Toast
 import com.google.android.accessibility.ext.utils.FloatToastManager.showFloatToast
 import com.google.android.accessibility.ext.utils.KeyguardUnLock.getShowClickIndicator
 import com.google.android.accessibility.ext.utils.LibCtxProvider.Companion.appContext
+import com.google.android.accessibility.selecttospeak.SelectToSpeakServiceAbstract
 import java.util.concurrent.ConcurrentHashMap
 
 /**
@@ -45,11 +47,16 @@ object ToastManager {
         lastTriggerMap[trigger] = now
 
         handler.post {
-            if (getShowClickIndicator()){
-                showFloatToast(message = content, packageName = packageName)
+            if (SelectToSpeakServiceAbstract.instance != null || Settings.canDrawOverlays(appContext)){
+                if (getShowClickIndicator()){
+                    showFloatToast(message = content, packageName = packageName)
+                }else{
+                    Toast.makeText(appContext, content, Toast.LENGTH_SHORT).show()
+                }
             }else{
                 Toast.makeText(appContext, content, Toast.LENGTH_SHORT).show()
             }
+
             // 累加跳过次数
             val tgcishu = sp.getLong("tiaoguocishu", 0)
             sp.edit().putLong("tiaoguocishu", tgcishu + 1).apply()
