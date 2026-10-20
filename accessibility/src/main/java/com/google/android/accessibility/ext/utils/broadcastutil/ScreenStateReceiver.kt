@@ -61,7 +61,13 @@ class ScreenStateReceiver(
                 Log.e("监听屏幕啊", "总真正解锁完成")
                 cb.onUserPresent()
                 //disableKeyguard后,接收不到这个广播
-                //KeyguardUnLock.keyguardIsGone100.set(true)
+                // ★ 恢复这行：keyguardIsGone 是「是否已解锁」的静态缓存，
+                //   之前只靠 ACTION_SCREEN_ON 里的 wakeKeyguardOn() 复位，而那条路要求
+                //   autoDisableKeyguard 开关 + WRITE_SECURE_SETTINGS + 无安全锁三者同时满足；
+                //   只要有一条不满足，熄一次屏后标志就永久停在 false，所有锁屏判断恒为「锁屏」。
+                //   USER_PRESENT 是系统给出的「用户已真正解锁」，用它兜底最直接
+                //   （disableKeyguard 生效时收不到本广播，收不到就维持原值，无副作用）。
+                runCatching { KeyguardUnLock.keyguardIsGone.set(true) }
                 KeyguardUnLock.sendLog("系统广播:屏幕100%解锁成功")
             }
             XPQ_SCREEN_TEST -> {

@@ -257,7 +257,20 @@ object KeyguardUnLock {
                 if (!deviceIsSecure()){
                     //屏幕亮屏
                     if (screenIsOn()) {
-                        !keyguardIsGone.get()//注意 keyguardIsGone的值是指键盘是否已解锁,要取反
+                        // ★ 以系统真值为准，不能只看 keyguardIsGone。
+                        //   那个静态位（AtomicBoolean(false)）只在两处翻转：
+                        //   ACTION_SCREEN_OFF → wakeKeyguardOff() → false；
+                        //   ACTION_SCREEN_ON  → wakeKeyguardOn() → **且需** autoDisableKeyguard 开关开、
+                        //   WRITE_SECURE_SETTINGS 权限满足、设备无安全锁，才置 true。
+                        //   而 ACTION_USER_PRESENT（真正解锁完成）里的复位是缺失的。
+                        //   ⇒ 熄过一次屏后，只要亮屏时有一条不满足，标志就永久停在 false，
+                        //     这里会一直返回 locked=true（"锁屏"），宿主所有依赖它的逻辑
+                        //     （如跳广告的「闸门2」）全部静默失效，且切通道也救不回来。
+                        //   isKeyguardLocked 直接反映 WMS 当前状态，不受广播/权限影响；
+                        //   仅在极少数 ROM 抛异常时退回旧标志。
+                        runCatching { mKeyguardManager?.isKeyguardLocked }
+                            .getOrNull()
+                            ?: !keyguardIsGone.get()
                     } else {
                         //黑屏,直接判断 键盘锁住
                         true
@@ -281,6 +294,16 @@ object KeyguardUnLock {
 
         return locked
     }
+
+    /** 诊断用：把判定锁屏的各输入打出来（定位「亮了屏却判定锁屏」时用）。 */
+    @JvmStatic
+    fun debugLockState(): String = runCatching {
+        "locked=${getDeviceLocked()} unLockMethod=${getUnLockMethod()} " +
+                "secure=${deviceIsSecure()} screenOn=${screenIsOn()} " +
+                "kgGone=${keyguardIsGone.get()} " +
+                "isKeyguardLocked=${mKeyguardManager?.isKeyguardLocked} " +
+                "isDeviceLocked=${mKeyguardManager?.isDeviceLocked}"
+    }.getOrElse { "debugLockState 异常: $it" }
 
     /**
      * 全局 Application 级 CoroutineScope
