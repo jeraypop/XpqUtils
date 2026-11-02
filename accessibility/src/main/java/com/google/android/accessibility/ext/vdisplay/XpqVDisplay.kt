@@ -91,6 +91,9 @@ object XpqVDisplay {
     internal fun injectKey(displayId: Int, keyCode: Int): Boolean =
         service?.injectKeyOnDisplay(displayId, keyCode) ?: false
 
+    internal fun injectTap(displayId: Int, x: Int, y: Int): Boolean =
+        service?.injectTapOnDisplay(displayId, x.toFloat(), y.toFloat()) ?: false
+
     /** 按时间逐点注入虚拟屏上的一笔（GestureDescription 转成的轨迹）。 */
     internal fun injectGesture(displayId: Int, xs: IntArray, ys: IntArray, times: LongArray): Boolean =
         service?.injectGesture(displayId, xs, ys, times) ?: false

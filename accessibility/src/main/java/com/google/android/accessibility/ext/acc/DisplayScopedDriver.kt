@@ -18,6 +18,9 @@ import com.google.android.accessibility.ext.vdisplay.XpqVDisplay
 
 private const val TAG = "DisplayScopedDriver"
 
+/** UIAutomation 模式清空输入框时循环发送的 DEL 次数（按屏按键）。 */
+private const val CLEAR_DEL_COUNT = 60
+
 /**
  * 把 Xpq 的「根节点来源」切到虚拟屏。
  *
@@ -122,25 +125,33 @@ class DisplayScopedDriver(
     override fun disableSelf() = base.disableSelf()
 
     override fun inputText(node: AccessibilityNodeInfo?, text: String, clearFirst: Boolean): Boolean =
-        setText(node, text, clearFirst) || pasteOnDisplay(node, text, clearFirst)
+        if (mode == EngineMode.UIAUTOMATION) {
+            pasteByClipboard(node, text, clearFirst)
+        } else {
+            setText(node, text, clearFirst) || pasteByClipboard(node, text, clearFirst)
+        }
 
     override fun inputTextPaste(
         node: AccessibilityNodeInfo?,
         byClipboard: Boolean,
         text: String,
         clearFirst: Boolean,
-    ): Boolean = if (byClipboard) {
-        setText(node, text, clearFirst) || pasteOnDisplay(node, text, clearFirst)
+    ): Boolean = if (mode == EngineMode.UIAUTOMATION) {
+        pasteByClipboard(node, text, clearFirst)
     } else {
-        setText(node, text, clearFirst) || pasteOnDisplay(node, text, clearFirst)
+        setText(node, text, clearFirst) || pasteByClipboard(node, text, clearFirst)
     }
 
     override fun inputTextNew(node: AccessibilityNodeInfo?, text: String, clearFirst: Boolean): Boolean =
-        setText(node, text, clearFirst) || pasteOnDisplay(node, text, clearFirst)
+        if (mode == EngineMode.UIAUTOMATION) {
+            pasteByClipboard(node, text, clearFirst)
+        } else {
+            setText(node, text, clearFirst) || pasteByClipboard(node, text, clearFirst)
+        }
 
     /**
      * 节点级 SET_TEXT：跨显示有效，不依赖 shell 的默认屏焦点。
-     * 先聚焦/点击再写，微信、大多数 EditText 都接受。
+     * 只用于无障碍模式（宿主要求 UIAutomation 模式完全不走节点操作）。
      */
     private fun setText(node: AccessibilityNodeInfo?, text: String, clearFirst: Boolean): Boolean {
         node ?: return false
@@ -162,22 +173,34 @@ class DisplayScopedDriver(
         return ok
     }
 
-    /** SET_TEXT 失败时：写系统剪贴板，再向虚拟屏发 KEYCODE_PASTE（279）。 */
-    private fun pasteOnDisplay(node: AccessibilityNodeInfo?, text: String, clearFirst: Boolean): Boolean {
-        node ?: return false
+    /**
+     * UIAutomation 模式的输入：完全不碰节点动作。
+     * 按屏点击输入框中心聚焦 → 写系统剪贴板 → 向虚拟屏发 KEYCODE_PASTE(279)。
+     */
+    private fun pasteByClipboard(node: AccessibilityNodeInfo?, text: String, clearFirst: Boolean): Boolean {
         val ctx = runCatching { LibCtxProvider.appContext }.getOrNull() ?: return false
-        return runCatching {
-            if (clearFirst) {
-                val empty = Bundle().apply {
-                    putCharSequence(AccessibilityNodeInfo.ACTION_ARGUMENT_SET_TEXT_CHARSEQUENCE, "")
-                }
-                node.performAction(AccessibilityNodeInfo.ACTION_SET_TEXT, empty)
+        // 1. 按屏点击输入框中心（坐标手势，落到虚拟屏，不碰主屏）
+        if (node != null) {
+            val rect = android.graphics.Rect()
+            runCatching { node.getBoundsInScreen(rect) }
+            if (rect.width() > 0 && rect.height() > 0) {
+                XpqVDisplay.injectTap(displayId, rect.centerX(), rect.centerY())
+                Thread.sleep(300)
             }
-            node.performAction(AccessibilityNodeInfo.ACTION_FOCUS)
+        }
+        // 2. 清空：光标移到末尾后循环删除（按屏按键）
+        if (clearFirst) {
+            XpqVDisplay.injectKey(displayId, android.view.KeyEvent.KEYCODE_MOVE_END)
+            repeat(CLEAR_DEL_COUNT) {
+                XpqVDisplay.injectKey(displayId, android.view.KeyEvent.KEYCODE_DEL)
+            }
+        }
+        // 3. 写系统剪贴板，再向虚拟屏发粘贴键
+        return runCatching {
             val cm = ctx.getSystemService(ClipboardManager::class.java) ?: return false
             cm.setPrimaryClip(ClipData.newPlainText("", text))
             val ok = XpqVDisplay.injectKey(displayId, android.view.KeyEvent.KEYCODE_PASTE)
-            Log.i(TAG, "pasteOnDisplay($text) -> $ok")
+            Log.i(TAG, "pasteByClipboard($text) -> $ok")
             ok
         }.getOrDefault(false)
     }
