@@ -51,9 +51,24 @@ internal class VDisplayService {
     private val displays = HashMap<Int, VirtualDisplay>()
     private val launchLock = Any()
 
+    /** shell 所在用户（uid 2000 → 0）。虚拟屏和无障碍都在这个用户里，启动也固定到这一份。 */
+    private val myUser = android.os.Process.myUid() / PER_USER_RANGE
+
+    /** ILauncherApps（桌面点击图标背后的服务）；拿不到为 null。 */
+    private val launcherApps: Any? by lazy {
+        runCatching {
+            val binder = Class.forName("android.os.ServiceManager")
+                .getMethod("getService", String::class.java).invoke(null, "launcherapps")
+            Class.forName("android.content.pm.ILauncherApps\$Stub")
+                .getMethod("asInterface", android.os.IBinder::class.java).invoke(null, binder)
+        }.onFailure { Log.w(TAG, "launcherapps unavailable", it) }.getOrNull()
+    }
+
     // ---------- 建屏 ----------
 
     fun createDisplay(surface: Surface, width: Int, height: Int, dpi: Int): Int = try {
+        // 宿主重启/重建屏时先清掉上一块：旧屏上的前台窗口（如分身选择器）不会跟着新任务残留
+        releaseAll()
         createVirtualDisplay(surface, width, height, dpi, trusted = true)
     } catch (t: Throwable) {
         if (t !is SecurityException) {
@@ -150,22 +165,50 @@ internal class VDisplayService {
         val intent = launchIntent(packageName) ?: return START_NOT_FOUND
         intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
         val options = ActivityOptions.makeBasic().setLaunchDisplayId(displayId).toBundle()
+        // 桌面路径：有的 ROM（如 ZUI 分身空间）在程序化启动多用户里都装的 App 时会弹
+        // 「用哪一个打开」，桌面点击图标这条路不弹。先走它，失败再回退 ActivityManager。
+        val component = intent.component
+        if (component != null && startAsLauncher(component, myUser, options)) return START_OK
         val ok = try {
             val start = taskManager.javaClass.methods.firstOrNull {
                 it.name == "startActivityAsUser" && it.parameterTypes.size == 12
             } ?: error("no startActivityAsUser")
             val result = start.invoke(
                 taskManager, null, ShellContext.SHELL_PACKAGE, null, intent, null, null, null,
-                0, 0, null, options, USER_CURRENT,
+                0, 0, null, options, myUser,
             ) as Int
             if (result < 0) Log.w(TAG, "startActivityAsUser($packageName) -> $result")
             result >= 0
         } catch (t: Throwable) {
             Log.w(TAG, "startActivityAsUser unavailable, falling back to am start", t)
             val component = intent.component?.flattenToShortString() ?: return START_NOT_FOUND
-            exec("am", "start", "--display", "$displayId", "-n", component) == 0
+            exec("am", "start", "--display", "$displayId", "--user", "$myUser", "-n", component) == 0
         }
         if (ok) START_OK else START_ERROR
+    }
+
+    /**
+     * 像桌面那样打开 [component]：ILauncherApps.startActivityAsUser，带同样的 options（启动到虚拟屏）。
+     * 系统那边按调用方查能不能碰这个用户：shell 有跨用户权限。接口不在或被拒返回 false。
+     */
+    private fun startAsLauncher(component: ComponentName, userId: Int, options: Bundle): Boolean = try {
+        val la = launcherApps ?: throw IllegalStateException("no launcherapps service")
+        val user = android.os.UserHandle.getUserHandleForUid(userId * PER_USER_RANGE)
+        // 安卓 11 起：(caller, callingPackage, callingFeatureId, component, sourceBounds, opts, user)；更早没有 callingFeatureId
+        val m = la.javaClass.methods.first {
+            it.name == "startActivityAsUser" && it.parameterTypes.size in 6..7 &&
+                ComponentName::class.java in it.parameterTypes
+        }
+        val args: Array<Any?> = if (m.parameterTypes.size == 7) {
+            arrayOf(null, ShellContext.SHELL_PACKAGE, null, component, null, options, user)
+        } else {
+            arrayOf(null, ShellContext.SHELL_PACKAGE, component, null, options, user)
+        }
+        m.invoke(la, *args)
+        true
+    } catch (t: Throwable) {
+        Log.w(TAG, "launcher-style start of ${component.flattenToShortString()} failed", t)
+        false
     }
 
     private fun launchIntent(packageName: String): Intent? =
@@ -358,7 +401,7 @@ internal class VDisplayService {
         private const val TAP_MS = 50L
         private const val SWIPE_POINTS = 12
         private const val CMD_TIMEOUT_S = 10L
-        private const val USER_CURRENT = -2
+        private const val PER_USER_RANGE = 100_000
         private const val VIRTUAL_KEYBOARD = -1
         private const val INJECT_MODE_ASYNC = 0
         private const val INJECT_MODE_WAIT_FOR_RESULT = 1
