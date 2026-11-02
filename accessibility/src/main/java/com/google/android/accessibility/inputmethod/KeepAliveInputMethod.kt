@@ -219,16 +219,18 @@ class KeepAliveInputMethod : InputMethodService() {
 
         /**
          * 任意地方可调用的文本提交入口，转回当前输入法的输入连接。
-         * 仅在输入法处于激活且持有输入连接时生效，否则无副作用。
+         * 仅在输入法处于激活且持有输入连接时生效，否则返回 false。
          */
         @JvmStatic
-        fun commitText(text: String) {
-            val ime = imeIsActive ?: return
+        fun commitText(text: String): Boolean {
+            val ime = imeIsActive ?: return false
+            if (ime.currentInputConnection == null) return false
             if (Looper.myLooper() == Looper.getMainLooper()) {
                 ime.commitTextInternal(text)
             } else {
                 Handler(Looper.getMainLooper()).post { ime.commitTextInternal(text) }
             }
+            return true
         }
 
         const val XPQ_IME_SETTINGS = "xpq_ime_settings"
