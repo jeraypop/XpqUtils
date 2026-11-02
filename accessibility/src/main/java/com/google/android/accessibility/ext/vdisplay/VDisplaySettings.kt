@@ -25,6 +25,10 @@ object VDisplaySettings {
         context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
             .getBoolean(KEY_UNLOCK, false)
 
+    private fun unlockText(unlocked: Boolean): String =
+        if (unlocked) "解锁主屏：需要解锁设备后才能执行任务"
+        else "不解锁主屏：不需要解锁设备就能执行任务，但被检测到几率大一点"
+
     fun showDialog(context: Context) {
         val prefs = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
         val dp = context.resources.displayMetrics.density
@@ -38,7 +42,7 @@ object VDisplaySettings {
             isChecked = prefs.getBoolean(KEY_ENABLED, true)
         }
         val unlockSwitch = Switch(context).apply {
-            text = "虚拟屏模式解锁主屏（解锁后走剪贴板粘贴，不解锁则走节点输入）"
+            text = unlockText(prefs.getBoolean(KEY_UNLOCK, false))
             isChecked = prefs.getBoolean(KEY_UNLOCK, false)
             isEnabled = enabledSwitch.isChecked
         }
@@ -49,6 +53,7 @@ object VDisplaySettings {
         }
         unlockSwitch.setOnCheckedChangeListener { _, checked ->
             prefs.edit().putBoolean(KEY_UNLOCK, checked).apply()
+            unlockSwitch.text = unlockText(checked)
         }
         root.addView(enabledSwitch)
         root.addView(unlockSwitch)
