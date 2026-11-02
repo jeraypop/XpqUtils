@@ -54,6 +54,15 @@ object XpqVDisplay {
         runCatching { AutomationShizuku.isInstalled() && AutomationShizuku.isPermissionGranted() }
             .getOrDefault(false)
 
+    /** 虚拟屏总开关（库内设置）。 */
+    fun isEnabled(context: Context): Boolean = VDisplaySettings.isEnabled(context)
+
+    /** 虚拟屏模式下锁屏时是否先解锁主屏（开启走剪贴板，关闭走节点输入）。 */
+    fun shouldUnlock(context: Context): Boolean = VDisplaySettings.shouldUnlock(context)
+
+    /** 弹出库内的虚拟屏设置对话框。 */
+    fun showSettingsDialog(context: Context) = VDisplaySettings.showDialog(context)
+
     /** 请求 Shizuku 授权；回调在主线程。 */
     fun requestPermission(onResult: (Boolean) -> Unit) = AutomationShizuku.requestPermission(onResult)
 
