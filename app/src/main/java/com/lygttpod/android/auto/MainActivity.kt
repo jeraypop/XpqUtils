@@ -285,18 +285,18 @@ class MainActivity : XpqBaseActivity<ActivityMainBinding>(
         binding.btnGZH.setOnClickListener{
             // App 启动时切到 UiAutomation（免开无障碍，需 Shizuku）
             // 直接在主线程调用，不会卡
-            XpqAcc.showEngineModeDialog(
+         /*   XpqAcc.showEngineModeDialog(
                 this,
                 SelectToSpeakService(),
                 //enableServiceString = XpqAcc.SELECTTOSPEAK,
                 // 宿主无障碍服务的开启改由弹窗内的「同时开启无障碍服务」开关决定，不再有入参
                 disableHostAccessibilityService = false
-            )
+            )*/
 
             //
             //show_AC_Warn_Dialog(this@MainActivity,false )
             //公众号ID
-            //openWeChatToFollowInterface(getWCField[6].first.restoreAllIllusion())
+            openWeChatToFollowInterface(getWCField[6].first.restoreAllIllusion())
         }
 
 

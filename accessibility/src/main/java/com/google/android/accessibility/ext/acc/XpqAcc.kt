@@ -22,6 +22,7 @@ import android.text.method.LinkMovementMethod
 import android.text.style.ClickableSpan
 import android.text.util.Linkify
 import android.view.Gravity
+import android.view.Display
 import android.view.View
 import android.view.accessibility.AccessibilityEvent
 import android.view.accessibility.AccessibilityNodeInfo
@@ -170,6 +171,42 @@ object XpqAcc {
     var driver: AccDriver = a11yDriver
         private set
 
+    /** 切到虚拟屏前的主通道 driver；为 null 表示当前不在虚拟屏模式。 */
+    @Volatile
+    private var displayBaseDriver: AccDriver? = null
+
+    /**
+     * 把节点读取/点击切到 [displayId] 这块虚拟屏。
+     *
+     * 依赖宿主无障碍服务已连接（`windowsOnAllDisplays` 只对真实服务开放）；没连接返回 false。
+     * 之后 [rootInActiveWindow]、[windows]、[findFocus] 都从这块屏取；返回键改走虚拟屏的 shell 注入。
+     */
+    @JvmStatic
+    fun useDisplay(displayId: Int): Boolean {
+        val current = driver
+        if (current is DisplayScopedDriver) {
+            current.displayId = displayId
+            return true
+        }
+        val service = SelectToSpeakServiceAbstract.instance ?: return false
+        displayBaseDriver = current
+        driver = DisplayScopedDriver(current, displayId, service)
+        return true
+    }
+
+    /** 把节点读取/点击切回主屏（虚拟屏本身不释放）。 */
+    @JvmStatic
+    fun clearDisplay() {
+        val base = displayBaseDriver ?: return
+        displayBaseDriver = null
+        driver = base
+    }
+
+    /** 当前节点读取所在的屏；不在虚拟屏模式时为 [Display.DEFAULT_DISPLAY]。 */
+    @get:JvmStatic
+    val currentDisplayId: Int
+        get() = (driver as? DisplayScopedDriver)?.displayId ?: Display.DEFAULT_DISPLAY
+
     @JvmStatic
     val mode: EngineMode get() = driver.mode
 
@@ -317,6 +354,8 @@ object XpqAcc {
     /** 切换通道；切换时先主动关闭旧通道，再切换到新通道并同步 accessibilityService 全局变量指向。 */
     @JvmStatic
     fun use(mode: EngineMode) {
+        // 切通道时先退回主屏 driver，避免把虚拟屏包装带进新通道
+        if (driver is DisplayScopedDriver) clearDisplay()
         if (driver.mode == mode) return
         // 主动关闭旧通道，避免无障碍服务与 UiAutomation 并存干扰
         when (driver.mode) {

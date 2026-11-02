@@ -9,6 +9,7 @@ import android.view.InputDevice
 import android.view.InputEvent
 import android.view.MotionEvent
 import android.view.accessibility.AccessibilityEvent
+import com.google.android.accessibility.ext.vdisplay.VDisplayService
 import com.google.android.accessibility.uiautomation.util.HiddenApi
 import java.io.BufferedReader
 import java.io.InputStreamReader
@@ -46,6 +47,36 @@ class AutomationUserService : IAutomationUserService.Stub {
     /** 记录当前已注册的 AccessibilityServiceInfo flags / owner，便于调试日志。 */
     @Volatile
     private var registeredToken: IBinder? = null
+
+    /** 虚拟屏能力（建屏 / 启动到屏 / 按屏注入）；第一次用到才初始化。 */
+    private val vdisplay by lazy { VDisplayService() }
+
+    override fun createDisplay(surface: android.view.Surface?, width: Int, height: Int, dpi: Int): Int =
+        if (surface == null) -1 else vdisplay.createDisplay(surface, width, height, dpi)
+
+    override fun releaseDisplay(displayId: Int) = vdisplay.releaseDisplay(displayId)
+
+    override fun startAppOnDisplay(displayId: Int, packageName: String?): Int =
+        if (packageName.isNullOrEmpty()) VDisplayService.START_NOT_FOUND else vdisplay.startApp(displayId, packageName)
+
+    override fun injectTapOnDisplay(displayId: Int, x: Float, y: Float): Boolean =
+        vdisplay.injectTap(displayId, x, y)
+
+    override fun injectKeyOnDisplay(displayId: Int, keyCode: Int): Boolean =
+        vdisplay.injectKey(displayId, keyCode)
+
+    override fun injectSwipeOnDisplay(
+        displayId: Int,
+        x1: Float,
+        y1: Float,
+        x2: Float,
+        y2: Float,
+        durationMs: Long,
+    ): Boolean = vdisplay.injectSwipe(displayId, x1, y1, x2, y2, durationMs)
+
+    override fun topTaskIdOnDisplay(displayId: Int): Int = vdisplay.topTaskId(displayId)
+
+    override fun displayOfTask(taskId: Int): Int = vdisplay.displayOfTask(taskId)
 
     override fun exec(command: String?): ShellResult {
         val result = ShellResult()
@@ -346,6 +377,7 @@ class AutomationUserService : IAutomationUserService.Stub {
 
     override fun destroy() {
         Log.i(tag, "destroy()")
+        runCatching { vdisplay.releaseAll() }
         android.os.Process.killProcess(android.os.Process.myPid())
     }
 
