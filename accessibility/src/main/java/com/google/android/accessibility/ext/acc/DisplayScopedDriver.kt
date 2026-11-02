@@ -36,9 +36,16 @@ class DisplayScopedDriver(
     override fun rootInActiveWindow(): AccessibilityNodeInfo? {
         val windows = windowsProvider(displayId)
         if (windows.isEmpty()) return null
-        val apps = windows.filter { it.type == AccessibilityWindowInfo.TYPE_APPLICATION }
+        val apps = windows.filter { it.type == AccessibilityWindowInfo.TYPE_APPLICATION && it.root != null }
+        // 虚拟屏上的活动窗口在无障碍里可能只标 focused=true、active=false（OWN_FOCUS 屏），
+        // 所以不能只看 isActive；再按焦点、面积（全屏窗口）兜底，避免选到小浮层。
         val target = apps.firstOrNull { it.isActive }
-            ?: apps.lastOrNull()
+            ?: apps.firstOrNull { it.isFocused }
+            ?: apps.maxByOrNull {
+                val rect = android.graphics.Rect()
+                it.getBoundsInScreen(rect)
+                rect.width() * rect.height()
+            }
             ?: windows.lastOrNull()
         return target?.root
     }
