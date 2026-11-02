@@ -42,20 +42,21 @@ object VDisplaySettings {
             isChecked = prefs.getBoolean(KEY_UNLOCK, false)
             isEnabled = enabledSwitch.isChecked
         }
-        enabledSwitch.setOnCheckedChangeListener { _, checked -> unlockSwitch.isEnabled = checked }
+        // 切换即时写入，不依赖“确定”
+        enabledSwitch.setOnCheckedChangeListener { _, checked ->
+            prefs.edit().putBoolean(KEY_ENABLED, checked).apply()
+            unlockSwitch.isEnabled = checked
+        }
+        unlockSwitch.setOnCheckedChangeListener { _, checked ->
+            prefs.edit().putBoolean(KEY_UNLOCK, checked).apply()
+        }
         root.addView(enabledSwitch)
         root.addView(unlockSwitch)
 
         AlertDialog.Builder(context)
             .setTitle("虚拟屏设置")
             .setView(root)
-            .setPositiveButton("保存") { _, _ ->
-                prefs.edit()
-                    .putBoolean(KEY_ENABLED, enabledSwitch.isChecked)
-                    .putBoolean(KEY_UNLOCK, unlockSwitch.isChecked)
-                    .apply()
-            }
-            .setNegativeButton("取消", null)
+            .setPositiveButton("确定", null)
             .show()
     }
 }
