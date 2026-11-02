@@ -66,6 +66,8 @@ class AutomationUserService : IAutomationUserService.Stub {
             vdisplay.startApp(displayId, packageName, userId)
         }
 
+    override fun dualUserId(): Int = vdisplay.dualUserId()
+
     override fun injectTapOnDisplay(displayId: Int, x: Float, y: Float): Boolean =
         vdisplay.injectTap(displayId, x, y)
 

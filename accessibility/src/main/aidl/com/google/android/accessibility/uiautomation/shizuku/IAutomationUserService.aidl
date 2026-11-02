@@ -43,6 +43,8 @@ interface IAutomationUserService {
     boolean injectGesture(int displayId, in int[] xs, in int[] ys, in long[] times) = 14;
     // 在指定用户（分身空间）里启动该包到虚拟屏；返回值同 startAppOnDisplay
     int startAppInUser(int displayId, String packageName, int userId) = 15;
+    // 自动识别分身空间用户：优先名字含「分身/clone」的非 0 用户，否则第一个非 0 用户；没有分身返回 0
+    int dualUserId() = 16;
 
     void destroy() = 16777114; // Shizuku server 定义的销毁方法
     void exit() = 1;           // 用户自定义的退出方法

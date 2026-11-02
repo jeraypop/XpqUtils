@@ -152,6 +152,22 @@ internal class VDisplayService {
 
     fun ownDisplay(displayId: Int): Boolean = synchronized(displays) { displayId in displays }
 
+    /**
+     * 自动识别分身空间用户：shell 执行 `pm list users`，
+     * 优先名字含「分身 / clone / dual」的非 0 用户，否则第一个非 0 用户；没有分身返回 0。
+     */
+    fun dualUserId(): Int {
+        val (code, out) = sh("pm", "list", "users")
+        if (code != 0) return myUser
+        val users = Regex("UserInfo\\{([0-9]+):([^:}]+)").findAll(out)
+            .map { it.groupValues[1].toInt() to it.groupValues[2] }
+            .toList()
+        val named = users.firstOrNull { (id, name) ->
+            id != 0 && (name.contains("分身") || name.contains("clone", true) || name.contains("dual", true))
+        }
+        return (named ?: users.firstOrNull { it.first != 0 })?.first ?: myUser
+    }
+
     // ---------- 启动 App ----------
 
     fun startApp(displayId: Int, packageName: String): Int = startApp(displayId, packageName, myUser)
@@ -437,16 +453,28 @@ internal class VDisplayService {
         }.onFailure { Log.w(TAG, "setDisplayImePolicy failed", it) }
     }
 
-    private fun exec(vararg cmd: String): Int = runCatching {
-        val p = ProcessBuilder(*cmd).redirectErrorStream(true).start()
-        val out = AtomicReference("")
-        Thread { out.set(runCatching { p.inputStream.bufferedReader().readText() }.getOrDefault("")) }
-            .apply { isDaemon = true; start() }
-        if (p.waitFor(CMD_TIMEOUT_S, TimeUnit.SECONDS)) p.exitValue() else {
-            p.destroyForcibly()
-            -1
+    private fun exec(vararg cmd: String): Int = sh(*cmd).first
+
+    /** 跑一条命令，返回 (退出码, 合并输出)；超时返回 -1。 */
+    private fun sh(vararg cmd: String): Pair<Int, String> {
+        val p = try {
+            ProcessBuilder(*cmd).redirectErrorStream(true).start()
+        } catch (t: Throwable) {
+            Log.w(TAG, "exec ${cmd.joinToString(" ")} failed", t)
+            return -1 to ""
         }
-    }.getOrDefault(-1)
+        val out = StringBuilder()
+        val reader = Thread {
+            runCatching { out.append(p.inputStream.bufferedReader().readText()) }
+        }.apply { isDaemon = true; start() }
+        if (!p.waitFor(CMD_TIMEOUT_S, TimeUnit.SECONDS)) {
+            p.destroyForcibly()
+            Log.w(TAG, "exec ${cmd.joinToString(" ")} timed out")
+            return -1 to ""
+        }
+        reader.join(1_000)
+        return p.exitValue() to out.toString()
+    }
 
     companion object {
         private const val TAG = "XpqVDisplay"
