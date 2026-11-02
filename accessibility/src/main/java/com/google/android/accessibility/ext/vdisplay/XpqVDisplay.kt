@@ -95,7 +95,7 @@ object XpqVDisplay {
         service?.injectTapOnDisplay(displayId, x.toFloat(), y.toFloat()) ?: false
 
     /** 自动识别的分身空间用户 ID；没有分身返回 0（机主）。 */
-    internal fun dualUserId(): Int = service?.dualUserId() ?: 0
+    fun dualUserId(): Int = service?.dualUserId() ?: 0
 
     /** 按时间逐点注入虚拟屏上的一笔（GestureDescription 转成的轨迹）。 */
     internal fun injectGesture(displayId: Int, xs: IntArray, ys: IntArray, times: LongArray): Boolean =
