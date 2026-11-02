@@ -195,16 +195,7 @@ class DisplayScopedDriver(
                 XpqVDisplay.injectKey(displayId, android.view.KeyEvent.KEYCODE_DEL)
             }
         }
-        // 3. 优先走输入法 InputConnection.commitText：不碰节点、不依赖 PASTE，锁屏下也可用。
-        //    需要宿主把 App 的输入法设为当前输入法（设置页「输入法保活」）。
-        repeat(3) {
-            if (com.google.android.accessibility.inputmethod.KeepAliveInputMethod.commitText(text)) {
-                Log.i(TAG, "commitTextByIme($text) -> true")
-                return true
-            }
-            Thread.sleep(200)
-        }
-        // 4. 输入法不可用时退回 shell 剪贴板 + KEYCODE_PASTE
+        // 3. 写系统剪贴板（优先 shell 身份，锁屏/后台更可靠），再向虚拟屏发 KEYCODE_PASTE
         return runCatching {
             val shellOk = XpqVDisplay.setClipText(text)
             if (!shellOk) {
