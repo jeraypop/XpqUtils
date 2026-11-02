@@ -179,6 +179,14 @@ class DisplayScopedDriver(
      */
     private fun pasteByClipboard(node: AccessibilityNodeInfo?, text: String, clearFirst: Boolean): Boolean {
         val ctx = runCatching { LibCtxProvider.appContext }.getOrNull() ?: return false
+        // 锁屏下剪贴板/KEYCODE_PASTE 会被 Keyguard 拦截，这时走节点 ACTION_SET_TEXT（锁屏例外）
+        val locked = runCatching {
+            ctx.getSystemService(android.app.KeyguardManager::class.java)?.isKeyguardLocked == true
+        }.getOrDefault(false)
+        if (locked) {
+            Log.i(TAG, "keyguard locked, use node ACTION_SET_TEXT")
+            return setText(node, text, clearFirst)
+        }
         // 1. 按屏点击输入框中心（坐标手势，落到虚拟屏，不碰主屏）
         if (node != null) {
             val rect = android.graphics.Rect()
