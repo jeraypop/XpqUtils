@@ -3,13 +3,20 @@ package com.google.android.accessibility.ext.acc
 import android.accessibilityservice.AccessibilityService
 import android.accessibilityservice.AccessibilityServiceInfo
 import android.accessibilityservice.GestureDescription
+import android.content.ClipData
+import android.content.ClipboardManager
 import android.graphics.PathMeasure
 import android.graphics.RectF
+import android.os.Bundle
 import android.os.Handler
+import android.util.Log
 import android.view.accessibility.AccessibilityEvent
 import android.view.accessibility.AccessibilityNodeInfo
 import android.view.accessibility.AccessibilityWindowInfo
+import com.google.android.accessibility.ext.utils.LibCtxProvider
 import com.google.android.accessibility.ext.vdisplay.XpqVDisplay
+
+private const val TAG = "DisplayScopedDriver"
 
 /**
  * 把 Xpq 的「根节点来源」切到虚拟屏。
@@ -115,17 +122,65 @@ class DisplayScopedDriver(
     override fun disableSelf() = base.disableSelf()
 
     override fun inputText(node: AccessibilityNodeInfo?, text: String, clearFirst: Boolean): Boolean =
-        base.inputText(node, text, clearFirst)
+        setText(node, text, clearFirst) || pasteOnDisplay(node, text, clearFirst)
 
     override fun inputTextPaste(
         node: AccessibilityNodeInfo?,
         byClipboard: Boolean,
         text: String,
         clearFirst: Boolean,
-    ): Boolean = base.inputTextPaste(node, byClipboard, text, clearFirst)
+    ): Boolean = if (byClipboard) {
+        setText(node, text, clearFirst) || pasteOnDisplay(node, text, clearFirst)
+    } else {
+        setText(node, text, clearFirst) || pasteOnDisplay(node, text, clearFirst)
+    }
 
     override fun inputTextNew(node: AccessibilityNodeInfo?, text: String, clearFirst: Boolean): Boolean =
-        base.inputTextNew(node, text, clearFirst)
+        setText(node, text, clearFirst) || pasteOnDisplay(node, text, clearFirst)
+
+    /**
+     * 节点级 SET_TEXT：跨显示有效，不依赖 shell 的默认屏焦点。
+     * 先聚焦/点击再写，微信、大多数 EditText 都接受。
+     */
+    private fun setText(node: AccessibilityNodeInfo?, text: String, clearFirst: Boolean): Boolean {
+        node ?: return false
+        runCatching { node.performAction(AccessibilityNodeInfo.ACTION_FOCUS) }
+        runCatching { node.performAction(AccessibilityNodeInfo.ACTION_CLICK) }
+        if (clearFirst) {
+            val empty = Bundle().apply {
+                putCharSequence(AccessibilityNodeInfo.ACTION_ARGUMENT_SET_TEXT_CHARSEQUENCE, "")
+            }
+            runCatching { node.performAction(AccessibilityNodeInfo.ACTION_SET_TEXT, empty) }
+        }
+        val args = Bundle().apply {
+            putCharSequence(AccessibilityNodeInfo.ACTION_ARGUMENT_SET_TEXT_CHARSEQUENCE, text)
+        }
+        val ok = runCatching {
+            node.performAction(AccessibilityNodeInfo.ACTION_SET_TEXT, args)
+        }.getOrDefault(false)
+        Log.i(TAG, "setText($text) -> $ok")
+        return ok
+    }
+
+    /** SET_TEXT 失败时：写系统剪贴板，再向虚拟屏发 KEYCODE_PASTE（279）。 */
+    private fun pasteOnDisplay(node: AccessibilityNodeInfo?, text: String, clearFirst: Boolean): Boolean {
+        node ?: return false
+        val ctx = runCatching { LibCtxProvider.appContext }.getOrNull() ?: return false
+        return runCatching {
+            if (clearFirst) {
+                val empty = Bundle().apply {
+                    putCharSequence(AccessibilityNodeInfo.ACTION_ARGUMENT_SET_TEXT_CHARSEQUENCE, "")
+                }
+                node.performAction(AccessibilityNodeInfo.ACTION_SET_TEXT, empty)
+            }
+            node.performAction(AccessibilityNodeInfo.ACTION_FOCUS)
+            val cm = ctx.getSystemService(ClipboardManager::class.java) ?: return false
+            cm.setPrimaryClip(ClipData.newPlainText("", text))
+            val ok = XpqVDisplay.injectKey(displayId, android.view.KeyEvent.KEYCODE_PASTE)
+            Log.i(TAG, "pasteOnDisplay($text) -> $ok")
+            ok
+        }.getOrDefault(false)
+    }
 
     override fun setOnAccessibilityEventListener(listener: ((AccessibilityEvent) -> Unit)?) =
         base.setOnAccessibilityEventListener(listener)

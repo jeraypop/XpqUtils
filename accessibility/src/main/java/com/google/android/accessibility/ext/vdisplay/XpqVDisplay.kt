@@ -88,6 +88,9 @@ object XpqVDisplay {
     internal fun injectBack(displayId: Int): Boolean =
         service?.injectKeyOnDisplay(displayId, KeyEvent.KEYCODE_BACK) ?: false
 
+    internal fun injectKey(displayId: Int, keyCode: Int): Boolean =
+        service?.injectKeyOnDisplay(displayId, keyCode) ?: false
+
     /** 按时间逐点注入虚拟屏上的一笔（GestureDescription 转成的轨迹）。 */
     internal fun injectGesture(displayId: Int, xs: IntArray, ys: IntArray, times: LongArray): Boolean =
         service?.injectGesture(displayId, xs, ys, times) ?: false
