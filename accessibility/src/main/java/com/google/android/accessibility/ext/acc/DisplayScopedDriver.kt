@@ -16,13 +16,15 @@ import com.google.android.accessibility.ext.vdisplay.XpqVDisplay
  * 也就是 [XpqAcc.driver] 的 rootInActiveWindow()。这里包一层 driver：
  * 根节点、窗口列表、焦点、返回键都换成虚拟屏那一份，其余操作委托给原 driver。
  *
- * 系统只把 `windowsOnAllDisplays` 暴露给**真实的** AccessibilityService，
- * 所以使用前必须开启宿主无障碍服务（`SelectToSpeakServiceAbstract.instance` 非空）。
+ * 窗口来源由 [windowsProvider] 决定，两种通道都支持：
+ *  - 无障碍模式：真实 AccessibilityService 的 `windowsOnAllDisplays`（公开 API）
+ *  - UiAutomation 模式：`UiAutomation.getWindowsOnAllDisplays`（@hide）
  */
 class DisplayScopedDriver(
     private val base: AccDriver,
     @Volatile var displayId: Int,
-    private val service: AccessibilityService,
+    /** 取指定显示上的窗口；由 [XpqAcc.useDisplay] 按当前通道提供。 */
+    private val windowsProvider: (Int) -> List<AccessibilityWindowInfo>,
 ) : AccDriver {
 
     override val mode: EngineMode get() = base.mode
@@ -31,12 +33,8 @@ class DisplayScopedDriver(
     override fun connect(onLog: (String) -> Unit): Boolean = base.connect(onLog)
     override fun disconnect() = base.disconnect()
 
-    private fun displayWindows(): List<AccessibilityWindowInfo> =
-        runCatching { service.windowsOnAllDisplays.get(displayId).orEmpty() }
-            .getOrDefault(emptyList())
-
     override fun rootInActiveWindow(): AccessibilityNodeInfo? {
-        val windows = displayWindows()
+        val windows = windowsProvider(displayId)
         if (windows.isEmpty()) return null
         val apps = windows.filter { it.type == AccessibilityWindowInfo.TYPE_APPLICATION }
         val target = apps.firstOrNull { it.isActive }
@@ -45,7 +43,7 @@ class DisplayScopedDriver(
         return target?.root
     }
 
-    override fun windows(): List<AccessibilityWindowInfo> = displayWindows()
+    override fun windows(): List<AccessibilityWindowInfo> = windowsProvider(displayId)
 
     override fun findFocus(focusType: Int): AccessibilityNodeInfo? =
         runCatching { rootInActiveWindow()?.findFocus(focusType) }.getOrNull()

@@ -14,6 +14,7 @@ import com.google.android.accessibility.uiautomation.util.HiddenApi
 import android.graphics.PointF
 import android.os.Bundle
 import android.os.SystemClock
+import android.util.SparseArray
 import android.view.accessibility.AccessibilityEvent
 import com.google.android.accessibility.ext.utils.KeyguardUnLock.sendLog
 import com.google.android.accessibility.ext.utils.gestureUtils.HumanTouchEngine.ClickConfig
@@ -534,6 +535,38 @@ object InvisibleAutomation {
         mUiAutomation?.windows
     } catch (e: Throwable) {
         Log.w(TAG, "getWindows 异常", e); null
+    }
+
+    /**
+     * 指定显示上的窗口（含虚拟屏）。
+     *
+     * `UiAutomation.getWindows()` 只返回默认显示；多显示要走 @hide 的
+     * `getWindowsOnAllDisplays()`（返回 SparseArray<displayId, List<AccessibilityWindowInfo>>）。
+     * shell 身份注册的 UiAutomation 可以调用；ROM 移掉这个隐藏方法时返回空列表。
+     */
+    fun getWindowsOnDisplay(displayId: Int): List<AccessibilityWindowInfo> {
+        val ua = mUiAutomation ?: return emptyList()
+        return try {
+            HiddenApi.ensure()
+            val method = UiAutomation::class.java.getMethod("getWindowsOnAllDisplays")
+            @Suppress("UNCHECKED_CAST")
+            val all = method.invoke(ua) as? SparseArray<List<AccessibilityWindowInfo>>
+            all?.get(displayId).orEmpty()
+        } catch (e: Throwable) {
+            Log.w(TAG, "getWindowsOnDisplay($displayId) 失败", e)
+            emptyList()
+        }
+    }
+
+    /** 指定显示上的根节点：优先活动应用窗口，其次最后一个应用窗口，最后任意窗口。 */
+    fun getRootOnDisplay(displayId: Int): AccessibilityNodeInfo? {
+        val windows = getWindowsOnDisplay(displayId)
+        if (windows.isEmpty()) return null
+        val apps = windows.filter { it.type == AccessibilityWindowInfo.TYPE_APPLICATION }
+        val target = apps.firstOrNull { it.isActive }
+            ?: apps.lastOrNull()
+            ?: windows.lastOrNull()
+        return target?.root
     }
 
     /** 全局动作：返回 / 桌面 / 最近任务 等（AccessibilityService.GLOBAL_ACTION_*）。 */

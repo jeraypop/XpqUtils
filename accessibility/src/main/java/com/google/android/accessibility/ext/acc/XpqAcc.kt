@@ -178,8 +178,11 @@ object XpqAcc {
     /**
      * 把节点读取/点击切到 [displayId] 这块虚拟屏。
      *
-     * 依赖宿主无障碍服务已连接（`windowsOnAllDisplays` 只对真实服务开放）；没连接返回 false。
-     * 之后 [rootInActiveWindow]、[windows]、[findFocus] 都从这块屏取；返回键改走虚拟屏的 shell 注入。
+     * 窗口来源按当前通道自动选择：
+     *  - 无障碍模式：真实服务的公开 `windowsOnAllDisplays`
+     *  - UiAutomation 模式：`UiAutomation.getWindowsOnAllDisplays`（@hide）
+     * 两通道都不可用时返回 false。之后 [rootInActiveWindow]、[windows]、[findFocus]
+     * 都从这块屏取；返回键改走虚拟屏的 shell 注入。
      */
     @JvmStatic
     fun useDisplay(displayId: Int): Boolean {
@@ -188,9 +191,17 @@ object XpqAcc {
             current.displayId = displayId
             return true
         }
-        val service = SelectToSpeakServiceAbstract.instance ?: return false
+        // 窗口来源：优先真实无障碍服务（公开 API）；没有则走 UiAutomation 的隐藏多显示接口
+        val service = SelectToSpeakServiceAbstract.instance
+        val provider: (Int) -> List<AccessibilityWindowInfo> = when {
+            service != null -> { id ->
+                runCatching { service.windowsOnAllDisplays.get(id).orEmpty() }.getOrDefault(emptyList())
+            }
+            InvisibleAutomation.isConnected -> { id -> InvisibleAutomation.getWindowsOnDisplay(id) }
+            else -> return false
+        }
         displayBaseDriver = current
-        driver = DisplayScopedDriver(current, displayId, service)
+        driver = DisplayScopedDriver(current, displayId, provider)
         return true
     }
 
