@@ -152,6 +152,13 @@ internal class VDisplayService {
 
     fun ownDisplay(displayId: Int): Boolean = synchronized(displays) { displayId in displays }
 
+    /** 以 shell 身份写系统剪贴板：锁屏/App 后台时，App 自己写剪贴板可能被系统限制。 */
+    fun setClipText(text: String): Boolean = runCatching {
+        val cm = context.getSystemService(android.content.ClipboardManager::class.java) ?: return false
+        cm.setPrimaryClip(android.content.ClipData.newPlainText("", text))
+        true
+    }.getOrDefault(false)
+
     /**
      * 自动识别分身空间用户：shell 执行 `pm list users`，
      * 优先名字含「分身 / clone / dual」的非 0 用户，否则第一个非 0 用户；没有分身返回 0。

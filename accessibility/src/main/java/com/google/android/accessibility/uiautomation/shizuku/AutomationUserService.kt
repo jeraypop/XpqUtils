@@ -68,6 +68,9 @@ class AutomationUserService : IAutomationUserService.Stub {
 
     override fun dualUserId(): Int = vdisplay.dualUserId()
 
+    override fun setClipText(text: String?): Boolean =
+        if (text.isNullOrEmpty()) false else vdisplay.setClipText(text)
+
     override fun injectTapOnDisplay(displayId: Int, x: Float, y: Float): Boolean =
         vdisplay.injectTap(displayId, x, y)
 

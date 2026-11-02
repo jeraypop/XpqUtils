@@ -195,12 +195,15 @@ class DisplayScopedDriver(
                 XpqVDisplay.injectKey(displayId, android.view.KeyEvent.KEYCODE_DEL)
             }
         }
-        // 3. 写系统剪贴板，再向虚拟屏发粘贴键
+        // 3. 写系统剪贴板：优先 shell 身份（锁屏/后台更可靠），失败再退回 App 自己写
         return runCatching {
-            val cm = ctx.getSystemService(ClipboardManager::class.java) ?: return false
-            cm.setPrimaryClip(ClipData.newPlainText("", text))
+            val shellOk = XpqVDisplay.setClipText(text)
+            if (!shellOk) {
+                val cm = ctx.getSystemService(ClipboardManager::class.java) ?: return false
+                cm.setPrimaryClip(ClipData.newPlainText("", text))
+            }
             val ok = XpqVDisplay.injectKey(displayId, android.view.KeyEvent.KEYCODE_PASTE)
-            Log.i(TAG, "pasteByClipboard($text) -> $ok")
+            Log.i(TAG, "pasteByClipboard($text) -> $ok (shellClip=$shellOk)")
             ok
         }.getOrDefault(false)
     }

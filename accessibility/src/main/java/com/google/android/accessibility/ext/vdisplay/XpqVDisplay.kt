@@ -97,6 +97,9 @@ object XpqVDisplay {
     /** 自动识别的分身空间用户 ID；没有分身返回 0（机主）。 */
     fun dualUserId(): Int = service?.dualUserId() ?: 0
 
+    /** 以 shell 身份写系统剪贴板。 */
+    internal fun setClipText(text: String): Boolean = service?.setClipText(text) ?: false
+
     /** 按时间逐点注入虚拟屏上的一笔（GestureDescription 转成的轨迹）。 */
     internal fun injectGesture(displayId: Int, xs: IntArray, ys: IntArray, times: LongArray): Boolean =
         service?.injectGesture(displayId, xs, ys, times) ?: false
