@@ -39,6 +39,8 @@ interface IAutomationUserService {
     boolean injectSwipeOnDisplay(int displayId, float x1, float y1, float x2, float y2, long durationMs) = 11;
     int topTaskIdOnDisplay(int displayId) = 12;
     int displayOfTask(int taskId) = 13;
+    // 按时间逐点注入一根手指的一笔（点击/滑动/曲线）：第一点按下、最后一点抬起；times[i] 相对按下毫秒
+    boolean injectGesture(int displayId, in int[] xs, in int[] ys, in long[] times) = 14;
 
     void destroy() = 16777114; // Shizuku server 定义的销毁方法
     void exit() = 1;           // 用户自定义的退出方法

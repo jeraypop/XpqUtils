@@ -3,6 +3,8 @@ package com.google.android.accessibility.ext.acc
 import android.accessibilityservice.AccessibilityService
 import android.accessibilityservice.AccessibilityServiceInfo
 import android.accessibilityservice.GestureDescription
+import android.graphics.PathMeasure
+import android.graphics.RectF
 import android.os.Handler
 import android.view.accessibility.AccessibilityEvent
 import android.view.accessibility.AccessibilityNodeInfo
@@ -61,12 +63,50 @@ class DisplayScopedDriver(
         else -> false
     }
 
-    /** 手势的 displayId 已经固化在 GestureDescription 里，改不了；一律拒绝，避免落到主屏。 */
+    /**
+     * 手势改走虚拟屏的 shell 注入：GestureDescription 已固化 displayId（改不了），
+     * 直接交给主屏的 dispatchGesture 会点到主屏，所以这里把轨迹采样后按屏注入。
+     */
     override fun dispatchGesture(
         gesture: GestureDescription,
         callback: AccessibilityService.GestureResultCallback?,
         handler: Handler?,
-    ): Boolean = false
+    ): Boolean {
+        if (gesture.strokeCount == 0) {
+            callback?.onCancelled(gesture)
+            return false
+        }
+        val stroke = gesture.getStroke(0)
+        val duration = stroke.duration.coerceIn(1L, 10_000L)
+        val pm = PathMeasure(stroke.path, false)
+        val len = pm.length
+        val xs: IntArray
+        val ys: IntArray
+        val times: LongArray
+        if (len <= 0f) {
+            // 点击手势的 path 可能是零长度，取包围盒中心
+            val bounds = RectF()
+            stroke.path.computeBounds(bounds, false)
+            xs = intArrayOf(bounds.centerX().toInt(), bounds.centerX().toInt())
+            ys = intArrayOf(bounds.centerY().toInt(), bounds.centerY().toInt())
+            times = longArrayOf(0L, duration)
+        } else {
+            val steps = (duration / 10L).toInt().coerceIn(2, 40)
+            xs = IntArray(steps + 1)
+            ys = IntArray(steps + 1)
+            times = LongArray(steps + 1)
+            val pos = FloatArray(2)
+            for (j in 0..steps) {
+                pm.getPosTan(len * j / steps, pos, null)
+                xs[j] = pos[0].toInt()
+                ys[j] = pos[1].toInt()
+                times[j] = duration * j / steps
+            }
+        }
+        val ok = XpqVDisplay.injectGesture(displayId, xs, ys, times)
+        if (ok) callback?.onCompleted(gesture) else callback?.onCancelled(gesture)
+        return ok
+    }
 
     override fun getServiceInfo(): AccessibilityServiceInfo? = base.getServiceInfo()
 

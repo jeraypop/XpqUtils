@@ -352,6 +352,45 @@ internal class VDisplayService {
         return true
     }
 
+    /**
+     * 按时间逐点注入一根手指的一笔（无障碍的 GestureDescription 转过来）：
+     * 第一点按下、最后一点抬起，中间按 [times] 逐点移动；只发到虚拟屏。
+     */
+    fun injectGesture(displayId: Int, xs: IntArray, ys: IntArray, times: LongArray): Boolean {
+        if (!ownDisplay(displayId)) return false
+        val n = times.size
+        if (n < 2 || xs.size != n || ys.size != n) return false
+        if (times[0] != 0L || times.last() > GESTURE_MAX_MS) return false
+        if ((1 until n).any { times[it] < times[it - 1] }) return false
+        HiddenApi.ensure()
+        val down = SystemClock.uptimeMillis()
+        fun event(i: Int, action: Int): MotionEvent {
+            val props = MotionEvent.PointerProperties().apply {
+                this.id = 0; toolType = MotionEvent.TOOL_TYPE_FINGER
+            }
+            val coords = MotionEvent.PointerCoords().apply {
+                this.x = xs[i].toFloat(); this.y = ys[i].toFloat(); pressure = 1f; size = 1f
+            }
+            return MotionEvent.obtain(
+                down, down + times[i], action, 1, arrayOf(props), arrayOf(coords),
+                0, 0, 1f, 1f, 0, 0, InputDevice.SOURCE_TOUCHSCREEN, 0,
+            )
+        }
+        fun send(i: Int, action: Int): Boolean {
+            val wait = down + times[i] - SystemClock.uptimeMillis()
+            if (wait > 0) SystemClock.sleep(wait)
+            val e = event(i, action)
+            return try { inject(e, displayId) } finally { e.recycle() }
+        }
+        if (!send(0, MotionEvent.ACTION_DOWN)) {
+            return exec("input", "-d", "$displayId", "swipe",
+                "${xs[0]}", "${ys[0]}", "${xs[n - 1]}", "${ys[n - 1]}", "${times.last()}") == 0
+        }
+        for (i in 1 until n - 1) send(i, MotionEvent.ACTION_MOVE)
+        send(n - 1, MotionEvent.ACTION_UP)
+        return true
+    }
+
     private inline fun injectPair(down: InputEvent, up: InputEvent, displayId: Int, fallback: () -> Boolean): Boolean {
         if (!inject(down, displayId)) return fallback()
         return inject(up, displayId) || inject(up, displayId)
@@ -402,6 +441,7 @@ internal class VDisplayService {
         private const val SWIPE_POINTS = 12
         private const val CMD_TIMEOUT_S = 10L
         private const val PER_USER_RANGE = 100_000
+        private const val GESTURE_MAX_MS = 10_000L
         private const val VIRTUAL_KEYBOARD = -1
         private const val INJECT_MODE_ASYNC = 0
         private const val INJECT_MODE_WAIT_FOR_RESULT = 1

@@ -88,6 +88,10 @@ object XpqVDisplay {
     internal fun injectBack(displayId: Int): Boolean =
         service?.injectKeyOnDisplay(displayId, KeyEvent.KEYCODE_BACK) ?: false
 
+    /** 按时间逐点注入虚拟屏上的一笔（GestureDescription 转成的轨迹）。 */
+    internal fun injectGesture(displayId: Int, xs: IntArray, ys: IntArray, times: LongArray): Boolean =
+        service?.injectGesture(displayId, xs, ys, times) ?: false
+
     private fun screenMetrics(context: Context): DisplayMetrics {
         val dm = context.getSystemService(DisplayManager::class.java)
         val metrics = DisplayMetrics()

@@ -78,6 +78,11 @@ class AutomationUserService : IAutomationUserService.Stub {
 
     override fun displayOfTask(taskId: Int): Int = vdisplay.displayOfTask(taskId)
 
+    override fun injectGesture(displayId: Int, xs: IntArray?, ys: IntArray?, times: LongArray?): Boolean {
+        if (xs == null || ys == null || times == null) return false
+        return vdisplay.injectGesture(displayId, xs, ys, times)
+    }
+
     override fun exec(command: String?): ShellResult {
         val result = ShellResult()
         if (command.isNullOrEmpty()) {
