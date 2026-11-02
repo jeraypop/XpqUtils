@@ -154,35 +154,41 @@ internal class VDisplayService {
 
     // ---------- 启动 App ----------
 
-    fun startApp(displayId: Int, packageName: String): Int = synchronized(launchLock) {
+    fun startApp(displayId: Int, packageName: String): Int = startApp(displayId, packageName, myUser)
+
+    /**
+     * 在 [userId] 这份用户里启动 [packageName] 到虚拟屏。
+     * 主屏占用只看这一份用户；启动先走桌面路径（ILauncherApps，带 userId），再回退 ActivityTaskManager。
+     */
+    fun startApp(displayId: Int, packageName: String, userId: Int): Int = synchronized(launchLock) {
         if (!ownDisplay(displayId)) return START_ERROR
         try {
-            if (inUseOnMainScreen(packageName)) return START_IN_USE_ON_MAIN
+            if (inUseOnMainScreen(packageName, userId)) return START_IN_USE_ON_MAIN
         } catch (t: Throwable) {
             Log.e(TAG, "cannot inspect main-screen tasks", t)
             return START_ERROR
         }
-        val intent = launchIntent(packageName) ?: return START_NOT_FOUND
+        val intent = launchIntent(packageName, userId) ?: return START_NOT_FOUND
         intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
         val options = ActivityOptions.makeBasic().setLaunchDisplayId(displayId).toBundle()
         // 桌面路径：有的 ROM（如 ZUI 分身空间）在程序化启动多用户里都装的 App 时会弹
         // 「用哪一个打开」，桌面点击图标这条路不弹。先走它，失败再回退 ActivityManager。
         val component = intent.component
-        if (component != null && startAsLauncher(component, myUser, options)) return START_OK
+        if (component != null && startAsLauncher(component, userId, options)) return START_OK
         val ok = try {
             val start = taskManager.javaClass.methods.firstOrNull {
                 it.name == "startActivityAsUser" && it.parameterTypes.size == 12
             } ?: error("no startActivityAsUser")
             val result = start.invoke(
                 taskManager, null, ShellContext.SHELL_PACKAGE, null, intent, null, null, null,
-                0, 0, null, options, myUser,
+                0, 0, null, options, userId,
             ) as Int
-            if (result < 0) Log.w(TAG, "startActivityAsUser($packageName) -> $result")
+            if (result < 0) Log.w(TAG, "startActivityAsUser($packageName, user $userId) -> $result")
             result >= 0
         } catch (t: Throwable) {
             Log.w(TAG, "startActivityAsUser unavailable, falling back to am start", t)
             val component = intent.component?.flattenToShortString() ?: return START_NOT_FOUND
-            exec("am", "start", "--display", "$displayId", "--user", "$myUser", "-n", component) == 0
+            exec("am", "start", "--display", "$displayId", "--user", "$userId", "-n", component) == 0
         }
         if (ok) START_OK else START_ERROR
     }
@@ -211,8 +217,12 @@ internal class VDisplayService {
         false
     }
 
-    private fun launchIntent(packageName: String): Intent? =
-        context.packageManager.getLaunchIntentForPackage(packageName)
+    private fun launchIntent(packageName: String, userId: Int): Intent? {
+        // 同一包在另一份用户里的启动组件通常相同；先用当前用户的入口，按 userId 启动
+        if (userId != myUser) {
+            context.packageManager.getLaunchIntentForPackage(packageName)?.let { return it }
+        }
+        return context.packageManager.getLaunchIntentForPackage(packageName)
             ?: run {
                 val query = Intent(Intent.ACTION_MAIN)
                     .addCategory(Intent.CATEGORY_LAUNCHER)
@@ -226,6 +236,7 @@ internal class VDisplayService {
                 Intent(Intent.ACTION_MAIN).addCategory(Intent.CATEGORY_LAUNCHER)
                     .setComponent(ComponentName(pkg, cls))
             }
+    }
 
     // ---------- 任务查询 ----------
 
@@ -261,12 +272,16 @@ internal class VDisplayService {
     }
 
     @SuppressLint("PrivateApi")
-    private fun inUseOnMainScreen(packageName: String): Boolean {
+    private fun inUseOnMainScreen(packageName: String, userId: Int): Boolean {
         val visibleField = runCatching { TASK_INFO.getField("isVisible") }.getOrNull()
         return tasksOn(Display.DEFAULT_DISPLAY).withIndex().any { (index, task) ->
-            packageName in packagesOf(task) && (visibleField?.getBoolean(task) ?: (index == 0))
+            packageName in packagesOf(task) && taskUser(task) == userId &&
+                (visibleField?.getBoolean(task) ?: (index == 0))
         }
     }
+
+    private fun taskUser(task: Any): Int =
+        runCatching { TASK_INFO.getField("userId").getInt(task) }.getOrDefault(myUser)
 
     fun topTaskId(displayId: Int): Int = try {
         tasksOn(displayId).firstOrNull()?.let { TASK_INFO.getField("taskId").getInt(it) } ?: -1

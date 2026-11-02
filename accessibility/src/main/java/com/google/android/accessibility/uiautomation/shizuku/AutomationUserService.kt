@@ -59,6 +59,13 @@ class AutomationUserService : IAutomationUserService.Stub {
     override fun startAppOnDisplay(displayId: Int, packageName: String?): Int =
         if (packageName.isNullOrEmpty()) VDisplayService.START_NOT_FOUND else vdisplay.startApp(displayId, packageName)
 
+    override fun startAppInUser(displayId: Int, packageName: String?, userId: Int): Int =
+        if (packageName.isNullOrEmpty()) {
+            VDisplayService.START_NOT_FOUND
+        } else {
+            vdisplay.startApp(displayId, packageName, userId)
+        }
+
     override fun injectTapOnDisplay(displayId: Int, x: Float, y: Float): Boolean =
         vdisplay.injectTap(displayId, x, y)
 

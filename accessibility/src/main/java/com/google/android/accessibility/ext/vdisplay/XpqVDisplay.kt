@@ -210,6 +210,10 @@ object XpqVDisplay {
         /** 把 [packageName] 启动到这块屏。0=成功，1=主屏正在用，2=无入口，3=出错。 */
         fun launch(packageName: String): Int = service.startAppOnDisplay(displayId, packageName)
 
+        /** 在 [userId] 那份用户（分身空间）里启动 [packageName] 到这块屏。 */
+        fun launchInUser(packageName: String, userId: Int): Int =
+            service.startAppInUser(displayId, packageName, userId)
+
         fun tap(x: Int, y: Int): Boolean = service.injectTapOnDisplay(displayId, x.toFloat(), y.toFloat())
 
         fun key(keyCode: Int): Boolean = service.injectKeyOnDisplay(displayId, keyCode)
