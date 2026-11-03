@@ -125,8 +125,14 @@ object XpqVDisplay {
     internal fun injectTap(displayId: Int, x: Int, y: Int): Boolean =
         service?.injectTapOnDisplay(displayId, x.toFloat(), y.toFloat()) ?: false
 
-    /** 自动识别的分身空间用户 ID；没有分身返回 0（机主）。 */
-    fun dualUserId(): Int = service?.dualUserId() ?: 0
+    /**
+     * 自动识别的分身空间用户 ID；没有分身返回 0（机主）。
+     * 传 [packageName] 时只认「装了该包」的用户，避免把工作资料/访客用户误当成分身空间。
+     */
+    @JvmOverloads
+    fun dualUserId(packageName: String? = null): Int = service?.let {
+        if (packageName.isNullOrEmpty()) it.dualUserId() else it.dualUserIdForPackage(packageName)
+    } ?: 0
 
     /** 以 shell 身份写系统剪贴板。 */
     internal fun setClipText(text: String): Boolean = service?.setClipText(text) ?: false

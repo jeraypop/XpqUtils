@@ -68,6 +68,9 @@ class AutomationUserService : IAutomationUserService.Stub {
 
     override fun dualUserId(): Int = vdisplay.dualUserId()
 
+    override fun dualUserIdForPackage(packageName: String?): Int =
+        if (packageName.isNullOrEmpty()) vdisplay.dualUserId() else vdisplay.dualUserIdForPackage(packageName)
+
     override fun setClipText(text: String?): Boolean =
         if (text.isNullOrEmpty()) false else vdisplay.setClipText(text)
 

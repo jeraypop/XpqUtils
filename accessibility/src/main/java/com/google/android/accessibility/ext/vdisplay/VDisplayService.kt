@@ -164,16 +164,40 @@ internal class VDisplayService {
      * 优先名字含「分身 / clone / dual」的非 0 用户，否则第一个非 0 用户；没有分身返回 0。
      */
     fun dualUserId(): Int {
-        val (code, out) = sh("pm", "list", "users")
-        if (code != 0) return myUser
-        val users = Regex("UserInfo\\{([0-9]+):([^:}]+)").findAll(out)
-            .map { it.groupValues[1].toInt() to it.groupValues[2] }
-            .toList()
-        val named = users.firstOrNull { (id, name) ->
-            id != 0 && (name.contains("分身") || name.contains("clone", true) || name.contains("dual", true))
-        }
-        return (named ?: users.firstOrNull { it.first != 0 })?.first ?: myUser
+        val users = nonCurrentUsers()
+        val named = users.firstOrNull { (_, name) -> name.isDualName() }
+        return (named ?: users.firstOrNull())?.first ?: myUser
     }
+
+    /**
+     * 自动识别「装了 [packageName] 的分身空间用户」：优先名字含「分身 / clone / dual」的用户，
+     * 否则取第一个装了该包的非 0 用户；都没有返回 0（机主）。
+     * 用于避免把工作资料/访客用户误当成分身空间。
+     */
+    fun dualUserIdForPackage(packageName: String): Int {
+        val users = nonCurrentUsers()
+        val named = users.filter { (_, name) -> name.isDualName() }
+        val rest = users.filterNot { (_, name) -> name.isDualName() }
+        return (named + rest).firstOrNull { (id, _) -> packageInstalled(packageName, id) }?.first
+            ?: myUser
+    }
+
+    private fun nonCurrentUsers(): List<Pair<Int, String>> {
+        val (code, out) = sh("pm", "list", "users")
+        if (code != 0) return emptyList()
+        return Regex("UserInfo\\{([0-9]+):([^:}]+)").findAll(out)
+            .map { it.groupValues[1].toInt() to it.groupValues[2] }
+            .filter { it.first != myUser }
+            .toList()
+    }
+
+    private fun packageInstalled(packageName: String, userId: Int): Boolean {
+        val (code, out) = sh("pm", "list", "packages", "--user", userId.toString())
+        return code == 0 && out.lineSequence().any { it.trim().removePrefix("package:") == packageName }
+    }
+
+    private fun String.isDualName(): Boolean =
+        contains("分身") || contains("clone", true) || contains("dual", true)
 
     // ---------- 启动 App ----------
 
