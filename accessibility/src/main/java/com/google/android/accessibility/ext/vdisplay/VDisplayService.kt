@@ -192,7 +192,8 @@ internal class VDisplayService {
             return START_ERROR
         }
         val intent = launchIntent(packageName, userId) ?: return START_NOT_FOUND
-        intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+        // 桌面入口本身就是该包的 LauncherUI；CLEAR_TOP 清掉聊天页等上层 Activity，回到微信首页
+        intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP)
         val options = ActivityOptions.makeBasic().setLaunchDisplayId(displayId).toBundle()
         // 桌面路径：有的 ROM（如 ZUI 分身空间）在程序化启动多用户里都装的 App 时会弹
         // 「用哪一个打开」，桌面点击图标这条路不弹。先走它，失败再回退 ActivityManager。
