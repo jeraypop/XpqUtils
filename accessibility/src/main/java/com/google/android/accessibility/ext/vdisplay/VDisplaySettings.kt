@@ -22,6 +22,7 @@ object VDisplaySettings {
     private const val KEY_ENABLED = "enabled"
     private const val KEY_UNLOCK = "unlock"
     private const val KEY_PREVIEW = "preview"
+    private const val KEY_DUAL = "dual"
 
     fun isEnabled(context: Context): Boolean =
         context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
@@ -35,6 +36,11 @@ object VDisplaySettings {
         context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
             .getBoolean(KEY_PREVIEW, true)
 
+    /** 是否启动分身版应用；默认 false，即启动主应用版本。 */
+    fun isDualEnabled(context: Context): Boolean =
+        context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
+            .getBoolean(KEY_DUAL, false)
+
     private fun enabledText(enabled: Boolean): String =
         if (enabled) "开启后任务在副屏执行，不影响主屏操作"
         else "任务在主屏执行，会占用主屏操作"
@@ -46,6 +52,10 @@ object VDisplaySettings {
     private fun previewText(preview: Boolean): String =
         if (preview) "任务运行时在右上角显示副屏实时画面"
         else "任务运行时不在主屏显示副屏画面"
+
+    private fun dualText(dual: Boolean): String =
+        if (dual) "任务在分身空间启动分身版应用"
+        else "默认启动机主空间的主应用版本"
 
     private fun subtitle(context: Context, text: String) = TextView(context).apply {
         this.text = text
@@ -77,7 +87,12 @@ object VDisplaySettings {
         }
     }
 
-    fun showDialog(context: Context) {
+    /**
+     * @param showDualSwitch 是否显示第 4 个开关「启动分身版」。
+     * 不显示时由宿主自己决定启动主应用还是分身版（如 autosend-AD 按双开坐标判断）。
+     */
+    @JvmOverloads
+    fun showDialog(context: Context, showDualSwitch: Boolean = false) {
         val prefs = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
         val dp = context.resources.displayMetrics.density
         val padding = (20 * dp).toInt()
@@ -108,11 +123,21 @@ object VDisplaySettings {
         val enabledSubtitle = subtitle(context, enabledText(prefs.getBoolean(KEY_ENABLED, true)))
         val previewSubtitle = subtitle(context, previewText(prefs.getBoolean(KEY_PREVIEW, true)))
 
+        // 第 4 个开关：由宿主决定是否需要（不需要时启动主应用还是分身版由宿主自己判断）
+        val dualSwitch = if (showDualSwitch) Switch(context).apply {
+            isChecked = prefs.getBoolean(KEY_DUAL, false)
+            isEnabled = enabledSwitch.isChecked
+        } else null
+        val dualSubtitle = if (showDualSwitch) {
+            subtitle(context, dualText(prefs.getBoolean(KEY_DUAL, false)))
+        } else null
+
         // 切换即时写入，不依赖“确定”
         enabledSwitch.setOnCheckedChangeListener { _, checked ->
             prefs.edit().putBoolean(KEY_ENABLED, checked).apply()
             unlockSwitch.isEnabled = checked
             previewSwitch.isEnabled = checked
+            dualSwitch?.isEnabled = checked
             enabledSubtitle.text = enabledText(checked)
         }
         unlockSwitch.setOnCheckedChangeListener { _, checked ->
@@ -123,10 +148,17 @@ object VDisplaySettings {
             prefs.edit().putBoolean(KEY_PREVIEW, checked).apply()
             previewSubtitle.text = previewText(checked)
         }
+        dualSwitch?.setOnCheckedChangeListener { _, checked ->
+            prefs.edit().putBoolean(KEY_DUAL, checked).apply()
+            dualSubtitle?.text = dualText(checked)
+        }
 
         root.addView(row(context, "启用虚拟屏", enabledSubtitle, enabledSwitch))
         root.addView(row(context, "解锁主屏", unlockSubtitle, unlockSwitch))
         root.addView(row(context, "显示虚拟屏预览", previewSubtitle, previewSwitch))
+        if (dualSwitch != null && dualSubtitle != null) {
+            root.addView(row(context, "启动分身版", dualSubtitle, dualSwitch))
+        }
 
         AlertDialog.Builder(context)
             .setTitle("虚拟屏设置")

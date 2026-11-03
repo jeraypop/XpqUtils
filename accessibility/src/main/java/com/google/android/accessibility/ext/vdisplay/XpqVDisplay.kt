@@ -60,8 +60,18 @@ object XpqVDisplay {
     /** 虚拟屏模式下锁屏时是否先解锁主屏（开启走剪贴板，关闭走节点输入）。 */
     fun shouldUnlock(context: Context): Boolean = VDisplaySettings.shouldUnlock(context)
 
-    /** 弹出库内的虚拟屏设置对话框。 */
-    fun showSettingsDialog(context: Context) = VDisplaySettings.showDialog(context)
+    /**
+     * 弹出库内的虚拟屏设置对话框。
+     * [showDualSwitch] 控制是否显示第 4 个「启动分身版」开关；
+     * 不显示时由宿主自己决定启动主应用还是分身版。
+     */
+    @JvmOverloads
+    @JvmStatic
+    fun showSettingsDialog(context: Context, showDualSwitch: Boolean = false) =
+        VDisplaySettings.showDialog(context, showDualSwitch)
+
+    /** 设置里是否勾选了「启动分身版」；默认 false（主应用版本）。 */
+    fun shouldUseDual(context: Context): Boolean = VDisplaySettings.isDualEnabled(context)
 
     /** 请求 Shizuku 授权；回调在主线程。 */
     fun requestPermission(onResult: (Boolean) -> Unit) = AutomationShizuku.requestPermission(onResult)
