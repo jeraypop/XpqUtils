@@ -16,6 +16,7 @@ object VDisplaySettings {
     private const val PREFS = "xpq_vdisplay"
     private const val KEY_ENABLED = "enabled"
     private const val KEY_UNLOCK = "unlock"
+    private const val KEY_PREVIEW = "preview"
 
     fun isEnabled(context: Context): Boolean =
         context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
@@ -24,6 +25,10 @@ object VDisplaySettings {
     fun shouldUnlock(context: Context): Boolean =
         context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
             .getBoolean(KEY_UNLOCK, false)
+
+    fun isPreviewEnabled(context: Context): Boolean =
+        context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
+            .getBoolean(KEY_PREVIEW, true)
 
     private fun unlockText(unlocked: Boolean): String =
         if (unlocked) "解锁主屏：需要解锁设备后才能执行任务"
@@ -46,6 +51,10 @@ object VDisplaySettings {
             isChecked = prefs.getBoolean(KEY_UNLOCK, false)
             isEnabled = enabledSwitch.isChecked
         }
+        val previewSwitch = Switch(context).apply {
+            text = "显示虚拟屏预览"
+            isChecked = prefs.getBoolean(KEY_PREVIEW, true)
+        }
         // 切换即时写入，不依赖“确定”
         enabledSwitch.setOnCheckedChangeListener { _, checked ->
             prefs.edit().putBoolean(KEY_ENABLED, checked).apply()
@@ -55,8 +64,12 @@ object VDisplaySettings {
             prefs.edit().putBoolean(KEY_UNLOCK, checked).apply()
             unlockSwitch.text = unlockText(checked)
         }
+        previewSwitch.setOnCheckedChangeListener { _, checked ->
+            prefs.edit().putBoolean(KEY_PREVIEW, checked).apply()
+        }
         root.addView(enabledSwitch)
         root.addView(unlockSwitch)
+        root.addView(previewSwitch)
 
         AlertDialog.Builder(context)
             .setTitle("虚拟屏设置")
