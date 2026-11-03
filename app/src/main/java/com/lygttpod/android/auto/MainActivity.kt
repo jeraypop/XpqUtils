@@ -54,6 +54,7 @@ import com.google.android.accessibility.ext.utils.safecheck.SafeTouchListener
 import com.google.android.accessibility.ext.utils.safecheck.ScriptTouchDetector
 import com.google.android.accessibility.ext.utils.safecheck.TouchBehaviorAnalyzer
 import com.google.android.accessibility.ext.utils.safecheck.TouchGuardDelegate
+import com.google.android.accessibility.ext.vdisplay.VDisplaySettings
 import com.google.android.accessibility.ext.view.FabMenuItem
 import com.google.android.accessibility.ext.view.TaichiFabMenuView
 
@@ -296,7 +297,8 @@ class MainActivity : XpqBaseActivity<ActivityMainBinding>(
             //
             //show_AC_Warn_Dialog(this@MainActivity,false )
             //公众号ID
-            openWeChatToFollowInterface(getWCField[6].first.restoreAllIllusion())
+            //openWeChatToFollowInterface(getWCField[6].first.restoreAllIllusion())
+            VDisplaySettings.showDialog(this)
         }
 
 
