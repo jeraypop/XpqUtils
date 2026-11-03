@@ -219,26 +219,60 @@ internal class VDisplayService {
         // 桌面入口本身就是该包的 LauncherUI；CLEAR_TOP 清掉聊天页等上层 Activity，回到微信首页
         intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP)
         val options = ActivityOptions.makeBasic().setLaunchDisplayId(displayId).toBundle()
-        // 桌面路径：有的 ROM（如 ZUI 分身空间）在程序化启动多用户里都装的 App 时会弹
-        // 「用哪一个打开」，桌面点击图标这条路不弹。先走它，失败再回退 ActivityManager。
         val component = intent.component
-        if (component != null && startAsLauncher(component, userId, options)) return START_OK
-        val ok = try {
-            val start = taskManager.javaClass.methods.firstOrNull {
-                it.name == "startActivityAsUser" && it.parameterTypes.size == 12
-            } ?: error("no startActivityAsUser")
-            val result = start.invoke(
-                taskManager, null, ShellContext.SHELL_PACKAGE, null, intent, null, null, null,
-                0, 0, null, options, userId,
-            ) as Int
-            if (result < 0) Log.w(TAG, "startActivityAsUser($packageName, user $userId) -> $result")
-            result >= 0
-        } catch (t: Throwable) {
-            Log.w(TAG, "startActivityAsUser unavailable, falling back to am start", t)
-            val component = intent.component?.flattenToShortString() ?: return START_NOT_FOUND
-            exec("am", "start", "--display", "$displayId", "--user", "$userId", "-n", component) == 0
+        // 启动方法返回成功不代表真的开在目标用户里：有的 ROM 会忽略 user，实际拉起机主那份。
+        // 每次启动后都核对这块屏上的任务确实是「这个包 + 这个用户」，不对就换下一种方式。
+        fun viaLauncher(): Boolean {
+            if (component == null || !startAsLauncher(component, userId, options)) return false
+            // 查不到任务时(null)按启动成功处理，避免在拿不到任务列表的系统上误判失败
+            return waitTaskOnDisplay(displayId, packageName, userId) ?: true
         }
-        if (ok) START_OK else START_ERROR
+
+        fun viaTaskManager(): Boolean {
+            val accepted = try {
+                val start = taskManager.javaClass.methods.firstOrNull {
+                    it.name == "startActivityAsUser" && it.parameterTypes.size == 12
+                } ?: error("no startActivityAsUser")
+                val result = start.invoke(
+                    taskManager, null, ShellContext.SHELL_PACKAGE, null, intent, null, null, null,
+                    0, 0, null, options, userId,
+                ) as Int
+                if (result < 0) Log.w(TAG, "startActivityAsUser($packageName, user $userId) -> $result")
+                result >= 0
+            } catch (t: Throwable) {
+                Log.w(TAG, "startActivityAsUser unavailable", t)
+                false
+            }
+            return accepted && (waitTaskOnDisplay(displayId, packageName, userId) ?: true)
+        }
+
+        fun viaShellCommand(): Boolean {
+            val c = component?.flattenToShortString() ?: return false
+            if (exec("am", "start", "--display", "$displayId", "--user", "$userId", "-n", c) != 0) return false
+            return waitTaskOnDisplay(displayId, packageName, userId) ?: true
+        }
+
+        // 桌面路径：有的 ROM（如 ZUI 分身空间）在程序化启动多用户里都装的 App 时会弹
+        // 「用哪一个打开」，桌面点击图标这条路不弹。先走它，再回退 ActivityManager / am start。
+        if (viaLauncher() || viaTaskManager() || viaShellCommand()) return START_OK
+        Log.w(TAG, "launch($packageName, user $userId) did not create that user's task on display $displayId")
+        START_USER_MISMATCH
+    }
+
+    /**
+     * 启动后等这块屏上出现「[packageName] + [userId]」的任务；有的 ROM 建任务有延迟，最多等约 1.5 秒。
+     * 任务列表根本查不到时返回 null（无法核对），调用方按启动成功处理。
+     */
+    @SuppressLint("PrivateApi")
+    private fun waitTaskOnDisplay(displayId: Int, packageName: String, userId: Int): Boolean? = try {
+        repeat(10) { attempt ->
+            if (tasksOn(displayId).any { packageName in packagesOf(it) && taskUser(it) == userId }) return true
+            if (attempt < 9) SystemClock.sleep(150)
+        }
+        false
+    } catch (t: Throwable) {
+        Log.w(TAG, "cannot verify task user on display $displayId", t)
+        null
     }
 
     /**
@@ -344,6 +378,22 @@ internal class VDisplayService {
         allTasks().firstOrNull { idField.getInt(it) == taskId }?.let { displayField.getInt(it) } ?: -1
     } catch (t: Throwable) {
         Log.e(TAG, "displayOfTask failed", t)
+        -1
+    }
+
+    fun packageOfTask(taskId: Int): String = try {
+        val idField = TASK_INFO.getField("taskId")
+        allTasks().firstOrNull { idField.getInt(it) == taskId }?.let { packagesOf(it).firstOrNull() } ?: ""
+    } catch (t: Throwable) {
+        Log.e(TAG, "packageOfTask failed", t)
+        ""
+    }
+
+    fun userIdOfTask(taskId: Int): Int = try {
+        val idField = TASK_INFO.getField("taskId")
+        allTasks().firstOrNull { idField.getInt(it) == taskId }?.let(::taskUser) ?: -1
+    } catch (t: Throwable) {
+        Log.e(TAG, "userIdOfTask failed", t)
         -1
     }
 
@@ -526,6 +576,8 @@ internal class VDisplayService {
         const val START_IN_USE_ON_MAIN = 1
         const val START_NOT_FOUND = 2
         const val START_ERROR = 3
+        /** 系统没在目标用户里建任务（实际可能拉起了另一个版本）。 */
+        const val START_USER_MISMATCH = 4
 
         private const val FLAG_PUBLIC = 1 shl 0
         private const val FLAG_OWN_CONTENT_ONLY = 1 shl 3

@@ -97,10 +97,25 @@ object XpqVDisplayTask {
         displayId = made.displayId
         userId = targetUserId
 
-        if (!launchedInDisplay(made, packageName, targetUserId)) {
-            Log.w(TAG, "$packageName cannot start on virtual display (in use on main / not installed for user $targetUserId)")
-            lastError = "目标应用无法在虚拟屏启动（主屏正在使用，或分身空间未安装该应用）"
-            return@withContext false
+        val launchCode = made.launchInUser(packageName, targetUserId)
+        if (launchCode != XpqVDisplay.LAUNCH_OK) {
+            // 已经在副屏上的「同一个包 + 同一个用户」可以接着用；别的版本、别的 App 都不算
+            val task = made.topTaskId()
+            val reusable = task >= 0 && made.displayOfTask(task) == made.displayId &&
+                made.packageOfTask(task) == packageName && made.userIdOfTask(task) == targetUserId
+            if (!reusable) {
+                val reason = when (launchCode) {
+                    XpqVDisplay.LAUNCH_IN_USE_ON_MAIN -> "主屏正在使用该应用，无法移到副屏"
+                    XpqVDisplay.LAUNCH_NOT_FOUND -> "该用户里没有这个应用的启动入口（可能未安装）"
+                    XpqVDisplay.LAUNCH_USER_MISMATCH -> "系统没有在分身空间启动应用，实际打开了另一个版本"
+                    else -> "目标应用无法在虚拟屏启动"
+                }
+                Log.w(TAG, "$packageName cannot start on virtual display user $targetUserId, code=$launchCode")
+                // 拉起了另一个版本:把这块屏放掉，免得下次又复用错的那份
+                if (launchCode == XpqVDisplay.LAUNCH_USER_MISMATCH) release()
+                lastError = reason
+                return@withContext false
+            }
         }
         if (!XpqAcc.useDisplay(made.displayId)) {
             Log.w(TAG, "XpqAcc.useDisplay failed")
@@ -112,21 +127,9 @@ object XpqVDisplayTask {
         true
     }
 
-    /** 目标 App 当前是否已经在虚拟屏上；不在就启动过去。主屏正在用时返回 false（不打扰用户）。 */
-    private fun launchedInDisplay(
-        s: XpqVDisplay.Session,
-        packageName: String,
-        targetUserId: Int,
-    ): Boolean {
-        val code = s.launchInUser(packageName, targetUserId)
-        if (code == 0) return true
-        // 主屏占用（返回 1）：虚拟屏上已经有任务就继续用虚拟屏那一份
-        return s.topTaskId().let { it >= 0 && s.displayOfTask(it) == s.displayId }
-    }
-
     /** 在当前用户下把 [packageName] 重新启动到虚拟屏（桌面入口 + CLEAR_TOP）。 */
     fun launch(packageName: String): Boolean =
-        session?.launchInUser(packageName, userId) == 0
+        session?.launchInUser(packageName, userId) == XpqVDisplay.LAUNCH_OK
 
     /** 在虚拟屏上按返回键。 */
     fun back(): Boolean = session?.back() ?: false

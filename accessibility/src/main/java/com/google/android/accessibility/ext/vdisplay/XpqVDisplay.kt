@@ -49,6 +49,14 @@ object XpqVDisplay {
     @Volatile
     private var service: IAutomationUserService? = null
 
+    /** [Session.launch] / [Session.launchInUser] 的返回值。 */
+    const val LAUNCH_OK = 0
+    const val LAUNCH_IN_USE_ON_MAIN = 1
+    const val LAUNCH_NOT_FOUND = 2
+    const val LAUNCH_ERROR = 3
+    /** 系统没在目标用户里建任务（通常是把机主那份拉起来了）。 */
+    const val LAUNCH_USER_MISMATCH = 4
+
     /** Shizuku 在运行且已授权。 */
     fun isReady(): Boolean =
         runCatching { AutomationShizuku.isInstalled() && AutomationShizuku.isPermissionGranted() }
@@ -269,6 +277,12 @@ object XpqVDisplay {
         fun topTaskId(): Int = service.topTaskIdOnDisplay(displayId)
 
         fun displayOfTask(taskId: Int): Int = service.displayOfTask(taskId)
+
+        /** 任务所属用户；查不到为 -1。 */
+        fun userIdOfTask(taskId: Int): Int = service.userIdOfTask(taskId)
+
+        /** 任务所属包名；查不到为空串。 */
+        fun packageOfTask(taskId: Int): String = service.packageOfTask(taskId)
 
         fun release() {
             if (released) return

@@ -47,6 +47,10 @@ interface IAutomationUserService {
     int dualUserId() = 16;
     // 识别装了该包的分身空间用户：优先名字含「分身/clone」，否则第一个装了该包的非 0 用户；没有返回 0
     int dualUserIdForPackage(String packageName) = 18;
+    // 任务所属用户；查不到返回 -1
+    int userIdOfTask(int taskId) = 19;
+    // 任务所属包名；查不到返回空串
+    String packageOfTask(int taskId) = 20;
     // 以 shell 身份写系统剪贴板（锁屏/后台下 App 自己写剪贴板可能受限）；成功返回 true
     boolean setClipText(String text) = 17;
 
