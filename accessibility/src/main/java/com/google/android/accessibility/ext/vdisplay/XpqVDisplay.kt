@@ -229,6 +229,9 @@ object XpqVDisplay {
     /** 已绑定的 UserService；仅供同模块/调试查询。 */
     fun boundService(): IAutomationUserService? = service
 
+    /** 绑定 UserService 的最长等待：加固包拉起即崩，等太久会拖慢第一次建屏。 */
+    private const val BIND_TIMEOUT_MS = 3_000L
+
     /**
      * 连接 UserService 并建一块虚拟屏。Shizuku 没运行/没授权/建屏失败时返回 null。
      * 必须在主线程之外调用（内部阻塞等待绑定）。
@@ -238,7 +241,7 @@ object XpqVDisplay {
         width: Int = -1,
         height: Int = -1,
         dpi: Int = -1,
-        timeoutMs: Long = 10_000,
+        timeoutMs: Long = BIND_TIMEOUT_MS,
     ): Session? = withContext(Dispatchers.IO) {
         val forced = forceBinderBackend()
         val svc = if (preferBinder || forced) {
@@ -331,7 +334,7 @@ object XpqVDisplay {
     suspend fun dualUserId(context: Context, packageName: String? = null): Int =
         withContext(Dispatchers.IO) {
             val svc = if (preferBinder || forceBinderBackend()) null else service ?: run {
-                AutomationShizuku.bind(context.applicationContext, 10_000)?.also { service = it }
+                AutomationShizuku.bind(context.applicationContext, BIND_TIMEOUT_MS)?.also { service = it }
             }
             if (svc != null) {
                 val id = runCatching {
