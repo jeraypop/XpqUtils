@@ -33,36 +33,24 @@ import java.util.concurrent.atomic.AtomicReference
  *
  * 隐藏接口一律反射调用，反射失败时退回到同等效果的 shell 命令。
  */
-internal class VDisplayService {
+internal class VDisplayService(private val access: VDisplayAccess) {
 
-    private val context: Context by lazy { ShellContext.create() }
+    private val context: Context get() = access.context
 
-    // 不能用 getSystemService：那样拿到的 DisplayManager 绑的是系统上下文，包名与 shell uid 对不上
-    @get:SuppressLint("PrivateApi")
-    private val displayManager: DisplayManager by lazy {
-        DisplayManager::class.java.getDeclaredConstructor(Context::class.java)
-            .apply { isAccessible = true }.newInstance(context)
-    }
+    private val displayManager: DisplayManager get() = access.displayManager
 
     private val taskManager: Any by lazy {
-        Class.forName("android.app.ActivityTaskManager").getMethod("getService").invoke(null)!!
+        access.activityTaskManager() ?: error("ActivityTaskManager unavailable")
     }
 
     private val displays = HashMap<Int, VirtualDisplay>()
     private val launchLock = Any()
 
-    /** shell 所在用户（uid 2000 → 0）。虚拟屏和无障碍都在这个用户里，启动也固定到这一份。 */
-    private val myUser = android.os.Process.myUid() / PER_USER_RANGE
+    /** 当前所在用户（shell 进程为 0）：虚拟屏和无障碍都在这个用户里，启动也固定到这一份。 */
+    private val myUser: Int = access.myUser
 
     /** ILauncherApps（桌面点击图标背后的服务）；拿不到为 null。 */
-    private val launcherApps: Any? by lazy {
-        runCatching {
-            val binder = Class.forName("android.os.ServiceManager")
-                .getMethod("getService", String::class.java).invoke(null, "launcherapps")
-            Class.forName("android.content.pm.ILauncherApps\$Stub")
-                .getMethod("asInterface", android.os.IBinder::class.java).invoke(null, binder)
-        }.onFailure { Log.w(TAG, "launcherapps unavailable", it) }.getOrNull()
-    }
+    private val launcherApps: Any? by lazy { access.launcherApps() }
 
     // ---------- 建屏 ----------
 
@@ -122,13 +110,7 @@ internal class VDisplayService {
 
     @get:SuppressLint("PrivateApi")
     private val userActivity: Pair<Any, Method>? by lazy {
-        runCatching {
-            val binder = Class.forName("android.os.ServiceManager")
-                .getMethod("getService", String::class.java).invoke(null, "power")
-            val power = Class.forName("android.os.IPowerManager\$Stub")
-                .getMethod("asInterface", android.os.IBinder::class.java).invoke(null, binder)!!
-            power to (DisplayAwake.userActivityMethod(power.javaClass) ?: error("no per-display userActivity"))
-        }.onFailure { Log.w(TAG, "display keep-awake unavailable: ${it.message}") }.getOrNull()
+        access.powerManager().also { if (it == null) Log.w(TAG, "display keep-awake unavailable") }
     }
 
     private fun pokeDisplay(displayId: Int): Boolean {
@@ -153,11 +135,7 @@ internal class VDisplayService {
     fun ownDisplay(displayId: Int): Boolean = synchronized(displays) { displayId in displays }
 
     /** 以 shell 身份写系统剪贴板：锁屏/App 后台时，App 自己写剪贴板可能被系统限制。 */
-    fun setClipText(text: String): Boolean = runCatching {
-        val cm = context.getSystemService(android.content.ClipboardManager::class.java) ?: return false
-        cm.setPrimaryClip(android.content.ClipData.newPlainText("", text))
-        true
-    }.getOrDefault(false)
+    fun setClipText(text: String): Boolean = access.setClipText(text)
 
     /**
      * 自动识别分身空间用户：shell 执行 `pm list users`，
@@ -183,7 +161,7 @@ internal class VDisplayService {
     }
 
     private fun nonCurrentUsers(): List<Pair<Int, String>> {
-        val (code, out) = sh("pm", "list", "users")
+        val (code, out) = access.exec("pm", "list", "users")
         if (code != 0) return emptyList()
         return Regex("UserInfo\\{([0-9]+):([^:}]+)").findAll(out)
             .map { it.groupValues[1].toInt() to it.groupValues[2] }
@@ -192,7 +170,7 @@ internal class VDisplayService {
     }
 
     private fun packageInstalled(packageName: String, userId: Int): Boolean {
-        val (code, out) = sh("pm", "list", "packages", "--user", userId.toString())
+        val (code, out) = access.exec("pm", "list", "packages", "--user", userId.toString())
         return code == 0 && out.lineSequence().any { it.trim().removePrefix("package:") == packageName }
     }
 
@@ -555,54 +533,20 @@ internal class VDisplayService {
         return inject(up, displayId) || inject(up, displayId)
     }
 
-    private fun inject(event: InputEvent, displayId: Int): Boolean = try {
-        val manager = runCatching {
-            Class.forName("android.hardware.input.InputManagerGlobal").getMethod("getInstance").invoke(null)
-        }.getOrNull() ?: Class.forName("android.hardware.input.InputManager")
-            .getMethod("getInstance").invoke(null)!!
-        event.javaClass.getMethod("setDisplayId", Int::class.java).invoke(event, displayId)
-        val mode = if (event is KeyEvent) INJECT_MODE_WAIT_FOR_RESULT else INJECT_MODE_ASYNC
-        manager.javaClass.getMethod("injectInputEvent", InputEvent::class.java, Int::class.java)
-            .invoke(manager, event, mode) as Boolean
-    } catch (t: Throwable) {
-        Log.w(TAG, "injectInputEvent failed", t)
-        false
-    }
+    private fun inject(event: InputEvent, displayId: Int): Boolean = access.inject(event, displayId)
 
     // ---------- 杂项 ----------
 
     @SuppressLint("PrivateApi")
     private fun setImePolicy(displayId: Int) {
         runCatching {
-            val wm = Class.forName("android.view.WindowManagerGlobal")
-                .getMethod("getWindowManagerService").invoke(null)!!
+            val wm = access.windowManager() ?: error("no WindowManager")
             wm.javaClass.getMethod("setDisplayImePolicy", Int::class.java, Int::class.java)
                 .invoke(wm, displayId, IME_POLICY_LOCAL)
         }.onFailure { Log.w(TAG, "setDisplayImePolicy failed", it) }
     }
 
-    private fun exec(vararg cmd: String): Int = sh(*cmd).first
-
-    /** 跑一条命令，返回 (退出码, 合并输出)；超时返回 -1。 */
-    private fun sh(vararg cmd: String): Pair<Int, String> {
-        val p = try {
-            ProcessBuilder(*cmd).redirectErrorStream(true).start()
-        } catch (t: Throwable) {
-            Log.w(TAG, "exec ${cmd.joinToString(" ")} failed", t)
-            return -1 to ""
-        }
-        val out = StringBuilder()
-        val reader = Thread {
-            runCatching { out.append(p.inputStream.bufferedReader().readText()) }
-        }.apply { isDaemon = true; start() }
-        if (!p.waitFor(CMD_TIMEOUT_S, TimeUnit.SECONDS)) {
-            p.destroyForcibly()
-            Log.w(TAG, "exec ${cmd.joinToString(" ")} timed out")
-            return -1 to ""
-        }
-        reader.join(1_000)
-        return p.exitValue() to out.toString()
-    }
+    private fun exec(vararg cmd: String): Int = access.exec(*cmd).first
 
     companion object {
         private const val TAG = "XpqVDisplay"

@@ -9,6 +9,7 @@ import android.view.InputDevice
 import android.view.InputEvent
 import android.view.MotionEvent
 import android.view.accessibility.AccessibilityEvent
+import com.google.android.accessibility.ext.vdisplay.ShellVDisplayAccess
 import com.google.android.accessibility.ext.vdisplay.VDisplayService
 import com.google.android.accessibility.uiautomation.util.HiddenApi
 import java.io.BufferedReader
@@ -49,7 +50,7 @@ class AutomationUserService : IAutomationUserService.Stub {
     private var registeredToken: IBinder? = null
 
     /** 虚拟屏能力（建屏 / 启动到屏 / 按屏注入）；第一次用到才初始化。 */
-    private val vdisplay by lazy { VDisplayService() }
+    private val vdisplay by lazy { VDisplayService(ShellVDisplayAccess()) }
 
     override fun createDisplay(surface: android.view.Surface?, width: Int, height: Int, dpi: Int): Int =
         if (surface == null) -1 else vdisplay.createDisplay(surface, width, height, dpi)

@@ -88,7 +88,7 @@ object XpqVDisplayTask {
         val made = XpqVDisplay.create(context)?.also { session = it }
             ?: run {
                 Log.w(TAG, "create virtual display failed")
-                lastError = "创建虚拟屏失败"
+                lastError = XpqVDisplay.lastCreateError ?: "创建虚拟屏失败"
                 return@withContext false
             }
         displayId = made.displayId

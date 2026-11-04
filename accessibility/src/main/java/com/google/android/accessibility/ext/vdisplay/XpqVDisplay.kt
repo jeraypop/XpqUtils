@@ -17,6 +17,7 @@ import android.view.Display
 import android.view.KeyEvent
 import com.google.android.accessibility.uiautomation.shizuku.AutomationShizuku
 import com.google.android.accessibility.uiautomation.shizuku.IAutomationUserService
+import com.google.android.accessibility.uiautomation.util.HiddenApi
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -43,11 +44,123 @@ import java.io.ByteArrayOutputStream
  * 读这块屏上的节点需要宿主无障碍服务处于开启状态：系统只把
  * `windowsOnAllDisplays` 暴露给真实的 AccessibilityService。
  */
+/** 虚拟屏能力的统一入口：UserService（远程）或 App 内 binder 后端（本机）。 */
+internal interface VDisplayApi {
+    fun createDisplay(surface: android.view.Surface?, width: Int, height: Int, dpi: Int): Int
+    fun releaseDisplay(displayId: Int)
+    fun startAppOnDisplay(displayId: Int, packageName: String): Int
+    fun startAppInUser(displayId: Int, packageName: String, userId: Int): Int
+    fun injectTapOnDisplay(displayId: Int, x: Float, y: Float): Boolean
+    fun injectKeyOnDisplay(displayId: Int, keyCode: Int): Boolean
+    fun injectSwipeOnDisplay(
+        displayId: Int, x1: Float, y1: Float, x2: Float, y2: Float, durationMs: Long,
+    ): Boolean
+    fun injectGesture(displayId: Int, xs: IntArray, ys: IntArray, times: LongArray): Boolean
+    fun topTaskIdOnDisplay(displayId: Int): Int
+    fun displayOfTask(taskId: Int): Int
+    fun userIdOfTask(taskId: Int): Int
+    fun packageOfTask(taskId: Int): String
+    fun endTasksOnDisplay(displayId: Int): Boolean
+    fun dualUserIdForPackage(packageName: String): Int
+    fun setClipText(text: String): Boolean
+}
+
+/** 通过 Shizuku UserService（shell 进程）执行。 */
+private class RemoteVDisplayApi(private val service: IAutomationUserService) : VDisplayApi {
+    override fun createDisplay(surface: android.view.Surface?, width: Int, height: Int, dpi: Int): Int =
+        if (surface == null) -1 else service.createDisplay(surface, width, height, dpi)
+
+    override fun releaseDisplay(displayId: Int) = service.releaseDisplay(displayId)
+    override fun startAppOnDisplay(displayId: Int, packageName: String): Int =
+        service.startAppOnDisplay(displayId, packageName)
+
+    override fun startAppInUser(displayId: Int, packageName: String, userId: Int): Int =
+        service.startAppInUser(displayId, packageName, userId)
+
+    override fun injectTapOnDisplay(displayId: Int, x: Float, y: Float): Boolean =
+        service.injectTapOnDisplay(displayId, x, y)
+
+    override fun injectKeyOnDisplay(displayId: Int, keyCode: Int): Boolean =
+        service.injectKeyOnDisplay(displayId, keyCode)
+
+    override fun injectSwipeOnDisplay(
+        displayId: Int, x1: Float, y1: Float, x2: Float, y2: Float, durationMs: Long,
+    ): Boolean = service.injectSwipeOnDisplay(displayId, x1, y1, x2, y2, durationMs)
+
+    override fun injectGesture(displayId: Int, xs: IntArray, ys: IntArray, times: LongArray): Boolean =
+        service.injectGesture(displayId, xs, ys, times)
+
+    override fun topTaskIdOnDisplay(displayId: Int): Int = service.topTaskIdOnDisplay(displayId)
+    override fun displayOfTask(taskId: Int): Int = service.displayOfTask(taskId)
+    override fun userIdOfTask(taskId: Int): Int = service.userIdOfTask(taskId)
+    override fun packageOfTask(taskId: Int): String = service.packageOfTask(taskId)
+    override fun endTasksOnDisplay(displayId: Int): Boolean = service.endTasksOnDisplay(displayId)
+    override fun dualUserIdForPackage(packageName: String): Int =
+        service.dualUserIdForPackage(packageName)
+
+    override fun setClipText(text: String): Boolean = service.setClipText(text)
+}
+
+/** 在 App 进程内用 ShizukuBinderWrapper 执行（加固导致 UserService 不可用时的兜底）。 */
+private class LocalVDisplayApi(private val service: VDisplayService) : VDisplayApi {
+    override fun createDisplay(surface: android.view.Surface?, width: Int, height: Int, dpi: Int): Int =
+        if (surface == null) -1 else service.createDisplay(surface, width, height, dpi)
+
+    override fun releaseDisplay(displayId: Int) = service.releaseDisplay(displayId)
+    override fun startAppOnDisplay(displayId: Int, packageName: String): Int =
+        service.startApp(displayId, packageName)
+
+    override fun startAppInUser(displayId: Int, packageName: String, userId: Int): Int =
+        service.startApp(displayId, packageName, userId)
+
+    override fun injectTapOnDisplay(displayId: Int, x: Float, y: Float): Boolean =
+        service.injectTap(displayId, x, y)
+
+    override fun injectKeyOnDisplay(displayId: Int, keyCode: Int): Boolean =
+        service.injectKey(displayId, keyCode)
+
+    override fun injectSwipeOnDisplay(
+        displayId: Int, x1: Float, y1: Float, x2: Float, y2: Float, durationMs: Long,
+    ): Boolean = service.injectSwipe(displayId, x1, y1, x2, y2, durationMs)
+
+    override fun injectGesture(displayId: Int, xs: IntArray, ys: IntArray, times: LongArray): Boolean =
+        service.injectGesture(displayId, xs, ys, times)
+
+    override fun topTaskIdOnDisplay(displayId: Int): Int = service.topTaskId(displayId)
+    override fun displayOfTask(taskId: Int): Int = service.displayOfTask(taskId)
+    override fun userIdOfTask(taskId: Int): Int = service.userIdOfTask(taskId)
+    override fun packageOfTask(taskId: Int): String = service.packageOfTask(taskId)
+    override fun endTasksOnDisplay(displayId: Int): Boolean = service.endTasksOnDisplay(displayId)
+    override fun dualUserIdForPackage(packageName: String): Int =
+        service.dualUserIdForPackage(packageName)
+
+    override fun setClipText(text: String): Boolean = service.setClipText(text)
+}
+
 object XpqVDisplay {
     private const val TAG = "XpqVDisplay"
 
     @Volatile
     private var service: IAutomationUserService? = null
+
+    /** 加固等导致 UserService 绑定失败后，App 进程内的 binder 后端。 */
+    @Volatile
+    private var localService: VDisplayService? = null
+
+    /** 一旦 UserService 绑定失败，本进程后续都直接用 binder 后端，避免每次任务白等超时。 */
+    @Volatile
+    private var preferBinder = false
+
+    /** 调试开关：`adb shell setprop debug.xpq.vdisplay.binder 1` 可强制 binder 后端（进程内只读一次）。 */
+    @Volatile
+    private var forcedBinder: Boolean? = null
+
+    private fun forceBinderBackend(): Boolean = forcedBinder ?: runCatching {
+        HiddenApi.ensure()
+        val sp = Class.forName("android.os.SystemProperties")
+        sp.getMethod("getBoolean", String::class.java, Boolean::class.javaPrimitiveType)
+            .invoke(null, "debug.xpq.vdisplay.binder", false) as Boolean
+    }.getOrDefault(false).also { forcedBinder = it }
 
     /** [Session.launch] / [Session.launchInUser] 的返回值。 */
     const val LAUNCH_OK = 0
@@ -67,6 +180,18 @@ object XpqVDisplay {
 
     /** 虚拟屏模式下锁屏时是否先解锁主屏（开启走剪贴板，关闭走节点输入）。 */
     fun shouldUnlock(context: Context): Boolean = VDisplaySettings.shouldUnlock(context)
+
+    /** 最近一次建屏失败的具体原因（含后端名），供宿主写入任务日志。 */
+    @Volatile
+    var lastCreateError: String? = null
+        private set
+
+    /** 当前走的是哪个后端；供日志/调试确认。 */
+    val backendName: String get() = when {
+        service != null -> "UserService"
+        localService != null -> "BinderWrapper"
+        else -> "none"
+    }
 
     /** 是否显示虚拟屏预览窗（库内设置）。 */
     fun isPreviewEnabled(context: Context): Boolean = VDisplaySettings.isPreviewEnabled(context)
@@ -110,28 +235,76 @@ object XpqVDisplay {
         dpi: Int = -1,
         timeoutMs: Long = 10_000,
     ): Session? = withContext(Dispatchers.IO) {
-        val svc = AutomationShizuku.bind(context.applicationContext, timeoutMs) ?: run {
-            Log.w(TAG, "Shizuku UserService not connected")
-            return@withContext null
+        val forced = forceBinderBackend()
+        val svc = if (preferBinder || forced) {
+            null
+        } else {
+            AutomationShizuku.bind(context.applicationContext, timeoutMs)
         }
-        service = svc
+        if (svc != null) {
+            service = svc
+        } else {
+            if (!preferBinder) {
+                preferBinder = true
+                Log.w(
+                    TAG,
+                    if (forced) "binder backend forced by debug property"
+                    else "Shizuku UserService not connected, using shell binder backend"
+                )
+            }
+        }
+        val api = apiFor(context) ?: return@withContext null
+        val firstBackend = if (service != null) "UserService" else "BinderWrapper"
         val metrics = screenMetrics(context)
         val w = width.takeIf { it > 0 } ?: metrics.widthPixels
         val h = height.takeIf { it > 0 } ?: metrics.heightPixels
         val d = dpi.takeIf { it > 0 } ?: metrics.densityDpi
-        runCatching { Session(svc, w, h, d) }
-            .onFailure { Log.e(TAG, "create virtual display failed", it) }
-            .getOrNull()
+        var session = createSession(api, w, h, d, firstBackend)
+        if (session == null && service != null) {
+            // UserService 绑上了但实际建屏失败（进程半死/权限异常）：再试一次 binder 后端
+            Log.w(TAG, "UserService backend failed, retrying with shell binder backend")
+            service = null
+            preferBinder = true
+            val fallback = apiFor(context)
+            if (fallback != null) session = createSession(fallback, w, h, d, "BinderWrapper")
+        }
+        session
     }
 
+    private fun createSession(
+        api: VDisplayApi,
+        width: Int,
+        height: Int,
+        dpi: Int,
+        backend: String,
+    ): Session? = runCatching { Session(api, width, height, dpi) }
+        .onSuccess { lastCreateError = null }
+        .onFailure {
+            lastCreateError = "$backend 后端建屏失败：${it.javaClass.simpleName}: ${it.message}"
+            Log.e(TAG, "create virtual display failed ($backend)", it)
+        }
+        .getOrNull()
+
+    /** 取当前可用的执行后端；UserService 优先，没有则初始化 App 内 binder 后端。 */
+    private fun apiFor(context: Context): VDisplayApi? {
+        service?.let { return RemoteVDisplayApi(it) }
+        val local = localService ?: runCatching {
+            VDisplayService(ShizukuVDisplayAccess(context.applicationContext)).also { localService = it }
+        }.onFailure { Log.w(TAG, "binder backend init failed", it) }.getOrNull() ?: return null
+        return LocalVDisplayApi(local)
+    }
+
+    private fun apiOrNull(): VDisplayApi? =
+        service?.let { RemoteVDisplayApi(it) } ?: localService?.let { LocalVDisplayApi(it) }
+
     internal fun injectBack(displayId: Int): Boolean =
-        service?.injectKeyOnDisplay(displayId, KeyEvent.KEYCODE_BACK) ?: false
+        apiOrNull()?.injectKeyOnDisplay(displayId, KeyEvent.KEYCODE_BACK) ?: false
 
     internal fun injectKey(displayId: Int, keyCode: Int): Boolean =
-        service?.injectKeyOnDisplay(displayId, keyCode) ?: false
+        apiOrNull()?.injectKeyOnDisplay(displayId, keyCode) ?: false
 
     internal fun injectTap(displayId: Int, x: Int, y: Int): Boolean =
-        service?.injectTapOnDisplay(displayId, x.toFloat(), y.toFloat()) ?: false
+        apiOrNull()?.injectTapOnDisplay(displayId, x.toFloat(), y.toFloat()) ?: false
 
     /**
      * 自动识别的分身空间用户 ID；没有分身返回 0（机主）。
@@ -140,30 +313,49 @@ object XpqVDisplay {
     @JvmOverloads
     fun dualUserId(packageName: String? = null): Int = service?.let {
         if (packageName.isNullOrEmpty()) it.dualUserId() else it.dualUserIdForPackage(packageName)
+    } ?: localService?.let {
+        if (packageName.isNullOrEmpty()) it.dualUserId() else it.dualUserIdForPackage(packageName)
     } ?: 0
 
     /**
-     * 自动识别分身空间用户 ID（挂起版）：先确保 Shizuku UserService 已绑定。
+     * 自动识别分身空间用户 ID（挂起版）：先确保 Shizuku UserService 已绑定；
+     * 加固导致 UserService 不可用时改用 App 内 binder 后端，不再把主版本当成分身版。
      *
-     * 同步版在进程刚启动、UserService 还没连上时会返回 0，宿主可能因此把主版本当成分身版；
      * 宿主在任务开始前判断「启动主应用还是分身版」时应使用这个版本。
      */
     suspend fun dualUserId(context: Context, packageName: String? = null): Int =
         withContext(Dispatchers.IO) {
-            val svc = service ?: run {
-                val bound = AutomationShizuku.bind(context.applicationContext, 10_000)
-                if (bound != null) service = bound
-                bound
-            } ?: return@withContext 0
-            if (packageName.isNullOrEmpty()) svc.dualUserId() else svc.dualUserIdForPackage(packageName)
+            val svc = if (preferBinder || forceBinderBackend()) null else service ?: run {
+                AutomationShizuku.bind(context.applicationContext, 10_000)?.also { service = it }
+            }
+            if (svc != null) {
+                val id = runCatching {
+                    if (packageName.isNullOrEmpty()) svc.dualUserId()
+                    else svc.dualUserIdForPackage(packageName)
+                }
+                if (id.isSuccess) return@withContext id.getOrThrow()
+                // UserService 半死：丢掉它，本次改走 binder 后端
+                Log.w(TAG, "dual-user query via UserService failed, falling back", id.exceptionOrNull())
+                service = null
+                preferBinder = true
+            }
+            if (!preferBinder) {
+                preferBinder = true
+                Log.w(TAG, "UserService unavailable, dual-user detection via shell binder backend")
+            }
+            val local = localService ?: runCatching {
+                VDisplayService(ShizukuVDisplayAccess(context.applicationContext)).also { localService = it }
+            }.onFailure { Log.w(TAG, "binder backend init failed", it) }.getOrNull()
+                ?: return@withContext 0
+            if (packageName.isNullOrEmpty()) local.dualUserId() else local.dualUserIdForPackage(packageName)
         }
 
-    /** 以 shell 身份写系统剪贴板。 */
-    internal fun setClipText(text: String): Boolean = service?.setClipText(text) ?: false
+    /** 以 shell 身份写系统剪贴板；binder 后端不支持时返回 false（调用方改走节点输入）。 */
+    internal fun setClipText(text: String): Boolean = apiOrNull()?.setClipText(text) ?: false
 
     /** 按时间逐点注入虚拟屏上的一笔（GestureDescription 转成的轨迹）。 */
     internal fun injectGesture(displayId: Int, xs: IntArray, ys: IntArray, times: LongArray): Boolean =
-        service?.injectGesture(displayId, xs, ys, times) ?: false
+        apiOrNull()?.injectGesture(displayId, xs, ys, times) ?: false
 
     private fun screenMetrics(context: Context): DisplayMetrics {
         val dm = context.getSystemService(DisplayManager::class.java)
@@ -179,7 +371,7 @@ object XpqVDisplay {
 
     /** 一块已经建好的虚拟屏及其画面流。 */
     class Session internal constructor(
-        private val service: IAutomationUserService,
+        private val api: VDisplayApi,
         val width: Int,
         val height: Int,
         dpi: Int,
@@ -214,7 +406,7 @@ object XpqVDisplay {
         init {
             reader.setOnImageAvailableListener({ schedule() }, handler)
             val id = try {
-                service.createDisplay(reader.surface, width, height, dpi)
+                api.createDisplay(reader.surface, width, height, dpi)
             } catch (t: Throwable) {
                 closeLocal()
                 throw t
@@ -275,38 +467,38 @@ object XpqVDisplay {
         }
 
         /** 把 [packageName] 启动到这块屏。0=成功，1=主屏正在用，2=无入口，3=出错。 */
-        fun launch(packageName: String): Int = service.startAppOnDisplay(displayId, packageName)
+        fun launch(packageName: String): Int = api.startAppOnDisplay(displayId, packageName)
 
         /** 在 [userId] 那份用户（分身空间）里启动 [packageName] 到这块屏。 */
         fun launchInUser(packageName: String, userId: Int): Int =
-            service.startAppInUser(displayId, packageName, userId)
+            api.startAppInUser(displayId, packageName, userId)
 
-        fun tap(x: Int, y: Int): Boolean = service.injectTapOnDisplay(displayId, x.toFloat(), y.toFloat())
+        fun tap(x: Int, y: Int): Boolean = api.injectTapOnDisplay(displayId, x.toFloat(), y.toFloat())
 
-        fun key(keyCode: Int): Boolean = service.injectKeyOnDisplay(displayId, keyCode)
+        fun key(keyCode: Int): Boolean = api.injectKeyOnDisplay(displayId, keyCode)
 
         fun back(): Boolean = key(KeyEvent.KEYCODE_BACK)
 
         fun swipe(x1: Int, y1: Int, x2: Int, y2: Int, durationMs: Long = 300): Boolean =
-            service.injectSwipeOnDisplay(displayId, x1.toFloat(), y1.toFloat(), x2.toFloat(), y2.toFloat(), durationMs)
+            api.injectSwipeOnDisplay(displayId, x1.toFloat(), y1.toFloat(), x2.toFloat(), y2.toFloat(), durationMs)
 
-        fun topTaskId(): Int = service.topTaskIdOnDisplay(displayId)
+        fun topTaskId(): Int = api.topTaskIdOnDisplay(displayId)
 
-        fun displayOfTask(taskId: Int): Int = service.displayOfTask(taskId)
+        fun displayOfTask(taskId: Int): Int = api.displayOfTask(taskId)
 
         /** 任务所属用户；查不到为 -1。 */
-        fun userIdOfTask(taskId: Int): Int = service.userIdOfTask(taskId)
+        fun userIdOfTask(taskId: Int): Int = api.userIdOfTask(taskId)
 
         /** 任务所属包名；查不到为空串。 */
-        fun packageOfTask(taskId: Int): String = service.packageOfTask(taskId)
+        fun packageOfTask(taskId: Int): String = api.packageOfTask(taskId)
 
         /** 结束这块屏上的所有任务（先于 [release]，避免任务被系统挪回主屏）。 */
-        fun endTasks(): Boolean = service.endTasksOnDisplay(displayId)
+        fun endTasks(): Boolean = api.endTasksOnDisplay(displayId)
 
         fun release() {
             if (released) return
             released = true
-            runCatching { service.releaseDisplay(displayId) }
+            runCatching { api.releaseDisplay(displayId) }
             closeLocal()
             _frames.value = null
         }
