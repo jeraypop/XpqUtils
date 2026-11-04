@@ -201,8 +201,11 @@ internal class ShizukuVDisplayAccess(private val appContext: Context) : VDisplay
             ?: error("no DisplayManager")
     }
 
+    /** IActivityTaskManager 是独立服务 `activity_task`；用 `activity` 会因为描述符不符被拒。 */
     override fun activityTaskManager(): Any? =
-        VDisplayAccess.serviceInterface("activity", "android.app.IActivityTaskManager\$Stub", wrap = true)
+        VDisplayAccess.serviceInterface(
+            "activity_task", "android.app.IActivityTaskManager\$Stub", wrap = true
+        )
 
     override fun launcherApps(): Any? =
         VDisplayAccess.serviceInterface("launcherapps", "android.content.pm.ILauncherApps\$Stub", wrap = true)
