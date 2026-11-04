@@ -26,11 +26,11 @@ object VDisplaySettings {
 
     fun isEnabled(context: Context): Boolean =
         context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
-            .getBoolean(KEY_ENABLED, true)
+            .getBoolean(KEY_ENABLED, false)
 
     fun shouldUnlock(context: Context): Boolean =
         context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
-            .getBoolean(KEY_UNLOCK, false)
+            .getBoolean(KEY_UNLOCK, true)
 
     fun isPreviewEnabled(context: Context): Boolean =
         context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
@@ -110,17 +110,17 @@ object VDisplaySettings {
             setPadding(0, 0, 0, (12 * dp).toInt())
         })
 
-        val enabledSwitch = Switch(context).apply { isChecked = prefs.getBoolean(KEY_ENABLED, true) }
+        val enabledSwitch = Switch(context).apply { isChecked = prefs.getBoolean(KEY_ENABLED, false) }
         val unlockSwitch = Switch(context).apply {
-            isChecked = prefs.getBoolean(KEY_UNLOCK, false)
+            isChecked = prefs.getBoolean(KEY_UNLOCK, true)
             isEnabled = enabledSwitch.isChecked
         }
         val previewSwitch = Switch(context).apply {
             isChecked = prefs.getBoolean(KEY_PREVIEW, true)
             isEnabled = enabledSwitch.isChecked
         }
-        val unlockSubtitle = subtitle(context, unlockText(prefs.getBoolean(KEY_UNLOCK, false)))
-        val enabledSubtitle = subtitle(context, enabledText(prefs.getBoolean(KEY_ENABLED, true)))
+        val unlockSubtitle = subtitle(context, unlockText(prefs.getBoolean(KEY_UNLOCK, true)))
+        val enabledSubtitle = subtitle(context, enabledText(prefs.getBoolean(KEY_ENABLED, false)))
         val previewSubtitle = subtitle(context, previewText(prefs.getBoolean(KEY_PREVIEW, true)))
 
         // 第 4 个开关：由宿主决定是否需要（不需要时启动主应用还是分身版由宿主自己判断）
