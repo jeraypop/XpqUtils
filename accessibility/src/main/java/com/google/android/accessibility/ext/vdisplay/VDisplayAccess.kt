@@ -201,11 +201,21 @@ internal class ShizukuVDisplayAccess(private val appContext: Context) : VDisplay
             ?: error("no DisplayManager")
     }
 
-    /** IActivityTaskManager 是独立服务 `activity_task`；用 `activity` 会因为描述符不符被拒。 */
-    override fun activityTaskManager(): Any? =
-        VDisplayAccess.serviceInterface(
-            "activity_task", "android.app.IActivityTaskManager\$Stub", wrap = true
-        )
+    /**
+     * IActivityTaskManager 用框架自己的 `ActivityTaskManager.getService()` 拿 binder 再包 shell 身份：
+     * 直接 `ServiceManager.getService("activity_task")` 在部分 ROM 上拿到的是 AMS 的 binder，
+     * 交易会被 `IActivityManager$Stub.onTransact` 按错误的接口描述符拒绝。
+     */
+    override fun activityTaskManager(): Any? = runCatching {
+        HiddenApi.ensure()
+        val proxy = Class.forName("android.app.ActivityTaskManager").getMethod("getService").invoke(null)
+            ?: error("no ActivityTaskManager")
+        val binder = proxy.javaClass.getMethod("asBinder").invoke(proxy) as IBinder
+        Log.i(VDisplayAccess.TAG, "task manager binder: ${binder.interfaceDescriptor}")
+        val wrapped = ShizukuBinderWrapper(binder)
+        Class.forName("android.app.IActivityTaskManager\$Stub")
+            .getMethod("asInterface", IBinder::class.java).invoke(null, wrapped)
+    }.onFailure { Log.w(VDisplayAccess.TAG, "ActivityTaskManager unavailable", it) }.getOrNull()
 
     override fun launcherApps(): Any? =
         VDisplayAccess.serviceInterface("launcherapps", "android.content.pm.ILauncherApps\$Stub", wrap = true)
