@@ -248,13 +248,27 @@ internal class VDisplayService {
 
         fun viaShellCommand(): Boolean {
             val c = component?.flattenToShortString() ?: return false
-            if (exec("am", "start", "--display", "$displayId", "--user", "$userId", "-n", c) != 0) return false
+            // --activity-clear-top：已有任务时清掉 LauncherUI 上面的聊天页，回到首页
+            val code = exec("am", "start", "--display", "$displayId", "--user", "$userId",
+                "--activity-clear-top", "-n", c)
+            if (code != 0) return false
             return waitTaskOnDisplay(displayId, packageName, userId) ?: true
         }
 
-        // 桌面路径：有的 ROM（如 ZUI 分身空间）在程序化启动多用户里都装的 App 时会弹
-        // 「用哪一个打开」，桌面点击图标这条路不弹。先走它，再回退 ActivityManager / am start。
-        if (viaLauncher() || viaTaskManager() || viaShellCommand()) return START_OK
+        val existingOnDisplay = runCatching {
+            tasksOn(displayId).any { packageName in packagesOf(it) && taskUser(it) == userId }
+        }.getOrDefault(false)
+
+        // 已经在这块屏上有任务时，桌面路径（ILauncherApps）只会把任务带到前台、不会执行 CLEAR_TOP，
+        // 微信会停在聊天页而不是首页；这时优先用带 CLEAR_TOP 的启动方式重新拉回首页。
+        if (existingOnDisplay) {
+            // am start 显式带 --activity-clear-top，最可靠地把已有任务拉回首页
+            if (viaShellCommand() || viaTaskManager() || viaLauncher()) return START_OK
+        } else {
+            // 桌面路径：有的 ROM（如 ZUI 分身空间）在程序化启动多用户里都装的 App 时会弹
+            // 「用哪一个打开」，桌面点击图标这条路不弹。先走它，再回退 ActivityManager / am start。
+            if (viaLauncher() || viaTaskManager() || viaShellCommand()) return START_OK
+        }
         Log.w(TAG, "launch($packageName, user $userId) did not create that user's task on display $displayId")
         START_USER_MISMATCH
     }
