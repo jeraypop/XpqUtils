@@ -142,6 +142,22 @@ object XpqVDisplay {
         if (packageName.isNullOrEmpty()) it.dualUserId() else it.dualUserIdForPackage(packageName)
     } ?: 0
 
+    /**
+     * 自动识别分身空间用户 ID（挂起版）：先确保 Shizuku UserService 已绑定。
+     *
+     * 同步版在进程刚启动、UserService 还没连上时会返回 0，宿主可能因此把主版本当成分身版；
+     * 宿主在任务开始前判断「启动主应用还是分身版」时应使用这个版本。
+     */
+    suspend fun dualUserId(context: Context, packageName: String? = null): Int =
+        withContext(Dispatchers.IO) {
+            val svc = service ?: run {
+                val bound = AutomationShizuku.bind(context.applicationContext, 10_000)
+                if (bound != null) service = bound
+                bound
+            } ?: return@withContext 0
+            if (packageName.isNullOrEmpty()) svc.dualUserId() else svc.dualUserIdForPackage(packageName)
+        }
+
     /** 以 shell 身份写系统剪贴板。 */
     internal fun setClipText(text: String): Boolean = service?.setClipText(text) ?: false
 
