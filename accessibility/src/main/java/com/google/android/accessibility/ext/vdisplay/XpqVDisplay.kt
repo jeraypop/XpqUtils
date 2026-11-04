@@ -103,8 +103,13 @@ private class RemoteVDisplayApi(private val service: IAutomationUserService) : V
 
 /** 在 App 进程内用 ShizukuBinderWrapper 执行（加固导致 UserService 不可用时的兜底）。 */
 private class LocalVDisplayApi(private val service: VDisplayService) : VDisplayApi {
-    override fun createDisplay(surface: android.view.Surface?, width: Int, height: Int, dpi: Int): Int =
-        if (surface == null) -1 else service.createDisplay(surface, width, height, dpi)
+    override fun createDisplay(surface: android.view.Surface?, width: Int, height: Int, dpi: Int): Int {
+        if (surface == null) return -1
+        val id = service.createDisplay(surface, width, height, dpi)
+        // 把真实失败原因带出去：加固包的 Log 会被清掉，只能靠任务日志
+        if (id < 0) throw IllegalStateException("createDisplay failed: ${service.lastFailure ?: "unknown"}")
+        return id
+    }
 
     override fun releaseDisplay(displayId: Int) = service.releaseDisplay(displayId)
     override fun startAppOnDisplay(displayId: Int, packageName: String): Int =

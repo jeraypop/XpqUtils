@@ -4,6 +4,7 @@ import android.annotation.SuppressLint
 import android.content.ClipData
 import android.content.ClipboardManager
 import android.content.Context
+import android.content.ContextWrapper
 import android.hardware.display.DisplayManager
 import android.os.IBinder
 import android.os.IInterface
@@ -178,9 +179,25 @@ internal class ShizukuVDisplayAccess(private val appContext: Context) : VDisplay
 
     override val myUser: Int = android.os.Process.myUid() / VDisplayAccess.PER_USER_RANGE
 
+    /**
+     * 建屏上下文伪装成 shell 包名：
+     * binder 以 shell(uid 2000) 身份 transact，系统会核对「packageName 属于调用方 uid」，
+     * 用 App 自己的包名会抛 `packageName must match the calling uid` 而建屏失败。
+     */
+    private val shellPackageContext: Context by lazy {
+        object : ContextWrapper(appContext) {
+            override fun getPackageName(): String = ShellContext.SHELL_PACKAGE
+            override fun getOpPackageName(): String = ShellContext.SHELL_PACKAGE
+            override fun getApplicationContext(): Context = this
+        }
+    }
+
     override val displayManager: DisplayManager by lazy {
         patchDisplayManagerGlobal()
-        appContext.getSystemService(DisplayManager::class.java)
+        HiddenApi.ensure()
+        // 不能用 appContext.getSystemService：那样拿到的 DisplayManager 绑的是 App 包名
+        DisplayManager::class.java.getDeclaredConstructor(Context::class.java)
+            .apply { isAccessible = true }.newInstance(shellPackageContext)
             ?: error("no DisplayManager")
     }
 

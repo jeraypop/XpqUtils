@@ -54,12 +54,18 @@ internal class VDisplayService(private val access: VDisplayAccess) {
 
     // ---------- 建屏 ----------
 
+    /** 最近一次建屏失败的「异常类型 + 原因」，供 binder 后端把真实原因带到任务日志里。 */
+    @Volatile
+    var lastFailure: String? = null
+        private set
+
     fun createDisplay(surface: Surface, width: Int, height: Int, dpi: Int): Int = try {
         // 宿主重启/重建屏时先清掉上一块：旧屏上的前台窗口（如分身选择器）不会跟着新任务残留
         releaseAll()
         createVirtualDisplay(surface, width, height, dpi, trusted = true)
     } catch (t: Throwable) {
         if (t !is SecurityException) {
+            lastFailure = "${t.javaClass.simpleName}: ${t.message}"
             Log.e(TAG, "createDisplay failed", t)
             -1
         } else {
@@ -68,6 +74,7 @@ internal class VDisplayService(private val access: VDisplayAccess) {
             try {
                 createVirtualDisplay(surface, width, height, dpi, trusted = false)
             } catch (t2: Throwable) {
+                lastFailure = "${t2.javaClass.simpleName}: ${t2.message}"
                 Log.e(TAG, "createDisplay failed", t2)
                 -1
             }
@@ -84,6 +91,7 @@ internal class VDisplayService(private val access: VDisplayAccess) {
         setImePolicy(id)
         if (DisplayAwake.needed(flags, FLAG_OWN_DISPLAY_GROUP, displayGroup(id))) awake.start(id)
         Log.i(TAG, "virtual display $id created ${width}x${height}@$dpi trusted=$trusted flags=$flags")
+        lastFailure = null
         return id
     }
 
