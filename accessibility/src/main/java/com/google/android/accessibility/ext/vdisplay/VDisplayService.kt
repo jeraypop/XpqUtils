@@ -121,14 +121,31 @@ internal class VDisplayService(private val access: VDisplayAccess) {
         access.powerManager().also { if (it == null) Log.w(TAG, "display keep-awake unavailable") }
     }
 
+    @Volatile
+    private var pokeFailureLogged = false
+
+    @Volatile
+    private var pokeSuccessLogged = false
+
+    /**
+     * 替虚拟屏报一次用户操作。新屏的电源组还没注册完时系统会抛 NPE，这类失败是瞬时的：
+     * 继续按周期重试，只有整组接口都拿不到时才放弃（返回 false 会让 [DisplayAwake] 停止保活）。
+     */
     private fun pokeDisplay(displayId: Int): Boolean {
         val (power, method) = userActivity ?: return false
         return try {
             method.invoke(power, displayId, SystemClock.uptimeMillis(), DisplayAwake.EVENT_TOUCH, 0)
+            if (!pokeSuccessLogged) {
+                pokeSuccessLogged = true
+                Log.i(TAG, "display keep-awake active")
+            }
             true
         } catch (t: Throwable) {
-            Log.w(TAG, "userActivity failed, display keep-awake off", t)
-            false
+            if (!pokeFailureLogged) {
+                pokeFailureLogged = true
+                Log.w(TAG, "userActivity failed, will retry", t)
+            }
+            true
         }
     }
 
