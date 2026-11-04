@@ -83,12 +83,9 @@ object XpqVDisplayTask {
             withContext(Dispatchers.IO) { runCatching { XpqAcc.connect() } }
                 .onFailure { Log.w(TAG, "XpqAcc.connect failed", it) }
         }
-        // 目标用户变了（例如主版本 ↔ 分身版）：释放旧屏，避免复用另一个版本残留的任务
-        if (session != null && userId != targetUserId) {
-            Log.i(TAG, "target user changed ($userId -> $targetUserId), releasing old display")
-            release()
-        }
-        val made = session ?: XpqVDisplay.create(context)?.also { session = it }
+        // 每次任务都用全新副屏：先结束旧屏上的任务，再释放，避免残留、错版本或停在非首页
+        release()
+        val made = XpqVDisplay.create(context)?.also { session = it }
             ?: run {
                 Log.w(TAG, "create virtual display failed")
                 lastError = "创建虚拟屏失败"
@@ -140,11 +137,19 @@ object XpqVDisplayTask {
         XpqAcc.clearDisplay()
     }
 
-    /** 释放虚拟屏并隐藏预览（切换回主屏或退出自动化时调用）。 */
+    /**
+     * 释放虚拟屏并隐藏预览。释放前先结束屏上的任务：
+     * 直接释放的话，系统可能把任务挪回主屏，突然弹在用户正在用的屏幕上。
+     */
     fun release() {
         restore()
         XpqVDisplayPreview.hide()
-        session?.release()
+        session?.let { s ->
+            if (!runCatching { s.endTasks() }.getOrDefault(false)) {
+                Log.w(TAG, "tasks may remain on released display")
+            }
+            s.release()
+        }
         session = null
         displayId = -1
         userId = 0

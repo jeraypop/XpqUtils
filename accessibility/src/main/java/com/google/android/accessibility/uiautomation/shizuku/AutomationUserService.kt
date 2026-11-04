@@ -97,6 +97,8 @@ class AutomationUserService : IAutomationUserService.Stub {
 
     override fun packageOfTask(taskId: Int): String = vdisplay.packageOfTask(taskId)
 
+    override fun endTasksOnDisplay(displayId: Int): Boolean = vdisplay.endTasksOnDisplay(displayId)
+
     override fun injectGesture(displayId: Int, xs: IntArray?, ys: IntArray?, times: LongArray?): Boolean {
         if (xs == null || ys == null || times == null) return false
         return vdisplay.injectGesture(displayId, xs, ys, times)

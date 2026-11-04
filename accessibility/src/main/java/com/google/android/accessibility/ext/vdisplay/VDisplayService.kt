@@ -255,22 +255,54 @@ internal class VDisplayService {
             return waitTaskOnDisplay(displayId, packageName, userId) ?: true
         }
 
-        val existingOnDisplay = runCatching {
-            tasksOn(displayId).any { packageName in packagesOf(it) && taskUser(it) == userId }
-        }.getOrDefault(false)
-
-        // 已经在这块屏上有任务时，桌面路径（ILauncherApps）只会把任务带到前台、不会执行 CLEAR_TOP，
-        // 微信会停在聊天页而不是首页；这时优先用带 CLEAR_TOP 的启动方式重新拉回首页。
-        if (existingOnDisplay) {
-            // am start 显式带 --activity-clear-top，最可靠地把已有任务拉回首页
-            if (viaShellCommand() || viaTaskManager() || viaLauncher()) return START_OK
-        } else {
-            // 桌面路径：有的 ROM（如 ZUI 分身空间）在程序化启动多用户里都装的 App 时会弹
-            // 「用哪一个打开」，桌面点击图标这条路不弹。先走它，再回退 ActivityManager / am start。
-            if (viaLauncher() || viaTaskManager() || viaShellCommand()) return START_OK
-        }
+        // 桌面路径：有的 ROM（如 ZUI 分身空间）在程序化启动多用户里都装的 App 时会弹
+        // 「用哪一个打开」，桌面点击图标这条路不弹。先走它，再回退 ActivityManager / am start。
+        if (viaLauncher() || viaTaskManager() || viaShellCommand()) return START_OK
         Log.w(TAG, "launch($packageName, user $userId) did not create that user's task on display $displayId")
         START_USER_MISMATCH
+    }
+
+    /** 结束这块屏上的所有任务（任意用户），等它们真的消失；用于释放旧屏前清场。 */
+    fun endTasksOnDisplay(displayId: Int): Boolean {
+        if (!ownDisplay(displayId)) return false
+        val ids = taskIdsOnDisplay(displayId)
+        if (ids.isEmpty()) return true
+        ids.forEach(::removeTaskBinder)
+        if (awaitNoTasks(displayId)) return true
+        taskIdsOnDisplay(displayId).forEach {
+            exec("am", "task", "remove", it.toString())
+        }
+        return awaitNoTasks(displayId)
+    }
+
+    @SuppressLint("PrivateApi")
+    private fun taskIdsOnDisplay(displayId: Int): List<Int> = try {
+        val idField = TASK_INFO.getField("taskId")
+        tasksOn(displayId).mapNotNull { runCatching { idField.getInt(it) }.getOrNull() }
+    } catch (t: Throwable) {
+        Log.w(TAG, "taskIdsOnDisplay failed", t)
+        emptyList()
+    }
+
+    private fun awaitNoTasks(displayId: Int): Boolean {
+        repeat(10) { attempt ->
+            if (taskIdsOnDisplay(displayId).isEmpty()) return true
+            if (attempt < 9) SystemClock.sleep(100)
+        }
+        return false
+    }
+
+    @SuppressLint("PrivateApi")
+    private fun removeTaskBinder(taskId: Int) {
+        try {
+            val m = taskManager.javaClass.methods.firstOrNull {
+                it.name == "removeTask" && it.parameterTypes.size == 1 &&
+                    it.parameterTypes[0] == Int::class.javaPrimitiveType
+            } ?: return
+            m.invoke(taskManager, taskId)
+        } catch (t: Throwable) {
+            Log.w(TAG, "removeTask($taskId) failed", t)
+        }
     }
 
     /**

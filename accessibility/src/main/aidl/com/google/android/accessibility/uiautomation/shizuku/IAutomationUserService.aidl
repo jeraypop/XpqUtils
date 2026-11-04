@@ -51,6 +51,8 @@ interface IAutomationUserService {
     int userIdOfTask(int taskId) = 19;
     // 任务所属包名；查不到返回空串
     String packageOfTask(int taskId) = 20;
+    // 结束这块虚拟屏上的所有任务（先于 releaseDisplay，避免任务被系统挪回主屏）；全部结束返回 true
+    boolean endTasksOnDisplay(int displayId) = 21;
     // 以 shell 身份写系统剪贴板（锁屏/后台下 App 自己写剪贴板可能受限）；成功返回 true
     boolean setClipText(String text) = 17;
 

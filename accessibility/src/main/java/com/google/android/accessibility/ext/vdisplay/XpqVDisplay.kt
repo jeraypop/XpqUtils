@@ -284,6 +284,9 @@ object XpqVDisplay {
         /** 任务所属包名；查不到为空串。 */
         fun packageOfTask(taskId: Int): String = service.packageOfTask(taskId)
 
+        /** 结束这块屏上的所有任务（先于 [release]，避免任务被系统挪回主屏）。 */
+        fun endTasks(): Boolean = service.endTasksOnDisplay(displayId)
+
         fun release() {
             if (released) return
             released = true
