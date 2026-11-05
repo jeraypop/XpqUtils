@@ -229,11 +229,16 @@ internal class ShizukuVDisplayAccess(private val appContext: Context) : VDisplay
     override fun windowManager(): Any? =
         VDisplayAccess.serviceInterface("window", "android.view.IWindowManager\$Stub", wrap = true)
 
-    override fun inject(event: InputEvent, displayId: Int): Boolean = try {
-        VDisplayAccess.attachDisplay(event, displayId)
-        val manager = VDisplayAccess.serviceInterface(
+    /** 复用 IInputManager：一笔手势要注入几十个点，每次重查服务会明显拖慢注入节奏。 */
+    private val inputManager: Any? by lazy {
+        VDisplayAccess.serviceInterface(
             "input", "android.hardware.input.IInputManager\$Stub", wrap = true
-        ) ?: return false
+        )
+    }
+
+    /** 复用 IInputManager 及其注入方法：一笔手势要注入几十个点，每次重查/重选方法会拖慢注入节奏。 */
+    private val injectApi: Pair<Any, Method>? by lazy {
+        val manager = inputManager ?: return@lazy null
         val candidates = manager.javaClass.methods.filter {
             it.name == "injectInputEvent" && it.parameterTypes.isNotEmpty() &&
                 it.parameterTypes[0] == InputEvent::class.java
@@ -241,7 +246,13 @@ internal class ShizukuVDisplayAccess(private val appContext: Context) : VDisplay
         val method = candidates.firstOrNull { it.parameterTypes.size == 2 }
             ?: candidates.firstOrNull { it.parameterTypes.size == 3 && it.parameterTypes[2].isPrimitive }
             ?: candidates.minByOrNull { it.parameterTypes.size }
-            ?: return false
+            ?: return@lazy null
+        manager to method
+    }
+
+    override fun inject(event: InputEvent, displayId: Int): Boolean = try {
+        VDisplayAccess.attachDisplay(event, displayId)
+        val (manager, method) = injectApi ?: return false
         val args = arrayOfNulls<Any>(method.parameterTypes.size)
         args[0] = event
         if (method.parameterTypes.size > 1 && method.parameterTypes[1].isPrimitive) {

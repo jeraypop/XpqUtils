@@ -538,19 +538,34 @@ internal class VDisplayService(private val access: VDisplayAccess) {
                 0, 0, 1f, 1f, 0, 0, InputDevice.SOURCE_TOUCHSCREEN, 0,
             )
         }
-        fun send(i: Int, action: Int): Boolean {
-            val wait = down + times[i] - SystemClock.uptimeMillis()
+        /**
+         * [extraDelay] 是整笔滑动相对原始时间轴的额外前置延迟。
+         * 注意必须把它加在**等待目标**上，而不是发完 DOWN 后单独 sleep：
+         * 否则后续各点的等待会变成负数，整笔滑动被瞬间灌进去，容易被当成点击。
+         */
+        fun send(i: Int, action: Int, extraDelay: Long = 0L): Boolean {
+            val wait = down + extraDelay + times[i] - SystemClock.uptimeMillis()
             if (wait > 0) SystemClock.sleep(wait)
             val e = event(i, action)
-            return try { inject(e, displayId) } finally { e.recycle() }
+            return try {
+                // 单点注入偶发被系统丢弃（尤其异步模式）：失败立刻补发一次
+                inject(e, displayId) || inject(e, displayId)
+            } finally {
+                e.recycle()
+            }
         }
         if (!send(0, MotionEvent.ACTION_DOWN)) {
             return exec("input", "-d", "$displayId", "swipe",
                 "${xs[0]}", "${ys[0]}", "${xs[n - 1]}", "${ys[n - 1]}", "${times.last()}") == 0
         }
-        for (i in 1 until n - 1) send(i, MotionEvent.ACTION_MOVE)
-        send(n - 1, MotionEvent.ACTION_UP)
-        return true
+        // DOWN 之后先停一拍再开始 MOVE：让窗口进入拖拽状态，同时保持各点之间原有的时间间隔
+        var moved = true
+        for (i in 1 until n - 1) {
+            if (!send(i, MotionEvent.ACTION_MOVE, FIRST_MOVE_HOLD_MS)) moved = false
+        }
+        val upOk = send(n - 1, MotionEvent.ACTION_UP, FIRST_MOVE_HOLD_MS)
+        // UP 没发出去时界面会停在「按下去」的状态，必须让调用方知道这次手势不算成功
+        return upOk && moved
     }
 
     private inline fun injectPair(down: InputEvent, up: InputEvent, displayId: Int, fallback: () -> Boolean): Boolean {
@@ -578,6 +593,7 @@ internal class VDisplayService(private val access: VDisplayAccess) {
         private const val DISPLAY_NAME = "xpq-agent"
         private const val MAX_TASKS = 100
         private const val TAP_MS = 50L
+        private const val FIRST_MOVE_HOLD_MS = 40L
         private const val SWIPE_POINTS = 12
         private const val CMD_TIMEOUT_S = 10L
         private const val PER_USER_RANGE = 100_000
