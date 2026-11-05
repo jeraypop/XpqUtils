@@ -12,7 +12,6 @@ import android.view.ViewGroup
 import android.view.WindowManager
 import android.widget.FrameLayout
 import android.widget.ImageView
-import android.widget.TextView
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
@@ -25,10 +24,11 @@ import kotlin.math.min
  * 虚拟屏画面的悬浮预览窗：任务运行时在主屏右上角显示副屏实时画面。
  *
  * - 按住画面拖动可移动位置；
- * - 拖动右下角「⤡」：往右下整体放大，往左上整体缩小；
+ * - 拖动右下角缩放图标：往右下整体放大，往左上整体缩小；
  *   只横向或只纵向拖动时，只改变对应方向的尺寸；
- * - 右上角「×」随时关闭。
+ * - 右上角关闭图标随时关闭。
  *
+ * 关闭/缩放按钮的图标、尺寸、内边距与库内日志悬浮窗（assists_window_layout_wrapper_xpq）一致。
  * 位置和大小会保存，下次继续使用。窗口可触摸但不会抢焦点。
  */
 object XpqVDisplayPreview {
@@ -43,25 +43,39 @@ object XpqVDisplayPreview {
     private const val DEFAULT_HEIGHT = 576
     private const val MIN_WIDTH = 180
     private const val MIN_HEIGHT = 180
-    private const val CLOSE_SIZE = 84
-    private const val HANDLE_SIZE = 96
+    // 与日志悬浮窗（assists_window_layout_wrapper_xpq）一致：40dp 图标按钮 + 图标内边距
+    private const val BUTTON_SIZE_DP = 40
+    private const val CLOSE_PADDING_DP = 12
+    private const val HANDLE_PADDING_DP = 10
+    private const val BUTTON_MARGIN_DP = 8
 
     private var root: FrameLayout? = null
     private var windowManager: WindowManager? = null
     private var job: Job? = null
     private var prefs: SharedPreferences? = null
+    private var imageView: ImageView? = null
+    private var hintView: android.widget.TextView? = null
 
     /** 是否正在显示预览。 */
     fun isShown(): Boolean = root != null
 
-    fun show(context: Context, session: XpqVDisplay.Session) {
-        if (root != null) return
+    /**
+     * 显示预览窗。[session] 为 null 时显示占位画面（设置里打开预览开关时用于调整大小/位置），
+     * 之后任务建屏时再用 [attach] 接上实时帧。
+     *
+     * @return 窗口是否成功加上；没有悬浮窗权限或系统拦截时返回 false，调用方可引导用户授权。
+     */
+    fun show(context: Context, session: XpqVDisplay.Session?): Boolean {
+        if (root != null) {
+            attach(session)
+            return true
+        }
         val app = context.applicationContext
         if (!Settings.canDrawOverlays(app)) {
             Log.w(TAG, "no overlay permission")
-            return
+            return false
         }
-        val wm = app.getSystemService(WindowManager::class.java) ?: return
+        val wm = app.getSystemService(WindowManager::class.java) ?: return false
         val sp = app.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
 
         val savedWidth = sp.getInt(KEY_WIDTH, DEFAULT_WIDTH).takeIf { it > 0 } ?: DEFAULT_WIDTH
@@ -71,22 +85,39 @@ object XpqVDisplayPreview {
             setBackgroundColor(0x99000000.toInt())
             scaleType = ImageView.ScaleType.FIT_CENTER
         }
+        val hint = android.widget.TextView(app).apply {
+            text = "任务运行时这里显示副屏画面\n可拖动画面移动、拖右下角缩放"
+            setTextColor(0xCCFFFFFF.toInt())
+            textSize = 12f
+            gravity = Gravity.CENTER
+            setPadding(dpOf(app, 12), dpOf(app, 12), dpOf(app, 12), dpOf(app, 12))
+        }
         val container = FrameLayout(app).apply {
             addView(image, ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT)
+            addView(hint, ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT)
         }
-        val close = TextView(app).apply {
-            text = "×"
-            textSize = 22f
-            setTextColor(0xFFFFFFFF.toInt())
-            gravity = Gravity.CENTER
-            setBackgroundColor(0xCC000000.toInt())
+        val density = app.resources.displayMetrics.density
+        fun dp(value: Int): Int = (value * density).toInt()
+
+        val close = ImageView(app).apply {
+            setImageResource(com.android.accessibility.ext.R.drawable.icon_close_xpq)
+            // 与日志悬浮窗同一套底色（bg_1_xpq：10dp 圆角 + #80000000），白色图标在浅色画面上也看得清
+            setBackgroundResource(com.android.accessibility.ext.R.drawable.bg_1_xpq)
+            setPadding(
+                dp(CLOSE_PADDING_DP), dp(CLOSE_PADDING_DP),
+                dp(CLOSE_PADDING_DP), dp(CLOSE_PADDING_DP),
+            )
+            scaleType = ImageView.ScaleType.FIT_CENTER
+            contentDescription = "关闭"
             setOnClickListener { hide() }
         }
         container.addView(
             close,
-            FrameLayout.LayoutParams(CLOSE_SIZE, CLOSE_SIZE, Gravity.TOP or Gravity.END).apply {
-                topMargin = 8
-                rightMargin = 8
+            FrameLayout.LayoutParams(
+                dp(BUTTON_SIZE_DP), dp(BUTTON_SIZE_DP), Gravity.TOP or Gravity.END,
+            ).apply {
+                topMargin = dp(BUTTON_MARGIN_DP)
+                rightMargin = dp(BUTTON_MARGIN_DP)
             },
         )
 
@@ -104,19 +135,24 @@ object XpqVDisplayPreview {
             y = sp.getInt(KEY_Y, 220)
         }
 
-        // 右下角缩放把手：拖动改变大小
-        val resizeHandle = TextView(app).apply {
-            text = "⤡"
-            textSize = 22f
-            setTextColor(0xFFFFFFFF.toInt())
-            gravity = Gravity.CENTER
-            setBackgroundColor(0xCC000000.toInt())
+        // 右下角缩放把手（图标与日志悬浮窗一致）：拖动改变大小
+        val resizeHandle = ImageView(app).apply {
+            setImageResource(com.android.accessibility.ext.R.drawable.scale_xpq)
+            setBackgroundResource(com.android.accessibility.ext.R.drawable.bg_1_xpq)
+            setPadding(
+                dp(HANDLE_PADDING_DP), dp(HANDLE_PADDING_DP),
+                dp(HANDLE_PADDING_DP), dp(HANDLE_PADDING_DP),
+            )
+            scaleType = ImageView.ScaleType.FIT_CENTER
+            contentDescription = "缩放"
         }
         container.addView(
             resizeHandle,
-            FrameLayout.LayoutParams(HANDLE_SIZE, HANDLE_SIZE, Gravity.BOTTOM or Gravity.END).apply {
-                bottomMargin = 8
-                rightMargin = 8
+            FrameLayout.LayoutParams(
+                dp(BUTTON_SIZE_DP), dp(BUTTON_SIZE_DP), Gravity.BOTTOM or Gravity.END,
+            ).apply {
+                bottomMargin = dp(BUTTON_MARGIN_DP)
+                rightMargin = dp(BUTTON_MARGIN_DP)
             },
         )
 
@@ -126,18 +162,36 @@ object XpqVDisplayPreview {
         runCatching { wm.addView(container, lp) }
             .onFailure {
                 Log.w(TAG, "add preview window failed", it)
-                return
+                return false
             }
         root = container
         windowManager = wm
         prefs = sp
+        imageView = image
+        hintView = hint
+        attach(session)
+        Log.i(TAG, "preview shown ${lp.width}x${lp.height} x=${lp.x} y=${lp.y} session=${session != null}")
+        return true
+    }
+
+    /** 接上/断开实时帧；[session] 为 null 时保持占位画面。 */
+    fun attach(session: XpqVDisplay.Session?) {
+        job?.cancel()
+        job = null
+        if (session == null) {
+            hintView?.visibility = View.VISIBLE
+            return
+        }
+        hintView?.visibility = View.GONE
         job = CoroutineScope(SupervisorJob() + Dispatchers.Main).launch {
             session.frames.collect { bmp ->
-                if (bmp != null) image.setImageBitmap(bmp)
+                if (bmp != null) imageView?.setImageBitmap(bmp)
             }
         }
-        Log.i(TAG, "preview shown ${lp.width}x${lp.height} x=${lp.x} y=${lp.y}")
     }
+
+    private fun dpOf(context: Context, value: Int): Int =
+        (value * context.resources.displayMetrics.density).toInt()
 
     /** 按住画面拖动：移动悬浮窗。 */
     private fun moveTouchListener(
@@ -223,5 +277,7 @@ object XpqVDisplayPreview {
         root = null
         windowManager = null
         prefs = null
+        imageView = null
+        hintView = null
     }
 }

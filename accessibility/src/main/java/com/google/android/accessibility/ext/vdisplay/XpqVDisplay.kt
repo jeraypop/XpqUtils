@@ -215,7 +215,8 @@ object XpqVDisplay {
     fun shouldUseDual(context: Context): Boolean = VDisplaySettings.isDualEnabled(context)
 
     /** 显示副屏实时画面预览窗（需要悬浮窗权限）；位置、大小可在悬浮窗里拖动调整。 */
-    fun showPreview(context: Context, session: Session) = XpqVDisplayPreview.show(context, session)
+    @JvmOverloads
+    fun showPreview(context: Context, session: Session? = null) = XpqVDisplayPreview.show(context, session)
 
     /** 隐藏预览窗。 */
     fun hidePreview() = XpqVDisplayPreview.hide()

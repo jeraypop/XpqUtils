@@ -4,6 +4,7 @@ import android.content.Context
 import android.os.Build
 import android.util.Log
 import com.google.android.accessibility.ext.acc.XpqAcc
+import com.google.android.accessibility.ext.utils.LibCtxProvider.Companion.appContext
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 
@@ -138,12 +139,17 @@ object XpqVDisplayTask {
     }
 
     /**
-     * 释放虚拟屏并隐藏预览。释放前先结束屏上的任务：
+     * 释放虚拟屏。预览开关还开着时把预览窗切回占位画面（保留位置/大小，方便下次调整）。
+     * 释放前先结束屏上的任务：
      * 直接释放的话，系统可能把任务挪回主屏，突然弹在用户正在用的屏幕上。
      */
     fun release() {
         restore()
-        XpqVDisplayPreview.hide()
+        if (VDisplaySettings.isPreviewEnabled(appContext)) {
+            XpqVDisplayPreview.attach(null)
+        } else {
+            XpqVDisplayPreview.hide()
+        }
         session?.let { s ->
             if (!runCatching { s.endTasks() }.getOrDefault(false)) {
                 Log.w(TAG, "tasks may remain on released display")
