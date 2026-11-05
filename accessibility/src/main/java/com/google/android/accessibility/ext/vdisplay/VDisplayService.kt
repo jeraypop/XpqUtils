@@ -219,6 +219,12 @@ internal class VDisplayService(private val access: VDisplayAccess) {
             return START_ERROR
         }
         val intent = launchIntent(packageName, userId) ?: return START_NOT_FOUND
+        // 同用户、同包里已有任务（主屏后台里的微信等）时，系统会把那个任务整块挪到副屏，
+        // 于是保持原来的聊天页而不是首页。启动前先结束这些旧任务，保证从首页开始。
+        val ended = endTasksOfPackage(packageName, userId, displayId)
+        if (ended > 0) {
+            Log.i(TAG, "closed $ended existing $packageName task(s) before launching on display $displayId")
+        }
         // 桌面入口本身就是该包的 LauncherUI；CLEAR_TOP 清掉聊天页等上层 Activity，回到微信首页
         intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP)
         val options = ActivityOptions.makeBasic().setLaunchDisplayId(displayId).toBundle()
@@ -263,6 +269,40 @@ internal class VDisplayService(private val access: VDisplayAccess) {
         if (viaLauncher() || viaTaskManager() || viaShellCommand()) return START_OK
         Log.w(TAG, "launch($packageName, user $userId) did not create that user's task on display $displayId")
         START_USER_MISMATCH
+    }
+
+    /**
+     * 结束「[packageName] + [userId]」在其他显示上的任务（不含 [displayId] 这块副屏自己）。
+     *
+     * 系统按 taskAffinity 复用任务：主屏后台里已经开着的同包任务会被整块挪到副屏，
+     * 页面状态（聊天页等）也跟着带过去，导致任务不在首页。启动前先清掉这些旧任务；
+     * 副屏自己的任务不动，避免刚启动好又拆一次。
+     */
+    @SuppressLint("PrivateApi")
+    private fun endTasksOfPackage(packageName: String, userId: Int, displayId: Int): Int = try {
+        val idField = TASK_INFO.getField("taskId")
+        val displayField = TASK_INFO.getField("displayId")
+        val victims = allTasks()
+            .filter { packageName in packagesOf(it) && taskUser(it) == userId }
+            .filter { runCatching { displayField.getInt(it) != displayId }.getOrDefault(true) }
+            .mapNotNull { runCatching { idField.getInt(it) }.getOrNull() }
+        if (victims.isEmpty()) {
+            0
+        } else {
+            victims.forEach(::removeTaskBinder)
+            repeat(10) { attempt ->
+                val remaining = allTasks().any { task ->
+                    packageName in packagesOf(task) && taskUser(task) == userId &&
+                        runCatching { displayField.getInt(task) != displayId }.getOrDefault(true)
+                }
+                if (!remaining) return victims.size
+                if (attempt < 9) SystemClock.sleep(100)
+            }
+            victims.size
+        }
+    } catch (t: Throwable) {
+        Log.w(TAG, "endTasksOfPackage($packageName, user $userId) failed", t)
+        0
     }
 
     /** 结束这块屏上的所有任务（任意用户），等它们真的消失；用于释放旧屏前清场。 */
