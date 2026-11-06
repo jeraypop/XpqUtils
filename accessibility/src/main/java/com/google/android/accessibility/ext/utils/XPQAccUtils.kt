@@ -1903,6 +1903,12 @@ object XPQAccUtils {
         val editText = etConfirm ?: return
         val statusText = tvConfirmStatus ?: return
 
+        // 上次已经完整输入过的话，直接回填，省得每次重新输入
+        preferences.getString("confirm_input", "")?.takeIf { it.isNotEmpty() }?.let { saved ->
+            editText.setText(saved)
+            editText.setSelection(saved.length)
+        }
+
         val positiveButton = dialog.getButton(
             AlertDialog.BUTTON_POSITIVE
         )
@@ -2101,6 +2107,7 @@ object XPQAccUtils {
 
                 else -> {
                     // 输入正确
+                    preferences.edit().putString("confirm_input", input).apply()
                     dialog.dismiss()
                 }
             }
@@ -2159,6 +2166,7 @@ object XPQAccUtils {
                             "dont_show_again",
                             true
                         )
+                        .putString("confirm_input", input)
                         .apply()
 
                     dialog.dismiss()
