@@ -14,6 +14,7 @@ import android.view.accessibility.AccessibilityEvent
 import android.view.accessibility.AccessibilityNodeInfo
 import android.view.accessibility.AccessibilityWindowInfo
 import com.google.android.accessibility.ext.utils.LibCtxProvider
+import com.google.android.accessibility.ext.vdisplay.VDisplayImeInput
 import com.google.android.accessibility.ext.vdisplay.XpqVDisplay
 
 private const val TAG = "DisplayScopedDriver"
@@ -124,12 +125,14 @@ class DisplayScopedDriver(
 
     override fun disableSelf() = base.disableSelf()
 
-    override fun inputText(node: AccessibilityNodeInfo?, text: String, clearFirst: Boolean): Boolean =
-        if (mode == EngineMode.UIAUTOMATION) {
+    override fun inputText(node: AccessibilityNodeInfo?, text: String, clearFirst: Boolean): Boolean {
+        if (tryIme(node, text, clearFirst)) return true
+        return if (mode == EngineMode.UIAUTOMATION) {
             pasteByClipboard(node, text, clearFirst)
         } else {
             setText(node, text, clearFirst) || pasteByClipboard(node, text, clearFirst)
         }
+    }
 
     override fun inputTextPaste(
         node: AccessibilityNodeInfo?,
@@ -148,6 +151,23 @@ class DisplayScopedDriver(
         } else {
             setText(node, text, clearFirst) || pasteByClipboard(node, text, clearFirst)
         }
+
+    /**
+     * 优先走虚拟屏输入法：点中节点后由库内输入法直接提交文本，不经过剪贴板。
+     * 不支持（Android 13 及以下、无 Shizuku、IME 未就绪）时返回 false，由调用方回退原有通道。
+     */
+    private fun tryIme(node: AccessibilityNodeInfo?, text: String, clearFirst: Boolean): Boolean {
+        if (text.isEmpty()) return false
+        val pkg = runCatching { node?.packageName?.toString() }.getOrNull()
+            ?.takeIf { it.isNotBlank() } ?: return false
+        val ctx = runCatching { LibCtxProvider.appContext }.getOrNull() ?: return false
+        val rect = android.graphics.Rect()
+        runCatching { node?.getBoundsInScreen(rect) }
+        val x = rect.takeIf { it.width() > 0 && it.height() > 0 }?.centerX()
+        val y = rect.takeIf { it.width() > 0 && it.height() > 0 }?.centerY()
+        return VDisplayImeInput.type(ctx, displayId, pkg, text, clearFirst, x, y)
+            .also { if (!it) Log.i(TAG, "ime input unavailable, fallback clipboard") }
+    }
 
     /**
      * 节点级 SET_TEXT：跨显示有效，不依赖 shell 的默认屏焦点。

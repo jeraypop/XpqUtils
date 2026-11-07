@@ -4,11 +4,16 @@ import android.content.Context
 import android.content.Intent
 import android.graphics.Color
 import android.inputmethodservice.InputMethodService
+import android.os.Build
 import android.os.Handler
 import android.os.Looper
+import android.os.Process
+import android.os.SystemClock
 import android.provider.Settings
+import android.text.InputType
 import android.util.Log
 import android.util.TypedValue
+import android.view.Display
 import android.view.View
 import android.view.inputmethod.EditorInfo
 import android.view.inputmethod.ExtractedTextRequest
@@ -63,6 +68,23 @@ class KeepAliveInputMethod : InputMethodService() {
         }
 
         Log.e("KeepAliveIME", "输入法服务激活")
+    }
+
+    /**
+     * 自动化输入期间不画键盘：只保留输入连接，避免虚拟屏截图里多出键盘、也避免主屏弹键盘。
+     */
+    override fun onEvaluateInputViewShown(): Boolean =
+        if (headless) false else super.onEvaluateInputViewShown()
+
+    override fun onStartInput(attribute: EditorInfo?, restarting: Boolean) {
+        super.onStartInput(attribute, restarting)
+        // 自动化输入中途 App 被系统杀掉/重启后，残留的 restore_ime 说明上次会话没有正常收尾。
+        // 此时系统又把本输入法选中了，主动切回用户原来的输入法，避免主屏一直是无键盘输入法。
+        if (ownsSession(this)) return
+        val previous = restorationTarget(this) ?: return
+        if (previous == packageName + "/" + className) return
+        runCatching { switchInputMethod(previous) }
+        sessionPrefs(this).edit().remove(KEY_RESTORE_IME).apply()
     }
 
     override fun onDestroy() {
@@ -205,6 +227,70 @@ class KeepAliveInputMethod : InputMethodService() {
         ic.commitText(text, 1)
     }
 
+    /** 当前输入法所在屏幕。API 30 起有 [display]，更早版本从输入法窗口的 decorView 取。 */
+    @Suppress("DEPRECATION")
+    private fun currentDisplayId(): Int = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+        display?.displayId ?: Display.DEFAULT_DISPLAY
+    } else {
+        window?.window?.decorView?.display?.displayId ?: Display.DEFAULT_DISPLAY
+    }
+
+    /** 输入连接是否已经落在目标屏、目标包名的编辑框上。 */
+    internal fun connectionUsable(displayId: Int, packageName: String): Boolean {
+        val info = currentInputEditorInfo ?: return false
+        if (currentInputConnection == null) return false
+        if (info.packageName != packageName) return false
+        // TYPE_NULL 的编辑框只收按键、不收 InputConnection 文本
+        if (info.inputType == InputType.TYPE_NULL) return false
+        return currentDisplayId() == displayId
+    }
+
+    /** 当前输入连接的诊断信息；拿不到连接时用来确认系统到底绑到了哪里。 */
+    internal fun connectionState(displayId: Int, packageName: String): String {
+        val info = currentInputEditorInfo
+        return "imeDisplay=${currentDisplayId()} expectDisplay=$displayId; " +
+            "editorPackage=${info?.packageName} expectPackage=$packageName; " +
+            "inputType=${info?.inputType}; connection=${currentInputConnection != null}"
+    }
+
+    /**
+     * 向目标屏上目标包的编辑框提交文本。
+     * [replace] 为 true 时先全选再提交（等价于清空后输入）；否则在光标处插入。
+     */
+    internal fun commitToEditor(
+        displayId: Int,
+        packageName: String,
+        text: String,
+        replace: Boolean,
+    ): Boolean {
+        if (!connectionUsable(displayId, packageName)) return false
+        val ic = currentInputConnection ?: return false
+        var accepted = false
+        ic.beginBatchEdit()
+        try {
+            if (replace) {
+                val existing = ic.getExtractedText(ExtractedTextRequest(), 0)
+                val length = existing?.text?.length ?: 0
+                if (length > 0 && !ic.performContextMenuAction(android.R.id.selectAll)) {
+                    ic.setSelection(0, length)
+                }
+            }
+            accepted = ic.commitText(text, 1)
+        } finally {
+            ic.endBatchEdit()
+        }
+        // commitText 是异步投递的；回读只用于日志，避免回读失败被误判成没输入而重复粘贴
+        val readback = runCatching {
+            ic.getExtractedText(ExtractedTextRequest(), 0)?.text?.toString()
+        }.getOrNull()
+        val verified = if (replace) readback == text else readback?.contains(text) == true
+        Log.i(
+            TAG,
+            "ime commit display=$displayId pkg=$packageName replace=$replace accepted=$accepted verified=$verified"
+        )
+        return accepted
+    }
+
     private fun canFloating(): Boolean {
         val prefs = getSharedPreferences(XPQ_IME_SETTINGS, MODE_PRIVATE)
         return prefs.getBoolean(XPQ_IME_FLOATING, false)
@@ -239,7 +325,67 @@ class KeepAliveInputMethod : InputMethodService() {
         val xpqImeId: String
             get() = appContext.packageName + "/" + className
 
+        private const val TAG = "KeepAliveIME"
+        private const val XPQ_IME_SESSION = "xpq_ime_session"
+        private const val KEY_RESTORE_IME = "restore_ime"
+        private const val KEY_OWNER_PID = "owner_pid"
+        private const val KEY_OWNER_START = "owner_start"
 
+        /** 自动化输入期间为 true：不显示键盘界面，只保留输入连接。 */
+        @Volatile
+        private var headless = false
+
+        @JvmStatic
+        fun setHeadless(value: Boolean) {
+            headless = value
+        }
+
+        internal fun sessionPrefs(context: Context) =
+            context.getSharedPreferences(XPQ_IME_SESSION, Context.MODE_PRIVATE)
+
+        /** 当前进程是否仍是这次输入会话的持有者（进程重启后 pid/启动时间都会变）。 */
+        internal fun ownsSession(context: Context): Boolean = sessionPrefs(context).let {
+            it.getInt(KEY_OWNER_PID, -1) == Process.myPid() &&
+                it.getLong(KEY_OWNER_START, -1) == Process.getStartElapsedRealtime()
+        }
+
+        internal fun restorationTarget(context: Context): String? =
+            sessionPrefs(context).getString(KEY_RESTORE_IME, null)
+
+        /** 开始一次临时输入法会话，记下用户原输入法，供异常退出后恢复。 */
+        internal fun beginSession(context: Context, original: String) {
+            sessionPrefs(context).edit()
+                .putString(KEY_RESTORE_IME, original)
+                .putInt(KEY_OWNER_PID, Process.myPid())
+                .putLong(KEY_OWNER_START, Process.getStartElapsedRealtime())
+                .commit()
+        }
+
+        /** 结束会话；[selectionRestored] 为 true 时清除恢复目标。 */
+        internal fun endSession(context: Context, selectionRestored: Boolean) {
+            sessionPrefs(context).edit().remove(KEY_OWNER_PID).remove(KEY_OWNER_START).apply {
+                if (selectionRestored) remove(KEY_RESTORE_IME)
+            }.commit()
+        }
+
+        /** 当前输入连接是否已落在目标屏、目标包的编辑框上。 */
+        @JvmStatic
+        fun isReadyFor(displayId: Int, packageName: String): Boolean =
+            imeIsActive?.connectionUsable(displayId, packageName) == true
+
+        /** 诊断用：当前输入连接落在哪个屏/哪个包上。 */
+        @JvmStatic
+        fun debugConnectionState(displayId: Int, packageName: String): String =
+            imeIsActive?.connectionState(displayId, packageName) ?: "ime_inactive"
+
+        /** 向目标屏、目标包的编辑框提交文本；成功返回 true。 */
+        @JvmStatic
+        fun commitOnDisplay(
+            displayId: Int,
+            packageName: String,
+            text: String,
+            replace: Boolean,
+        ): Boolean = imeIsActive?.commitToEditor(displayId, packageName, text, replace) == true
 
         fun ensureImeEnabledAndDefault(context: Context = appContext, imeId: String = xpqImeId) {
             val appName = getAppName(context.packageName)
