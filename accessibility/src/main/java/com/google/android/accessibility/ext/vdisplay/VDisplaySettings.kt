@@ -292,7 +292,7 @@ object VDisplaySettings {
         }
 
         root.addView(TextView(context).apply {
-            val tip = "需要 Android 11 及以上，且工作在Shizuku模式。" +
+            val tip = "前提：需要Shizuku运行且 Android 11+(推荐14+)。" +
                 "任务在虚拟屏(副屏：平常看不见的)运行，主屏(我们平常看到的就是主屏)可正常使用(比如刷视频，玩游戏等)。"
             val linkText = "点击查看效果"
             val spannable = SpannableString(tip + linkText)
