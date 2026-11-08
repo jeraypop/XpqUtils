@@ -299,8 +299,8 @@ object HYSJTimeSecurityManager {
 
             // ❗必须有可信时间
             if (now <= 0L) {
-                AliveUtils.toast(msg = "请先联网,再更新会员时间")
-                sendLog("未同步可信时间，拒绝更新会员 [$source]")
+                //AliveUtils.toast(msg = "请先联网,再更新会员时间")
+                sendLog("断网状态(未同步可信时间)，无法更新会员时间 [$source]")
                 return
             }
             val MAX_VALID_EXPIRE = 20L * 365 * 24 * 60 * 60 * 1000 // 20年
