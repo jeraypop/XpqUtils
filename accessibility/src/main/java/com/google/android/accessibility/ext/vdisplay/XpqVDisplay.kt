@@ -15,6 +15,8 @@ import android.util.DisplayMetrics
 import android.util.Log
 import android.view.Display
 import android.view.KeyEvent
+import com.google.android.accessibility.ext.shell.XpqAdbShell
+import com.google.android.accessibility.ext.shell.XpqSidecar
 import com.google.android.accessibility.uiautomation.shizuku.AutomationShizuku
 import com.google.android.accessibility.uiautomation.shizuku.IAutomationUserService
 import com.google.android.accessibility.uiautomation.util.HiddenApi
@@ -23,17 +25,21 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.withContext
+import rikka.shizuku.ShizukuBinderWrapper
 import java.io.ByteArrayOutputStream
 
 /**
  * XpqUtils 原生虚拟屏入口。
  *
- * 用 Shizuku 的 shell UserService 建一块可信虚拟屏（独立显示组、独立焦点，不抢主屏），
+ * 用 shell(uid 2000) 身份建一块可信虚拟屏（独立显示组、独立焦点，不抢主屏），
  * 把第三方 App 启动到这块屏上执行；画面通过 [Session.frames] / [Session.latestFramePng] 读取。
+ *
+ * 特权来源按模式对话框的选择自动切换：Shizuku 模式走 UserService / ShizukuBinderWrapper；
+ * 内置 ADB 模式走 Sidecar（app_process 常驻 shell 进程）包装系统服务 binder。
  *
  * 用法：
  * ```
- * val session = XpqVDisplay.create(context) ?: return   // 需要 Shizuku 已运行且授权
+ * val session = XpqVDisplay.create(context) ?: return   // 通道需就绪
  * session.launch("com.tencent.mm")
  * XpqAcc.useDisplay(session.displayId)                 // 让 Xpq 的节点读取走这块屏
  * ...
@@ -41,8 +47,8 @@ import java.io.ByteArrayOutputStream
  * session.release()
  * ```
  *
- * 读这块屏上的节点需要宿主无障碍服务处于开启状态：系统只把
- * `windowsOnAllDisplays` 暴露给真实的 AccessibilityService。
+ * 读这块屏上的节点需要 UiAutomation 或宿主无障碍服务处于开启状态：系统只把
+ * `windowsOnAllDisplays` 暴露给这两类通道。
  */
 /** 虚拟屏能力的统一入口：UserService（远程）或 App 内 binder 后端（本机）。 */
 internal interface VDisplayApi {
@@ -152,6 +158,17 @@ object XpqVDisplay {
     @Volatile
     private var localService: VDisplayService? = null
 
+    /** [localService] 对应的通道是否内置 ADB；切换通道后需要重建（输入管理器等是按包装器缓存的）。 */
+    @Volatile
+    private var localServiceBuiltin: Boolean? = null
+
+    /** 稳定的包装器实例：DisplayManagerGlobal 的补丁用引用相等判断是否需要重打。 */
+    private val shizukuWrapper: BinderWrapper = { ShizukuBinderWrapper(it) }
+    private val sidecarWrapper: BinderWrapper = { XpqSidecar.wrap(it) }
+
+    private fun wrapperFor(context: Context): BinderWrapper =
+        if (XpqAdbShell.isPreferred(context)) sidecarWrapper else shizukuWrapper
+
     /** 一旦 UserService 绑定失败，本进程后续都直接用 binder 后端，避免每次任务白等超时。 */
     @Volatile
     private var preferBinder = false
@@ -175,10 +192,14 @@ object XpqVDisplay {
     /** 系统没在目标用户里建任务（通常是把机主那份拉起来了）。 */
     const val LAUNCH_USER_MISMATCH = 4
 
-    /** Shizuku 在运行且已授权。 */
-    fun isReady(): Boolean =
-        runCatching { AutomationShizuku.isInstalled() && AutomationShizuku.isPermissionGranted() }
+    /** 当前通道可用：Shizuku 在运行且已授权；内置 ADB 模式则看 ADB/Sidecar 是否就绪。 */
+    fun isReady(): Boolean {
+        if (XpqAdbShell.isPreferred()) {
+            return XpqSidecar.isReady() || runCatching { XpqAdbShell.isConnected() }.getOrDefault(false)
+        }
+        return runCatching { AutomationShizuku.isInstalled() && AutomationShizuku.isPermissionGranted() }
             .getOrDefault(false)
+    }
 
     /** 虚拟屏总开关（库内设置）。 */
     fun isEnabled(context: Context): Boolean = VDisplaySettings.isEnabled(context)
@@ -194,7 +215,7 @@ object XpqVDisplay {
     /** 当前走的是哪个后端；供日志/调试确认。 */
     val backendName: String get() = when {
         service != null -> "UserService"
-        localService != null -> "BinderWrapper"
+        localService != null -> if (localServiceBuiltin == true) "Sidecar" else "BinderWrapper"
         else -> "none"
     }
 
@@ -224,8 +245,14 @@ object XpqVDisplay {
     /** 预览窗当前是否显示。 */
     fun isPreviewShown(): Boolean = XpqVDisplayPreview.isShown()
 
-    /** 请求 Shizuku 授权；回调在主线程。 */
-    fun requestPermission(onResult: (Boolean) -> Unit) = AutomationShizuku.requestPermission(onResult)
+    /** 请求通道权限；回调在主线程。内置 ADB 模式没有「授权」步骤，直接返回通道是否就绪。 */
+    fun requestPermission(onResult: (Boolean) -> Unit) {
+        if (XpqAdbShell.isPreferred()) {
+            onResult(XpqSidecar.isReady() || runCatching { XpqAdbShell.isConnected() }.getOrDefault(false))
+            return
+        }
+        AutomationShizuku.requestPermission(onResult)
+    }
 
     /** 已绑定的 UserService；仅供同模块/调试查询。 */
     fun boundService(): IAutomationUserService? = service
@@ -244,26 +271,39 @@ object XpqVDisplay {
         dpi: Int = -1,
         timeoutMs: Long = BIND_TIMEOUT_MS,
     ): Session? = withContext(Dispatchers.IO) {
+        val builtin = XpqAdbShell.isPreferred(context)
+        if (builtin) {
+            // 内置 ADB：ADB 没连上时 ensureStarted 会先自动重连，再拉起 shell 身份的 Sidecar
+            if (!XpqSidecar.ensureStarted(context.applicationContext)) {
+                lastCreateError = "内置 ADB 通道未就绪：${
+                    XpqSidecar.lastError ?: XpqAdbShell.lastError ?: "请先在模式对话框里配对/连接"
+                }"
+                Log.w(TAG, lastCreateError!!)
+                return@withContext null
+            }
+        }
         val forced = forceBinderBackend()
-        val svc = if (preferBinder || forced) {
+        val svc = if (builtin || preferBinder || forced) {
             null
         } else {
             AutomationShizuku.bind(context.applicationContext, timeoutMs)
         }
         if (svc != null) {
             service = svc
-        } else {
-            if (!preferBinder) {
-                preferBinder = true
-                Log.w(
-                    TAG,
-                    if (forced) "binder backend forced by debug property"
-                    else "Shizuku UserService not connected, using shell binder backend"
-                )
-            }
+        } else if (!builtin && !preferBinder) {
+            preferBinder = true
+            Log.w(
+                TAG,
+                if (forced) "binder backend forced by debug property"
+                else "Shizuku UserService not connected, using shell binder backend"
+            )
         }
         val api = apiFor(context) ?: return@withContext null
-        val firstBackend = if (service != null) "UserService" else "BinderWrapper"
+        val firstBackend = when {
+            service != null -> "UserService"
+            builtin -> "Sidecar"
+            else -> "BinderWrapper"
+        }
         val metrics = screenMetrics(context)
         val w = width.takeIf { it > 0 } ?: metrics.widthPixels
         val h = height.takeIf { it > 0 } ?: metrics.heightPixels
@@ -294,13 +334,27 @@ object XpqVDisplay {
         }
         .getOrNull()
 
-    /** 取当前可用的执行后端；UserService 优先，没有则初始化 App 内 binder 后端。 */
+    /** 取当前可用的执行后端；UserService 优先，没有则用 App 内 binder 后端。 */
     private fun apiFor(context: Context): VDisplayApi? {
         service?.let { return RemoteVDisplayApi(it) }
-        val local = localService ?: runCatching {
-            VDisplayService(ShizukuVDisplayAccess(context.applicationContext)).also { localService = it }
-        }.onFailure { Log.w(TAG, "binder backend init failed", it) }.getOrNull() ?: return null
+        val local = ensureLocalService(context) ?: return null
         return LocalVDisplayApi(local)
+    }
+
+    /**
+     * 取/建 App 内 binder 后端。通道变化（Shizuku ↔ 内置 ADB）时重建：
+     * 输入管理器等是按包装器缓存的，复用旧实例会继续走旧通道。
+     */
+    private fun ensureLocalService(context: Context): VDisplayService? {
+        val builtin = XpqAdbShell.isPreferred(context)
+        localService?.let { if (localServiceBuiltin == builtin) return it }
+        return runCatching {
+            VDisplayService(BinderVDisplayAccess(context.applicationContext, wrapperFor(context)))
+                .also {
+                    localService = it
+                    localServiceBuiltin = builtin
+                }
+        }.onFailure { Log.w(TAG, "binder backend init failed", it) }.getOrNull()
     }
 
     private fun apiOrNull(): VDisplayApi? =
@@ -334,7 +388,12 @@ object XpqVDisplay {
      */
     suspend fun dualUserId(context: Context, packageName: String? = null): Int =
         withContext(Dispatchers.IO) {
-            val svc = if (preferBinder || forceBinderBackend()) null else service ?: run {
+            val builtin = XpqAdbShell.isPreferred(context)
+            if (builtin && !XpqSidecar.ensureStarted(context.applicationContext)) {
+                Log.w(TAG, "内置 ADB 通道未就绪，分身识别失败：${XpqSidecar.lastError}")
+                return@withContext 0
+            }
+            val svc = if (builtin || preferBinder || forceBinderBackend()) null else service ?: run {
                 AutomationShizuku.bind(context.applicationContext, BIND_TIMEOUT_MS)?.also { service = it }
             }
             if (svc != null) {
@@ -348,14 +407,11 @@ object XpqVDisplay {
                 service = null
                 preferBinder = true
             }
-            if (!preferBinder) {
+            if (!builtin && !preferBinder) {
                 preferBinder = true
                 Log.w(TAG, "UserService unavailable, dual-user detection via shell binder backend")
             }
-            val local = localService ?: runCatching {
-                VDisplayService(ShizukuVDisplayAccess(context.applicationContext)).also { localService = it }
-            }.onFailure { Log.w(TAG, "binder backend init failed", it) }.getOrNull()
-                ?: return@withContext 0
+            val local = ensureLocalService(context) ?: return@withContext 0
             if (packageName.isNullOrEmpty()) local.dualUserId() else local.dualUserIdForPackage(packageName)
         }
 

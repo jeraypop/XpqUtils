@@ -98,6 +98,12 @@ android {
         }
     }
     packagingOptions { jniLibs { useLegacyPackaging = true } }// libshizuku.so 要解压
+    // Kadb / okio 等 jar 各自带一份 META-INF/LICENSE.md，合并时只保留第一份
+    packagingOptions {
+        resources {
+            pickFirsts += ["META-INF/LICENSE.md", "META-INF/LICENSE-notice.md", "META-INF/LICENSE"]
+        }
+    }
     compileOptions {
         sourceCompatibility JavaVersion.VERSION_17
         targetCompatibility JavaVersion.VERSION_17

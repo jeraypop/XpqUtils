@@ -17,12 +17,16 @@ import rikka.shizuku.ShizukuBinderWrapper
 import java.lang.reflect.Method
 import java.util.concurrent.TimeUnit
 
+/** 把系统服务 binder 包成 shell 身份（Shizuku 或内置 ADB 的 Sidecar）。 */
+internal typealias BinderWrapper = (IBinder) -> IBinder
+
 /**
  * 虚拟屏特权访问来源。
  *
  * - [ShellVDisplayAccess]：跑在 Shizuku UserService（shell/root 进程）里，直接持有系统服务原始 binder。
- * - [ShizukuVDisplayAccess]：跑在 App 进程里，把系统服务 binder 换成 [ShizukuBinderWrapper]，
- *   由 Shizuku 服务端以 shell 身份 transact。宿主加固导致 UserService 起不来时走这条。
+ * - [BinderVDisplayAccess]：跑在 App 进程里，把系统服务 binder 换成 shell 身份包装器后再 transact。
+ *   包装器由外部注入：Shizuku 模式用 [ShizukuBinderWrapper]，内置 ADB 模式用 Sidecar。
+ *   宿主加固导致 UserService 起不来、或用户选了内置 ADB 时走这条。
  *
  * 两种实现只负责“拿特权”，建屏/启动/注入的业务逻辑统一在 [VDisplayService] 里。
  */
@@ -70,10 +74,17 @@ internal interface VDisplayAccess {
                 .invoke(null, name) as? IBinder
         }.getOrNull()
 
-        /** 把系统服务 binder 包成接口对象；[wrap] 为 true 时以 shell 身份调用。 */
-        fun serviceInterface(name: String, stubClass: String, wrap: Boolean): Any? = runCatching {
+        /**
+         * 把系统服务 binder 包成接口对象。
+         * [wrapper] 为 null 时直接用原始 binder（仅 shell 进程内适用）。
+         */
+        fun serviceInterface(
+            name: String,
+            stubClass: String,
+            wrapper: BinderWrapper?,
+        ): Any? = runCatching {
             val raw = rawService(name) ?: return@runCatching null
-            val binder = if (wrap) ShizukuBinderWrapper(raw) else raw
+            val binder = wrapper?.invoke(raw) ?: raw
             Class.forName(stubClass)
                 .getMethod("asInterface", IBinder::class.java)
                 .invoke(null, binder)
@@ -108,10 +119,10 @@ internal class ShellVDisplayAccess : VDisplayAccess {
     }.onFailure { Log.w(VDisplayAccess.TAG, "ActivityTaskManager unavailable", it) }.getOrNull()
 
     override fun launcherApps(): Any? =
-        VDisplayAccess.serviceInterface("launcherapps", "android.content.pm.ILauncherApps\$Stub", wrap = false)
+        VDisplayAccess.serviceInterface("launcherapps", "android.content.pm.ILauncherApps\$Stub", null)
 
     override fun powerManager(): Pair<Any, Method>? = runCatching {
-        val power = VDisplayAccess.serviceInterface("power", "android.os.IPowerManager\$Stub", wrap = false)
+        val power = VDisplayAccess.serviceInterface("power", "android.os.IPowerManager\$Stub", null)
             ?: error("no power service")
         power to (DisplayAwake.userActivityMethod(power.javaClass) ?: error("no per-display userActivity"))
     }.onFailure { Log.w(VDisplayAccess.TAG, "display keep-awake unavailable", it) }.getOrNull()
@@ -164,11 +175,15 @@ internal class ShellVDisplayAccess : VDisplayAccess {
 }
 
 /**
- * App 进程内的特权访问：系统服务 binder 经 [ShizukuBinderWrapper] 以 shell 身份调用。
+ * App 进程内的特权访问：系统服务 binder 经 [wrapper] 以 shell 身份调用。
  *
- * 加固导致 Shizuku UserService 无法加载宿主 dex 时，用这条路径建屏/启动/注入。
+ * 包装器由调用方注入：Shizuku 模式传 `ShizukuBinderWrapper`，内置 ADB 模式传 Sidecar 包装器。
+ * 加固导致 Shizuku UserService 无法加载宿主 dex 时，也用这条路径建屏/启动/注入。
  */
-internal class ShizukuVDisplayAccess(private val appContext: Context) : VDisplayAccess {
+internal class BinderVDisplayAccess(
+    private val appContext: Context,
+    private val wrapper: BinderWrapper,
+) : VDisplayAccess {
 
     init {
         // App 进程默认受隐藏 API 限制，先把豁免装上再反射系统服务
@@ -212,27 +227,27 @@ internal class ShizukuVDisplayAccess(private val appContext: Context) : VDisplay
             ?: error("no ActivityTaskManager")
         val binder = proxy.javaClass.getMethod("asBinder").invoke(proxy) as IBinder
         Log.i(VDisplayAccess.TAG, "task manager binder: ${binder.interfaceDescriptor}")
-        val wrapped = ShizukuBinderWrapper(binder)
+        val wrapped = wrapper(binder)
         Class.forName("android.app.IActivityTaskManager\$Stub")
             .getMethod("asInterface", IBinder::class.java).invoke(null, wrapped)
     }.onFailure { Log.w(VDisplayAccess.TAG, "ActivityTaskManager unavailable", it) }.getOrNull()
 
     override fun launcherApps(): Any? =
-        VDisplayAccess.serviceInterface("launcherapps", "android.content.pm.ILauncherApps\$Stub", wrap = true)
+        VDisplayAccess.serviceInterface("launcherapps", "android.content.pm.ILauncherApps\$Stub", wrapper)
 
     override fun powerManager(): Pair<Any, Method>? = runCatching {
-        val power = VDisplayAccess.serviceInterface("power", "android.os.IPowerManager\$Stub", wrap = true)
+        val power = VDisplayAccess.serviceInterface("power", "android.os.IPowerManager\$Stub", wrapper)
             ?: error("no power service")
         power to (DisplayAwake.userActivityMethod(power.javaClass) ?: error("no per-display userActivity"))
     }.onFailure { Log.w(VDisplayAccess.TAG, "display keep-awake unavailable", it) }.getOrNull()
 
     override fun windowManager(): Any? =
-        VDisplayAccess.serviceInterface("window", "android.view.IWindowManager\$Stub", wrap = true)
+        VDisplayAccess.serviceInterface("window", "android.view.IWindowManager\$Stub", wrapper)
 
     /** 复用 IInputManager：一笔手势要注入几十个点，每次重查服务会明显拖慢注入节奏。 */
     private val inputManager: Any? by lazy {
         VDisplayAccess.serviceInterface(
-            "input", "android.hardware.input.IInputManager\$Stub", wrap = true
+            "input", "android.hardware.input.IInputManager\$Stub", wrapper
         )
     }
 
@@ -288,7 +303,9 @@ internal class ShizukuVDisplayAccess(private val appContext: Context) : VDisplay
     @SuppressLint("PrivateApi")
     @Synchronized
     private fun patchDisplayManagerGlobal() {
-        if (patched) return
+        // 同一进程内切换通道（Shizuku ↔ 内置 ADB）时要按新包装器重打一次；
+        // 但原始 binder 只取第一次的，避免把包装器再套一层
+        if (patchedBy === wrapper) return
         HiddenApi.ensure()
         val globalClass = Class.forName("android.hardware.display.DisplayManagerGlobal")
         val global = globalClass.getMethod("getInstance").invoke(null)
@@ -298,8 +315,11 @@ internal class ShizukuVDisplayAccess(private val appContext: Context) : VDisplay
         } ?: error("IDisplayManager field not found")
         field.isAccessible = true
         clearFinal(field)
-        val current = field.get(global) as? IInterface ?: error("IDisplayManager is null")
-        val wrapped = ShizukuBinderWrapper(current.asBinder())
+        val rawBinder = rawDisplayManager ?: run {
+            val current = field.get(global) as? IInterface ?: error("IDisplayManager is null")
+            current.asBinder().also { rawDisplayManager = it }
+        }
+        val wrapped = wrapper(rawBinder)
         val iface = Class.forName("android.hardware.display.IDisplayManager\$Stub")
             .getMethod("asInterface", IBinder::class.java)
             .invoke(null, wrapped)
@@ -320,13 +340,18 @@ internal class ShizukuVDisplayAccess(private val appContext: Context) : VDisplay
             }.getOrDefault(false)
             if (!written) throw t
         }
-        patched = true
+        patchedBy = wrapper
         Log.i(VDisplayAccess.TAG, "DisplayManagerGlobal patched to shell binder")
     }
 
     private companion object {
+        /** 已打过补丁的包装器；换个通道要按新包装器重打。 */
         @Volatile
-        var patched = false
+        var patchedBy: BinderWrapper? = null
+
+        /** 原始（未包装）的 IDisplayManager binder，重复打补丁时复用。 */
+        @Volatile
+        var rawDisplayManager: IBinder? = null
 
         /** 部分版本 mDm 是 final，反射赋值前先去掉 FINAL 标记。 */
         fun clearFinal(field: java.lang.reflect.Field) {

@@ -5,8 +5,8 @@ import android.os.Binder
 import android.os.IBinder
 import android.os.Parcel
 import android.util.Log
+import com.google.android.accessibility.ext.shell.XpqSidecar
 import com.google.android.accessibility.uiautomation.util.HiddenApi
-import rikka.shizuku.ShizukuBinderWrapper
 import rikka.shizuku.SystemServiceHelper
 
 /**
@@ -126,12 +126,13 @@ class ProxyUiAutomationConnection(
         try {
             HiddenApi.ensure()
 
-            // 1) 取系统 AccessibilityManager 原始 binder，用 ShizukuBinderWrapper 包裹 → shell 身份
+            // 1) 取系统 AccessibilityManager 原始 binder，用 shell 身份的包装器包裹
+            //    （内置 ADB 模式走 Sidecar 进程，Shizuku 模式走 ShizukuBinderWrapper）
             val raw = SystemServiceHelper.getSystemService("accessibility")
             if (raw == null) {
                 throw IllegalStateException("ServiceManager.getService(\"accessibility\") 返回 null")
             }
-            val shellBinder: IBinder = ShizukuBinderWrapper(raw)
+            val shellBinder: IBinder = XpqSidecar.wrapShellBinder(raw)
             val iam = HiddenApi.asInterfaceIAccessibilityManager(shellBinder)
 
             // 2) 构造 AutomationServiceInfo。
@@ -201,7 +202,7 @@ class ProxyUiAutomationConnection(
         try {
             HiddenApi.ensure()
             val raw = SystemServiceHelper.getSystemService("accessibility")
-            val shellBinder: IBinder = ShizukuBinderWrapper(raw)
+            val shellBinder: IBinder = XpqSidecar.wrapShellBinder(raw)
             val iam = HiddenApi.asInterfaceIAccessibilityManager(shellBinder)
             HiddenApi.unregisterUiTestAutomationService(iam, cb)
             Log.i(tag, "handleDisconnect: 反注册 OK")

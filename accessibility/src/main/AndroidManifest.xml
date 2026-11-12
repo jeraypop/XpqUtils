@@ -49,6 +49,8 @@
     </queries>
 
     <uses-permission android:name="android.permission.INTERNET" />
+    <!-- 内置 ADB 的端口自动发现：自建 mDNS 需要 MulticastLock 才能收到组播 -->
+    <uses-permission android:name="android.permission.CHANGE_WIFI_MULTICAST_STATE" />
     <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
     <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
     <uses-permission android:name="android.permission.VIBRATE" />
@@ -217,6 +219,21 @@
             android:name="com.google.android.accessibility.ext.utils.LibCtxProvider"
             android:authorities="${applicationId}.xpqutilsProvider"
             android:exported="false" />
+        <!-- 内置 ADB 模式：shell 侧 Sidecar 进程通过它把 binder 交回 App（只接受 shell/root/自身） -->
+        <provider
+            android:name="com.google.android.accessibility.sidecar.XpqSidecarProvider"
+            android:authorities="${applicationId}.xpq.sidecar"
+            android:exported="true" />
+        <!-- 内置 ADB 配对：通知栏输入配对码（设置页保持前台，配对服务不会中断） -->
+        <service
+            android:name="com.google.android.accessibility.ext.shell.AdbPairingService"
+            android:exported="false"
+            android:foregroundServiceType="specialUse">
+            <property
+                android:name="android.app.PROPERTY_SPECIAL_USE_FGS_SUBTYPE"
+                android:value="adb pairing" />
+        </service>
+        <!-- 内置 ADB 看门狗复用 AliveFGService（保活前台服务），不再单独声明服务 -->
         <provider
             android:name="com.google.android.accessibility.ext.utils.MyCustomFileProvider"
             android:authorities="${applicationId}.xpqlibrary.FileProvider"

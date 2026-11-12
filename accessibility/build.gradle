@@ -92,4 +92,10 @@ dependencies {
 
     // 2 Shizuku Manager 以库形式并入宿主 App
     implementation(libs.com.github.jeraypop.shizukulib) {exclude group: "dev.rikka.rikkax.appcompat", module: "appcompat"}
+
+    // 内置 ADB（无线调试直连 adbd）：不依赖 Shizuku 的 shell 通道，纯 Kotlin
+    implementation("com.flyfishxu:kadb:2.1.5")
+    // Sidecar 用到的隐藏 API 封装（getContentProviderExternal 等），仅 shell 侧进程使用
+    implementation("dev.rikka.hidden:compat:4.4.0")
+    compileOnly("dev.rikka.hidden:stub:4.4.0")
 }

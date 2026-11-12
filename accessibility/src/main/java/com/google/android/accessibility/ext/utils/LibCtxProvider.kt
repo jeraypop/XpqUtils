@@ -185,6 +185,17 @@ class LibCtxProvider : ContentProvider() {
             SdkInitManager.initIfNeeded(appContext)
         } catch (e: Exception) { }
 
+        // 内置 ADB 模式：进程启动就在后台恢复通道（用记住的端口 / mDNS 自动端口重连 + 拉起 Sidecar），
+        // 不阻塞启动，也不需要用户再填任何东西。未选内置模式时这里直接返回。
+        runCatching {
+            com.google.android.accessibility.ext.shell.XpqAdbShell.autoConnect(appContext)
+        }
+        // 看门狗与连接解耦：进程启动就恢复守护（复用 AliveFGService），
+        // 即使这次连接失败，前台服务也在，后续检查会继续尝试重连。
+        runCatching {
+            com.google.android.accessibility.ext.shell.XpqAdbShell.startWatchdog(appContext)
+        }
+
         if (isMainProcess(appContext)) {
             val app = context?.applicationContext as? Application ?: return true
             RuntimeTracker.init(app)

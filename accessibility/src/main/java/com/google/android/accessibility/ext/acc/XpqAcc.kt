@@ -11,23 +11,34 @@ import android.content.Context
 import android.content.Intent
 import android.content.pm.PackageManager
 import android.content.res.Configuration
+import android.database.ContentObserver
+import android.graphics.Canvas
+import android.graphics.ColorFilter
+import android.graphics.Paint
+import android.graphics.Rect
+import android.graphics.Typeface
+import android.graphics.drawable.Drawable
 import android.graphics.drawable.GradientDrawable
 import android.net.Uri
 import android.os.Build
 import android.os.Handler
 import android.os.Looper
-import android.text.SpannableString
-import android.text.Spanned
-import android.text.method.LinkMovementMethod
-import android.text.style.ClickableSpan
-import android.text.util.Linkify
+import android.provider.Settings
+import android.util.TypedValue
 import android.view.Gravity
 import android.view.Display
 import android.view.View
 import android.view.accessibility.AccessibilityEvent
 import android.view.accessibility.AccessibilityNodeInfo
 import android.view.accessibility.AccessibilityWindowInfo
+import android.webkit.WebResourceRequest
+import android.webkit.WebView
+import android.webkit.WebViewClient
+import android.widget.Button
+import android.widget.EditText
+import android.widget.FrameLayout
 import android.widget.LinearLayout
+import android.widget.ScrollView
 import android.widget.TextView
 import androidx.appcompat.widget.SwitchCompat
 import com.android.accessibility.ext.R
@@ -39,6 +50,8 @@ import com.google.android.accessibility.ext.utils.LibCtxProvider
 import com.google.android.accessibility.ext.utils.LibCtxProvider.Companion.appContext
 import com.google.android.accessibility.ext.utils.MMKVConst
 import com.google.android.accessibility.ext.utils.MMKVUtil
+import com.google.android.accessibility.ext.shell.XpqAdbShell
+import com.google.android.accessibility.ext.shell.XpqSidecar
 import com.google.android.accessibility.ext.utils.NotificationUtilXpq
 import com.google.android.accessibility.ext.utils.safecheck.OverlayPermissionHelper
 import com.google.android.accessibility.ext.window.DynamicIslandFloatWindow
@@ -584,8 +597,26 @@ object XpqAcc {
             }
         }
         Thread {
+            val builtinMode = XpqAdbShell.isPreferred(appContext)
+            // 内置 ADB 模式：必须**先**把 Sidecar 拉起来，再 disconnect()。
+            // 反注册（unregisterUiTestAutomationService）同样要经 shell 身份的 binder 发出，
+            // Sidecar 没起来时这一步会静默失败 → 旧注册残留 → 紧接着 register 报 already registered。
+            if (builtinMode) {
+                log("内置 ADB 模式：启动 shell 侧 Sidecar…")
+                if (!XpqSidecar.ensureStarted(appContext)) {
+                    val reason = XpqSidecar.lastError ?: "WiFi 模式通道不可用"
+                    log("✗ $reason")
+                    fail(reason)
+                    return@Thread
+                }
+                log("Sidecar 已就绪（uid=${XpqSidecar.sidecarUid}）")
+            }
             // 连接前先清理旧连接，避免 system_server 残留注册导致 "already registered" 失败
             runCatching { disconnect() }
+            if (builtinMode) {
+                finishConnect(connect(log))
+                return@Thread
+            }
             if (!isShizukuRunning()) {
                 // 「Shizuku 未运行」只是 pingBinder()==false 的同义词，成因至少两种，处置完全不同：
                 // ① Shizuku 真没在跑 → 引导用户去开 Shizuku；
@@ -976,10 +1007,14 @@ object XpqAcc {
     ) {
         // 清单未声明无障碍服务（tools:node="remove" 或未注册）时，选项仍保留，但切换到无障碍模式会提示不支持
         val hasAccessibility = findAccessibilityServiceSubclass() != null
-        val items = arrayOf("无障碍模式", "Shizuku 模式(推荐)")
+        val items = arrayOf("无障碍模式", "WiFi 模式（Shizuku）", "WiFi 模式")
         val current = loadEngineMode().ordinal
 
-        // 选项下标 -> 实际引擎模式
+        // 第三项 = UiAutomation 引擎 + shell 走内置 ADB（与 Shizuku 模式同一套引擎，只是通道不同）
+        val builtinPreferred = XpqAdbShell.isPreferred(activity)
+        val currentIndex = if (builtinPreferred) 2 else current
+
+        // 选项下标 -> 实际引擎模式：只有第一项是无障碍，第二/第三项都是 UiAutomation
         fun indexToMode(index: Int): EngineMode =
             if (index == 0) EngineMode.ACCESSIBILITY_SERVICE else EngineMode.UIAUTOMATION
 
@@ -999,41 +1034,42 @@ object XpqAcc {
         fun curExclusiveService(): String? =
             enableServiceString ?: if (selectToSpeakOn) SELECTTOSPEAK else null
 
-        // 每个模式对应的说明文字，切换选项时动态更新到标题区。
-        // Shizuku 模式的下载段按导入形态分流：manager 已并入宿主时无需下载独立 App，
-        // 隐藏 3 个下载地址，替换为可点击的「打开 Shizuku 服务」。
+        // 每个模式对应的说明文字，切换选项时动态更新到说明区。
+        // Shizuku 模式的下载地址 / 使用教程 / 启动授权步骤都收进了「打开 Shizuku 设置界面」行的
+        // 行内步骤清单里，这里只留一句话，避免说明区过长。
         // 说明里**不再提示**「关闭其它无障碍 / 保留随选朗读」—— 那件事由点「确定」时的代码独占完成，
         // 用户无需照着做；相关说明见开关行右侧的「？」帮助按钮（showSXLDDialog）。
         fun describeMode(mode: EngineMode): String = when {
             mode == EngineMode.ACCESSIBILITY_SERVICE && !hasAccessibility ->
-                "无障碍模式\n\n当前版本不支持无障碍模式,如果确定需要无障碍的版本，可下载支持无障碍的版本使用"
+                "当前版本不支持无障碍模式,如果确定需要无障碍的版本，可下载支持无障碍的版本使用"
             mode == EngineMode.ACCESSIBILITY_SERVICE ->
-                "无障碍模式\n\n" +
-                        "无需额外安装软件,但是部分软件(比如：银行类软件)检测设备上无障碍服务开启时，可能出现安全提示"
+                        "无需额外安装软件,但是部分软件(比如：银行类软件,wx)检测设备上无障碍服务开启时，可能出现安全提示"
             AutomationShizuku.isManagerMergedIntoHost() ->
-                "Shizuku 模式(推荐用该模式)\n\n" +
-                        "本软件已内置 Shizuku 管理器，无需额外下载\n" +
-                        "打开 Shizuku 服务☞☞：https://settings.开启Shizuku服务\n\n" +
-                        "shizuku 使用教程☞☞：https://mp.weixin.qq.com/s/qG3znEmRgtOkfmktM2mxrA\n\n" +
                         "为什么引入该模式：" +
-                        "\n由于部分应用会检测设备上启用的第三方无障碍服务，并可能出现安全提示。" +
-                        "\n所以，现在采用无障碍模式的应用在wx上已经不推荐再用了，用了极大概率会被检测到" +
-                        "\nShizuku 模式使用不同的系统权限通道，可以作为另一种自动化方案"
+                        "\n一句话：降低被检测到的概率" +
+                        "\n本软件已内置 Shizuku 管理器，无需额外下载"
             else ->
-                "Shizuku 模式(推荐用该模式)\n\n" +
-                        "需要额外下载一个免费开源的 Shizuku 软件\n" +
-                        "官方原版下载地址☞☞：https://github.com/RikkaApps/Shizuku/releases\n" +
-                        "备用原版下载地址☞☞：https://apt.izzysoft.de/fdroid/index/apk/moe.shizuku.privileged.api\n" +
-                        "最新修改版下载地址（推荐下载这个）☞☞：https://github.com/thedjchi/Shizuku/releases\n" +
-                        "shizuku 使用教程☞☞：https://mp.weixin.qq.com/s/qG3znEmRgtOkfmktM2mxrA\n\n" +
                         "为什么引入该模式：" +
-                        "\n由于部分应用会检测设备上启用的第三方无障碍服务，并可能出现安全提示。" +
-                        "\n所以，现在采用无障碍模式的应用在wx上已经不推荐再用了，用了极大概率会被检测到" +
-                        "\nShizuku 模式使用不同的系统权限通道，可以作为另一种自动化方案"
+                        "\n一句话：降低被检测到的概率" +
+                        "\n需要额外下载一个免费开源的 Shizuku 软件"
         }
 
-        // 说明文字放到标题区（setMessage 与 setSingleChoiceItems 互斥，用了 setMessage 选项列表就不显示）
         val density = activity.resources.displayMetrics.density
+        // 标题（当前模式名）保持在顶部并居中
+        val headerView = TextView(activity).apply {
+            text = items[currentIndex]
+            textSize = 17f
+            setTypeface(typeface, Typeface.BOLD)
+            gravity = Gravity.CENTER_HORIZONTAL
+            setTextColor(0xFF212121.toInt())
+            setPadding(
+                (20 * density).toInt(),
+                (18 * density).toInt(),
+                (20 * density).toInt(),
+                (4 * density).toInt()
+            )
+        }
+        // 说明文字放在选项列表和开关的下方（底部），不再占标题区
         val titleView = TextView(activity).apply {
             textSize = 14f
             // 显式锁定文字颜色：弹窗背景锁定为浅色（见下方 Builder 主题参数），深浅模式下都可读。
@@ -1041,16 +1077,43 @@ object XpqAcc {
             setTextColor(0xFF212121.toInt())
             setPadding(
                 (20 * density).toInt(),
-                (16 * density).toInt(),
+                (10 * density).toInt(),
                 (20 * density).toInt(),
-                (8 * density).toInt()
+                (10 * density).toInt()
             )
         }
 
         // 渲染指定模式的说明文字：
         // 无障碍模式 —— 纯文字说明，**不放可点击项**（原因见下面的分支注释）
-        // Shizuku 模式 —— 「开启 Shizuku 服务」为 Spannable 链接，下载地址用 Linkify 识别
+        // Shizuku 模式 —— 纯文字说明；下载地址 / 教程 / 启动授权步骤都在「开启Shizuku模式」弹窗里
+        // 内置 ADB 模式 —— 纯文字说明 + 配对面板；引擎与 Shizuku 模式相同（UiAutomation），只是 shell 来源不同
+        // 面板引用：无障碍模式隐藏两个 Shizuku 开关；第三项额外显示配对面板。
+        // renderMode 是局部函数、不能前向引用，这里先占位，等面板创建后再赋值。
+        var switchPanelRef: View? = null
+        var builtinPanelRef: View? = null
+        var shizukuPanelRef: View? = null
+        // 顶部说明保持简短（避免弹窗过高），完整步骤在「打开WiFi设置界面」行里就地展开
+        val builtinDesc = "为什么引入该模式：" +
+                "\n一句话：降低被检测到的概率" +
+                "\n与 WiFi 模式（Shizuku）效果一样"
+        // 行内步骤区的操作按钮要跳系统页 / 弹授权框，先把模式弹窗关掉；dialog 在下方创建，这里先占位
+        var modeDialogRef: AlertDialog? = null
         fun renderMode(index: Int) {
+            val builtin = index == 2
+            // 顶部标题始终显示当前选中项
+            headerView.text = items[index]
+            // 第三项与 Shizuku 模式共用同一套开关（引擎相同），额外多一个配对面板
+            switchPanelRef?.visibility = if (index == 0) View.GONE else View.VISIBLE
+            builtinPanelRef?.visibility = if (builtin) View.VISIBLE else View.GONE
+            shizukuPanelRef?.visibility = if (index == 1) View.VISIBLE else View.GONE
+            if (builtin) {
+                // 步骤入口是「打开WiFi设置界面」行（见下方 guideRow），说明文字保持纯文本
+                titleView.setOnClickListener(null)
+                titleView.movementMethod = null
+                titleView.text = builtinDesc
+                return
+            }
+            titleView.setOnClickListener(null)
             val mode = indexToMode(index)
             if (mode == EngineMode.ACCESSIBILITY_SERVICE) {
                 // 无障碍模式**不再放可点击链接**：原来那行「请跳转到☞☞：https://settings.设置」点开的是
@@ -1060,35 +1123,18 @@ object XpqAcc {
                 titleView.movementMethod = null
                 titleView.text = describeMode(mode)
             } else {
-                // Shizuku 模式：下载地址走 Linkify，manager 已并入宿主时
-                // 「https://settings.开启Shizuku服务」为占位链接，点击打开 Shizuku 管理界面。
-                // 「随选朗读」**不再是链接**：说明里那行「关闭其它无障碍、只保留随选朗读」已删除
-                // （点「确定」时由代码独占开启，本来就不需要用户照着做），
-                // 相关说明改由开关行右侧的「？」帮助按钮（showSXLDDialog）提供。
-                val text = describeMode(mode)
-                val spannable = SpannableString(text)
-                val managerTarget = "https://settings.开启Shizuku服务"
-                val mStart = text.indexOf(managerTarget)
-                if (mStart >= 0) {
-                    val end = mStart + managerTarget.length
-                    spannable.setSpan(object : ClickableSpan() {
-                        override fun onClick(widget: View) {
-                            if (!AutomationShizuku.openShizuku(activity)) {
-                                AliveUtils.toast(msg = "未能打开 Shizuku 管理界面")
-                            }
-                        }
-                    }, mStart, end, Spanned.SPAN_EXCLUSIVE_EXCLUSIVE)
-                }
-                titleView.movementMethod = LinkMovementMethod.getInstance()
-                titleView.text = spannable
-                Linkify.addLinks(titleView, Linkify.WEB_URLS)
+                // Shizuku 模式：说明保持纯文本，下载地址 / 使用教程 / 启动授权步骤
+                // 全部收进「打开 Shizuku 设置界面」行的行内步骤清单。
+                // 「随选朗读」说明仍由开关行右侧的「？」帮助按钮（showSXLDDialog）提供。
+                titleView.movementMethod = null
+                titleView.text = describeMode(mode)
             }
         }
-        renderMode(current)
+        renderMode(currentIndex)
 
         // 记录当前选中项；点击「确定」时才真正切换并持久化。
         // 提前声明：下面「开启随选朗读」开关的监听里要重渲染说明文字，需要读它。
-        var selected = current
+        var selected = currentIndex
 
         // 「开启随选朗读」开关：等价于调用方把 enableServiceString 传成 [SELECTTOSPEAK]——
         // 开启后切到 Shizuku 模式时会「独占」开启系统的随选朗读（关掉设备上其它无障碍服务）。
@@ -1098,6 +1144,17 @@ object XpqAcc {
             isChecked = selectToSpeakOn
             isEnabled = !selectToSpeakLocked
         }
+        // 「开 / 关」直接画在开关圆钮内部（跟随圆钮滑动），不再单独占一行文字
+        fun attachThumbLabel(sw: SwitchCompat): ThumbTextDrawable =
+            ThumbTextDrawable(sw.thumbDrawable).also { sw.thumbDrawable = it }
+        fun updateThumbLabel(d: ThumbTextDrawable, checked: Boolean) {
+            d.label = if (checked) "开" else "关"
+            // 固定深色 + 白色描边，开 / 关两种圆钮底色下都能看清
+            d.labelColor = 0xFF37474F.toInt()
+            d.labelSize = 10f * activity.resources.displayMetrics.scaledDensity
+        }
+        val selectToSpeakThumb = attachThumbLabel(selectToSpeakSwitch)
+        updateThumbLabel(selectToSpeakThumb, selectToSpeakOn)
         val selectToSpeakTitleView = TextView(activity).apply {
             text = "同时开启 随选朗读"
             textSize = 14f
@@ -1124,24 +1181,40 @@ object XpqAcc {
             contentDescription = desc
             setOnClickListener { onClick() }
         }
-        fun buildTitleRow(title: TextView, dot: TextView): LinearLayout = LinearLayout(activity).apply {
-            orientation = LinearLayout.HORIZONTAL
-            gravity = Gravity.CENTER_VERTICAL
-            addView(title)
-            addView(
-                dot,
-                LinearLayout.LayoutParams(helpDotSize, helpDotSize).apply {
-                    marginStart = (6 * density).toInt()
+        fun buildTitleRow(title: TextView, dot: TextView, onClick: () -> Unit): LinearLayout =
+            LinearLayout(activity).apply {
+                orientation = LinearLayout.HORIZONTAL
+                gravity = Gravity.CENTER_VERTICAL
+                // 整行（标题文字 + ？）都可点：？本身只有 18dp，单点太难点中
+                addView(title)
+                addView(
+                    dot,
+                    LinearLayout.LayoutParams(helpDotSize, helpDotSize).apply {
+                        marginStart = (6 * density).toInt()
+                    }
+                )
+                setPadding(0, (4 * density).toInt(), 0, (4 * density).toInt())
+                isClickable = true
+                isFocusable = true
+                // 点击反馈：借用主题水波纹，点了有回应
+                val outValue = TypedValue()
+                if (activity.theme.resolveAttribute(
+                        android.R.attr.selectableItemBackground, outValue, true
+                    ) && outValue.resourceId != 0
+                ) {
+                    setBackgroundResource(outValue.resourceId)
                 }
-            )
-        }
+                setOnClickListener { onClick() }
+            }
+        val showSelectToSpeakHelp: () -> Unit = { showSXLDDialog(activity) }
         val selectToSpeakTitleRow = buildTitleRow(
             selectToSpeakTitleView,
-            buildHelpDot("为何需要 随选朗读") { showSXLDDialog(activity) }
+            buildHelpDot("为何需要 随选朗读", showSelectToSpeakHelp),
+            showSelectToSpeakHelp
         )
         val selectToSpeakDescView = TextView(activity).apply {
             // 文案与「本次是不是只读」无关：无论配置由谁决定，都展示同一句说明、保持同一颜色。
-            text = "开启后，切换到 Shizuku 模式时会一并开启系统的「随选朗读」无障碍服务和关闭 其它所有无障碍(主要使用场景在WX内时，开启本开关)"
+            text = "开启后，切换到 WiFi 模式时会一并开启系统的「随选朗读」无障碍服务和关闭 其它所有无障碍(主要使用场景在WX内时，开启本开关)"
             textSize = 12f
             setTextColor(0xFF757575.toInt())
         }
@@ -1172,6 +1245,8 @@ object XpqAcc {
         val hostAccSwitch = SwitchCompat(activity).apply {
             isChecked = MMKVUtil.get(MMKVConst.KEY_UIA_ENABLE_HOST_ACC, false)
         }
+        val hostAccThumb = attachThumbLabel(hostAccSwitch)
+        updateThumbLabel(hostAccThumb, hostAccSwitch.isChecked)
         val hostAccTitleView = TextView(activity).apply {
             text = "同时开启 本应用无障碍"
             textSize = 14f
@@ -1179,13 +1254,15 @@ object XpqAcc {
             setTextColor(0xFF212121.toInt())
         }
         val hostAccDescView = TextView(activity).apply {
-            text = "开启后，切换到 Shizuku 模式时会一并打开本应用的无障碍服务(主要使用场景不在WX内时，开启本开关)"
+            text = "开启后，切换到 WiFi 模式时会一并打开本应用的无障碍服务(主要使用场景不在WX内时，开启本开关)"
             textSize = 12f
             setTextColor(0xFF757575.toInt())
         }
+        val showHostAccHelp: () -> Unit = { showHostAccDialog(activity, imgRes) }
         val hostAccTitleRow = buildTitleRow(
             hostAccTitleView,
-            buildHelpDot("为何需要 本应用无障碍") { showHostAccDialog(activity) }
+            buildHelpDot("为何需要 本应用无障碍", showHostAccHelp),
+            showHostAccHelp
         )
         val hostAccLabels = LinearLayout(activity).apply {
             orientation = LinearLayout.VERTICAL
@@ -1208,7 +1285,7 @@ object XpqAcc {
             addView(hostAccSwitch)
         }
 
-        // 两个开关行合并成一个竖直线性布局，作为 setView 的自定义面板内容
+        // 两个开关行合并成一个竖直线性布局，作为自定义面板的一部分
         // （setView 只能挂一个 View；面板与单选列表共存，custom 面板在列表上方）
         val switchPanel = LinearLayout(activity).apply {
             orientation = LinearLayout.VERTICAL
@@ -1216,16 +1293,903 @@ object XpqAcc {
             addView(hostAccRow)
         }
 
+        // 内置 ADB 面板：连接全自动（启动/重启都会自己重连），这里只保留「首次配对」入口和状态。
+        fun adbRow(): LinearLayout = LinearLayout(activity).apply {
+            orientation = LinearLayout.HORIZONTAL
+            gravity = Gravity.CENTER_VERTICAL
+        }
+        fun adbButton(label: String): Button = Button(activity).apply {
+            text = label
+            textSize = 15f
+            isAllCaps = false
+            setTextColor(0xFF212121.toInt())
+            minimumHeight = 0
+            minHeight = (48 * density).toInt()
+            setPadding((8 * density).toInt(), 0, (8 * density).toInt(), 0)
+        }
+        // 配对入口只保留在指南里（第 4 步的「开始配对」）；「启动」由「确定」覆盖（切模式时自动连接），
+        // 所以弹窗里不再单独放「配对 / 启动」按钮和调试状态行。
+        fun openSystemSettings(vararg actions: String) {
+            for (action in actions) {
+                val intent = Intent(action).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                if (runCatching { activity.startActivity(intent) }.isSuccess) return
+            }
+            AliveUtils.toast(msg = "未能打开系统设置")
+        }
+        // 直达「无线调试」页（对齐 Shizuku 的 SettingsPage.Developer.WirelessDebugging）：
+        // 用 QS 磁贴的偏好页打开「无线调试」，失败再回退到开发者选项并高亮该条目。
+        fun openWirelessDebuggingSettings() {
+            val flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_NO_HISTORY or
+                    Intent.FLAG_ACTIVITY_CLEAR_TASK or Intent.FLAG_ACTIVITY_EXCLUDE_FROM_RECENTS
+            fun tryIntent(intent: Intent): Boolean =
+                runCatching { activity.startActivity(intent) }.isSuccess
+            fun highlightInDevOptions(): Boolean = tryIntent(
+                Intent(android.provider.Settings.ACTION_APPLICATION_DEVELOPMENT_SETTINGS).apply {
+                    // 开发者选项页内高亮「无线调试」开关（部分 ROM 没有独立入口）
+                    putExtra(":settings:fragment_args_key", "toggle_adb_wireless")
+                    addFlags(flags)
+                }
+            )
+            val adbEnabled = runCatching {
+                android.provider.Settings.Global.getInt(
+                    activity.contentResolver,
+                    android.provider.Settings.Global.ADB_ENABLED, 0
+                )
+            }.getOrDefault(0)
+            if (adbEnabled > 0) {
+                val direct = Intent(android.service.quicksettings.TileService.ACTION_QS_TILE_PREFERENCES).apply {
+                    setPackage("com.android.settings")
+                    putExtra(
+                        Intent.EXTRA_COMPONENT_NAME,
+                        ComponentName(
+                            "com.android.settings",
+                            "com.android.settings.development.qstile.DevelopmentTiles\$WirelessDebugging"
+                        )
+                    )
+                    addFlags(flags)
+                }
+                if (tryIntent(direct)) return
+            }
+            if (highlightInDevOptions()) return
+            openSystemSettings(
+                android.provider.Settings.ACTION_APPLICATION_DEVELOPMENT_SETTINGS,
+                android.provider.Settings.ACTION_SETTINGS
+            )
+        }
+        // 开发者选项是否已开启（关闭状态下进 DevelopmentSettings 会进不去，只能先去「关于手机」连点版本号）
+        val devOptionsEnabled = runCatching {
+            android.provider.Settings.Global.getInt(
+                activity.contentResolver,
+                android.provider.Settings.Global.DEVELOPMENT_SETTINGS_ENABLED, 0
+            ) == 1
+        }.getOrDefault(false)
+        // 配对：挂浮窗 + 跳设置（系统配对弹窗一离开设置就结束配对服务，必须先挂好浮窗）
+        fun startPairingFlow() {
+            if (XpqAdbShell.isConnected()) {
+                AliveUtils.toast(msg = "已配对并连接，不用重复配对")
+                return
+            }
+            if (!android.provider.Settings.canDrawOverlays(activity)) {
+                AliveUtils.toast(msg = "请先允许「显示在其他应用上层」，再回来点一次")
+                runCatching {
+                    activity.startActivity(
+                        Intent(
+                            android.provider.Settings.ACTION_MANAGE_OVERLAY_PERMISSION,
+                            Uri.parse("package:${activity.packageName}")
+                        ).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                    )
+                }
+                return
+            }
+            if (!com.google.android.accessibility.ext.shell.AdbPairOverlay.show(activity)) {
+                AliveUtils.toast(msg = "配对码浮窗打开失败，请检查悬浮窗权限")
+                return
+            }
+            if (devOptionsEnabled) {
+                openWirelessDebuggingSettings()
+            } else {
+                AliveUtils.toast(msg = "请先在「关于手机」里连点版本号 7 次开启开发者选项，再回来点一次")
+                openSystemSettings(
+                    android.provider.Settings.ACTION_DEVICE_INFO_SETTINGS,
+                    android.provider.Settings.ACTION_SETTINGS
+                )
+            }
+        }
+
+        // 高级设置：对齐 Shizuku 的设置页（自启动 / Watchdog / TCP 模式 / TCP 端口）
+        val adbAdvancedRow = adbRow().apply {
+            addView(
+                adbButton("高级设置"),
+                LinearLayout.LayoutParams(
+                    LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT
+                )
+            )
+        }
+        // 高级设置入口暂时隐藏（不给用户增加配置负担）；代码保留，需要恢复时删掉下面这行
+        adbAdvancedRow.visibility = View.GONE
+        (adbAdvancedRow.getChildAt(0) as Button).setOnClickListener {
+            val pad = (12 * density).toInt()
+            val panel = LinearLayout(activity).apply {
+                orientation = LinearLayout.VERTICAL
+                setPadding(
+                    (20 * density).toInt(), (4 * density).toInt(),
+                    (20 * density).toInt(), (4 * density).toInt()
+                )
+            }
+            fun titleText(t: String) = TextView(activity).apply {
+                text = t
+                textSize = 15f
+                setTextColor(0xFF212121.toInt())
+            }
+            fun descText(t: String) = TextView(activity).apply {
+                text = t
+                textSize = 12f
+                setTextColor(0xFF757575.toInt())
+            }
+            fun switchRow(
+                title: String,
+                desc: String,
+                checked: Boolean,
+                onChange: (Boolean) -> Unit,
+            ): LinearLayout {
+                val sw = SwitchCompat(activity).apply { isChecked = checked }
+                val texts = LinearLayout(activity).apply {
+                    orientation = LinearLayout.VERTICAL
+                    addView(titleText(title))
+                    addView(descText(desc))
+                }
+                sw.setOnCheckedChangeListener { _, c -> onChange(c) }
+                return LinearLayout(activity).apply {
+                    orientation = LinearLayout.HORIZONTAL
+                    gravity = Gravity.CENTER_VERTICAL
+                    setPadding(0, pad, 0, pad)
+                    addView(texts, LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f))
+                    addView(sw)
+                }
+            }
+            // 开启自启动 / 看门狗时，引导忽略电池优化（否则厂商会杀掉后台，开机起不来 / 看门狗也被杀）
+            fun maybeRequestIgnoreBatteryOptimizations() {
+                val pm = activity.getSystemService(Context.POWER_SERVICE) as android.os.PowerManager
+                if (pm.isIgnoringBatteryOptimizations(activity.packageName)) return
+                val guide = AlertDialog.Builder(activity, android.R.style.Theme_DeviceDefault_Light_Dialog_Alert)
+                    .setTitle("允许后台运行")
+                    .setMessage(
+                        "开启自启动 / 看门狗后，系统可能因为电池优化把后台进程杀掉，导致开机不自动恢复、" +
+                                "看门狗也不工作。\n\n建议允许本应用忽略电池优化。"
+                    )
+                    .setPositiveButton("去设置") { _, _ ->
+                        runCatching {
+                            activity.startActivity(
+                                Intent(
+                                    android.provider.Settings.ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS,
+                                    Uri.parse("package:${activity.packageName}")
+                                ).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                            )
+                        }
+                    }
+                    .setNegativeButton("以后再说", null)
+                    .create()
+                guide.setOnShowListener {
+                    runCatching {
+                        val btnColor = 0xFF212121.toInt()
+                        guide.getButton(AlertDialog.BUTTON_POSITIVE)?.setTextColor(btnColor)
+                        guide.getButton(AlertDialog.BUTTON_NEGATIVE)?.setTextColor(btnColor)
+                    }
+                }
+                guide.show()
+            }
+            panel.addView(
+                switchRow(
+                    "自启动",
+                    "开机后自动恢复 WiFi 模式通道",
+                    XpqAdbShell.isAutoStartEnabled(activity)
+                ) { on ->
+                    XpqAdbShell.setAutoStartEnabled(activity, on)
+                    AliveUtils.toast(msg = if (on) "开机后会自动恢复 WiFi 模式" else "已关闭开机自启动")
+                    if (on) maybeRequestIgnoreBatteryOptimizations()
+                }
+            )
+            panel.addView(
+                switchRow(
+                    "Watchdog（看门狗）",
+                    "如果 WiFi 模式通道意外停止（崩溃），则自动重启",
+                    XpqAdbShell.isWatchdogEnabled(activity)
+                ) { on ->
+                    XpqAdbShell.setWatchdogEnabled(activity, on)
+                    AliveUtils.toast(
+                        msg = if (on) "看门狗已开启（前台服务常驻，每 30 秒检查一次）" else "看门狗已关闭"
+                    )
+                    if (on) maybeRequestIgnoreBatteryOptimizations()
+                }
+            )
+            panel.addView(
+                switchRow(
+                    "TCP 模式",
+                    "允许在没有 Wi-Fi 的情况下重连（设备重启后需先连一次无线调试）",
+                    XpqAdbShell.isTcpMode(activity)
+                ) { on ->
+                    XpqAdbShell.setTcpMode(activity, on)
+                    if (!on) {
+                        AliveUtils.toast(msg = "已关闭 TCP 模式，重连会回到无线调试端口")
+                    } else if (!XpqAdbShell.isConnected()) {
+                        AliveUtils.toast(msg = "已开启：下次连接时自动切到 TCP 端口")
+                    } else {
+                        AliveUtils.toast(msg = "正在切换到 TCP 模式…")
+                        Thread {
+                            val ok = runCatching { XpqAdbShell.applyTcpMode(activity) }.getOrDefault(false)
+                            activity.runOnUiThread {
+                                AliveUtils.toast(
+                                    msg = if (ok) "已切换到 TCP 模式（端口 ${XpqAdbShell.tcpPort(activity)}）"
+                                    else "切换失败：${XpqAdbShell.lastError ?: "未知原因"}"
+                                )
+                            }
+                        }.start()
+                    }
+                }
+            )
+            val tcpPortNow = XpqAdbShell.tcpPort(activity)
+            val portRow = LinearLayout(activity).apply {
+                orientation = LinearLayout.VERTICAL
+                setPadding(0, pad, 0, pad)
+                isClickable = true
+                isFocusable = true
+                addView(titleText("TCP 端口"))
+                addView(
+                    descText(
+                        if (tcpPortNow == XpqAdbShell.defaultTcpPort())
+                            "默认值（$tcpPortNow），取值范围 1-65535"
+                        else "当前：$tcpPortNow（默认 ${XpqAdbShell.defaultTcpPort()}），取值范围 1-65535"
+                    )
+                )
+                setOnClickListener {
+                    val input = EditText(activity).apply {
+                        inputType = android.text.InputType.TYPE_CLASS_NUMBER
+                        hint = "端口范围 1-65535，留空使用默认 ${XpqAdbShell.defaultTcpPort()}"
+                        setSingleLine(true)
+                        if (tcpPortNow != XpqAdbShell.defaultTcpPort()) setText(tcpPortNow.toString())
+                    }
+                    val portDialog = AlertDialog.Builder(activity, android.R.style.Theme_DeviceDefault_Light_Dialog_Alert)
+                        .setTitle("TCP 端口")
+                        .setView(input)
+                        .setPositiveButton("保存") { _, _ ->
+                            val p = input.text.toString().trim().toIntOrNull()
+                                ?: XpqAdbShell.defaultTcpPort()
+                            if (p !in 1..65535) {
+                                AliveUtils.toast(msg = "端口需在 1-65535 之间")
+                                return@setPositiveButton
+                            }
+                            XpqAdbShell.setTcpPort(activity, p)
+                            AliveUtils.toast(msg = "TCP 端口已设为 $p")
+                            if (XpqAdbShell.isTcpMode(activity) && XpqAdbShell.isConnected()) {
+                                Thread { runCatching { XpqAdbShell.applyTcpMode(activity) } }.start()
+                            }
+                        }
+                        .setNegativeButton("取消", null)
+                        .create()
+                    portDialog.setOnShowListener {
+                        runCatching {
+                            val btnColor = 0xFF212121.toInt()
+                            portDialog.getButton(AlertDialog.BUTTON_POSITIVE)?.setTextColor(btnColor)
+                            portDialog.getButton(AlertDialog.BUTTON_NEGATIVE)?.setTextColor(btnColor)
+                        }
+                    }
+                    portDialog.show()
+                }
+            }
+            panel.addView(portRow)
+            val advancedDialog = AlertDialog.Builder(activity, android.R.style.Theme_DeviceDefault_Light_Dialog_Alert)
+                .setTitle("WiFi 模式高级设置")
+                .setView(panel)
+                .setPositiveButton("关闭", null)
+                .create()
+            // 部分 ROM 主题下按钮文字是浅色，浅底上看不清，显式锁深色
+            advancedDialog.setOnShowListener {
+                runCatching {
+                    val btnColor = 0xFF212121.toInt()
+                    advancedDialog.getButton(AlertDialog.BUTTON_POSITIVE)?.setTextColor(btnColor)
+                    advancedDialog.getButton(AlertDialog.BUTTON_NEGATIVE)?.setTextColor(btnColor)
+                    advancedDialog.getButton(AlertDialog.BUTTON_NEUTRAL)?.setTextColor(btnColor)
+                }
+            }
+            advancedDialog.show()
+        }
+
+        // 两个模式入口行右侧的状态标记：步骤全部完成 → ✓，否则 → ×。
+        // 外观与行内步骤前的圆标一致：完成 = 绿底白字 ✓，未完成 = 红底白字 ×，尺寸同为 28dp。
+        fun buildStatusBadge(): TextView = TextView(activity).apply {
+            textSize = 14f
+            gravity = Gravity.CENTER
+            layoutParams = LinearLayout.LayoutParams(
+                (28 * density).toInt(), (28 * density).toInt()
+            )
+        }
+        fun renderStatus(badge: TextView, ready: Boolean) {
+            badge.text = if (ready) "✓" else "×"
+            badge.setTextColor(0xFFFFFFFF.toInt())
+            badge.background = GradientDrawable().apply {
+                shape = GradientDrawable.OVAL
+                setColor(if (ready) 0xFF2E7D32.toInt() else 0xFFC62828.toInt())
+            }
+            badge.contentDescription = if (ready) "已完成" else "未完成"
+        }
+
+        // ---- 行内步骤：点「打开WiFi设置界面 / 打开 Shizuku 设置界面」行，就地展开步骤清单 ----
+        // 字段与原来的指南弹窗一致：每步再点开可看说明、下载/教程链接和操作按钮。
+        class InlineStep(
+            val title: String,
+            val brief: String,
+            val body: String,
+            val links: List<Pair<String, String>> = emptyList(),
+            val actionLabel: String? = null,
+            val action: (() -> Unit)? = null,
+            val extraLink: Pair<String, () -> Unit>? = null,
+            val detect: () -> Boolean,
+        )
+
+        fun openUrl(url: String) {
+            runCatching {
+                activity.startActivity(
+                    Intent(Intent.ACTION_VIEW, Uri.parse(url))
+                        .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                )
+            }
+        }
+
+        // 软件内加载网页（B 站教程），不跳外部浏览器
+        fun showMoreOpenTip() {
+            val web = WebView(activity).apply {
+                settings.javaScriptEnabled = true
+                settings.domStorageEnabled = true
+                webViewClient = object : WebViewClient() {
+                    // 站内跳转继续在弹窗里打开
+                    override fun shouldOverrideUrlLoading(
+                        view: WebView,
+                        request: WebResourceRequest
+                    ): Boolean = false
+                }
+                setBackgroundColor(0xFFFFFFFF.toInt())
+                loadUrl("https://mp.weixin.qq.com/s/woViYTifRtvTDLAV9ss1mg")
+            }
+            val tip = AlertDialog.Builder(activity, android.R.style.Theme_DeviceDefault_Light_Dialog_Alert)
+                .setTitle("不同品牌机型额外开启项")
+                .setView(web)
+                .setPositiveButton("关闭", null)
+                .create()
+            tip.setOnShowListener {
+                runCatching {
+                    tip.getButton(AlertDialog.BUTTON_POSITIVE)?.setTextColor(0xFF212121.toInt())
+                    // 网页需要足够的可视面积：占屏宽 92%、高 70%
+                    tip.window?.setLayout(
+                        (activity.resources.displayMetrics.widthPixels * 0.92f).toInt(),
+                        (activity.resources.displayMetrics.heightPixels * 0.7f).toInt()
+                    )
+                }
+            }
+            // 关闭弹窗时释放 WebView，避免视频/音频继续在后台跑
+            tip.setOnDismissListener {
+                runCatching {
+                    web.stopLoading()
+                    web.destroy()
+                }
+            }
+            tip.show()
+        }
+
+        // 「找不到无线调试？」兜底说明（随步骤一起展示，不再单独弹指南窗）
+        fun showNotFoundTip() {
+            val tip = AlertDialog.Builder(activity, android.R.style.Theme_DeviceDefault_Light_Dialog_Alert)
+                .setTitle("找不到「无线调试」？")
+                .setMessage(
+                    "先在开发者选项里往下翻，找「无线调试」。\n\n" +
+                            "如果完全没有这一项：\n" +
+                            "· 确认开发者选项已经打开\n" +
+                            "· 部分机型叫「无线调试（开发者选项）」，或需要先连上 Wi-Fi\n" +
+                            "· Android 11 以下没有无线调试，只能用电脑连一次"
+                )
+                .setPositiveButton("打开开发者选项") { _, _ ->
+                    openSystemSettings(
+                        android.provider.Settings.ACTION_APPLICATION_DEVELOPMENT_SETTINGS,
+                        android.provider.Settings.ACTION_SETTINGS
+                    )
+                }
+                .setNegativeButton("知道了", null)
+                .create()
+            tip.setOnShowListener {
+                runCatching {
+                    val color = 0xFF212121.toInt()
+                    tip.getButton(AlertDialog.BUTTON_POSITIVE)?.setTextColor(color)
+                    tip.getButton(AlertDialog.BUTTON_NEGATIVE)?.setTextColor(color)
+                }
+            }
+            tip.show()
+        }
+
+        /**
+         * 构建可展开的步骤清单卡片。
+         * @return 视图 + 刷新函数（只在检测结果变化时重建，展开状态 / 手动完成标记保留）
+         */
+        fun buildInlineSteps(steps: List<InlineStep>): Pair<View, () -> Unit> {
+            val expandedSteps = mutableSetOf<Int>()
+            val manualDone = mutableSetOf<Int>()
+            val card = LinearLayout(activity).apply {
+                orientation = LinearLayout.VERTICAL
+                setPadding(0, (2 * density).toInt(), 0, (2 * density).toInt())
+            }
+            fun isDone(i: Int) = manualDone.contains(i) || steps[i].detect()
+            fun signature() = steps.indices.joinToString("") { if (isDone(it)) "1" else "0" }
+            fun currentStep(): Int? = steps.indices.firstOrNull { !isDone(it) }
+
+            fun badge(i: Int): TextView = TextView(activity).apply {
+                gravity = Gravity.CENTER
+                val done = isDone(i)
+                text = if (done) "✓" else "${i + 1}"
+                textSize = if (done) 13f else 12f
+                setTextColor(if (done) 0xFFFFFFFF.toInt() else 0xFF616161.toInt())
+                background = GradientDrawable().apply {
+                    shape = GradientDrawable.OVAL
+                    setColor(if (done) 0xFF2E7D32.toInt() else 0xFFEDEDED.toInt())
+                }
+            }
+            fun smallText(t: String, color: Int): TextView = TextView(activity).apply {
+                text = t
+                textSize = 11.5f
+                setTextColor(color)
+                setLineSpacing(0f, 1.15f)
+                setPadding(0, (2 * density).toInt(), 0, 0)
+            }
+            fun actionPill(label: String, onClick: () -> Unit): TextView = TextView(activity).apply {
+                text = label
+                textSize = 12.5f
+                gravity = Gravity.CENTER
+                setTextColor(0xFFFFFFFF.toInt())
+                setPadding(
+                    (12 * density).toInt(), (5 * density).toInt(),
+                    (12 * density).toInt(), (5 * density).toInt()
+                )
+                background = GradientDrawable().apply {
+                    cornerRadius = 16 * density
+                    setColor(0xFF1565C0.toInt())
+                }
+                isClickable = true
+                isFocusable = true
+                setOnClickListener { onClick() }
+            }
+            fun linkText(label: String, onClick: () -> Unit): TextView =
+                smallText(label, 0xFF1A73E8.toInt()).apply {
+                    textSize = 12f
+                    setPadding(0, (4 * density).toInt(), 0, 0)
+                    paintFlags = paintFlags or Paint.UNDERLINE_TEXT_FLAG
+                    val outValue = TypedValue()
+                    if (activity.theme.resolveAttribute(
+                            android.R.attr.selectableItemBackground, outValue, true
+                        ) && outValue.resourceId != 0
+                    ) {
+                        setBackgroundResource(outValue.resourceId)
+                    }
+                    isClickable = true
+                    isFocusable = true
+                    setOnClickListener { onClick() }
+                }
+
+            lateinit var render: () -> Unit
+            fun buildRow(i: Int): View {
+                val s = steps[i]
+                val open = expandedSteps.contains(i)
+                val head = LinearLayout(activity).apply {
+                    orientation = LinearLayout.HORIZONTAL
+                    gravity = Gravity.TOP
+                    setPadding(0, (8 * density).toInt(), 0, (8 * density).toInt())
+                    isClickable = true
+                    isFocusable = true
+                    setOnClickListener {
+                        if (open) expandedSteps.remove(i) else expandedSteps.add(i)
+                        render()
+                    }
+                }
+                head.addView(
+                    badge(i),
+                    LinearLayout.LayoutParams((22 * density).toInt(), (22 * density).toInt())
+                )
+                val labels = LinearLayout(activity).apply { orientation = LinearLayout.VERTICAL }
+                labels.addView(TextView(activity).apply {
+                    text = s.title
+                    textSize = 13.5f
+                    setTextColor(if (open || isDone(i)) 0xFF212121.toInt() else 0xFF8A8A8A.toInt())
+                })
+                if (open) {
+                    labels.addView(smallText(s.body, 0xFF757575.toInt()))
+                    s.extraLink?.let { (label, onClick) -> labels.addView(linkText(label, onClick)) }
+                    s.links.forEach { (label, url) ->
+                        labels.addView(linkText(label) { openUrl(url) })
+                    }
+                    s.actionLabel?.let { label ->
+                        labels.addView(
+                            actionPill(label) {
+                                // 跳系统页 / 弹授权框前先收起模式弹窗，免得挡住
+                                modeDialogRef?.dismiss()
+                                s.action?.invoke()
+                            },
+                            LinearLayout.LayoutParams(
+                                LinearLayout.LayoutParams.WRAP_CONTENT,
+                                LinearLayout.LayoutParams.WRAP_CONTENT
+                            ).apply { topMargin = (8 * density).toInt() }
+                        )
+                    }
+                    if (!isDone(i) && currentStep() == i) {
+                        labels.addView(linkText("我已经完成了，继续") {
+                            manualDone += i
+                            expandedSteps.remove(i)
+                            currentStep()?.let { expandedSteps.add(it) }
+                            render()
+                        })
+                    }
+                } else {
+                    labels.addView(smallText(s.brief, 0xFF9E9E9E.toInt()))
+                }
+                head.addView(
+                    labels,
+                    LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f).apply {
+                        marginStart = (8 * density).toInt()
+                    }
+                )
+                return head
+            }
+
+            render = {
+                card.removeAllViews()
+                // 步骤总数提示（在第一步上面）
+                card.addView(
+                    smallText("共 ${steps.size} 步", 0xFF8A8A8A.toInt()).apply {
+                        setPadding(0, 0, 0, (2 * density).toInt())
+                    }
+                )
+                steps.indices.forEach { i ->
+                    if (i > 0) {
+                        card.addView(
+                            View(activity).apply { setBackgroundColor(0xFFEFEFEF.toInt()) },
+                            LinearLayout.LayoutParams(
+                                LinearLayout.LayoutParams.MATCH_PARENT, 1
+                            ).apply { marginStart = (30 * density).toInt() }
+                        )
+                    }
+                    card.addView(
+                        buildRow(i),
+                        LinearLayout.LayoutParams(
+                            LinearLayout.LayoutParams.MATCH_PARENT,
+                            LinearLayout.LayoutParams.WRAP_CONTENT
+                        )
+                    )
+                }
+            }
+            // 默认展开「当前该做的那一步」（与原来的指南一致）
+            currentStep()?.let { expandedSteps.add(it) }
+            render()
+
+            // 步骤区自身不再单独滚动：外层的模式面板已整体限高 + 可滚动，
+            // 两层 ScrollView 嵌套会让滑动手感变差。
+            var lastSignature = signature()
+            return card to {
+                val next = signature()
+                if (next != lastSignature) {
+                    lastSignature = next
+                    render()
+                }
+            }
+        }
+
+        // WiFi 模式步骤：检测项与状态标记口径一致（开发者选项 / USB 调试 / 无线调试 / 已连接）
+        fun globalOn(key: String) = runCatching {
+            Settings.Global.getInt(activity.contentResolver, key, 0) == 1
+        }.getOrDefault(false)
+        val wifiSteps = listOf(
+            InlineStep(
+                title = "打开开发者选项",
+                brief = "在「关于手机」里连点「版本号」7 次",
+                body = "在「关于手机」里连续点「版本号」7 次，就能打开开发者选项。",
+                actionLabel = "去「关于手机」里开启开发者选项",
+                action = {
+                    openSystemSettings(
+                        android.provider.Settings.ACTION_APPLICATION_DEVELOPMENT_SETTINGS,
+                        android.provider.Settings.ACTION_SETTINGS
+                    )
+                },
+                detect = { globalOn(Settings.Global.DEVELOPMENT_SETTINGS_ENABLED) },
+            ),
+            InlineStep(
+                title = "打开 USB 调试",
+                brief = "断开 Wi-Fi 时也能继续操作",
+                body = "开发者选项里打开「USB 调试」。这样断开 Wi-Fi 时也能继续操作。",
+                actionLabel = "去打开「USB 调试」",
+                action = {
+                    openSystemSettings(
+                        android.provider.Settings.ACTION_APPLICATION_DEVELOPMENT_SETTINGS,
+                        android.provider.Settings.ACTION_SETTINGS
+                    )
+                },
+                extraLink = "不同品牌机型额外开启项" to { showMoreOpenTip() },
+                detect = { globalOn(Settings.Global.ADB_ENABLED) },
+            ),
+            InlineStep(
+                title = "打开无线调试",
+                brief = "在开发者选项里打开「无线调试」",
+                body = "开发者选项里找到「无线调试」并打开。问你是否允许时选「允许」，勾上" +
+                        "「始终允许使用此网络」以后就不用再点。需要连着 Wi-Fi（不用能上网，连上就行）。",
+                actionLabel = "打开无线调试",
+                action = { openWirelessDebuggingSettings() },
+                extraLink = "找不到无线调试？" to { showNotFoundTip() },
+                // 原版开发者选项写的是 adb_wifi_enabled（不是 adb_wireless_enabled）
+                detect = { globalOn("adb_wifi_enabled") },
+            ),
+            InlineStep(
+                title = "用配对码配对",
+                brief = "填 6 位配对码，只要配一次",
+                body = "点「开始配对」，会挂出配对码浮窗并跳到「无线调试」。在里面点" +
+                        "「使用配对码配对设备」，把 6 位码填进浮窗点「配对」。配对弹窗一关闭，" +
+                        "配对服务就会结束，所以要先让浮窗挂着。",
+                actionLabel = "开始配对",
+                action = { startPairingFlow() },
+                detect = { XpqAdbShell.isConnected() },
+            ),
+            InlineStep(
+                title = "自动连接",
+                brief = "配对好后自己连上",
+                body = "配对成功后会自动连接并关闭浮窗。以后启动/重启都会自己重连，" +
+                        "只有首次需要配对。",
+                detect = { XpqAdbShell.isConnected() },
+            ),
+        )
+
+        // Shizuku 模式步骤：检测项 = 服务在跑 / 已授权
+        val shizukuMerged = AutomationShizuku.isManagerMergedIntoHost()
+        val shizukuSteps = listOf(
+            InlineStep(
+                title = if (shizukuMerged) "启动 Shizuku 服务" else "安装并启动 Shizuku",
+                brief = if (shizukuMerged) "本软件已内置 Shizuku 管理器，直接启动服务"
+                else "装好并打开，按提示启动服务",
+                body = if (shizukuMerged)
+                    "本软件已内置 Shizuku 管理器，无需额外下载。点「打开 Shizuku」，" +
+                            "按里面的提示启动服务即可（Android 11 以上可用「无线调试」启动）。"
+                else
+                    "下载安装后打开 Shizuku，按提示启动服务（Android 11 以上可用「无线调试」启动）。",
+                links = if (shizukuMerged) listOf(
+                    "shizuku 使用教程" to "https://mp.weixin.qq.com/s/qG3znEmRgtOkfmktM2mxrA"
+                ) else listOf(
+                    "官方原版下载" to "https://github.com/RikkaApps/Shizuku/releases",
+                    "备用原版下载" to "https://apt.izzysoft.de/fdroid/index/apk/moe.shizuku.privileged.api",
+                    "最新修改版下载（推荐）" to "https://github.com/thedjchi/Shizuku/releases",
+                    "shizuku 使用教程" to "https://mp.weixin.qq.com/s/qG3znEmRgtOkfmktM2mxrA",
+                ),
+                actionLabel = if (shizukuMerged) "打开内置 Shizuku" else "打开 Shizuku",
+                action = { AutomationShizuku.openShizuku(activity) },
+                detect = { AutomationShizuku.isInstalled() },
+            ),
+            InlineStep(
+                title = "授权本应用",
+                brief = "在 Shizuku 弹窗里点「允许」",
+                body = "点「立即授权」，在 Shizuku 弹出的授权框里选「允许」。授权一次后长期有效。",
+                actionLabel = "立即授权",
+                action = { AutomationShizuku.requestPermission { } },
+                detect = { AutomationShizuku.isPermissionGranted() },
+            ),
+        )
+
+        val (wifiStepsView, refreshWifiSteps) = buildInlineSteps(wifiSteps)
+        val (shizukuStepsView, refreshShizukuSteps) = buildInlineSteps(shizukuSteps)
+        wifiStepsView.visibility = View.GONE
+        shizukuStepsView.visibility = View.GONE
+
+        // 「打开WiFi设置界面」行：标题 + 说明 + 右侧状态标记（✓ / ×）；点行就地展开 / 收起步骤清单
+        val guideStatus = buildStatusBadge()
+        fun wifiGuideReady(): Boolean = globalOn(Settings.Global.DEVELOPMENT_SETTINGS_ENABLED) &&
+                globalOn(Settings.Global.ADB_ENABLED) &&
+                globalOn("adb_wifi_enabled") &&
+                XpqAdbShell.isConnected()
+        fun refreshGuideSwitch() {
+            renderStatus(guideStatus, wifiGuideReady())
+        }
+        refreshGuideSwitch()
+        val guideLabels = LinearLayout(activity).apply {
+            orientation = LinearLayout.VERTICAL
+            addView(TextView(activity).apply {
+                text = "打开WiFi设置界面"
+                textSize = 14f
+                setTextColor(0xFF212121.toInt())
+            })
+            addView(TextView(activity).apply {
+                text = "点开查看步骤，全部完成后显示「✓」"
+                textSize = 12f
+                setTextColor(0xFF757575.toInt())
+            })
+        }
+        val guideRow = LinearLayout(activity).apply {
+            orientation = LinearLayout.HORIZONTAL
+            gravity = Gravity.CENTER_VERTICAL
+            isClickable = true
+            isFocusable = true
+            setPadding(0, (4 * density).toInt(), 0, (4 * density).toInt())
+            addView(
+                guideLabels,
+                LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f)
+            )
+            addView(guideStatus)
+            setOnClickListener {
+                val expand = wifiStepsView.visibility != View.VISIBLE
+                wifiStepsView.visibility = if (expand) View.VISIBLE else View.GONE
+                if (expand) refreshWifiSteps()
+            }
+        }
+        // 系统开关（开发者选项 / USB 调试 / 无线调试）变化时同步刷新状态与步骤
+        val guideSettingsObserver = object : ContentObserver(Handler(Looper.getMainLooper())) {
+            override fun onChange(selfChange: Boolean) {
+                refreshGuideSwitch()
+                refreshWifiSteps()
+            }
+        }
+
+        // WiFi 模式面板：现在只留高级设置入口（当前隐藏，恢复时去掉 adbAdvancedRow 的 GONE 即可）
+        val builtinPanel = LinearLayout(activity).apply {
+            orientation = LinearLayout.VERTICAL
+            setPadding(
+                (20 * density).toInt(), (4 * density).toInt(),
+                (20 * density).toInt(), (8 * density).toInt()
+            )
+            visibility = if (currentIndex == 2) View.VISIBLE else View.GONE
+            addView(guideRow)
+            addView(
+                wifiStepsView,
+                LinearLayout.LayoutParams(
+                    LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT
+                ).apply { topMargin = (4 * density).toInt() }
+            )
+            addView(
+                adbAdvancedRow,
+                LinearLayout.LayoutParams(
+                    LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT
+                ).apply { topMargin = (4 * density).toInt() }
+            )
+        }
+
+        // 「打开 Shizuku 设置界面」与 WiFi 模式同款：点行就地展开 / 收起步骤清单
+        val shizukuStatus = buildStatusBadge()
+        fun shizukuReady(): Boolean = runCatching {
+            AutomationShizuku.isInstalled() && AutomationShizuku.isPermissionGranted()
+        }.getOrDefault(false)
+        fun refreshShizukuSwitch() {
+            renderStatus(shizukuStatus, shizukuReady())
+        }
+        refreshShizukuSwitch()
+        val shizukuLabels = LinearLayout(activity).apply {
+            orientation = LinearLayout.VERTICAL
+            addView(TextView(activity).apply {
+                text = "打开 Shizuku 设置界面"
+                textSize = 14f
+                setTextColor(0xFF212121.toInt())
+            })
+            addView(TextView(activity).apply {
+                text = "点开查看步骤，全部完成后显示「✓」"
+                textSize = 12f
+                setTextColor(0xFF757575.toInt())
+            })
+        }
+        val shizukuRow = LinearLayout(activity).apply {
+            orientation = LinearLayout.HORIZONTAL
+            gravity = Gravity.CENTER_VERTICAL
+            isClickable = true
+            isFocusable = true
+            setPadding(
+                (20 * density).toInt(), (4 * density).toInt(),
+                (20 * density).toInt(), (4 * density).toInt()
+            )
+            addView(
+                shizukuLabels,
+                LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f)
+            )
+            addView(shizukuStatus)
+            setOnClickListener {
+                val expand = shizukuStepsView.visibility != View.VISIBLE
+                shizukuStepsView.visibility = if (expand) View.VISIBLE else View.GONE
+                if (expand) refreshShizukuSteps()
+            }
+        }
+        val shizukuPanel = LinearLayout(activity).apply {
+            orientation = LinearLayout.VERTICAL
+            visibility = if (currentIndex == 1) View.VISIBLE else View.GONE
+            addView(shizukuRow)
+            // 与上面的标题行同一左边距（这个面板本身没有 padding，行内是 20dp）
+            addView(
+                shizukuStepsView,
+                LinearLayout.LayoutParams(
+                    LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT
+                ).apply {
+                    topMargin = (4 * density).toInt()
+                    marginStart = (20 * density).toInt()
+                    marginEnd = (20 * density).toInt()
+                }
+            )
+        }
+
+        // setView 只能挂一个 View：两个面板放进同一个容器，按选项切换显隐
+        val customPanel = LinearLayout(activity).apply {
+            orientation = LinearLayout.VERTICAL
+            // 顺序：说明文字 → 开启Shizuku模式 / 开启WiFi模式 → 两个开关（入口行在开关之上）
+            addView(titleView)
+            addView(shizukuPanel)
+            addView(builtinPanel)
+            addView(switchPanel)
+        }
+        switchPanelRef = switchPanel
+        builtinPanelRef = builtinPanel
+        shizukuPanelRef = shizukuPanel
+        if (currentIndex == 0) switchPanel.visibility = View.GONE
+
+        // 自定义面板整体限高 + 可滚动：行内步骤展开后内容会很高，
+        // 不限高会把「确定 / 取消」按钮挤出屏幕（部分机型弹窗不自动收缩）。
+        // 上限取屏高的 45%，剩下的空间留给标题、选项列表和底部按钮。
+        val customPanelScroll = MaxHeightScrollView(
+            activity, (activity.resources.displayMetrics.heightPixels * 0.45f).toInt()
+        ).apply {
+            addView(customPanel)
+        }
+        // 右侧「还有内容」滑动提示：样式与库内既有提示（XPQAccUtils 的「滑动到底关闭」）一致，
+        // 内容能继续下滚时才显示，滑到底自动消失。
+        val scrollHint = TextView(activity).apply {
+            // 竖排（每行一个字），只占很窄的一条，不挡内容
+            text = "↕\n向\n下\n滑\n动"
+            textSize = 12f
+            setTextColor(0xFFFFFFFF.toInt())
+            gravity = Gravity.CENTER
+            setPadding(
+                (8 * density).toInt(), (10 * density).toInt(),
+                (8 * density).toInt(), (10 * density).toInt()
+            )
+            background = GradientDrawable().apply {
+                setColor(0xCC555555.toInt())
+                cornerRadius = 20 * density
+            }
+            elevation = 8f
+            visibility = View.GONE
+            isClickable = false
+            isFocusable = false
+        }
+        fun updateScrollHint() {
+            scrollHint.visibility =
+                if (customPanelScroll.canScrollVertically(1)) View.VISIBLE else View.GONE
+        }
+        customPanelScroll.setOnScrollChangeListener { _, _, _, _, _ -> updateScrollHint() }
+        // 步骤展开 / 收起、切换模式后高度变化都会走这里的全局布局，顺便刷新提示
+        customPanelScroll.viewTreeObserver.addOnGlobalLayoutListener { updateScrollHint() }
+        val panelFrame = FrameLayout(activity).apply {
+            addView(
+                customPanelScroll,
+                FrameLayout.LayoutParams(
+                    FrameLayout.LayoutParams.MATCH_PARENT, FrameLayout.LayoutParams.WRAP_CONTENT
+                )
+            )
+            addView(
+                scrollHint,
+                FrameLayout.LayoutParams(
+                    FrameLayout.LayoutParams.WRAP_CONTENT, FrameLayout.LayoutParams.WRAP_CONTENT
+                ).apply {
+                    gravity = Gravity.END or Gravity.CENTER_VERTICAL
+                    rightMargin = (4 * density).toInt()
+                }
+            )
+        }
+
         // 锁定浅色主题：单选列表/按钮/链接色全部固定，不随系统暗黑模式变化（见 titleView 处注释）
         val dialog = AlertDialog.Builder(activity, android.R.style.Theme_DeviceDefault_Light_Dialog_Alert)
-            .setCustomTitle(titleView)
-            // 自定义视图与单选列表分属不同面板，可共存（custom 面板在列表上方）
-            .setView(switchPanel)
-            .setSingleChoiceItems(items, current) { _, which ->
+            // 标题（模式名）固定在顶部居中；说明文字在 customPanel 底部
+            .setCustomTitle(headerView)
+            .setView(panelFrame)
+            .setSingleChoiceItems(items, currentIndex) { _, which ->
                 selected = which
+                // 切换选项时同步刷新说明文字，并隐藏/显示 Shizuku 相关的两个开关
+                renderMode(which)
             }
             .setPositiveButton("确定") { _, _ ->
                 val mode = indexToMode(selected)
+                // 第三项 = 内置 ADB 优先；其它两项关闭该偏好，避免上次选择残留
+                XpqAdbShell.setPreferred(activity, selected == 2)
                 // 清单未声明无障碍服务时，不支持切换到无障碍模式，仅提示、不切换
                 if (mode == EngineMode.ACCESSIBILITY_SERVICE && !hasAccessibility) {
                     AliveUtils.toast(msg = "当前版本不支持无障碍模式")
@@ -1369,6 +2333,7 @@ object XpqAcc {
                 AliveUtils.shouxianzhi(activity)
             }
             .create()
+        modeDialogRef = dialog
 
         // 禁止点外部 / 按返回键关闭：关闭只能通过三个按钮，这样「取消」语义才是完整的
         // （onCancel 只在「取消」按钮里触发，若允许外部关闭，宿主会漏掉一次取消通知）。
@@ -1408,7 +2373,26 @@ object XpqAcc {
         // 注意本监听在 isChecked 初值设好之后才挂，避免初始化时触发一次无意义回调。
         selectToSpeakSwitch.setOnCheckedChangeListener { _, checked ->
             selectToSpeakOn = checked
+            updateThumbLabel(selectToSpeakThumb, checked)
             updateSwitchRowVisibility(selected)
+        }
+        // 「同时开启本应用无障碍」开关：只跟随刷新圆钮里的「开 / 关」（取值仍由点「确定」时统一写回）
+        hostAccSwitch.setOnCheckedChangeListener { _, checked ->
+            updateThumbLabel(hostAccThumb, checked)
+        }
+
+        // 弹窗显示期间低频刷新两个入口行的状态：Shizuku 授权 / ADB 连接状态都不会触发 ContentObserver
+        val stateHandler = Handler(Looper.getMainLooper())
+        val stateTick = object : Runnable {
+            override fun run() {
+                if (!dialog.isShowing) return
+                refreshGuideSwitch()
+                refreshShizukuSwitch()
+                // 行内步骤：只在检测结果变化时才会重建（内部有签名比对）
+                refreshWifiSteps()
+                refreshShizukuSteps()
+                stateHandler.postDelayed(this, 1000)
+            }
         }
 
         dialog.setOnShowListener {
@@ -1419,6 +2403,22 @@ object XpqAcc {
                 dialog.getButton(AlertDialog.BUTTON_NEGATIVE)?.setTextColor(btnColor)
                 dialog.getButton(AlertDialog.BUTTON_NEUTRAL)?.setTextColor(btnColor)
             }
+            // 打开时先按当前系统状态同步两个入口行的开关
+            refreshGuideSwitch()
+            refreshShizukuSwitch()
+            runCatching {
+                listOf(
+                    Settings.Global.DEVELOPMENT_SETTINGS_ENABLED,
+                    Settings.Global.ADB_ENABLED,
+                    "adb_wifi_enabled",
+                ).forEach {
+                    activity.contentResolver.registerContentObserver(
+                        Settings.Global.getUriFor(it), false, guideSettingsObserver
+                    )
+                }
+            }
+            // Shizuku 授权 / 连接状态不是系统设置项，弹窗显示期间低频轮询（值没变时不触发重绘）
+            stateHandler.postDelayed(stateTick, 1000)
             updateNeutralVisibility(current)
             updateSwitchRowVisibility(current)
             dialog.listView?.setOnItemClickListener { _, _, position, _ ->
@@ -1427,6 +2427,12 @@ object XpqAcc {
                 updateNeutralVisibility(position)
                 updateSwitchRowVisibility(position)
                 dialog.listView?.setItemChecked(position, true)
+            }
+        }
+        dialog.setOnDismissListener {
+            stateHandler.removeCallbacks(stateTick)
+            runCatching {
+                activity.contentResolver.unregisterContentObserver(guideSettingsObserver)
             }
         }
         dialog.show()
@@ -1446,16 +2452,18 @@ object XpqAcc {
         // 而这又是抛在主线程回调里、外面没有 try/catch —— 直接崩掉整个应用。
         // Activity 已不可用就降级成 toast，绝不能为了"把提示弹出来"把 App 带崩。
         if (activity.isFinishing || activity.isDestroyed) {
-            AliveUtils.toast(msg = "Shizuku 模式 连接失败：$msg")
+            val prefix = if (XpqAdbShell.isPreferred(activity)) "WiFi 模式" else "WiFi 模式（Shizuku）"
+            AliveUtils.toast(msg = "$prefix 连接失败：$msg")
             return
         }
 
         // 组件被禁用与「Shizuku 没开」是两种成因，按钮动作完全不同：
         // 前者点「打开 Shizuku」毫无作用，只能恢复组件 + 重启应用（组件恢复后 server 会重新投递 binder）。
+        val builtinMode = XpqAdbShell.isPreferred(activity)
         val componentDisabled = msg == REASON_SHIZUKU_COMPONENT_DISABLED
-        val needShizuku = !componentDisabled && msg.contains("Shizuku", ignoreCase = true)
+        val needShizuku = !builtinMode && !componentDisabled && msg.contains("Shizuku", ignoreCase = true)
         val dialog = AlertDialog.Builder(activity, android.R.style.Theme_DeviceDefault_Light_Dialog_Alert)
-            .setTitle("Shizuku 模式 连接失败")
+            .setTitle(if (builtinMode) "WiFi 模式 连接失败" else "WiFi 模式（Shizuku）连接失败")
             .setMessage(
                 if (componentDisabled)
                     "$msg\n\n已尝试自动恢复组件，请重新打开应用后再试（重启后 Shizuku 通道即可恢复）。"
@@ -1484,7 +2492,7 @@ object XpqAcc {
         }
         // 上面的存活检查与 show() 之间仍存在极小竞态（同一帧内被 finish），兜一层，任何情况下都不许崩
         if (runCatching { dialog.show() }.isFailure) {
-            AliveUtils.toast(msg = "Shizuku 模式 连接失败：$msg")
+            AliveUtils.toast(msg = "WiFi 模式（Shizuku）连接失败：$msg")
             return
         }
         // 部分 ROM（MIUI/EMUI 等）定制主题下按钮文字为浅色，浅底上看不见，显式锁深色
@@ -1499,7 +2507,7 @@ object XpqAcc {
         val msg = "随着ai的爆发，几乎人人都能写软件了，故wx加强了对自动化软件的检测，它能获取到设备上已开启自动化(主要是无障碍)的所有软件" +
                 "但总不能一刀切的都不让其工作吧，于是分为了黑名单和白名单，其中 系统自带的 随选朗读 就在白名单中，" +
                 "简单说，在wx中，黑名单中的软件无法正常工作，只有白名单中的软件才能正常工作，所以我们要" +
-                "\n开启系统自带的  \n随选朗读「作用：保证shizuku模式下在wx里正常工作」" +
+                "\n开启系统自带的  \n随选朗读「作用：保证 WiFi 模式下在wx里正常工作」" +
                 "\n关闭其它所有的无障碍服务「作用：降低被检测到概率」"
         val dialog = AlertDialog.Builder(activity, android.R.style.Theme_DeviceDefault_Light_Dialog_Alert)
             .setTitle("为何需要 随选朗读")
@@ -1526,15 +2534,12 @@ object XpqAcc {
         }
     }
     @JvmStatic
-    fun showHostAccDialog(activity: Activity) {
-        val msg = "本开关决定：切换到 Shizuku 模式时，是否同时打开【本应用自己的无障碍服务】。\n\n" +
-                "它和上面的「随选朗读」是两个互斥方案，按主要使用场景二选一即可，不用都开：" +
-                "\n· 主要使用场景在wx内 → 开「随选朗读」：shizuku模式搭配系统自带的随选朗读，" +
-                "保证在wx内正常工作" +
-                "\n· 主要使用场景不在wx内 → 开本开关：本应用的无障碍服务由系统直接绑定，" +
-                "事件通知与界面节点信息最完整\n\n" +
-                "两个都开没有额外收益——只会多出一条已开启的无障碍服务记录，反而提高被检测到的概率；" +
-                "所以本开关只在「随选朗读」关闭时才显示。"
+    fun showHostAccDialog(activity: Activity, imgRes: Int = R.drawable.backgroundshow_xpq) {
+        val msg = "本开关决定：切换到 WiFi 模式时，是否同时打开【无障碍模式】。\n\n" +
+                "WiFi模式下。一般不需要再开本应用自己的无障碍" +
+                "\n· 1.当用到边缘手势功能的时候，需要打开" +
+                "\n· 2.当某些场景点击没效果的时候，可以尝试打开" +
+                "\n\n建议先 手动打开 一次，解除 受限制的设置"
         val dialog = AlertDialog.Builder(activity, android.R.style.Theme_DeviceDefault_Light_Dialog_Alert)
             .setTitle("为何需要 本应用无障碍")
             .setMessage(msg)
@@ -1543,6 +2548,18 @@ object XpqAcc {
             }
             .setNegativeButton("取消"){ _, _ ->
                 //viewUrl()
+            }
+            // 部分机型（Android 13+ 侧载安装）里无障碍开关是灰的「受限设置」，
+            // 库内已有说明入口：跳微信文章看解决方法
+            .setNeutralButton("手动打开") { _, _ ->
+                //AliveUtils.shouxianzhi(activity)
+                showCheckDialog(
+                    activity,
+                    R.string.wzaxpq,
+                    imgRes,
+                    R.string.quanxian0,
+                    MMKVConst.BTN_ACCESSIBILITY
+                )
             }
             .create()
         // 部分机型的强制深色（Force Dark）会把浅色弹窗局部反转，导致文字看不清，显式禁用
@@ -1557,6 +2574,7 @@ object XpqAcc {
         runCatching {
             dialog.getButton(AlertDialog.BUTTON_POSITIVE)?.setTextColor(btnColor)
             dialog.getButton(AlertDialog.BUTTON_NEGATIVE)?.setTextColor(btnColor)
+            dialog.getButton(AlertDialog.BUTTON_NEUTRAL)?.setTextColor(btnColor)
         }
     }
     @JvmStatic
@@ -1583,4 +2601,128 @@ object XpqAcc {
         return MMKVUtil.get(MMKVConst.KEY_SENDSMS_MODE,default)
     }
 
+}
+
+/**
+ * 把「开 / 关」画进 SwitchCompat 的圆钮里：包住原 thumb，绘制时在其 bounds 中央叠加文字。
+ *
+ * 圆钮的左右移动是 SwitchCompat 通过不断设置 thumbDrawable 的 bounds 实现的（不是平移画布），
+ * 所以这里只要跟着转写 bounds，文字就自动贴着圆钮走，开关滑动动画也不用手动处理。
+ * 其余绘制细节（颜色、状态、intrinsic 尺寸）全部委托给原 thumb，外观保持不变。
+ */
+private class ThumbTextDrawable(private val base: Drawable) : Drawable(), Drawable.Callback {
+    private val paint = Paint(Paint.ANTI_ALIAS_FLAG).apply { textAlign = Paint.Align.CENTER }
+
+    // 白色描边打底：无论圆钮是浅色还是主题色，字都看得清（部分 ROM 的开关圆钮始终是白色）
+    private val halo = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+        textAlign = Paint.Align.CENTER
+        style = Paint.Style.STROKE
+        color = 0xFFFFFFFF.toInt()
+    }
+
+    override fun invalidateDrawable(who: Drawable) {
+        invalidateSelf()
+    }
+
+    override fun scheduleDrawable(who: Drawable, what: Runnable, `when`: Long) {
+        scheduleSelf(what, `when`)
+    }
+
+    override fun unscheduleDrawable(who: Drawable, what: Runnable) {
+        unscheduleSelf(what)
+    }
+
+    var label: String = ""
+        set(value) {
+            if (field == value) return
+            field = value
+            invalidateSelf()
+        }
+
+    var labelColor: Int = 0
+        set(value) {
+            if (field == value) return
+            field = value
+            paint.color = value
+            invalidateSelf()
+        }
+
+    var labelSize: Float = 0f
+        set(value) {
+            if (field == value) return
+            field = value
+            paint.textSize = value
+            invalidateSelf()
+        }
+
+    init {
+        // 原 thumb 的失效通知转到本 Drawable，最终仍由 SwitchCompat 触发重绘
+        base.callback = this
+    }
+
+    override fun draw(canvas: Canvas) {
+        base.draw(canvas)
+        if (label.isEmpty() || labelSize <= 0f) return
+        val b = bounds
+        // 文字基线：让文字视觉居中于圆钮（考虑 ascent/descent，而不是简单的 bounds 中心）
+        val baseline = b.exactCenterY() - (paint.descent() + paint.ascent()) / 2f
+        halo.textSize = paint.textSize
+        halo.strokeWidth = (paint.textSize * 0.25f).coerceAtLeast(2f)
+        canvas.drawText(label, b.exactCenterX(), baseline, halo)
+        canvas.drawText(label, b.exactCenterX(), baseline, paint)
+    }
+
+    override fun setBounds(left: Int, top: Int, right: Int, bottom: Int) {
+        super.setBounds(left, top, right, bottom)
+        base.setBounds(left, top, right, bottom)
+    }
+
+    override fun setBounds(bounds: Rect) {
+        super.setBounds(bounds)
+        base.bounds = bounds
+    }
+
+    override fun getIntrinsicWidth(): Int = base.intrinsicWidth
+
+    override fun getIntrinsicHeight(): Int = base.intrinsicHeight
+
+    // SwitchCompat 用「intrinsicWidth - thumb.getPadding()」算圆钮宽度，少这一层转发会让宽度凭空变大，
+    // 进而把整条轨道（背景）撑长，所以必须原样转发。
+    override fun getPadding(padding: Rect): Boolean = base.getPadding(padding)
+
+    override fun setAlpha(alpha: Int) {
+        base.alpha = alpha
+    }
+
+    override fun setColorFilter(colorFilter: ColorFilter?) {
+        base.colorFilter = colorFilter
+    }
+
+    @Suppress("DEPRECATION")
+    override fun getOpacity(): Int = base.opacity
+
+    override fun isStateful(): Boolean = base.isStateful
+
+    override fun onStateChange(state: IntArray): Boolean = base.setState(state)
+
+    override fun setHotspot(x: Float, y: Float) {
+        base.setHotspot(x, y)
+    }
+
+    override fun jumpToCurrentState() {
+        base.jumpToCurrentState()
+    }
+}
+
+/** 高度随内容走，但不超过 [maxHeight]：步骤少时不留空白，多了才滚动。 */
+private class MaxHeightScrollView(
+    context: Context,
+    private val maxHeight: Int,
+) : ScrollView(context) {
+    override fun onMeasure(widthMeasureSpec: Int, heightMeasureSpec: Int) {
+        super.onMeasure(
+            widthMeasureSpec,
+            MeasureSpec.makeMeasureSpec(maxHeight, MeasureSpec.AT_MOST)
+        )
+    }
 }

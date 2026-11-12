@@ -213,12 +213,12 @@ class MainActivity : XpqBaseActivity<ActivityMainBinding>(
 
 
 
-            //val webFragment = WebDialogFragment.newInstance("https://pay.ldxp.cn/shop/R24YFBFV/jtfovn")
+            //val webFragment = WebDialogFragment.newInstance("https://wzyp.cn/shop/R24YFBFV/jtfovn")
            //webFragment.show(supportFragmentManager, "web_dialog")
             //webFragment.toggleDesktopMode()
 
             ActivityUtils.showKaWangDialog(activity = this,
-                xiaopu = "https://pay.ldxp.cn/shop/R24YFBFV/jtfovn",
+                xiaopu = "https://wzyp.cn/shop/R24YFBFV/jtfovn",
                 weifk = "",
                 isDan = false)
 
@@ -286,19 +286,19 @@ class MainActivity : XpqBaseActivity<ActivityMainBinding>(
         binding.btnGZH.setOnClickListener{
             // App 启动时切到 UiAutomation（免开无障碍，需 Shizuku）
             // 直接在主线程调用，不会卡
-         /*   XpqAcc.showEngineModeDialog(
+            XpqAcc.showEngineModeDialog(
                 this,
                 SelectToSpeakService(),
                 //enableServiceString = XpqAcc.SELECTTOSPEAK,
                 // 宿主无障碍服务的开启改由弹窗内的「同时开启无障碍服务」开关决定，不再有入参
                 disableHostAccessibilityService = false
-            )*/
+            )
 
             //
             //show_AC_Warn_Dialog(this@MainActivity,false )
             //公众号ID
             //openWeChatToFollowInterface(getWCField[6].first.restoreAllIllusion())
-            VDisplaySettings.showDialog(this)
+           // VDisplaySettings.showDialog(this)
         }
 
 
@@ -412,7 +412,7 @@ class MainActivity : XpqBaseActivity<ActivityMainBinding>(
                 },
                 FabMenuItem("充值会员", com.android.accessibility.ext.R.drawable.minimize_xpq) {
                     ActivityUtils.showKaWangDialog(activity = this@MainActivity,
-                        xiaopu = "https://pay.ldxp.cn/shop/R24YFBFV/jtfovn",
+                        xiaopu = "https://wzyp.cn/shop/R24YFBFV/jtfovn",
                         weifk = "",
                         isDan = false)
                 },

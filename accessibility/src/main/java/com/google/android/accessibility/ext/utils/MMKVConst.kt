@@ -34,6 +34,8 @@ object MMKVConst {
 
     // 自动化引擎模式（0=无障碍 ACCESSIBILITY_SERVICE，1=UiAutomation）
     const val KEY_ENGINE_MODE = "KEY_ENGINE_MODE"
+    /** 是否优先使用「内置 ADB」作为 shell 通道（不依赖 Shizuku）。 */
+    const val KEY_SHELL_PREFER_BUILTIN = "KEY_SHELL_PREFER_BUILTIN"
 
     const val FORGROUNDSERVICETITLE = "forgroundsdrvicetitle"
     const val FORGROUNDSERVICECONTENT = "forgroundsdrvicecontent"

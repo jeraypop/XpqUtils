@@ -43,7 +43,17 @@ class XpqBootReceiver : BroadcastReceiver() {
                 }
                  //报时
                 //TimeReportScheduler.schedule(context)
-
+                // 内置 ADB 模式：开机后用持久化的配对密钥 + mDNS 自动端口重连，并拉起 Sidecar，
+                // 做到和 Shizuku 一样「重启后自动恢复通道」。
+                // 只在 BOOT_COMPLETED（已解锁、能读凭据存储）时做，LOCKED_BOOT 阶段 MMKV 还不可用。
+                if (intent?.action == Intent.ACTION_BOOT_COMPLETED) {
+                    // 「自启动」关闭时不自动恢复（对应高级设置里的开关）
+                    if (com.google.android.accessibility.ext.shell.XpqAdbShell.isAutoStartEnabled(context)) {
+                        com.google.android.accessibility.ext.shell.XpqAdbShell.autoConnect(context)
+                    }
+                    // 看门狗独立于「自启动」：开着就重新拉起前台服务（与 Shizuku 一致）
+                    com.google.android.accessibility.ext.shell.XpqAdbShell.startWatchdog(context)
+                }
             }
 
             Intent.ACTION_SHUTDOWN -> {

@@ -50,6 +50,16 @@
                 android:name="android.app.lib_name"
                 android:value="" />
         </activity>
+        <!-- 内置 ADB（无线调试）验证页：仅 demo app，用于确认能拿到 shell 身份 -->
+        <activity
+            android:name="com.lygttpod.android.auto.adb.AdbShellTestActivity"
+            android:exported="true"
+            android:label="内置ADB验证">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+        </activity>
         <service
             android:name="com.lygttpod.android.auto.notification.NotificationListenerServiceImp"
             android:exported="true"

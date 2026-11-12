@@ -151,7 +151,12 @@ object InvisibleAutomation {
             onLog("已处于连接状态，无需重复连接")
             return true
         }
-        if (!AutomationShizuku.isPermissionGranted()) {
+        // 内置 ADB 模式：不依赖 Shizuku，也不绑定 Shizuku UserService，
+        // shell 全部走内置通道，binder 注册走 Sidecar（见 ProxyUiAutomationConnection）
+        val builtinPreferred = runCatching {
+            com.google.android.accessibility.ext.shell.XpqAdbShell.isPreferred()
+        }.getOrDefault(false)
+        if (!builtinPreferred && !AutomationShizuku.isPermissionGranted()) {
             lastError = "Shizuku 权限未授予"
             onLog("✗ $lastError")
             return false
@@ -162,7 +167,10 @@ object InvisibleAutomation {
         // 因此绑定改为【后台异步】：连接主流程不等它，UiAutomation 注册立即进行；绑定结果晚到
         // （成功填充 mSvc，失败置 userServiceUnavailable 供后续连接跳过）。此期间 shell 走
         // Shizuku.newProcess 直连（同样 shell 身份），tap 自动回退 input swipe。
-        if (userServiceUnavailable) {
+        if (builtinPreferred) {
+            mSvc = null
+            onLog("[1/3] 内置 ADB 模式：跳过 Shizuku UserService，shell 走内置 ADB")
+        } else if (userServiceUnavailable) {
             onLog("[1/3] UserService 此前绑定失败，跳过（shell 直连 Shizuku.newProcess）")
         } else if (AutomationShizuku.isUserServiceBound()) {
             mSvc = AutomationShizuku.bind(context.applicationContext, 0L) {}
@@ -286,9 +294,13 @@ object InvisibleAutomation {
                 SystemClock.sleep(500)
                 return connectRetry(context, timeoutMs, onLog, attempt + 1)
             }
-            // 最终失败：残留注册重试后仍失败（App 进程被杀、旧 client binder 拿不到），只能重启 Shizuku
+            // 最终失败：残留注册重试后仍失败（App 进程被杀、旧 client binder 拿不到）
             lastError = if (isAlreadyRegistered) {
-                "可能有其它应用占用了该模式，请关闭其它应用的该模式，还是不行的话， 再重启 Shizuku（或重启手机）后重试"
+                if (builtinPreferred) {
+                    "UiAutomation 已被占用（上次连接的残留注册或其它自动化应用），请重启本应用后重试"
+                } else {
+                    "可能有其它应用占用了该模式，请关闭其它应用的该模式，还是不行的话， 再重启 Shizuku（或重启手机）后重试"
+                }
             } else {
                 "${root.javaClass.simpleName}: ${root.message}"
             }
@@ -868,13 +880,57 @@ object InvisibleAutomation {
     /**
      * 统一 shell 执行入口（阻塞，勿主线程调用）。
      *
-     * 优先走已绑定的 UserService（进程可复用、免每次 fork）；不可用时回退 [Shizuku.newProcess]
-     * ——命令由 Shizuku 服务端以 shell 身份 fork，**不加载宿主 APK 的 dex/Application**，
-     * 因此宿主加固/加壳导致 UserService 绑定失败时本路径依然可用。
+     * 通道优先级：
+     * 0. 模式对话框选了「内置 ADB 模式」（`XpqAdbShell.isPreferred`）→ **只**走内置 ADB，
+     *    连不上直接失败，不回退 Shizuku
+     * 1. 已绑定的 UserService（进程可复用、免每次 fork）
+     * 2. 已连接的内置 ADB（无线调试直连 adbd，完全不依赖 Shizuku）
+     * 3. [Shizuku.newProcess]——命令由 Shizuku 服务端以 shell 身份 fork，**不加载宿主 APK 的
+     *    dex/Application**，因此宿主加固/加壳导致 UserService 绑定失败时本路径依然可用。
      */
     fun exec(command: String): com.google.android.accessibility.uiautomation.shizuku.ShellResult? {
+        // 用户选了「内置 ADB 模式」时，即使 Shizuku 在运行也**只**走内置通道：
+        // 连不上就返回 null 并记日志，绝不静默回退到 Shizuku（否则等于没切模式）。
+        // 进程重启后 bridge 会丢，ensureConnected 会用持久化的端口静默重连（带节流）。
+        val ctx = runCatching {
+            com.google.android.accessibility.ext.utils.LibCtxProvider.appContext
+        }.getOrNull()
+        val preferBuiltin = ctx?.let {
+            com.google.android.accessibility.ext.shell.XpqAdbShell.isPreferred(it)
+        } ?: false
+        if (preferBuiltin) {
+            if (ctx != null && com.google.android.accessibility.ext.shell.XpqAdbShell.ensureConnected(ctx)) {
+                execViaBuiltinAdb(command)?.let { return it }
+            }
+            diag(
+                "[shell] 已选内置ADB，但通道不可用：" +
+                        "${com.google.android.accessibility.ext.shell.XpqAdbShell.status()}（不回退 Shizuku）"
+            )
+            return null
+        }
         mSvc?.let { return it.exec(command) }
+        execViaBuiltinAdb(command)?.let { return it }
         return execViaNewProcess(command)
+    }
+
+    /**
+     * 走内置 ADB 通道（[XpqAdbShell]）。只有宿主主动连接过才生效，未连接时返回 null，
+     * 不影响原有 Shizuku 路径。
+     */
+    private fun execViaBuiltinAdb(
+        command: String
+    ): com.google.android.accessibility.uiautomation.shizuku.ShellResult? {
+        val bridge = runCatching {
+            com.google.android.accessibility.ext.shell.XpqAdbShell.connectedBridge()
+        }.getOrNull() ?: return null
+        val r = runCatching { bridge.exec(command) }.getOrNull() ?: return null
+        diag("[shell] 内置ADB ${bridge.name} → exit=${r.exitCode} ${r.output.take(120)}")
+        return com.google.android.accessibility.uiautomation.shizuku.ShellResult().apply {
+            exitCode = r.exitCode
+            // 内置通道把 stdout/stderr 合并返回，这里统一放进 stdout
+            stdout = r.output
+            stderr = ""
+        }
     }
 
     /**

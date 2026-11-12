@@ -104,6 +104,8 @@ class AliveFGService : Service() {
 
         AliveUtils.keepAliveByNotification_CLS(this,true,null)
         AliveUtils.keepAliveByFloatingWindow(this,AliveUtils.getKeepAliveByFloatingWindow())
+        // 内置 ADB 看门狗复用本前台服务：服务在，守护循环就在
+        com.google.android.accessibility.ext.shell.XpqAdbShell.onForegroundServiceStarted(this)
 
 
         return  START_STICKY
@@ -115,6 +117,7 @@ class AliveFGService : Service() {
         //取消前台保活服务
         AliveUtils.keepAliveByNotification_CLS(this,false,null)
         AliveUtils.keepAliveByFloatingWindow(this,false)
+        com.google.android.accessibility.ext.shell.XpqAdbShell.onForegroundServiceStopped()
 
     }
 
