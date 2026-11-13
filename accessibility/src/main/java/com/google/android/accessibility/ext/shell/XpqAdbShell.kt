@@ -65,6 +65,7 @@ object XpqAdbShell {
     @JvmStatic
     @JvmOverloads
     fun pair(context: Context, host: String, pairPort: Int, code: String): Boolean {
+        if (!ensureInternetOrReport(context)) return false
         val port = if (pairPort > 0) pairPort else {
             AdbMdns.discover(context, AdbMdns.PAIRING)?.second ?: run {
                 lastPairErrorKind = PairError.PORT
@@ -139,12 +140,29 @@ object XpqAdbShell {
     fun connectAfterPair(context: Context): Boolean =
         connectInternal(context, null, 0, attempts = 5)
 
+    /**
+     * 内置 ADB 要自己建 TCP socket（配对 + 连接都依赖），宿主把 INTERNET 权限移除后
+     * 只会拿到 `SocketException: EPERM (Operation not permitted)`，这里提前给出可操作的提示。
+     */
+    private fun hasInternetPermission(context: Context): Boolean =
+        context.checkSelfPermission(android.Manifest.permission.INTERNET) ==
+                android.content.pm.PackageManager.PERMISSION_GRANTED
+
+    private fun ensureInternetOrReport(context: Context): Boolean {
+        if (hasInternetPermission(context)) return true
+        lastError = "应用没有 INTERNET 权限：内置 ADB 需要建立本地 TCP 连接，" +
+                "请在宿主 AndroidManifest 里声明 android.permission.INTERNET" +
+                "（若用了 tools:node=\"remove\" 请去掉）"
+        return false
+    }
+
     private fun connectInternal(
         context: Context,
         host: String?,
         port: Int,
         attempts: Int,
     ): Boolean {
+        if (!ensureInternetOrReport(context)) return false
         val h = host?.takeIf { it.isNotBlank() } ?: savedHost(context) ?: DEFAULT_HOST
         val candidates = LinkedHashSet<Int>()
         if (port > 0) candidates += port
