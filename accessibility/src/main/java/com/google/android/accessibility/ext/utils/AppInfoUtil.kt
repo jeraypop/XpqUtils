@@ -200,14 +200,32 @@ object AppInfoUtil {
      *   [R.string.xpqprivacy_tips_about]、隐藏底部按钮、右上角露出 ✕；同时**放开**返回键与点击空白处，
      *   三条路都能关掉弹框。此时不写任何同意状态。
      *
+     * 宿主拿结果用回调，不要再自己轮询 [getPrivacyPolicy]：
+     * ```java
+     * AppInfoUtil.privacy_GuoNei_SJ(activity, privacy, terms, false,
+     *         () -> startMain(), () -> doNothing() /* exitOnCancel 默认 true，仍会退出 */);
+     * ```
+     *
      * @param activity 宿主 Activity
      * @param privacy 隐私政策地址；传空串走库内默认 assets
      * @param terms 用户协议地址；传空串走库内默认 assets
-     * @param isAbout true = 从关于界面查看，不写同意状态、不阻断使用
+     * @param isAbout true = 从关于界面查看，不写同意状态、不阻断使用（此时两个回调都不会触发）
+     * @param onAgree 点「同意」后的回调；传了就**不再弹库内的「已确认」Toast**，交给你自己提示
+     * @param onCancel 点「不同意」后的回调；触发时同意状态已写成 false
+     * @param exitOnCancel 「不同意」之后是否由库退出 App（默认 true，即「不同意就不得使用」）。
+     *   想自己接管（例如先弹自己的挽留页）就传 false，否则回调执行完进程就被结束了
      */
     @JvmStatic
     @JvmOverloads
-    fun privacy_GuoNei_SJ(activity: Activity, privacy: String, terms: String, isAbout: Boolean = false) {
+    fun privacy_GuoNei_SJ(
+        activity: Activity,
+        privacy: String,
+        terms: String,
+        isAbout: Boolean = false,
+        onAgree: XpqPrivacyAction? = null,
+        onCancel: XpqPrivacyAction? = null,
+        exitOnCancel: Boolean = true
+    ) {
         val dialog = XpqPrivacyDialog(activity, privacy, terms)
         val tv_note: TextView = dialog.findViewById(R.id.tv_note)
         val tv_privacy_tips: TextView = dialog.findViewById(R.id.tv_privacy_tips)
@@ -296,15 +314,24 @@ object AppInfoUtil {
             dialog.dismiss()
             setCurrentVersionCode(getSelfAppInfo().versionCode)
             setPrivacyPolicy(false)
-            // 不同意 = 不得继续使用本应用
-            exitApp(activity)
+            // 先给宿主回调（它可能要做收尾 / 记日志），再按 exitOnCancel 决定是否结束进程。
+            // 宿主想自己接管退出流程（例如先弹挽留页）就传 exitOnCancel = false。
+            runCatching { onCancel?.onAction() }
+            if (exitOnCancel) {
+                // 不同意 = 不得继续使用本应用
+                exitApp(activity)
+            }
         }
         btn_enter.setOnClickListener {
             dialog.dismiss()
             setCurrentVersionCode(getSelfAppInfo().versionCode)
             setPrivacyPolicy(true)
-            AliveUtils.toast(msg = activity.getString(R.string.xpqconfirmed))
-
+            // 宿主传了回调就由它自己提示，库不再多弹一个「已确认」Toast
+            if (onAgree != null) {
+                runCatching { onAgree.onAction() }
+            } else {
+                AliveUtils.toast(msg = activity.getString(R.string.xpqconfirmed))
+            }
         }
     }
 
@@ -321,7 +348,25 @@ object AppInfoUtil {
         kotlin.system.exitProcess(0)
     }
 
-    fun showAccessibilityAgreement(activity: Activity, example: String = activity.getString(R.string.gp_fullscreen_gesture)) {
+    /**
+     * Google Play 渠道的隐私弹窗（不带协议全文链接，只有一段说明 + 同意/取消）。
+     *
+     * 与 [privacy_GuoNei_SJ] 的回调语义保持一致：回调在主线程、`dismiss()` 之后触发，
+     * 触发时同意状态已写进 MMKV。
+     *
+     * @param onAgree 点「同意」后的回调
+     * @param onCancel 点「取消」后的回调；触发时同意状态已写成 false
+     * @param exitOnCancel 「取消」之后是否由库收掉任务栈（默认 true）。想自己接管就传 false
+     */
+    @JvmStatic
+    @JvmOverloads
+    fun showAccessibilityAgreement(
+        activity: Activity,
+        example: String = activity.getString(R.string.gp_fullscreen_gesture),
+        onAgree: XpqPrivacyAction? = null,
+        onCancel: XpqPrivacyAction? = null,
+        exitOnCancel: Boolean = true
+    ) {
         val str: String = activity.getString(R.string.gp_permission_content, example)
      
         try {
@@ -335,14 +380,16 @@ object AppInfoUtil {
             privacyAgreementBinding.sure.setOnClickListener(View.OnClickListener {
                 setPrivacyPolicy(true)
                 alertDialog.dismiss()
-
-
+                runCatching { onAgree?.onAction() }
 
             })
             privacyAgreementBinding.cancel.setOnClickListener(View.OnClickListener {
                 alertDialog.dismiss()
                 setPrivacyPolicy(false)
-                activity.finishAndRemoveTask()
+                runCatching { onCancel?.onAction() }
+                if (exitOnCancel) {
+                    activity.finishAndRemoveTask()
+                }
             })
             val window = alertDialog.window
             //window!!.setBackgroundDrawableResource(com.assistant.`fun`.R.drawable.add_data_background)
