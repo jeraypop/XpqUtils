@@ -189,6 +189,27 @@ object AppInfoUtil {
     }
 
     /**
+     * 升级（versionCode 变了）之后是否要重新弹一次隐私政策。
+     *
+     * 各家商店的要求不一样：国内商店普遍要求「隐私政策变更时重新征得同意」，
+     * 但按版本号判断属于宁严不宽——协议改没改都会弹，用户每次更新都要点一遍。
+     * 所以统一收口到这里，宿主判断写法固定为：
+     *
+     * ```
+     * !getPrivacyPolicy() || (needPrivacyOnUpgrade() && getCurrentVersionCode() != 当前版本号)
+     * ```
+     *
+     * 默认 **false**：升级不打扰用户，只在从未同意过时弹。
+     * 哪天某个商店强制要求了，把这里的返回值改成 true 即可，所有依赖本库的宿主一次生效，
+     * 不用逐个改宿主代码。
+     *
+     * 注意：无论这里取值如何，用户点「同意」时都会照常写 [setCurrentVersionCode]，
+     * 所以从 false 改成 true 之后，存量用户会各弹一次（记录的是上一次同意时的旧版本号）。
+     */
+    @JvmStatic
+    fun needPrivacyOnUpgrade(): Boolean = false
+
+    /**
      * 显示用户协议和隐私政策。
      *
      * 两种使用场景，靠 [isAbout] 区分：
