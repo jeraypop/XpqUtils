@@ -183,6 +183,11 @@
     <string name="xpqprivacy_tips_key1">《用户协议》</string>
     <string name="xpqprivacy_tips_key2">《隐私政策》</string>
     <string name="xpqprivacy_title_about">协议与政策</string>
+    <!-- 协议展示页（网页形态） -->
+    <string name="xpqprivacy_title_terms">使用者條款</string>
+    <string name="xpqprivacy_title_privacy">隱私權政策</string>
+    <string name="xpqprivacy_web_error">頁面載入失敗，請檢查網路後重試</string>
+    <string name="xpqprivacy_web_retry">重試</string>
     <string name="xpqprivacy_tips_about">《用户协议》 和 《隐私政策》</string>
     <string name="xpqconfirmed">用户须知已确认</string>
 
