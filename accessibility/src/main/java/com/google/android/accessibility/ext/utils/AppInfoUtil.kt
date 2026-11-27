@@ -298,6 +298,9 @@ object AppInfoUtil {
             // 标题从「用户须知」（要求确认的口吻）换成「协议与政策」（纯查看），
             // 整行按钮（含中间分隔线）一起隐藏，否则会留下一条空白的 50dp 横条。
             tv_note.text = activity.getString(R.string.xpqprivacy_title_about)
+            // 这一支只有一行短文案（两个协议名），居中比顶左好看；
+            // 首次启动那支是多行长文本，保持左对齐不动。
+            tv_privacy_tips.gravity = Gravity.CENTER_HORIZONTAL
             ll_buttons.visibility = View.GONE
             // 按钮藏了以后就没有任何可点的东西，必须换关闭通道：右上角 ✕（主）+ 返回键 / 点击空白处（习惯）。
             // XpqPrivacyDialog 构造里是 setCancelable(false)，后两条要在这里显式放开。
