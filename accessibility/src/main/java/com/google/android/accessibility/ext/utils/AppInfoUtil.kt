@@ -189,16 +189,37 @@ object AppInfoUtil {
     }
 
     /**
-     * 显示用户协议和隐私政策
+     * 显示用户协议和隐私政策。
+     *
+     * 两种使用场景，靠 [isAbout] 区分：
+     * - `isAbout = false`（默认，**首次启动**）：用户必须表态。底部显示「不同意 / 同意」两个按钮，
+     *   除此之外没有任何关闭通道（返回键、点击空白处都被 dialog 自身的 `setCancelable(false)`
+     *   + `setCanceledOnTouchOutside(false)` 挡掉）。点「不同意」= 不得继续使用 ⇒ 记录否定态后退出 App。
+     * - `isAbout = true`（**从关于界面二次进入**）：只是「查看」协议，用户不需要再表态 ⇒ 标题换成
+     *   [R.string.xpqprivacy_title_about]（「协议与政策」，不再是要求确认的「用户须知」）、正文换成
+     *   [R.string.xpqprivacy_tips_about]、隐藏底部按钮、右上角露出 ✕；同时**放开**返回键与点击空白处，
+     *   三条路都能关掉弹框。此时不写任何同意状态。
+     *
+     * @param activity 宿主 Activity
+     * @param privacy 隐私政策地址；传空串走库内默认 assets
+     * @param terms 用户协议地址；传空串走库内默认 assets
+     * @param isAbout true = 从关于界面查看，不写同意状态、不阻断使用
      */
     @JvmStatic
-    fun privacy_GuoNei_SJ(activity: Activity, privacy: String, terms: String) {
+    @JvmOverloads
+    fun privacy_GuoNei_SJ(activity: Activity, privacy: String, terms: String, isAbout: Boolean = false) {
         val dialog = XpqPrivacyDialog(activity, privacy, terms)
+        val tv_note: TextView = dialog.findViewById(R.id.tv_note)
         val tv_privacy_tips: TextView = dialog.findViewById(R.id.tv_privacy_tips)
+        val ll_buttons: LinearLayout = dialog.findViewById(R.id.ll_buttons)
+        val btn_close: TextView = dialog.findViewById(R.id.btn_close)
         val btn_exit: TextView = dialog.findViewById(R.id.btn_exit)
         val btn_enter: TextView = dialog.findViewById(R.id.btn_enter)
         dialog.show()
-        val string = activity.resources.getString(R.string.xpqprivacy_tips)
+        // 关于界面是「查看」而不是「表态」，文案换成中性的（两个协议名照旧可点开全文）
+        val string = activity.resources.getString(
+            if (isAbout) R.string.xpqprivacy_tips_about else R.string.xpqprivacy_tips
+        )
         val key1 = activity.resources.getString(R.string.xpqprivacy_tips_key1)
         val key2 = activity.resources.getString(R.string.xpqprivacy_tips_key2)
         val index1 = string.indexOf(key1)
@@ -253,11 +274,30 @@ object AppInfoUtil {
         val params: WindowManager.LayoutParams = dialog!!.getWindow()!!.getAttributes()
         params.width = (width * 0.80).toInt()
         dialog!!.getWindow()!!.setAttributes(params)
+
+        if (isAbout) {
+            // 关于界面进来的只「看」不「表态」：
+            // 标题从「用户须知」（要求确认的口吻）换成「协议与政策」（纯查看），
+            // 整行按钮（含中间分隔线）一起隐藏，否则会留下一条空白的 50dp 横条。
+            tv_note.text = activity.getString(R.string.xpqprivacy_title_about)
+            ll_buttons.visibility = View.GONE
+            // 按钮藏了以后就没有任何可点的东西，必须换关闭通道：右上角 ✕（主）+ 返回键 / 点击空白处（习惯）。
+            // XpqPrivacyDialog 构造里是 setCancelable(false)，后两条要在这里显式放开。
+            btn_close.visibility = View.VISIBLE
+            btn_close.setOnClickListener { dialog.dismiss() }
+            dialog.setCancelable(true)
+            dialog.setCanceledOnTouchOutside(true)
+            return
+        }
+
+        // 首次启动：只能靠这两个按钮收场 —— dialog 构造里已 setCancelable(false)
+        // + setCanceledOnTouchOutside(false)，返回键与空白处点击都关不掉。
         btn_exit.setOnClickListener {
             dialog.dismiss()
             setCurrentVersionCode(getSelfAppInfo().versionCode)
             setPrivacyPolicy(false)
-
+            // 不同意 = 不得继续使用本应用
+            exitApp(activity)
         }
         btn_enter.setOnClickListener {
             dialog.dismiss()
@@ -266,6 +306,19 @@ object AppInfoUtil {
             AliveUtils.toast(msg = activity.getString(R.string.xpqconfirmed))
 
         }
+    }
+
+    /**
+     * 退出应用：先把当前任务栈里的界面收掉，再结束本进程。
+     *
+     * `finishAffinity()` 只是让界面消失，进程还活着（宿主的 Service、Shizuku 连接等仍在跑），
+     * 所以必须再结束进程才算真正「退出」。[android.os.Process.killProcess] 是立即生效的终结手段，
+     * 后面的 [kotlin.system.exitProcess] 只是兜底（正常情况下执行不到）。
+     */
+    private fun exitApp(activity: Activity) {
+        runCatching { activity.finishAffinity() }
+        android.os.Process.killProcess(android.os.Process.myPid())
+        kotlin.system.exitProcess(0)
     }
 
     fun showAccessibilityAgreement(activity: Activity, example: String = activity.getString(R.string.gp_fullscreen_gesture)) {
